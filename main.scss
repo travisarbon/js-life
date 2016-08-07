@@ -1,0 +1,40 @@
+body {
+  color: black;
+  background-color: #e7ddd5;
+}
+
+#content{
+  width: 602px;
+  padding: 50px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  margin: auto;
+  background-color: #A7A09A;
+  box-shadow: 0 0 5px #000000;
+  color: #F4E9E1;
+
+  canvas{
+    margin-top: 15px;
+    width: 500px;
+    height: 500px;
+    background-color: white;
+    border: 1px solid black;
+    box-shadow: 0 0 5px #000000;
+  }
+
+  .btn{
+    margin: 8px;
+    text-align: center;
+    padding: 5px;
+    color: #67635F;
+  }
+
+  .buttons {
+    margin-bottom: 15px;
+  }
+
+  .generations, .top, .end {
+    text-align: center;
+  }
+
+}
