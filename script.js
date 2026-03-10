@@ -59,148 +59,29 @@ $(document).ready(function(){
                     }
             },
 
+            // Returns the number of live neighbours for cell index i on a
+            // toroidal (wrap-around) 100×100 grid (bugs 1-6 fix).
+            countLiveNeighbours : function(i){
+                var board = this.state.board;
+                var col = i % 100;
+                var row = Math.floor(i / 100);
+                var count = 0;
+                for(var dc = -1; dc <= 1; dc++){
+                    for(var dr = -1; dr <= 1; dr++){
+                        if(dc === 0 && dr === 0){ continue; }
+                        var nc = (col + dc + 100) % 100;
+                        var nr = (row + dr + 100) % 100;
+                        if(board[nr * 100 + nc].status === 1){ count++; }
+                    }
+                }
+                return count;
+            },
+
             findNewStates : function(){
                 if(this.state.running == true){
                     var newStates = [];
                     for(var i = 0; i < this.state.board.length; i++){
-                        var statusCounter = 0;
-                        if(i == 0){
-                            if(this.state.board[9999].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[9900].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[9901].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[1].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 101].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 199].status === 1){
-                                statusCounter++;}
-                        } else if((i > 0) && (i <= 99)){
-                            if(this.state.board[9898 + i].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[9899 + i].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[9900 + i].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 1].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 101].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 1].status === 1){
-                                statusCounter++;}
-                        } else if(i == 100){
-                            if(this.state.board[99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 1].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 101].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[199].status === 1){
-                                statusCounter++;}
-                        } else if((i > 100) && (i < 9899)){
-                            if(this.state.board[i - 101].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 1].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 101].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 1].status === 1){
-                                statusCounter++;}
-                        } else if(i == 9899){
-                            if(this.state.board[i - 101].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 1].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[9800].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 1].status === 1){
-                                statusCounter++;}
-                        } else if(i == 9900){
-                            if(this.state.board[i - 101].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 1].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[1].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[0].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 1].status === 1){
-                                statusCounter++;}
-                        } else if((i > 9900) && (i < 9999)){
-                            if(this.state.board[i - 101].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i + 1].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 9899].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 9900].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 9901].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 1].status === 1){
-                                statusCounter++;}
-                        } else if(i == 9999){
-                            if(this.state.board[i - 101].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 100].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[9900].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[1].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[0].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[99].status === 1){
-                                statusCounter++;}
-                            if(this.state.board[i - 1].status === 1){
-                                statusCounter++;}
-                        }
+                        var statusCounter = this.countLiveNeighbours(i);
                         if(statusCounter === 3){
                             newStates.push(1);
                         } else if(this.state.board[i].status === 1 && statusCounter === 2) {
@@ -216,9 +97,11 @@ $(document).ready(function(){
             },
 
             copyTheBoard : function(){
-                var arr = [];
-                arr = arr.concat(this.state.board);
-                return arr;
+                // Bug 8 fix: deep-copy each cell object so that changeCopiedBoard
+                // does not mutate the objects still referenced by this.state.board.
+                return this.state.board.map(function(cell){
+                    return {x: cell.x, y: cell.y, status: cell.status};
+                });
             },
 
             changeCopiedBoard : function(copyOfBoard, newStates){
@@ -266,10 +149,11 @@ $(document).ready(function(){
             lessSparse : function(){
                 var arr = [];
                 arr = arr.concat(this.state.sparseness);
+                // Bug 7 fix: only decrease sparseness (= more live cells); never
+                // increase it. The old else-if branch incorrectly raised sparseness
+                // when it was already at or below the minimum, making "More" sparser.
                 if(this.state.sparseness >= 3){
                     this.setState({sparseness : arr[0] - 1});
-                } else if(this.state.sparseness >= 1){
-                    this.setState({sparseness : arr[0] + 1})
                 }
                 this.resetGame();
             },
