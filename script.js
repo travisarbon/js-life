@@ -167,6 +167,10 @@ $(document).ready(function(){
                     this.setState({sparseness : this.state.sparseness - 1}, function(){
                         self.resetGame();
                     });
+                } else if(this.state.sparseness <= 1){
+                    this.setState({sparseness : 2}, function(){
+                        self.resetGame();
+                    });
                 } else {
                     this.resetGame();
                 }
