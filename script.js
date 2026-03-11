@@ -155,27 +155,28 @@ $(document).ready(function(){
             },
 
             moreSparse : function(){
-                var arr = [];
-                arr = arr.concat(this.state.sparseness);
-                this.setState({sparseness : arr[0] + 1});
-                this.resetGame();
+                var self = this;
+                this.setState({sparseness : this.state.sparseness + 1}, function(){
+                    self.resetGame();
+                });
             },
 
             lessSparse : function(){
-                var arr = [];
-                arr = arr.concat(this.state.sparseness);
-                // Bug 7 fix: only decrease sparseness (= more live cells); never
-                // increase it. The old else-if branch incorrectly raised sparseness
-                // when it was already at or below the minimum, making "More" sparser.
+                var self = this;
                 if(this.state.sparseness >= 3){
-                    this.setState({sparseness : arr[0] - 1});
+                    this.setState({sparseness : this.state.sparseness - 1}, function(){
+                        self.resetGame();
+                    });
+                } else {
+                    this.resetGame();
                 }
-                this.resetGame();
             },
 
             emptyBoard : function(){
-                this.setState({sparseness : 1});
-                this.resetGame();
+                var self = this;
+                this.setState({sparseness : 1}, function(){
+                    self.resetGame();
+                });
             },
 
             toggleGame : function(){
@@ -188,11 +189,11 @@ $(document).ready(function(){
             },
 
             resetGame : function(){
-                this.setState({running : false});
-                this.setState({generations : 0});
                 var newBoard = this.buildBoard(this.state.boardSize, this.state.sparseness);
-                this.setState({board : newBoard[1]});
-                this.drawBoard(this.state.boardSize);
+                var self = this;
+                this.setState({running : false, generations : 0, board : newBoard[1]}, function(){
+                    self.drawBoard(self.state.boardSize);
+                });
             },
 
             render : function(){
