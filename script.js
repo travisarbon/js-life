@@ -14,7 +14,8 @@ $(document).ready(function(){
                     sparseness : 2,
                     board: initialSize[1],
                     generations : 1,
-                    liveClickMode : false
+                    liveClickMode : false,
+                    speed : 5
                 }
             },
 
@@ -99,7 +100,10 @@ $(document).ready(function(){
                     this.setState({board : this.changeCopiedBoard(copyOfBoard, newStates)});
                     this.setState({generations : this.state.generations + 1});
                     this.drawBoard(this.state.boardSize);
-                    requestAnimationFrame(this.findNewStates);
+                    var delays = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
+                    var delay = delays[this.state.speed - 1];
+                    var self = this;
+                    setTimeout(function(){ requestAnimationFrame(self.findNewStates); }, delay);
                 }
             },
 
@@ -154,26 +158,17 @@ $(document).ready(function(){
                 });
             },
 
-            moreSparse : function(){
+            setDensity : function(e){
                 var self = this;
-                this.setState({sparseness : this.state.sparseness + 1}, function(){
+                // Slider value runs low=sparse to high=dense; invert to get sparseness.
+                var sparseness = 9 - parseInt(e.target.value);
+                this.setState({sparseness : sparseness}, function(){
                     self.resetGame();
                 });
             },
 
-            lessSparse : function(){
-                var self = this;
-                if(this.state.sparseness >= 3){
-                    this.setState({sparseness : this.state.sparseness - 1}, function(){
-                        self.resetGame();
-                    });
-                } else if(this.state.sparseness <= 1){
-                    this.setState({sparseness : 2}, function(){
-                        self.resetGame();
-                    });
-                } else {
-                    this.resetGame();
-                }
+            setSpeed : function(e){
+                this.setState({speed : parseInt(e.target.value)});
             },
 
             emptyBoard : function(){
@@ -209,10 +204,24 @@ $(document).ready(function(){
                         <div className = "buttons row">
                             <button className = "btn col-xs-2" onClick = {this.toggleGame}>Start/Pause</button>
                             <button className = "btn col-xs-2" onClick = {this.resetGame}>Reset</button>
-                            <button className = "btn col-xs-2" onClick = {this.moreSparse}>Fewer</button>
-                            <button className = "btn col-xs-2" onClick = {this.lessSparse}>More</button>
                             <button className = "btn col-xs-2" onClick = {this.emptyBoard}>Empty</button>
                             <button className = {"btn col-xs-2 btn-click-mode" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
+                        </div>
+                        <div className = "sliders row">
+                            <label className = "col-xs-1">Density</label>
+                            <span className = "col-xs-1 slider-label">Sparse</span>
+                            <input className = "col-xs-4" type = "range" min = "2" max = "7"
+                                value = {9 - this.state.sparseness}
+                                onChange = {this.setDensity} />
+                            <span className = "col-xs-1 slider-label">Dense</span>
+                        </div>
+                        <div className = "sliders row">
+                            <label className = "col-xs-1">Speed</label>
+                            <span className = "col-xs-1 slider-label">Slow</span>
+                            <input className = "col-xs-4" type = "range" min = "1" max = "10"
+                                value = {this.state.speed}
+                                onChange = {this.setSpeed} />
+                            <span className = "col-xs-1 slider-label">Fast</span>
                         </div>
                     </div>
                 )
