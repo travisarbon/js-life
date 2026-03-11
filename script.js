@@ -13,7 +13,8 @@ $(document).ready(function(){
                     boardSize : initialSize[0],
                     sparseness : 2,
                     board: initialSize[1],
-                    generations : 1
+                    generations : 1,
+                    liveClickMode : false
                 }
             },
 
@@ -59,10 +60,10 @@ $(document).ready(function(){
                     }
             },
 
-            // Returns the number of live neighbours for cell index i on a
-            // toroidal (wrap-around) 100×100 grid (bugs 1-6 fix).
-            countLiveNeighbours : function(i){
-                var board = this.state.board;
+            // Returns the number of live neighbours for cell index i.
+            // Accepts an explicit board snapshot so that a setState from a
+            // concurrent click cannot change the data mid-tick.
+            countLiveNeighbours : function(i, board){
                 var col = i % 100;
                 var row = Math.floor(i / 100);
                 var count = 0;
@@ -79,16 +80,22 @@ $(document).ready(function(){
 
             findNewStates : function(){
                 if(this.state.running == true){
+                    // Snapshot the board once per tick so that a click arriving
+                    // mid-loop (in live-click mode) does not affect this tick's
+                    // neighbour reads.
+                    var boardSnapshot = this.state.board.slice();
                     var newStates = [];
-                    for(var i = 0; i < this.state.board.length; i++){
-                        var statusCounter = this.countLiveNeighbours(i);
+                    for(var i = 0; i < boardSnapshot.length; i++){
+                        var statusCounter = this.countLiveNeighbours(i, boardSnapshot);
                         if(statusCounter === 3){
                             newStates.push(1);
-                        } else if(this.state.board[i].status === 1 && statusCounter === 2) {
+                        } else if(boardSnapshot[i].status === 1 && statusCounter === 2) {
                             newStates.push(1);
                         } else {newStates.push(0)}
                     }
-                    var copyOfBoard = this.copyTheBoard();
+                    var copyOfBoard = boardSnapshot.map(function(cell){
+                        return {x: cell.x, y: cell.y, status: cell.status};
+                    });
                     this.setState({board : this.changeCopiedBoard(copyOfBoard, newStates)});
                     this.setState({generations : this.state.generations + 1});
                     this.drawBoard(this.state.boardSize);
@@ -111,8 +118,14 @@ $(document).ready(function(){
                 return copyOfBoard;
             },
 
+            toggleClickMode : function(){
+                this.setState({liveClickMode : !this.state.liveClickMode});
+            },
+
             mouseClick : function(event){
-                this.setState({running : false});
+                if(!this.state.liveClickMode){
+                    this.setState({running : false});
+                }
                 var canvas = $('#life-canvas');
                 var canvasPosition = {
                     x: canvas.offset().left,
@@ -123,7 +136,6 @@ $(document).ready(function(){
                         y: event.pageY - canvasPosition.y
                     };
                 this.findMouseSquare(mouse);
-                this.drawBoard(this.state.boardSize);
             },
 
             findMouseSquare : function(mouse){
@@ -136,7 +148,10 @@ $(document).ready(function(){
                         } else {arr[i].status = 0}
                     }
                 }
-                this.setState({board : arr});
+                var self = this;
+                this.setState({board : arr}, function(){
+                    self.drawBoard(self.state.boardSize);
+                });
             },
 
             moreSparse : function(){
@@ -192,8 +207,8 @@ $(document).ready(function(){
                             <button className = "btn col-xs-2" onClick = {this.moreSparse}>Fewer</button>
                             <button className = "btn col-xs-2" onClick = {this.lessSparse}>More</button>
                             <button className = "btn col-xs-2" onClick = {this.emptyBoard}>Empty</button>
+                            <button className = {"btn col-xs-2 btn-click-mode" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
                         </div>
-                        <p className = "end">Coded by Travis Arbon</p>
                     </div>
                 )
             }

@@ -25,7 +25,10 @@ body {
     color: #67635F; }
   #content .buttons {
     margin-bottom: 15px; }
-  #content .generations, #content .top, #content .end {
+  #content .generations, #content .top {
     text-align: center; }
+  #content .btn-click-mode.active {
+    background-color: #70959A;
+    color: #F4E9E1; }
 
 /*# sourceMappingURL=main.css.map */
