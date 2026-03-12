@@ -130,15 +130,14 @@ $(document).ready(function(){
                 if(!this.state.liveClickMode){
                     this.setState({running : false});
                 }
-                var canvas = $('#life-canvas');
-                var canvasPosition = {
-                    x: canvas.offset().left,
-                    y: canvas.offset().top
+                var canvasEl = document.getElementById("life-canvas");
+                var rect = canvasEl.getBoundingClientRect();
+                var scaleX = canvasEl.width / rect.width;
+                var scaleY = canvasEl.height / rect.height;
+                var mouse = {
+                    x: (event.clientX - rect.left) * scaleX,
+                    y: (event.clientY - rect.top) * scaleY
                 };
-                var mouse  = {
-                        x: event.pageX - canvasPosition.x,
-                        y: event.pageY - canvasPosition.y
-                    };
                 this.findMouseSquare(mouse);
             },
 
@@ -201,11 +200,11 @@ $(document).ready(function(){
                         <h2 className = "top">Conway's Game of Life</h2>
                         <canvas className = "display" width = "500" height = "500" id = "life-canvas" onClick = {this.mouseClick}></canvas>
                         <h3 className = "generations">{"Generations: " + this.state.generations}</h3>
-                        <div className = "buttons row">
-                            <button className = "btn col-xs-2" onClick = {this.toggleGame}>Start/Pause</button>
-                            <button className = "btn col-xs-2" onClick = {this.resetGame}>Reset</button>
-                            <button className = "btn col-xs-2" onClick = {this.emptyBoard}>Empty</button>
-                            <button className = {"btn col-xs-2 btn-click-mode" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
+                        <div className = "buttons">
+                            <button className = "btn" onClick = {this.toggleGame}>Start/Pause</button>
+                            <button className = "btn" onClick = {this.resetGame}>Reset</button>
+                            <button className = "btn" onClick = {this.emptyBoard}>Empty</button>
+                            <button className = {"btn btn-click-mode" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
                         </div>
                         <div className = "sliders">
                             <label className = "slider-title">Density</label>

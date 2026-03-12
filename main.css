@@ -26,12 +26,16 @@ body {
     border: 1px solid black;
     box-shadow: 0 0 5px #000000; }
   #content .btn {
-    margin: 8px;
+    margin: 4px 6px;
     text-align: center;
-    padding: 5px;
-    color: #67635F; }
+    padding: 5px 10px;
+    color: #67635F;
+    white-space: nowrap; }
   #content .buttons {
-    margin-bottom: 15px; }
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center; }
   #content .generations, #content .top {
     text-align: center; }
   #content .btn-click-mode.active {
