@@ -207,21 +207,25 @@ $(document).ready(function(){
                             <button className = "btn col-xs-2" onClick = {this.emptyBoard}>Empty</button>
                             <button className = {"btn col-xs-2 btn-click-mode" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
                         </div>
-                        <div className = "sliders row">
-                            <label className = "col-xs-1">Density</label>
-                            <span className = "col-xs-1 slider-label">Sparse</span>
-                            <input className = "col-xs-4" type = "range" min = "2" max = "7"
-                                value = {9 - this.state.sparseness}
-                                onChange = {this.setDensity} />
-                            <span className = "col-xs-1 slider-label">Dense</span>
+                        <div className = "sliders">
+                            <label className = "slider-title">Density</label>
+                            <div className = "slider-row">
+                                <span className = "slider-label">Sparse</span>
+                                <input type = "range" min = "2" max = "7"
+                                    value = {9 - this.state.sparseness}
+                                    onChange = {this.setDensity} />
+                                <span className = "slider-label">Dense</span>
+                            </div>
                         </div>
-                        <div className = "sliders row">
-                            <label className = "col-xs-1">Speed</label>
-                            <span className = "col-xs-1 slider-label">Slow</span>
-                            <input className = "col-xs-4" type = "range" min = "1" max = "10"
-                                value = {this.state.speed}
-                                onChange = {this.setSpeed} />
-                            <span className = "col-xs-1 slider-label">Fast</span>
+                        <div className = "sliders">
+                            <label className = "slider-title">Speed</label>
+                            <div className = "slider-row">
+                                <span className = "slider-label">Slow</span>
+                                <input type = "range" min = "1" max = "10"
+                                    value = {this.state.speed}
+                                    onChange = {this.setSpeed} />
+                                <span className = "slider-label">Fast</span>
+                            </div>
                         </div>
                     </div>
                 )

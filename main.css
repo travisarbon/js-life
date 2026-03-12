@@ -3,7 +3,9 @@ body {
   background-color: #e7ddd5; }
 
 #content {
-  width: 602px;
+  max-width: 602px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 50px;
   padding-top: 5px;
   padding-bottom: 5px;
@@ -13,8 +15,13 @@ body {
   color: #F4E9E1; }
   #content canvas {
     margin-top: 15px;
-    width: 500px;
-    height: 500px;
+    width: 100%;
+    max-width: 500px;
+    aspect-ratio: 1;
+    height: auto;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
     background-color: white;
     border: 1px solid black;
     box-shadow: 0 0 5px #000000; }
@@ -31,14 +38,24 @@ body {
     background-color: #70959A;
     color: #F4E9E1; }
   #content .sliders {
-    margin-bottom: 10px;
+    margin-bottom: 10px; }
+  #content .slider-title {
+    display: block;
+    margin-bottom: 2px; }
+  #content .slider-row {
     display: flex;
     align-items: center; }
-  #content .sliders input[type="range"] {
+  #content .slider-row input[type="range"] {
     flex: 1;
     margin: 0 8px; }
   #content .slider-label {
     font-size: 0.85em;
-    color: #F4E9E1; }
+    color: #F4E9E1;
+    white-space: nowrap; }
+
+@media (max-width: 600px) {
+  #content {
+    padding-left: 15px;
+    padding-right: 15px; } }
 
 /*# sourceMappingURL=main.css.map */
