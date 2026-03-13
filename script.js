@@ -97,13 +97,16 @@ $(document).ready(function(){
                     var copyOfBoard = boardSnapshot.map(function(cell){
                         return {x: cell.x, y: cell.y, status: cell.status};
                     });
-                    this.setState({board : this.changeCopiedBoard(copyOfBoard, newStates)});
-                    this.setState({generations : this.state.generations + 1});
-                    this.drawBoard(this.state.boardSize);
-                    var delays = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
-                    var delay = delays[this.state.speed - 1];
                     var self = this;
-                    setTimeout(function(){ requestAnimationFrame(self.findNewStates); }, delay);
+                    this.setState({
+                        board: this.changeCopiedBoard(copyOfBoard, newStates),
+                        generations: this.state.generations + 1
+                    }, function(){
+                        self.drawBoard(self.state.boardSize);
+                        var delays = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
+                        var delay = delays[self.state.speed - 1];
+                        setTimeout(function(){ requestAnimationFrame(self.findNewStates); }, delay);
+                    });
                 }
             },
 
@@ -142,8 +145,9 @@ $(document).ready(function(){
             },
 
             findMouseSquare : function(mouse){
-                var arr = [];
-                arr = arr.concat(this.state.board);
+                var arr = this.state.board.map(function(cell){
+                    return {x: cell.x, y: cell.y, status: cell.status};
+                });
                 for(var i = 0; i < arr.length; i++){
                     if((mouse.x < arr[i].x + this.state.boardSize/100) && (mouse.y < arr[i].y + this.state.boardSize/100) && (mouse.x >= arr[i].x) && (mouse.y >= arr[i].y)){
                         if(arr[i].status !== 1){
