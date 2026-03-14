@@ -55,10 +55,11 @@ $(document).ready(function(){
                     liveClickMode: false,
                     speed :        5,
                     gridLines :    false,
-                    boundary :     'toroidal',
-                    birthRule :    [3],
-                    surviveRule :  [2, 3],
-                    ruleString :   'B3/S23'
+                    boundary :       'toroidal',
+                    birthRule :      [3],
+                    surviveRule :    [2, 3],
+                    ruleString :     'B3/S23',
+                    selectedPattern: null
                 };
             },
 
@@ -66,8 +67,10 @@ $(document).ready(function(){
                 this._dragging = false;
                 this._dragStatus = null;
                 this._paintedCells = {};
+                this._previewPos = null;
+                this._loopRunning = false;
                 this.drawBoard();
-                requestAnimationFrame(this.findNewStates);
+                this._startLoop();
             },
 
             buildBoard : function(cols, rows, sparseness, cellSize){
@@ -77,7 +80,7 @@ $(document).ready(function(){
                         arr.push({
                             x :      c * cellSize,
                             y :      r * cellSize,
-                            status : Math.floor(Math.random() * sparseness)
+                            status : Math.random() < (1 / sparseness) ? 1 : 0
                         });
                     }
                 }
@@ -108,6 +111,26 @@ $(document).ready(function(){
                     }
                     ctx.stroke();
                 }
+                // Pattern placement preview — draw the selected pattern semi-transparently
+                // under the cursor so the user can see where it will land before clicking.
+                if(this.state.selectedPattern && this._previewPos){
+                    var pattern = PATTERNS[this.state.selectedPattern];
+                    var maxPR = 0, maxPC = 0;
+                    for(var pi = 0; pi < pattern.length; pi++){
+                        if(pattern[pi][0] > maxPR){ maxPR = pattern[pi][0]; }
+                        if(pattern[pi][1] > maxPC){ maxPC = pattern[pi][1]; }
+                    }
+                    var offsetPR = this._previewPos.r - Math.floor(maxPR / 2);
+                    var offsetPC = this._previewPos.c - Math.floor(maxPC / 2);
+                    ctx.fillStyle = 'rgba(112, 149, 154, 0.55)';
+                    for(var pj = 0; pj < pattern.length; pj++){
+                        var pvR = pattern[pj][0] + offsetPR;
+                        var pvC = pattern[pj][1] + offsetPC;
+                        if(pvR >= 0 && pvR < rows && pvC >= 0 && pvC < cols){
+                            ctx.fillRect(pvC * cellSize, pvR * cellSize, cellSize, cellSize);
+                        }
+                    }
+                }
             },
 
             // Returns the number of live neighbours for cell at index i.
@@ -137,9 +160,7 @@ $(document).ready(function(){
             },
 
             // Shared next-generation computation used by both findNewStates and stepGame.
-            computeNextGeneration : function(boardSnapshot, cols, rows){
-                var birth = this.state.birthRule;
-                var survive = this.state.surviveRule;
+            computeNextGeneration : function(boardSnapshot, cols, rows, birth, survive){
                 var newStates = [];
                 for(var i = 0; i < boardSnapshot.length; i++){
                     var n = this.countLiveNeighbours(i, boardSnapshot, cols, rows);
@@ -152,12 +173,20 @@ $(document).ready(function(){
                 return newStates;
             },
 
+            _startLoop : function(){
+                if(this._loopRunning){ return; }
+                this._loopRunning = true;
+                requestAnimationFrame(this.findNewStates);
+            },
+
             findNewStates : function(){
                 if(this.state.running === true){
                     var boardSnapshot = this.state.board.slice();
                     var cols = this.state.cols;
                     var rows = this.state.rows;
-                    var newStates = this.computeNextGeneration(boardSnapshot, cols, rows);
+                    var birth = this.state.birthRule;
+                    var survive = this.state.surviveRule;
+                    var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive);
                     var copyOfBoard = boardSnapshot.map(function(cell){
                         return {x: cell.x, y: cell.y, status: cell.status};
                     });
@@ -171,6 +200,8 @@ $(document).ready(function(){
                         var delay = delays[self.state.speed - 1];
                         setTimeout(function(){ requestAnimationFrame(self.findNewStates); }, delay);
                     });
+                } else {
+                    this._loopRunning = false;
                 }
             },
 
@@ -179,7 +210,9 @@ $(document).ready(function(){
                 var boardSnapshot = this.state.board.slice();
                 var cols = this.state.cols;
                 var rows = this.state.rows;
-                var newStates = this.computeNextGeneration(boardSnapshot, cols, rows);
+                var birth = this.state.birthRule;
+                var survive = this.state.surviveRule;
+                var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive);
                 var copyOfBoard = boardSnapshot.map(function(cell){
                     return {x: cell.x, y: cell.y, status: cell.status};
                 });
@@ -228,14 +261,23 @@ $(document).ready(function(){
 
             onMouseDown : function(event){
                 event.preventDefault();
-                if(!this.state.liveClickMode){
-                    this.setState({running : false});
-                }
                 var mouse = this.getMousePos(event);
                 var cellSize = this.state.cellSize;
                 var c = Math.floor(mouse.x / cellSize);
                 var r = Math.floor(mouse.y / cellSize);
                 if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
+                // Pattern placement mode: stamp and return; do not start a drag.
+                if(this.state.selectedPattern){
+                    if(!this.state.liveClickMode){
+                        this.setState({running : false});
+                    }
+                    this.placePattern(this.state.selectedPattern, c, r);
+                    return;
+                }
+                // Normal draw mode: begin drag-paint.
+                if(!this.state.liveClickMode){
+                    this.setState({running : false});
+                }
                 var idx = r * this.state.cols + c;
                 this._dragging = true;
                 this._dragStatus = this.state.board[idx].status === 0 ? 1 : 0;
@@ -245,11 +287,25 @@ $(document).ready(function(){
             },
 
             onMouseMove : function(event){
-                if(!this._dragging){ return; }
+                // Skip all work if there is nothing to do.
+                if(!this.state.selectedPattern && !this._dragging){ return; }
                 var mouse = this.getMousePos(event);
                 var cellSize = this.state.cellSize;
                 var c = Math.floor(mouse.x / cellSize);
                 var r = Math.floor(mouse.y / cellSize);
+                // Pattern placement mode: update hover preview.
+                if(this.state.selectedPattern){
+                    var inBounds = c >= 0 && c < this.state.cols && r >= 0 && r < this.state.rows;
+                    var newPos = inBounds ? {c : c, r : r} : null;
+                    var prev = this._previewPos;
+                    // Only redraw if the hovered cell actually changed.
+                    if(prev === newPos){ return; }
+                    if(prev && newPos && prev.c === newPos.c && prev.r === newPos.r){ return; }
+                    this._previewPos = newPos;
+                    this.drawBoard();
+                    return;
+                }
+                // Normal draw mode: continue drag-paint.
                 if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
                 var idx = r * this.state.cols + c;
                 if(this._paintedCells[idx] !== undefined){ return; }
@@ -274,6 +330,16 @@ $(document).ready(function(){
                 this.setState({board : newBoard}, function(){ self.drawBoard(); });
             },
 
+            // Clear the hover preview when the cursor leaves the canvas.
+            onMouseLeave : function(){
+                if(this.state.selectedPattern){
+                    this._previewPos = null;
+                    this.drawBoard();
+                    return;
+                }
+                this.onMouseUp();
+            },
+
             // ── Toggles ──────────────────────────────────────────────────────
 
             toggleClickMode : function(){
@@ -296,7 +362,7 @@ $(document).ready(function(){
                     this.setState({running : false});
                 } else {
                     this.setState({running : true});
-                    requestAnimationFrame(this.findNewStates);
+                    this._startLoop();
                 }
             },
 
@@ -356,10 +422,19 @@ $(document).ready(function(){
 
             // ── Patterns ──────────────────────────────────────────────────────
 
-            loadPattern : function(e){
-                var name = e.target.value;
-                e.target.value = '';
-                if(!name || !PATTERNS[name]){ return; }
+            // Enter/exit pattern placement mode.  Selecting a pattern arms the
+            // cursor so the next click on the canvas places it; selecting the
+            // blank "Draw mode" option returns to normal paint behaviour.
+            selectPattern : function(e){
+                var name = e.target.value || null;
+                this._previewPos = null;
+                var self = this;
+                this.setState({selectedPattern : name}, function(){ self.drawBoard(); });
+            },
+
+            // Stamp pattern `name` centred on cell (centerC, centerR), merging
+            // with existing live cells (does not clear the board first).
+            placePattern : function(name, centerC, centerR){
                 var pattern = PATTERNS[name];
                 var cols = this.state.cols;
                 var rows = this.state.rows;
@@ -368,10 +443,10 @@ $(document).ready(function(){
                     if(pattern[k][0] > maxR){ maxR = pattern[k][0]; }
                     if(pattern[k][1] > maxC){ maxC = pattern[k][1]; }
                 }
-                var offsetR = Math.floor((rows - maxR - 1) / 2);
-                var offsetC = Math.floor((cols - maxC - 1) / 2);
+                var offsetR = centerR - Math.floor(maxR / 2);
+                var offsetC = centerC - Math.floor(maxC / 2);
                 var newBoard = this.state.board.map(function(cell){
-                    return {x : cell.x, y : cell.y, status : 0};
+                    return {x : cell.x, y : cell.y, status : cell.status};
                 });
                 for(var i = 0; i < pattern.length; i++){
                     var pr = pattern[i][0] + offsetR;
@@ -381,9 +456,7 @@ $(document).ready(function(){
                     }
                 }
                 var self = this;
-                this.setState({board : newBoard, running : false, generations : 0}, function(){
-                    self.drawBoard();
-                });
+                this.setState({board : newBoard}, function(){ self.drawBoard(); });
             },
 
             // ── Board actions ─────────────────────────────────────────────────
@@ -423,10 +496,10 @@ $(document).ready(function(){
                             height = {this.state.rows * this.state.cellSize}
                             id = "life-canvas"
                             draggable = {false}
-                            onMouseDown = {this.onMouseDown}
-                            onMouseMove = {this.onMouseMove}
-                            onMouseUp =   {this.onMouseUp}
-                            onMouseLeave = {this.onMouseUp}></canvas>
+                            onMouseDown =  {this.onMouseDown}
+                            onMouseMove =  {this.onMouseMove}
+                            onMouseUp =    {this.onMouseUp}
+                            onMouseLeave = {this.onMouseLeave}></canvas>
                         <h3 className = "generations">
                             {"Generation: " + this.state.generations + "\u2002·\u2002Population: " + population}
                         </h3>
@@ -440,8 +513,10 @@ $(document).ready(function(){
                             <button className = {"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick = {this.toggleBoundary}>{"Edges: " + (this.state.boundary === 'toroidal' ? "Wrap" : "Dead")}</button>
                         </div>
                         <div className = "presets-row">
-                            <select className = "preset-select" onChange = {this.loadPattern} value = "">
-                                <option value = "" disabled>Load pattern…</option>
+                            <select className = {"preset-select" + (this.state.selectedPattern ? " active" : "")}
+                                value = {this.state.selectedPattern || ""}
+                                onChange = {this.selectPattern}>
+                                <option value = "">✏ Draw mode</option>
                                 <option value = "Glider">Glider</option>
                                 <option value = "Blinker">Blinker</option>
                                 <option value = "Toad">Toad</option>
@@ -457,6 +532,11 @@ $(document).ready(function(){
                                 onChange = {this.setRule}
                                 title = "Birth/Survival rule string (e.g. B3/S23)" />
                         </div>
+                        {this.state.selectedPattern &&
+                            <p className = "placement-hint">
+                                {"Click canvas to place · " + this.state.selectedPattern}
+                            </p>
+                        }
                         <div className = "sliders">
                             <label className = "slider-title">Width</label>
                             <div className = "slider-row">

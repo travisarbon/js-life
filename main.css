@@ -57,6 +57,15 @@ body {
   #content .rule-input-invalid {
     border-color: #c0392b;
     outline-color: #c0392b; }
+  #content .preset-select.active {
+    border-color: #70959A;
+    outline-color: #70959A; }
+  #content .placement-hint {
+    margin: 0 0 8px;
+    font-size: 0.8em;
+    font-style: italic;
+    color: #F4E9E1;
+    text-align: center; }
   #content .sliders {
     margin-bottom: 10px; }
   #content .slider-title {
