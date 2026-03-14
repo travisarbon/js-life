@@ -79,6 +79,13 @@ $(document).ready(function(){
                 this._startLoop();
             },
 
+            componentDidUpdate : function(prevProps, prevState){
+                if(prevState.selectedPattern !== this.state.selectedPattern ||
+                   prevState.patternRotation !== this.state.patternRotation){
+                    this.drawRotationPreview();
+                }
+            },
+
             componentWillUnmount : function(){
                 document.removeEventListener('keydown', this.handleKeyDown);
             },
@@ -140,6 +147,32 @@ $(document).ready(function(){
                             ctx.fillRect(pvC * cellSize, pvR * cellSize, cellSize, cellSize);
                         }
                     }
+                }
+            },
+
+            drawRotationPreview : function(){
+                var canvas = this._previewCanvas;
+                if(!canvas || !this.state.selectedPattern){ return; }
+                var pattern = this.rotatePattern(
+                    PATTERNS[this.state.selectedPattern], this.state.patternRotation);
+                var maxR = 0, maxC = 0;
+                for(var i = 0; i < pattern.length; i++){
+                    if(pattern[i][0] > maxR){ maxR = pattern[i][0]; }
+                    if(pattern[i][1] > maxC){ maxC = pattern[i][1]; }
+                }
+                var patRows = maxR + 1, patCols = maxC + 1;
+                var size   = canvas.width;
+                var pad    = 4;
+                var cellPx = Math.max(1, Math.floor((size - pad * 2) / Math.max(patRows, patCols)));
+                var offX   = Math.floor((size - patCols * cellPx) / 2);
+                var offY   = Math.floor((size - patRows * cellPx) / 2);
+                var ctx    = canvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = '#70959A';
+                for(var j = 0; j < pattern.length; j++){
+                    ctx.fillRect(offX + pattern[j][1] * cellPx,
+                                 offY + pattern[j][0] * cellPx, cellPx, cellPx);
                 }
             },
 
@@ -653,9 +686,13 @@ $(document).ready(function(){
                                 </div>
                                 {this.state.selectedPattern &&
                                     <div className = "rotation-row">
-                                        <button className = "btn btn-rotate" onClick = {this.rotateCCW} title = "Rotate 90° counter-clockwise">&#8634;</button>
-                                        <span className = "rotation-label">{this.state.patternRotation * 90 + "°"}</span>
-                                        <button className = "btn btn-rotate" onClick = {this.rotateCW} title = "Rotate 90° clockwise">&#8635;</button>
+                                        <canvas className = "rotation-preview"
+                                            width = "96" height = "96"
+                                            ref = {function(c){ self._previewCanvas = c; }} />
+                                        <div className = "rotation-btns">
+                                            <button className = "btn btn-rotate" onClick = {this.rotateCCW} title = "Rotate 90° counter-clockwise">&#8634;</button>
+                                            <button className = "btn btn-rotate" onClick = {this.rotateCW} title = "Rotate 90° clockwise">&#8635;</button>
+                                        </div>
                                     </div>
                                 }
                                 {this.state.selectedPattern &&
