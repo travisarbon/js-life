@@ -46,6 +46,15 @@ body {
     text-align: center;
     font-size: 0.9em;
     line-height: 1.7; }
+  #content .status-indicator {
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 2px; }
+  #content .status-running {
+    color: #70959A; }
+  #content .status-paused {
+    color: #c8b8b0; }
   #content .btn {
     text-align: center;
     padding: 5px 6px;
