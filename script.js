@@ -1,6 +1,40 @@
 /**
  * Created by Travis on 8/6/2016.
  */
+
+// Classic patterns as [row, col] offset arrays (0-indexed from top-left of bounding box).
+var PATTERNS = {
+    'Glider':             [[0,1],[1,2],[2,0],[2,1],[2,2]],
+    'Blinker':            [[0,0],[0,1],[0,2]],
+    'Toad':               [[0,1],[0,2],[0,3],[1,0],[1,1],[1,2]],
+    'Beacon':             [[0,0],[0,1],[1,0],[2,3],[3,2],[3,3]],
+    'Pulsar':             [
+                            [0,2],[0,3],[0,4],[0,8],[0,9],[0,10],
+                            [2,0],[2,5],[2,7],[2,12],
+                            [3,0],[3,5],[3,7],[3,12],
+                            [4,0],[4,5],[4,7],[4,12],
+                            [5,2],[5,3],[5,4],[5,8],[5,9],[5,10],
+                            [7,2],[7,3],[7,4],[7,8],[7,9],[7,10],
+                            [8,0],[8,5],[8,7],[8,12],
+                            [9,0],[9,5],[9,7],[9,12],
+                            [10,0],[10,5],[10,7],[10,12],
+                            [12,2],[12,3],[12,4],[12,8],[12,9],[12,10]
+                          ],
+    'R-pentomino':        [[0,1],[0,2],[1,0],[1,1],[2,1]],
+    'Acorn':              [[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]],
+    'Gosper Glider Gun':  [
+                            [0,24],
+                            [1,22],[1,24],
+                            [2,12],[2,13],[2,20],[2,21],[2,34],[2,35],
+                            [3,11],[3,15],[3,20],[3,21],[3,34],[3,35],
+                            [4,0],[4,1],[4,10],[4,16],[4,20],[4,21],
+                            [5,0],[5,1],[5,10],[5,14],[5,16],[5,17],[5,22],[5,24],
+                            [6,10],[6,16],[6,24],
+                            [7,11],[7,15],
+                            [8,12],[8,13]
+                          ]
+};
+
 $(document).ready(function(){
     (function(){
 
@@ -11,19 +45,27 @@ $(document).ready(function(){
                 var cols = 100;
                 var rows = 100;
                 return {
-                    running : true,
-                    cellSize : cellSize,
-                    cols : cols,
-                    rows : rows,
-                    sparseness : 2,
-                    board: this.buildBoard(cols, rows, 2, cellSize),
-                    generations : 1,
-                    liveClickMode : false,
-                    speed : 5
-                }
+                    running :      true,
+                    cellSize :     cellSize,
+                    cols :         cols,
+                    rows :         rows,
+                    sparseness :   2,
+                    board :        this.buildBoard(cols, rows, 2, cellSize),
+                    generations :  0,
+                    liveClickMode: false,
+                    speed :        5,
+                    gridLines :    false,
+                    boundary :     'toroidal',
+                    birthRule :    [3],
+                    surviveRule :  [2, 3],
+                    ruleString :   'B3/S23'
+                };
             },
 
             componentDidMount : function(){
+                this._dragging = false;
+                this._dragStatus = null;
+                this._paintedCells = {};
                 this.drawBoard();
                 requestAnimationFrame(this.findNewStates);
             },
@@ -33,8 +75,8 @@ $(document).ready(function(){
                 for(var r = 0; r < rows; r++){
                     for(var c = 0; c < cols; c++){
                         arr.push({
-                            x : c * cellSize,
-                            y : r * cellSize,
+                            x :      c * cellSize,
+                            y :      r * cellSize,
                             status : Math.floor(Math.random() * sparseness)
                         });
                     }
@@ -43,57 +85,86 @@ $(document).ready(function(){
             },
 
             drawBoard : function(){
-                    var canvas = document.getElementById("life-canvas");
-                    var ctx = canvas.getContext("2d");
-                    var cellSize = this.state.cellSize;
-                    for(var i = 0; i < this.state.board.length; i++){
-                        ctx.fillStyle = this.state.board[i].status === 1 ? "#70959A" : "#FFFFFF";
-                        ctx.fillRect(this.state.board[i].x, this.state.board[i].y, cellSize, cellSize);
+                var canvas = document.getElementById("life-canvas");
+                var ctx = canvas.getContext("2d");
+                var cellSize = this.state.cellSize;
+                var cols = this.state.cols;
+                var rows = this.state.rows;
+                for(var i = 0; i < this.state.board.length; i++){
+                    ctx.fillStyle = this.state.board[i].status === 1 ? "#70959A" : "#FFFFFF";
+                    ctx.fillRect(this.state.board[i].x, this.state.board[i].y, cellSize, cellSize);
+                }
+                if(this.state.gridLines){
+                    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    for(var c = 0; c <= cols; c++){
+                        ctx.moveTo(c * cellSize, 0);
+                        ctx.lineTo(c * cellSize, rows * cellSize);
                     }
+                    for(var r = 0; r <= rows; r++){
+                        ctx.moveTo(0, r * cellSize);
+                        ctx.lineTo(cols * cellSize, r * cellSize);
+                    }
+                    ctx.stroke();
+                }
             },
 
-            // Returns the number of live neighbours for cell index i.
+            // Returns the number of live neighbours for cell at index i.
             // Accepts an explicit board snapshot so that a setState from a
             // concurrent click cannot change the data mid-tick.
             countLiveNeighbours : function(i, board, cols, rows){
                 var col = i % cols;
                 var row = Math.floor(i / cols);
                 var count = 0;
+                var toroidal = this.state.boundary === 'toroidal';
                 for(var dc = -1; dc <= 1; dc++){
                     for(var dr = -1; dr <= 1; dr++){
                         if(dc === 0 && dr === 0){ continue; }
-                        var nc = (col + dc + cols) % cols;
-                        var nr = (row + dr + rows) % rows;
+                        var nc, nr;
+                        if(toroidal){
+                            nc = (col + dc + cols) % cols;
+                            nr = (row + dr + rows) % rows;
+                        } else {
+                            nc = col + dc;
+                            nr = row + dr;
+                            if(nc < 0 || nc >= cols || nr < 0 || nr >= rows){ continue; }
+                        }
                         if(board[nr * cols + nc].status === 1){ count++; }
                     }
                 }
                 return count;
             },
 
+            // Shared next-generation computation used by both findNewStates and stepGame.
+            computeNextGeneration : function(boardSnapshot, cols, rows){
+                var birth = this.state.birthRule;
+                var survive = this.state.surviveRule;
+                var newStates = [];
+                for(var i = 0; i < boardSnapshot.length; i++){
+                    var n = this.countLiveNeighbours(i, boardSnapshot, cols, rows);
+                    if(birth.indexOf(n) !== -1){
+                        newStates.push(1);
+                    } else if(boardSnapshot[i].status === 1 && survive.indexOf(n) !== -1){
+                        newStates.push(1);
+                    } else { newStates.push(0); }
+                }
+                return newStates;
+            },
+
             findNewStates : function(){
-                if(this.state.running == true){
-                    // Snapshot the board once per tick so that a click arriving
-                    // mid-loop (in live-click mode) does not affect this tick's
-                    // neighbour reads.
+                if(this.state.running === true){
                     var boardSnapshot = this.state.board.slice();
                     var cols = this.state.cols;
                     var rows = this.state.rows;
-                    var newStates = [];
-                    for(var i = 0; i < boardSnapshot.length; i++){
-                        var statusCounter = this.countLiveNeighbours(i, boardSnapshot, cols, rows);
-                        if(statusCounter === 3){
-                            newStates.push(1);
-                        } else if(boardSnapshot[i].status === 1 && statusCounter === 2) {
-                            newStates.push(1);
-                        } else {newStates.push(0)}
-                    }
+                    var newStates = this.computeNextGeneration(boardSnapshot, cols, rows);
                     var copyOfBoard = boardSnapshot.map(function(cell){
                         return {x: cell.x, y: cell.y, status: cell.status};
                     });
                     var self = this;
                     this.setState({
-                        board: this.changeCopiedBoard(copyOfBoard, newStates),
-                        generations: this.state.generations + 1
+                        board :       this.changeCopiedBoard(copyOfBoard, newStates),
+                        generations : this.state.generations + 1
                     }, function(){
                         self.drawBoard();
                         var delays = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
@@ -103,12 +174,21 @@ $(document).ready(function(){
                 }
             },
 
-            copyTheBoard : function(){
-                // Bug 8 fix: deep-copy each cell object so that changeCopiedBoard
-                // does not mutate the objects still referenced by this.state.board.
-                return this.state.board.map(function(cell){
+            // Advance exactly one generation (pauses the game).
+            stepGame : function(){
+                var boardSnapshot = this.state.board.slice();
+                var cols = this.state.cols;
+                var rows = this.state.rows;
+                var newStates = this.computeNextGeneration(boardSnapshot, cols, rows);
+                var copyOfBoard = boardSnapshot.map(function(cell){
                     return {x: cell.x, y: cell.y, status: cell.status};
                 });
+                var self = this;
+                this.setState({
+                    board :       this.changeCopiedBoard(copyOfBoard, newStates),
+                    running :     false,
+                    generations : this.state.generations + 1
+                }, function(){ self.drawBoard(); });
             },
 
             changeCopiedBoard : function(copyOfBoard, newStates){
@@ -118,41 +198,109 @@ $(document).ready(function(){
                 return copyOfBoard;
             },
 
-            toggleClickMode : function(){
-                this.setState({liveClickMode : !this.state.liveClickMode});
-            },
+            // ── Mouse / painting ────────────────────────────────────────────
 
-            mouseClick : function(event){
-                if(!this.state.liveClickMode){
-                    this.setState({running : false});
-                }
+            getMousePos : function(event){
                 var canvasEl = document.getElementById("life-canvas");
                 var rect = canvasEl.getBoundingClientRect();
                 var scaleX = canvasEl.width / rect.width;
                 var scaleY = canvasEl.height / rect.height;
-                var mouse = {
-                    x: (event.clientX - rect.left) * scaleX,
-                    y: (event.clientY - rect.top) * scaleY
+                return {
+                    x : (event.clientX - rect.left) * scaleX,
+                    y : (event.clientY - rect.top)  * scaleY
                 };
-                this.findMouseSquare(mouse);
             },
 
-            findMouseSquare : function(mouse){
-                var arr = this.state.board.map(function(cell){
-                    return {x: cell.x, y: cell.y, status: cell.status};
-                });
-                for(var i = 0; i < arr.length; i++){
-                    if((mouse.x < arr[i].x + this.state.cellSize) && (mouse.y < arr[i].y + this.state.cellSize) && (mouse.x >= arr[i].x) && (mouse.y >= arr[i].y)){
-                        if(arr[i].status !== 1){
-                            arr[i].status = 1;
-                        } else {arr[i].status = 0}
-                    }
+            // Paint a single cell directly to the canvas (used during drag for
+            // immediate visual feedback without waiting for a setState round-trip).
+            paintCellDirect : function(c, r){
+                var canvas = document.getElementById("life-canvas");
+                var ctx = canvas.getContext("2d");
+                var cellSize = this.state.cellSize;
+                ctx.fillStyle = this._dragStatus === 1 ? "#70959A" : "#FFFFFF";
+                ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+                if(this.state.gridLines){
+                    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(c * cellSize, r * cellSize, cellSize, cellSize);
                 }
+            },
+
+            onMouseDown : function(event){
+                event.preventDefault();
+                if(!this.state.liveClickMode){
+                    this.setState({running : false});
+                }
+                var mouse = this.getMousePos(event);
+                var cellSize = this.state.cellSize;
+                var c = Math.floor(mouse.x / cellSize);
+                var r = Math.floor(mouse.y / cellSize);
+                if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
+                var idx = r * this.state.cols + c;
+                this._dragging = true;
+                this._dragStatus = this.state.board[idx].status === 0 ? 1 : 0;
+                this._paintedCells = {};
+                this._paintedCells[idx] = this._dragStatus;
+                this.paintCellDirect(c, r);
+            },
+
+            onMouseMove : function(event){
+                if(!this._dragging){ return; }
+                var mouse = this.getMousePos(event);
+                var cellSize = this.state.cellSize;
+                var c = Math.floor(mouse.x / cellSize);
+                var r = Math.floor(mouse.y / cellSize);
+                if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
+                var idx = r * this.state.cols + c;
+                if(this._paintedCells[idx] !== undefined){ return; }
+                this._paintedCells[idx] = this._dragStatus;
+                this.paintCellDirect(c, r);
+            },
+
+            // Sync painted cells into React state when the drag ends.
+            onMouseUp : function(){
+                if(!this._dragging){ return; }
+                this._dragging = false;
+                var paintedCells = this._paintedCells;
+                var newBoard = this.state.board.map(function(cell, i){
+                    return {
+                        x :      cell.x,
+                        y :      cell.y,
+                        status : paintedCells[i] !== undefined ? paintedCells[i] : cell.status
+                    };
+                });
+                this._paintedCells = {};
                 var self = this;
-                this.setState({board : arr}, function(){
+                this.setState({board : newBoard}, function(){ self.drawBoard(); });
+            },
+
+            // ── Toggles ──────────────────────────────────────────────────────
+
+            toggleClickMode : function(){
+                this.setState({liveClickMode : !this.state.liveClickMode});
+            },
+
+            toggleGridLines : function(){
+                var self = this;
+                this.setState({gridLines : !this.state.gridLines}, function(){
                     self.drawBoard();
                 });
             },
+
+            toggleBoundary : function(){
+                this.setState({boundary : this.state.boundary === 'toroidal' ? 'finite' : 'toroidal'});
+            },
+
+            toggleGame : function(){
+                if(this.state.running === true){
+                    this.setState({running : false});
+                } else {
+                    this.setState({running : true});
+                    requestAnimationFrame(this.findNewStates);
+                }
+            },
+
+            // ── Sliders ───────────────────────────────────────────────────────
 
             resizeBoard : function(newCols, newRows){
                 var cellSize = this.state.cellSize;
@@ -182,37 +330,79 @@ $(document).ready(function(){
                 this.resizeBoard(this.state.cols, parseInt(e.target.value));
             },
 
+            // Updating the density slider only changes the value used on the next
+            // Reset — it does not immediately randomise the board.
             setDensity : function(e){
-                var self = this;
-                // Slider value runs low=sparse to high=dense; invert to get sparseness.
-                var sparseness = 9 - parseInt(e.target.value);
-                this.setState({sparseness : sparseness}, function(){
-                    self.resetGame();
-                });
+                this.setState({sparseness : 9 - parseInt(e.target.value)});
             },
 
             setSpeed : function(e){
                 this.setState({speed : parseInt(e.target.value)});
             },
 
-            emptyBoard : function(){
-                var self = this;
-                this.setState({sparseness : 1}, function(){
-                    self.resetGame();
-                });
-            },
+            // ── Rules ─────────────────────────────────────────────────────────
 
-            toggleGame : function(){
-                if(this.state.running === true){
-                    this.setState({running : false});
-                } else if(this.state.running === false){
-                    this.setState({running : true});
-                    requestAnimationFrame(this.findNewStates);
+            setRule : function(e){
+                var val = e.target.value;
+                var match = val.trim().toUpperCase().match(/^B([0-8]*)\/?S([0-8]*)$/);
+                if(match){
+                    var birth   = match[1].split('').filter(Boolean).map(Number);
+                    var survive = match[2].split('').filter(Boolean).map(Number);
+                    this.setState({birthRule : birth, surviveRule : survive, ruleString : val});
+                } else {
+                    this.setState({ruleString : val});
                 }
             },
 
+            // ── Patterns ──────────────────────────────────────────────────────
+
+            loadPattern : function(e){
+                var name = e.target.value;
+                e.target.value = '';
+                if(!name || !PATTERNS[name]){ return; }
+                var pattern = PATTERNS[name];
+                var cols = this.state.cols;
+                var rows = this.state.rows;
+                var maxR = 0, maxC = 0;
+                for(var k = 0; k < pattern.length; k++){
+                    if(pattern[k][0] > maxR){ maxR = pattern[k][0]; }
+                    if(pattern[k][1] > maxC){ maxC = pattern[k][1]; }
+                }
+                var offsetR = Math.floor((rows - maxR - 1) / 2);
+                var offsetC = Math.floor((cols - maxC - 1) / 2);
+                var newBoard = this.state.board.map(function(cell){
+                    return {x : cell.x, y : cell.y, status : 0};
+                });
+                for(var i = 0; i < pattern.length; i++){
+                    var pr = pattern[i][0] + offsetR;
+                    var pc = pattern[i][1] + offsetC;
+                    if(pr >= 0 && pr < rows && pc >= 0 && pc < cols){
+                        newBoard[pr * cols + pc].status = 1;
+                    }
+                }
+                var self = this;
+                this.setState({board : newBoard, running : false, generations : 0}, function(){
+                    self.drawBoard();
+                });
+            },
+
+            // ── Board actions ─────────────────────────────────────────────────
+
+            emptyBoard : function(){
+                var newBoard = this.state.board.map(function(cell){
+                    return {x : cell.x, y : cell.y, status : 0};
+                });
+                var self = this;
+                this.setState({running : false, generations : 0, board : newBoard}, function(){
+                    self.drawBoard();
+                });
+            },
+
             resetGame : function(){
-                var newBoard = this.buildBoard(this.state.cols, this.state.rows, this.state.sparseness, this.state.cellSize);
+                var newBoard = this.buildBoard(
+                    this.state.cols, this.state.rows,
+                    this.state.sparseness, this.state.cellSize
+                );
                 var self = this;
                 this.setState({running : false, generations : 0, board : newBoard}, function(){
                     self.drawBoard();
@@ -220,19 +410,52 @@ $(document).ready(function(){
             },
 
             render : function(){
+                var population = 0;
+                for(var i = 0; i < this.state.board.length; i++){
+                    if(this.state.board[i].status === 1){ population++; }
+                }
+                var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
                 return(
                     <div>
                         <h2 className = "top">Conway's Game of Life</h2>
                         <canvas className = "display"
                             width = {this.state.cols * this.state.cellSize}
                             height = {this.state.rows * this.state.cellSize}
-                            id = "life-canvas" onClick = {this.mouseClick}></canvas>
-                        <h3 className = "generations">{"Generations: " + this.state.generations}</h3>
+                            id = "life-canvas"
+                            draggable = {false}
+                            onMouseDown = {this.onMouseDown}
+                            onMouseMove = {this.onMouseMove}
+                            onMouseUp =   {this.onMouseUp}
+                            onMouseLeave = {this.onMouseUp}></canvas>
+                        <h3 className = "generations">
+                            {"Generation: " + this.state.generations + "\u2002·\u2002Population: " + population}
+                        </h3>
                         <div className = "buttons">
                             <button className = "btn" onClick = {this.toggleGame}>Start/Pause</button>
+                            <button className = "btn" onClick = {this.stepGame}>Step</button>
                             <button className = "btn" onClick = {this.resetGame}>Reset</button>
                             <button className = "btn" onClick = {this.emptyBoard}>Empty</button>
-                            <button className = {"btn btn-click-mode" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
+                            <button className = {"btn btn-toggle" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
+                            <button className = {"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick = {this.toggleGridLines}>Grid</button>
+                            <button className = {"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick = {this.toggleBoundary}>{"Edges: " + (this.state.boundary === 'toroidal' ? "Wrap" : "Dead")}</button>
+                        </div>
+                        <div className = "presets-row">
+                            <select className = "preset-select" onChange = {this.loadPattern} value = "">
+                                <option value = "" disabled>Load pattern…</option>
+                                <option value = "Glider">Glider</option>
+                                <option value = "Blinker">Blinker</option>
+                                <option value = "Toad">Toad</option>
+                                <option value = "Beacon">Beacon</option>
+                                <option value = "Pulsar">Pulsar</option>
+                                <option value = "R-pentomino">R-pentomino</option>
+                                <option value = "Acorn">Acorn</option>
+                                <option value = "Gosper Glider Gun">Gosper Glider Gun</option>
+                            </select>
+                            <input className = {"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
+                                type = "text"
+                                value = {this.state.ruleString}
+                                onChange = {this.setRule}
+                                title = "Birth/Survival rule string (e.g. B3/S23)" />
                         </div>
                         <div className = "sliders">
                             <label className = "slider-title">Width</label>
@@ -255,7 +478,7 @@ $(document).ready(function(){
                             </div>
                         </div>
                         <div className = "sliders">
-                            <label className = "slider-title">Density</label>
+                            <label className = "slider-title">Initial Density</label>
                             <div className = "slider-row">
                                 <span className = "slider-label">Sparse</span>
                                 <input type = "range" min = "2" max = "7"
