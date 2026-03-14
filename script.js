@@ -455,6 +455,7 @@ $(document).ready(function(){
                         newBoard[pr * cols + pc].status = 1;
                     }
                 }
+                this._previewPos = null;
                 var self = this;
                 this.setState({board : newBoard}, function(){ self.drawBoard(); });
             },
@@ -516,7 +517,7 @@ $(document).ready(function(){
                             <select className = {"preset-select" + (this.state.selectedPattern ? " active" : "")}
                                 value = {this.state.selectedPattern || ""}
                                 onChange = {this.selectPattern}>
-                                <option value = "">✏ Draw mode</option>
+                                <option value = "">Draw mode</option>
                                 <option value = "Glider">Glider</option>
                                 <option value = "Blinker">Blinker</option>
                                 <option value = "Toad">Toad</option>
