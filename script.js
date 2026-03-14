@@ -59,7 +59,8 @@ $(document).ready(function(){
                     birthRule :      [3],
                     surviveRule :    [2, 3],
                     ruleString :     'B3/S23',
-                    selectedPattern: null
+                    selectedPattern: null,
+                    patternRotation: 0
                 };
             },
 
@@ -114,7 +115,7 @@ $(document).ready(function(){
                 // Pattern placement preview — draw the selected pattern semi-transparently
                 // under the cursor so the user can see where it will land before clicking.
                 if(this.state.selectedPattern && this._previewPos){
-                    var pattern = PATTERNS[this.state.selectedPattern];
+                    var pattern = this.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
                     var maxPR = 0, maxPC = 0;
                     for(var pi = 0; pi < pattern.length; pi++){
                         if(pattern[pi][0] > maxPR){ maxPR = pattern[pi][0]; }
@@ -422,6 +423,36 @@ $(document).ready(function(){
 
             // ── Patterns ──────────────────────────────────────────────────────
 
+            // Returns a copy of `cells` rotated 90° clockwise `steps` times.
+            // Each cell is [row, col] relative to the top-left of the bounding box.
+            rotatePattern : function(cells, steps){
+                var result = cells.slice();
+                for(var s = 0; s < steps; s++){
+                    var maxR = 0;
+                    for(var k = 0; k < result.length; k++){
+                        if(result[k][0] > maxR){ maxR = result[k][0]; }
+                    }
+                    result = result.map(function(cell){
+                        return [cell[1], maxR - cell[0]];
+                    });
+                }
+                return result;
+            },
+
+            rotateCW : function(){
+                var self = this;
+                this.setState({patternRotation : (this.state.patternRotation + 1) % 4}, function(){
+                    self.drawBoard();
+                });
+            },
+
+            rotateCCW : function(){
+                var self = this;
+                this.setState({patternRotation : (this.state.patternRotation + 3) % 4}, function(){
+                    self.drawBoard();
+                });
+            },
+
             // Enter/exit pattern placement mode.  Selecting a pattern arms the
             // cursor so the next click on the canvas places it; selecting the
             // blank "Draw mode" option returns to normal paint behaviour.
@@ -429,13 +460,13 @@ $(document).ready(function(){
                 var name = e.target.value || null;
                 this._previewPos = null;
                 var self = this;
-                this.setState({selectedPattern : name}, function(){ self.drawBoard(); });
+                this.setState({selectedPattern : name, patternRotation : 0}, function(){ self.drawBoard(); });
             },
 
             // Stamp pattern `name` centred on cell (centerC, centerR), merging
             // with existing live cells (does not clear the board first).
             placePattern : function(name, centerC, centerR){
-                var pattern = PATTERNS[name];
+                var pattern = this.rotatePattern(PATTERNS[name], this.state.patternRotation);
                 var cols = this.state.cols;
                 var rows = this.state.rows;
                 var maxR = 0, maxC = 0;
@@ -538,6 +569,13 @@ $(document).ready(function(){
                                         onChange = {this.setRule}
                                         title = "Birth/Survival rule string (e.g. B3/S23)" />
                                 </div>
+                                {this.state.selectedPattern &&
+                                    <div className = "rotation-row">
+                                        <button className = "btn btn-rotate" onClick = {this.rotateCCW} title = "Rotate 90° counter-clockwise">&#8634;</button>
+                                        <span className = "rotation-label">{this.state.patternRotation * 90 + "°"}</span>
+                                        <button className = "btn btn-rotate" onClick = {this.rotateCW} title = "Rotate 90° clockwise">&#8635;</button>
+                                    </div>
+                                }
                                 {this.state.selectedPattern &&
                                     <p className = "placement-hint">
                                         {"Click canvas to place · " + this.state.selectedPattern}
