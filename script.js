@@ -455,6 +455,7 @@ $(document).ready(function(){
                         newBoard[pr * cols + pc].status = 1;
                     }
                 }
+                this._previewPos = null;
                 var self = this;
                 this.setState({board : newBoard}, function(){ self.drawBoard(); });
             },
@@ -491,90 +492,89 @@ $(document).ready(function(){
                 return(
                     <div>
                         <h2 className = "top">Conway's Game of Life</h2>
-                        <canvas className = "display"
-                            width = {this.state.cols * this.state.cellSize}
-                            height = {this.state.rows * this.state.cellSize}
-                            id = "life-canvas"
-                            draggable = {false}
-                            onMouseDown =  {this.onMouseDown}
-                            onMouseMove =  {this.onMouseMove}
-                            onMouseUp =    {this.onMouseUp}
-                            onMouseLeave = {this.onMouseLeave}></canvas>
-                        <h3 className = "generations">
-                            {"Generation: " + this.state.generations + "\u2002·\u2002Population: " + population}
-                        </h3>
-                        <div className = "buttons">
-                            <button className = "btn" onClick = {this.toggleGame}>Start/Pause</button>
-                            <button className = "btn" onClick = {this.stepGame}>Step</button>
-                            <button className = "btn" onClick = {this.resetGame}>Reset</button>
-                            <button className = "btn" onClick = {this.emptyBoard}>Empty</button>
-                            <button className = {"btn btn-toggle" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
-                            <button className = {"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick = {this.toggleGridLines}>Grid</button>
-                            <button className = {"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick = {this.toggleBoundary}>{"Edges: " + (this.state.boundary === 'toroidal' ? "Wrap" : "Dead")}</button>
-                        </div>
-                        <div className = "presets-row">
-                            <select className = {"preset-select" + (this.state.selectedPattern ? " active" : "")}
-                                value = {this.state.selectedPattern || ""}
-                                onChange = {this.selectPattern}>
-                                <option value = "">✏ Draw mode</option>
-                                <option value = "Glider">Glider</option>
-                                <option value = "Blinker">Blinker</option>
-                                <option value = "Toad">Toad</option>
-                                <option value = "Beacon">Beacon</option>
-                                <option value = "Pulsar">Pulsar</option>
-                                <option value = "R-pentomino">R-pentomino</option>
-                                <option value = "Acorn">Acorn</option>
-                                <option value = "Gosper Glider Gun">Gosper Glider Gun</option>
-                            </select>
-                            <input className = {"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
-                                type = "text"
-                                value = {this.state.ruleString}
-                                onChange = {this.setRule}
-                                title = "Birth/Survival rule string (e.g. B3/S23)" />
-                        </div>
-                        {this.state.selectedPattern &&
-                            <p className = "placement-hint">
-                                {"Click canvas to place · " + this.state.selectedPattern}
-                            </p>
-                        }
-                        <div className = "sliders">
-                            <label className = "slider-title">Width</label>
-                            <div className = "slider-row">
-                                <span className = "slider-label">Narrow</span>
-                                <input type = "range" min = "20" max = "200" step = "10"
-                                    value = {this.state.cols}
-                                    onChange = {this.setWidth} />
-                                <span className = "slider-label">Wide</span>
+                        <div className = "content-body">
+                            <div className = "canvas-container">
+                                <canvas className = "display"
+                                    width = {this.state.cols * this.state.cellSize}
+                                    height = {this.state.rows * this.state.cellSize}
+                                    id = "life-canvas"
+                                    draggable = {false}
+                                    onMouseDown =  {this.onMouseDown}
+                                    onMouseMove =  {this.onMouseMove}
+                                    onMouseUp =    {this.onMouseUp}
+                                    onMouseLeave = {this.onMouseLeave}></canvas>
                             </div>
-                        </div>
-                        <div className = "sliders">
-                            <label className = "slider-title">Height</label>
-                            <div className = "slider-row">
-                                <span className = "slider-label">Short</span>
-                                <input type = "range" min = "20" max = "200" step = "10"
-                                    value = {this.state.rows}
-                                    onChange = {this.setHeight} />
-                                <span className = "slider-label">Tall</span>
-                            </div>
-                        </div>
-                        <div className = "sliders">
-                            <label className = "slider-title">Initial Density</label>
-                            <div className = "slider-row">
-                                <span className = "slider-label">Sparse</span>
-                                <input type = "range" min = "2" max = "7"
-                                    value = {9 - this.state.sparseness}
-                                    onChange = {this.setDensity} />
-                                <span className = "slider-label">Dense</span>
-                            </div>
-                        </div>
-                        <div className = "sliders">
-                            <label className = "slider-title">Speed</label>
-                            <div className = "slider-row">
-                                <span className = "slider-label">Slow</span>
-                                <input type = "range" min = "1" max = "10"
-                                    value = {this.state.speed}
-                                    onChange = {this.setSpeed} />
-                                <span className = "slider-label">Fast</span>
+                            <div className = "sidebar">
+                                <div className = "stats">
+                                    <div>{"Generation: " + this.state.generations}</div>
+                                    <div>{"Population: " + population}</div>
+                                </div>
+                                <div className = "buttons">
+                                    <button className = "btn" onClick = {this.toggleGame}>Start/Pause</button>
+                                    <button className = "btn" onClick = {this.stepGame}>Step</button>
+                                    <button className = "btn" onClick = {this.resetGame}>Reset</button>
+                                    <button className = "btn" onClick = {this.emptyBoard}>Empty</button>
+                                    <button className = {"btn btn-toggle" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
+                                    <button className = {"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick = {this.toggleGridLines}>Grid</button>
+                                    <button className = {"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick = {this.toggleBoundary}>{"Edges: " + (this.state.boundary === 'toroidal' ? "Wrap" : "Dead")}</button>
+                                </div>
+                                <div className = "presets-col">
+                                    <select className = {"preset-select" + (this.state.selectedPattern ? " active" : "")}
+                                        value = {this.state.selectedPattern || ""}
+                                        onChange = {this.selectPattern}>
+                                        <option value = "">Draw mode</option>
+                                        <option value = "Glider">Glider</option>
+                                        <option value = "Blinker">Blinker</option>
+                                        <option value = "Toad">Toad</option>
+                                        <option value = "Beacon">Beacon</option>
+                                        <option value = "Pulsar">Pulsar</option>
+                                        <option value = "R-pentomino">R-pentomino</option>
+                                        <option value = "Acorn">Acorn</option>
+                                        <option value = "Gosper Glider Gun">Gosper Glider Gun</option>
+                                    </select>
+                                    <input className = {"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
+                                        type = "text"
+                                        value = {this.state.ruleString}
+                                        onChange = {this.setRule}
+                                        title = "Birth/Survival rule string (e.g. B3/S23)" />
+                                </div>
+                                {this.state.selectedPattern &&
+                                    <p className = "placement-hint">
+                                        {"Click canvas to place · " + this.state.selectedPattern}
+                                    </p>
+                                }
+                                <div className = "sliders">
+                                    <label className = "slider-title">Width</label>
+                                    <div className = "slider-row">
+                                        <input type = "range" min = "20" max = "200" step = "10"
+                                            value = {this.state.cols}
+                                            onChange = {this.setWidth} />
+                                    </div>
+                                </div>
+                                <div className = "sliders">
+                                    <label className = "slider-title">Height</label>
+                                    <div className = "slider-row">
+                                        <input type = "range" min = "20" max = "200" step = "10"
+                                            value = {this.state.rows}
+                                            onChange = {this.setHeight} />
+                                    </div>
+                                </div>
+                                <div className = "sliders">
+                                    <label className = "slider-title">Initial Density</label>
+                                    <div className = "slider-row">
+                                        <input type = "range" min = "2" max = "7"
+                                            value = {9 - this.state.sparseness}
+                                            onChange = {this.setDensity} />
+                                    </div>
+                                </div>
+                                <div className = "sliders">
+                                    <label className = "slider-title">Speed</label>
+                                    <div className = "slider-row">
+                                        <input type = "range" min = "1" max = "10"
+                                            value = {this.state.speed}
+                                            onChange = {this.setSpeed} />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
