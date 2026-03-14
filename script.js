@@ -68,8 +68,9 @@ $(document).ready(function(){
                 this._dragStatus = null;
                 this._paintedCells = {};
                 this._previewPos = null;
+                this._loopRunning = false;
                 this.drawBoard();
-                requestAnimationFrame(this.findNewStates);
+                this._startLoop();
             },
 
             buildBoard : function(cols, rows, sparseness, cellSize){
@@ -79,7 +80,7 @@ $(document).ready(function(){
                         arr.push({
                             x :      c * cellSize,
                             y :      r * cellSize,
-                            status : Math.floor(Math.random() * sparseness)
+                            status : Math.random() < (1 / sparseness) ? 1 : 0
                         });
                     }
                 }
@@ -122,9 +123,9 @@ $(document).ready(function(){
                     var offsetPR = this._previewPos.r - Math.floor(maxPR / 2);
                     var offsetPC = this._previewPos.c - Math.floor(maxPC / 2);
                     ctx.fillStyle = 'rgba(112, 149, 154, 0.55)';
-                    for(var pi = 0; pi < pattern.length; pi++){
-                        var pvR = pattern[pi][0] + offsetPR;
-                        var pvC = pattern[pi][1] + offsetPC;
+                    for(var pj = 0; pj < pattern.length; pj++){
+                        var pvR = pattern[pj][0] + offsetPR;
+                        var pvC = pattern[pj][1] + offsetPC;
                         if(pvR >= 0 && pvR < rows && pvC >= 0 && pvC < cols){
                             ctx.fillRect(pvC * cellSize, pvR * cellSize, cellSize, cellSize);
                         }
@@ -159,9 +160,7 @@ $(document).ready(function(){
             },
 
             // Shared next-generation computation used by both findNewStates and stepGame.
-            computeNextGeneration : function(boardSnapshot, cols, rows){
-                var birth = this.state.birthRule;
-                var survive = this.state.surviveRule;
+            computeNextGeneration : function(boardSnapshot, cols, rows, birth, survive){
                 var newStates = [];
                 for(var i = 0; i < boardSnapshot.length; i++){
                     var n = this.countLiveNeighbours(i, boardSnapshot, cols, rows);
@@ -174,12 +173,20 @@ $(document).ready(function(){
                 return newStates;
             },
 
+            _startLoop : function(){
+                if(this._loopRunning){ return; }
+                this._loopRunning = true;
+                requestAnimationFrame(this.findNewStates);
+            },
+
             findNewStates : function(){
                 if(this.state.running === true){
                     var boardSnapshot = this.state.board.slice();
                     var cols = this.state.cols;
                     var rows = this.state.rows;
-                    var newStates = this.computeNextGeneration(boardSnapshot, cols, rows);
+                    var birth = this.state.birthRule;
+                    var survive = this.state.surviveRule;
+                    var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive);
                     var copyOfBoard = boardSnapshot.map(function(cell){
                         return {x: cell.x, y: cell.y, status: cell.status};
                     });
@@ -193,6 +200,8 @@ $(document).ready(function(){
                         var delay = delays[self.state.speed - 1];
                         setTimeout(function(){ requestAnimationFrame(self.findNewStates); }, delay);
                     });
+                } else {
+                    this._loopRunning = false;
                 }
             },
 
@@ -201,7 +210,9 @@ $(document).ready(function(){
                 var boardSnapshot = this.state.board.slice();
                 var cols = this.state.cols;
                 var rows = this.state.rows;
-                var newStates = this.computeNextGeneration(boardSnapshot, cols, rows);
+                var birth = this.state.birthRule;
+                var survive = this.state.surviveRule;
+                var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive);
                 var copyOfBoard = boardSnapshot.map(function(cell){
                     return {x: cell.x, y: cell.y, status: cell.status};
                 });
@@ -276,6 +287,8 @@ $(document).ready(function(){
             },
 
             onMouseMove : function(event){
+                // Skip all work if there is nothing to do.
+                if(!this.state.selectedPattern && !this._dragging){ return; }
                 var mouse = this.getMousePos(event);
                 var cellSize = this.state.cellSize;
                 var c = Math.floor(mouse.x / cellSize);
@@ -293,7 +306,6 @@ $(document).ready(function(){
                     return;
                 }
                 // Normal draw mode: continue drag-paint.
-                if(!this._dragging){ return; }
                 if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
                 var idx = r * this.state.cols + c;
                 if(this._paintedCells[idx] !== undefined){ return; }
@@ -350,7 +362,7 @@ $(document).ready(function(){
                     this.setState({running : false});
                 } else {
                     this.setState({running : true});
-                    requestAnimationFrame(this.findNewStates);
+                    this._startLoop();
                 }
             },
 
