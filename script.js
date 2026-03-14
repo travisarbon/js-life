@@ -7,12 +7,16 @@ $(document).ready(function(){
         var LifeBoard = React.createClass({
 
             getInitialState : function(){
-                var initialSize = this.buildBoard(500, 2);
+                var cellSize = 5;
+                var cols = 100;
+                var rows = 100;
                 return {
                     running : true,
-                    boardSize : initialSize[0],
+                    cellSize : cellSize,
+                    cols : cols,
+                    rows : rows,
                     sparseness : 2,
-                    board: initialSize[1],
+                    board: this.buildBoard(cols, rows, 2, cellSize),
                     generations : 1,
                     liveClickMode : false,
                     speed : 5
@@ -20,60 +24,47 @@ $(document).ready(function(){
             },
 
             componentDidMount : function(){
-                this.drawBoard(this.state.boardSize);
+                this.drawBoard();
                 requestAnimationFrame(this.findNewStates);
             },
 
-            buildBoard : function(boardSize, sparseness){
-                var x = 0;
-                var y = 0;
+            buildBoard : function(cols, rows, sparseness, cellSize){
                 var arr = [];
-                for(var i = 0; i < boardSize * boardSize; i++){
-                    var status = Math.floor(Math.random() * (sparseness));
-                    if(x < boardSize && y !== boardSize){
-                        arr.push({"x" : x, "y" : y, "status" : status});
-                        x = x + boardSize/100;
-                    } else if(x == boardSize && y !== boardSize){
-                        if(y < (boardSize - boardSize/100)){
-                            x = 0;
-                            y = y + boardSize/100;
-                            arr.push({"x" : x, "y" : y, "status" : status});
-                            x = boardSize/100;
-                        }
-                    } else if(y == boardSize){
-                        i = boardSize * boardSize;
+                for(var r = 0; r < rows; r++){
+                    for(var c = 0; c < cols; c++){
+                        arr.push({
+                            x : c * cellSize,
+                            y : r * cellSize,
+                            status : Math.floor(Math.random() * sparseness)
+                        });
                     }
                 }
-                return [boardSize, arr];
+                return arr;
             },
 
-            drawBoard : function(boardSize){
+            drawBoard : function(){
                     var canvas = document.getElementById("life-canvas");
                     var ctx = canvas.getContext("2d");
+                    var cellSize = this.state.cellSize;
                     for(var i = 0; i < this.state.board.length; i++){
-                        if(this.state.board[i].status === 1){
-                            ctx.fillStyle = "#70959A";
-                            ctx.fillRect(this.state.board[i].x,this.state.board[i].y, boardSize/100, boardSize/100);
-                        } else {
-                            ctx.fillStyle = "#FFFFFF";
-                            ctx.fillRect(this.state.board[i].x,this.state.board[i].y, boardSize/100, boardSize/100);
-                        }
+                        ctx.fillStyle = this.state.board[i].status === 1 ? "#70959A" : "#FFFFFF";
+                        ctx.fillRect(this.state.board[i].x, this.state.board[i].y, cellSize, cellSize);
                     }
             },
 
             // Returns the number of live neighbours for cell index i.
             // Accepts an explicit board snapshot so that a setState from a
             // concurrent click cannot change the data mid-tick.
-            countLiveNeighbours : function(i, board){
-                var col = i % 100;
-                var row = Math.floor(i / 100);
+            countLiveNeighbours : function(i, board, cols, rows){
+                var col = i % cols;
+                var row = Math.floor(i / cols);
                 var count = 0;
                 for(var dc = -1; dc <= 1; dc++){
                     for(var dr = -1; dr <= 1; dr++){
                         if(dc === 0 && dr === 0){ continue; }
-                        var nc = (col + dc + 100) % 100;
-                        var nr = (row + dr + 100) % 100;
-                        if(board[nr * 100 + nc].status === 1){ count++; }
+                        var nc = (col + dc + cols) % cols;
+                        var nr = (row + dr + rows) % rows;
+                        if(board[nr * cols + nc].status === 1){ count++; }
                     }
                 }
                 return count;
@@ -85,9 +76,11 @@ $(document).ready(function(){
                     // mid-loop (in live-click mode) does not affect this tick's
                     // neighbour reads.
                     var boardSnapshot = this.state.board.slice();
+                    var cols = this.state.cols;
+                    var rows = this.state.rows;
                     var newStates = [];
                     for(var i = 0; i < boardSnapshot.length; i++){
-                        var statusCounter = this.countLiveNeighbours(i, boardSnapshot);
+                        var statusCounter = this.countLiveNeighbours(i, boardSnapshot, cols, rows);
                         if(statusCounter === 3){
                             newStates.push(1);
                         } else if(boardSnapshot[i].status === 1 && statusCounter === 2) {
@@ -97,13 +90,16 @@ $(document).ready(function(){
                     var copyOfBoard = boardSnapshot.map(function(cell){
                         return {x: cell.x, y: cell.y, status: cell.status};
                     });
-                    this.setState({board : this.changeCopiedBoard(copyOfBoard, newStates)});
-                    this.setState({generations : this.state.generations + 1});
-                    this.drawBoard(this.state.boardSize);
-                    var delays = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
-                    var delay = delays[this.state.speed - 1];
                     var self = this;
-                    setTimeout(function(){ requestAnimationFrame(self.findNewStates); }, delay);
+                    this.setState({
+                        board: this.changeCopiedBoard(copyOfBoard, newStates),
+                        generations: this.state.generations + 1
+                    }, function(){
+                        self.drawBoard();
+                        var delays = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
+                        var delay = delays[self.state.speed - 1];
+                        setTimeout(function(){ requestAnimationFrame(self.findNewStates); }, delay);
+                    });
                 }
             },
 
@@ -142,10 +138,11 @@ $(document).ready(function(){
             },
 
             findMouseSquare : function(mouse){
-                var arr = [];
-                arr = arr.concat(this.state.board);
+                var arr = this.state.board.map(function(cell){
+                    return {x: cell.x, y: cell.y, status: cell.status};
+                });
                 for(var i = 0; i < arr.length; i++){
-                    if((mouse.x < arr[i].x + this.state.boardSize/100) && (mouse.y < arr[i].y + this.state.boardSize/100) && (mouse.x >= arr[i].x) && (mouse.y >= arr[i].y)){
+                    if((mouse.x < arr[i].x + this.state.cellSize) && (mouse.y < arr[i].y + this.state.cellSize) && (mouse.x >= arr[i].x) && (mouse.y >= arr[i].y)){
                         if(arr[i].status !== 1){
                             arr[i].status = 1;
                         } else {arr[i].status = 0}
@@ -153,8 +150,36 @@ $(document).ready(function(){
                 }
                 var self = this;
                 this.setState({board : arr}, function(){
-                    self.drawBoard(self.state.boardSize);
+                    self.drawBoard();
                 });
+            },
+
+            resizeBoard : function(newCols, newRows){
+                var cellSize = this.state.cellSize;
+                var oldCols = this.state.cols;
+                var oldRows = this.state.rows;
+                var oldBoard = this.state.board;
+                var newBoard = [];
+                for(var r = 0; r < newRows; r++){
+                    for(var c = 0; c < newCols; c++){
+                        var status = (r < oldRows && c < oldCols)
+                            ? oldBoard[r * oldCols + c].status
+                            : 0;
+                        newBoard.push({x : c * cellSize, y : r * cellSize, status : status});
+                    }
+                }
+                var self = this;
+                this.setState({cols : newCols, rows : newRows, board : newBoard}, function(){
+                    self.drawBoard();
+                });
+            },
+
+            setWidth : function(e){
+                this.resizeBoard(parseInt(e.target.value), this.state.rows);
+            },
+
+            setHeight : function(e){
+                this.resizeBoard(this.state.cols, parseInt(e.target.value));
             },
 
             setDensity : function(e){
@@ -187,10 +212,10 @@ $(document).ready(function(){
             },
 
             resetGame : function(){
-                var newBoard = this.buildBoard(this.state.boardSize, this.state.sparseness);
+                var newBoard = this.buildBoard(this.state.cols, this.state.rows, this.state.sparseness, this.state.cellSize);
                 var self = this;
-                this.setState({running : false, generations : 0, board : newBoard[1]}, function(){
-                    self.drawBoard(self.state.boardSize);
+                this.setState({running : false, generations : 0, board : newBoard}, function(){
+                    self.drawBoard();
                 });
             },
 
@@ -198,13 +223,36 @@ $(document).ready(function(){
                 return(
                     <div>
                         <h2 className = "top">Conway's Game of Life</h2>
-                        <canvas className = "display" width = "500" height = "500" id = "life-canvas" onClick = {this.mouseClick}></canvas>
+                        <canvas className = "display"
+                            width = {this.state.cols * this.state.cellSize}
+                            height = {this.state.rows * this.state.cellSize}
+                            id = "life-canvas" onClick = {this.mouseClick}></canvas>
                         <h3 className = "generations">{"Generations: " + this.state.generations}</h3>
                         <div className = "buttons">
                             <button className = "btn" onClick = {this.toggleGame}>Start/Pause</button>
                             <button className = "btn" onClick = {this.resetGame}>Reset</button>
                             <button className = "btn" onClick = {this.emptyBoard}>Empty</button>
                             <button className = {"btn btn-click-mode" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{"Click: " + (this.state.liveClickMode ? "Live" : "Pause")}</button>
+                        </div>
+                        <div className = "sliders">
+                            <label className = "slider-title">Width</label>
+                            <div className = "slider-row">
+                                <span className = "slider-label">Narrow</span>
+                                <input type = "range" min = "20" max = "200" step = "10"
+                                    value = {this.state.cols}
+                                    onChange = {this.setWidth} />
+                                <span className = "slider-label">Wide</span>
+                            </div>
+                        </div>
+                        <div className = "sliders">
+                            <label className = "slider-title">Height</label>
+                            <div className = "slider-row">
+                                <span className = "slider-label">Short</span>
+                                <input type = "range" min = "20" max = "200" step = "10"
+                                    value = {this.state.rows}
+                                    onChange = {this.setHeight} />
+                                <span className = "slider-label">Tall</span>
+                            </div>
                         </div>
                         <div className = "sliders">
                             <label className = "slider-title">Density</label>
