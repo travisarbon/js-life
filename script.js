@@ -443,9 +443,12 @@ $(document).ready(function(){
                 });
             },
 
-            // onChange: update the pending display value only — no board computation yet.
+            // onChange: update the pending display value and preview the canvas size.
             setWidth : function(e){
-                this.setState({pendingCols : parseInt(e.target.value)});
+                var self = this;
+                this.setState({pendingCols : parseInt(e.target.value)}, function(){
+                    self.drawBoard();
+                });
             },
 
             // onMouseUp/onTouchEnd: commit the pending value and actually resize.
@@ -454,7 +457,10 @@ $(document).ready(function(){
             },
 
             setHeight : function(e){
-                this.setState({pendingRows : parseInt(e.target.value)});
+                var self = this;
+                this.setState({pendingRows : parseInt(e.target.value)}, function(){
+                    self.drawBoard();
+                });
             },
 
             applyHeight : function(){
@@ -599,8 +605,8 @@ $(document).ready(function(){
                         <div className = "content-body">
                             <div className = "canvas-container">
                                 <canvas className = "display"
-                                    width = {this.state.cols * this.state.cellSize}
-                                    height = {this.state.rows * this.state.cellSize}
+                                    width = {this.state.pendingCols * this.state.cellSize}
+                                    height = {this.state.pendingRows * this.state.cellSize}
                                     id = "life-canvas"
                                     draggable = {false}
                                     onMouseDown =  {this.onMouseDown}

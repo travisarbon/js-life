@@ -47,14 +47,19 @@ body {
     font-size: 0.9em;
     line-height: 1.7; }
   #content .status-indicator {
+    display: inline-block;
     font-size: 0.75em;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin-top: 2px; }
+    margin-top: 2px;
+    padding: 1px 7px;
+    border-radius: 3px; }
   #content .status-running {
-    color: #70959A; }
+    background: #70959A;
+    color: #F4E9E1; }
   #content .status-paused {
-    color: #c8b8b0; }
+    background: rgba(0,0,0,0.25);
+    color: #F4E9E1; }
   #content .btn {
     text-align: center;
     padding: 5px 6px;
