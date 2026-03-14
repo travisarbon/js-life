@@ -110,6 +110,8 @@ $(document).ready(function(){
                 var cellSize = this.state.cellSize;
                 var cols = this.state.cols;
                 var rows = this.state.rows;
+                var pendingCols = this.state.pendingCols;
+                var pendingRows = this.state.pendingRows;
                 for(var i = 0; i < this.state.board.length; i++){
                     ctx.fillStyle = this.state.board[i].status === 1 ? "#70959A" : "#FFFFFF";
                     ctx.fillRect(this.state.board[i].x, this.state.board[i].y, cellSize, cellSize);
@@ -118,13 +120,13 @@ $(document).ready(function(){
                     ctx.strokeStyle = 'rgba(0,0,0,0.15)';
                     ctx.lineWidth = 0.5;
                     ctx.beginPath();
-                    for(var c = 0; c <= cols; c++){
+                    for(var c = 0; c <= pendingCols; c++){
                         ctx.moveTo(c * cellSize, 0);
-                        ctx.lineTo(c * cellSize, rows * cellSize);
+                        ctx.lineTo(c * cellSize, pendingRows * cellSize);
                     }
-                    for(var r = 0; r <= rows; r++){
+                    for(var r = 0; r <= pendingRows; r++){
                         ctx.moveTo(0, r * cellSize);
-                        ctx.lineTo(cols * cellSize, r * cellSize);
+                        ctx.lineTo(pendingCols * cellSize, r * cellSize);
                     }
                     ctx.stroke();
                 }
@@ -207,7 +209,7 @@ $(document).ready(function(){
                 var newStates = [];
                 for(var i = 0; i < boardSnapshot.length; i++){
                     var n = this.countLiveNeighbours(i, boardSnapshot, cols, rows, boundary);
-                    if(birth.indexOf(n) !== -1){
+                    if(boardSnapshot[i].status === 0 && birth.indexOf(n) !== -1){
                         newStates.push(1);
                     } else if(boardSnapshot[i].status === 1 && survive.indexOf(n) !== -1){
                         newStates.push(1);
@@ -627,6 +629,7 @@ $(document).ready(function(){
             },
 
             render : function(){
+                var self = this;
                 var population = 0;
                 for(var i = 0; i < this.state.board.length; i++){
                     if(this.state.board[i].status === 1){ population++; }
