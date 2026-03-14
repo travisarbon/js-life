@@ -15,9 +15,7 @@ body {
   color: #F4E9E1; }
   #content canvas {
     margin-top: 15px;
-    width: 100%;
-    max-width: 500px;
-    aspect-ratio: 1;
+    max-width: 100%;
     height: auto;
     display: block;
     margin-left: auto;
