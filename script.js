@@ -195,7 +195,7 @@ $(document).ready(function(){
                     viewX :          0,
                     viewY :          0,
                     sparseness :     2,
-                    board :          this.buildBoard(cols, rows, 2, cellSize),
+                    liveCells :      this.buildLiveCells(cols, rows, 2),
                     generations :    0,
                     liveClickMode :  false,
                     speed :          5,
@@ -220,7 +220,9 @@ $(document).ready(function(){
                     theme :          'Teal',
                     drawMode :       'paint',
                     selection :      null,
-                    clipboard :      null
+                    clipboard :      null,
+                    showMinimap :    true,
+                    recording :      false
                 };
             },
 
@@ -240,6 +242,11 @@ $(document).ready(function(){
                 this._panDragging = false;
                 this._panStart = null;
                 this._worker = null;
+                this._gif = null;
+                this._minimapDirty = true;
+                this._minimapCanvas = document.createElement('canvas');
+                this._minimapCanvas.width  = 100;
+                this._minimapCanvas.height = 75;
                 this._canvas = document.getElementById("life-canvas");
                 // Attach wheel listener as non-passive so preventDefault works.
                 this._canvas.addEventListener('wheel', this.onWheel, {passive: false});
@@ -268,23 +275,22 @@ $(document).ready(function(){
                 this._canvas.removeEventListener('wheel', this.onWheel);
                 document.removeEventListener('keydown', this.handleKeyDown);
                 if(this._worker){ this._worker.terminate(); }
+                if(this._gif){ this._gif.abort(); this._gif = null; }
             },
 
             // ── Board construction ─────────────────────────────────────────────
 
-            buildBoard : function(cols, rows, sparseness, cellSize){
-                var arr = [];
+            // Returns a sparse Map: key = "r,c", value = age (1 for fresh cells).
+            buildLiveCells : function(cols, rows, sparseness){
+                var map = new Map();
                 for(var r = 0; r < rows; r++){
                     for(var c = 0; c < cols; c++){
-                        arr.push({
-                            x :      c * cellSize,
-                            y :      r * cellSize,
-                            status : Math.random() < (1 / sparseness) ? 1 : 0,
-                            age :    0
-                        });
+                        if(Math.random() < (1 / sparseness)){
+                            map.set(r + ',' + c, 1);
+                        }
                     }
                 }
-                return arr;
+                return map;
             },
 
             // ── Rendering ─────────────────────────────────────────────────────
@@ -300,6 +306,7 @@ $(document).ready(function(){
                 var canvasW = canvas.width;
                 var canvasH = canvas.height;
                 var theme = THEMES[this.state.theme] || THEMES['Teal'];
+                var liveCells = this.state.liveCells;
 
                 // Clear canvas with background colour.
                 ctx.fillStyle = theme.bg;
@@ -312,15 +319,13 @@ $(document).ready(function(){
                 var endR   = Math.min(rows, viewY + Math.ceil(canvasH / cellSize) + 1);
 
                 // Draw live cells with age-based coloring.
-                // Young cells (age 1) start at the "young" colour and blend to the
-                // full "alive" colour as age exceeds 10 generations.
                 var aR = theme.aliveR, aG = theme.aliveG, aB = theme.aliveB;
                 var yR = theme.youngR, yG = theme.youngG, yB = theme.youngB;
                 for(var r = startR; r < endR; r++){
                     for(var c = startC; c < endC; c++){
-                        var cell = this.state.board[r * cols + c];
-                        if(cell.status === 1){
-                            var t = Math.min((cell.age || 1) / 10, 1);
+                        var age = liveCells.get(r + ',' + c);
+                        if(age !== undefined){
+                            var t = Math.min(age / 10, 1);
                             ctx.fillStyle = 'rgb(' +
                                 Math.round(yR + (aR - yR) * t) + ',' +
                                 Math.round(yG + (aG - yG) * t) + ',' +
@@ -355,16 +360,14 @@ $(document).ready(function(){
                     var sy2 = (Math.max(sel.r1, sel.r2) - viewY + 1) * cellSize;
                     ctx.fillStyle = theme.sel;
                     ctx.fillRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
-                    ctx.strokeStyle = theme.aliveR !== undefined
-                        ? ('rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')')
-                        : '#70959A';
+                    ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
                     ctx.lineWidth = 1.5;
                     ctx.setLineDash([5, 3]);
                     ctx.strokeRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
                     ctx.setLineDash([]);
                 }
 
-                // Pattern placement preview — semi-transparent overlay under cursor.
+                // Pattern placement preview.
                 if(this.state.selectedPattern && this._previewPos){
                     var pattern = this.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
                     var maxPR = 0, maxPC = 0;
@@ -374,7 +377,7 @@ $(document).ready(function(){
                     }
                     var offsetPR = this._previewPos.r - Math.floor(maxPR / 2);
                     var offsetPC = this._previewPos.c - Math.floor(maxPC / 2);
-                    ctx.fillStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.55)';
+                    ctx.fillStyle = 'rgba(' + aR + ',' + aG + ',' + aB + ',0.55)';
                     for(var pj = 0; pj < pattern.length; pj++){
                         var pvR = pattern[pj][0] + offsetPR;
                         var pvC = pattern[pj][1] + offsetPC;
@@ -383,6 +386,61 @@ $(document).ready(function(){
                         }
                     }
                 }
+
+                // Minimap overlay (bottom-right corner).
+                if(this.state.showMinimap && cols > 0 && rows > 0){
+                    this.drawMinimap(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme);
+                }
+
+                // GIF recording: capture frame.
+                if(this.state.recording && this._gif){
+                    this._gif.addFrame(ctx, {copy: true, delay: SPEED_DELAYS[this.state.speed - 1] || 50});
+                }
+            },
+
+            drawMinimap : function(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme){
+                var mmW = 100, mmH = 75;
+                var mmX = canvasW - mmW - 6, mmY = canvasH - mmH - 6;
+
+                // Redraw minimap off-screen canvas only when marked dirty.
+                if(this._minimapDirty){
+                    var mc = this._minimapCanvas;
+                    var mctx = mc.getContext('2d');
+                    mctx.clearRect(0, 0, mmW, mmH);
+                    // Background.
+                    mctx.fillStyle = 'rgba(10,14,26,0.85)';
+                    mctx.fillRect(0, 0, mmW, mmH);
+                    // Draw all live cells as 1-px dots.
+                    mctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
+                    liveCells.forEach(function(age, key){
+                        var comma = key.indexOf(',');
+                        var kr = parseInt(key.substring(0, comma));
+                        var kc = parseInt(key.substring(comma + 1));
+                        mctx.fillRect(Math.floor(kc / cols * mmW), Math.floor(kr / rows * mmH), 1, 1);
+                    });
+                    // Border.
+                    mctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                    mctx.lineWidth = 1;
+                    mctx.strokeRect(0.5, 0.5, mmW - 1, mmH - 1);
+                    this._minimapDirty = false;
+                }
+
+                // Blit minimap to main canvas.
+                ctx.drawImage(this._minimapCanvas, mmX, mmY);
+
+                // Viewport rectangle.
+                var visCols = Math.ceil(canvasW / cellSize);
+                var visRows = Math.ceil(canvasH / cellSize);
+                var vx1 = mmX + Math.round(viewX / cols * mmW);
+                var vy1 = mmY + Math.round(viewY / rows * mmH);
+                var vw  = Math.max(2, Math.round(visCols / cols * mmW));
+                var vh  = Math.max(2, Math.round(visRows / rows * mmH));
+                ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(vx1 + 0.5, vy1 + 0.5, vw, vh);
+
+                // Store minimap rect for click detection.
+                this._minimapRect = {x: mmX, y: mmY, w: mmW, h: mmH};
             },
 
             drawRotationPreview : function(){
@@ -412,45 +470,61 @@ $(document).ready(function(){
                 }
             },
 
-            // ── Neighbour counting & generation logic ─────────────────────────
+            // ── Sparse generation logic ────────────────────────────────────────
+            // Runs in O(k) where k = number of live cells, not O(rows × cols).
 
-            countLiveNeighbours : function(i, board, cols, rows, boundary){
-                var col = i % cols;
-                var row = Math.floor(i / cols);
-                var count = 0;
+            // Returns a new Map of live cells for the next generation.
+            computeNextGeneration : function(liveCells, cols, rows, birth, survive, boundary){
                 var toroidal = boundary === 'toroidal';
-                for(var dc = -1; dc <= 1; dc++){
+                // Build candidate set: every live cell plus each of its 8 neighbours.
+                var candidates = new Map();
+                liveCells.forEach(function(age, key){
+                    var comma = key.indexOf(',');
+                    var kr = parseInt(key.substring(0, comma));
+                    var kc = parseInt(key.substring(comma + 1));
+                    candidates.set(key, [kr, kc]);
                     for(var dr = -1; dr <= 1; dr++){
-                        if(dc === 0 && dr === 0){ continue; }
-                        var nc, nr;
-                        if(toroidal){
-                            nc = (col + dc + cols) % cols;
-                            nr = (row + dr + rows) % rows;
-                        } else {
-                            nc = col + dc;
-                            nr = row + dr;
-                            if(nc < 0 || nc >= cols || nr < 0 || nr >= rows){ continue; }
+                        for(var dc = -1; dc <= 1; dc++){
+                            if(dr === 0 && dc === 0){ continue; }
+                            var nr, nc;
+                            if(toroidal){
+                                nr = (kr + dr + rows) % rows;
+                                nc = (kc + dc + cols) % cols;
+                            } else {
+                                nr = kr + dr; nc = kc + dc;
+                                if(nr < 0 || nr >= rows || nc < 0 || nc >= cols){ continue; }
+                            }
+                            var nk = nr + ',' + nc;
+                            if(!candidates.has(nk)){ candidates.set(nk, [nr, nc]); }
                         }
-                        if(board[nr * cols + nc].status === 1){ count++; }
                     }
-                }
-                return count;
-            },
-
-            // Returns an array of {status, age} objects for the next generation.
-            computeNextGeneration : function(boardSnapshot, cols, rows, birth, survive, boundary){
-                var newStates = [];
-                for(var i = 0; i < boardSnapshot.length; i++){
-                    var n = this.countLiveNeighbours(i, boardSnapshot, cols, rows, boundary);
-                    var wasAlive = boardSnapshot[i].status === 1;
-                    var alive = (wasAlive  && survive.indexOf(n) !== -1) ||
-                                (!wasAlive && birth.indexOf(n)   !== -1);
-                    newStates.push({
-                        status : alive ? 1 : 0,
-                        age :    alive ? (boardSnapshot[i].age || 0) + 1 : 0
-                    });
-                }
-                return newStates;
+                });
+                // Apply rules to each candidate.
+                var newLiveCells = new Map();
+                candidates.forEach(function(pos, key){
+                    var r = pos[0], c = pos[1];
+                    var count = 0;
+                    for(var dr = -1; dr <= 1; dr++){
+                        for(var dc = -1; dc <= 1; dc++){
+                            if(dr === 0 && dc === 0){ continue; }
+                            var nr, nc;
+                            if(toroidal){
+                                nr = (r + dr + rows) % rows;
+                                nc = (c + dc + cols) % cols;
+                            } else {
+                                nr = r + dr; nc = c + dc;
+                                if(nr < 0 || nr >= rows || nc < 0 || nc >= cols){ continue; }
+                            }
+                            if(liveCells.has(nr + ',' + nc)){ count++; }
+                        }
+                    }
+                    var wasAlive = liveCells.has(key);
+                    var alive = wasAlive ? survive.indexOf(count) !== -1 : birth.indexOf(count) !== -1;
+                    if(alive){
+                        newLiveCells.set(key, wasAlive ? (liveCells.get(key) || 0) + 1 : 1);
+                    }
+                });
+                return newLiveCells;
             },
 
             // ── Animation loop ─────────────────────────────────────────────────
@@ -467,7 +541,7 @@ $(document).ready(function(){
                 if(tickId !== this._tickId){ this._loopRunning = false; return; }
                 if(this.state.running !== true){ this._loopRunning = false; return; }
 
-                var boardSnapshot = this.state.board.slice();
+                var liveCells = this.state.liveCells;
                 var cols     = this.state.cols;
                 var rows     = this.state.rows;
                 var birth    = this.state.birthRule;
@@ -475,41 +549,38 @@ $(document).ready(function(){
                 var boundary = this.state.boundary;
 
                 if(this._worker){
-                    // Async path: offload to Web Worker.
-                    // Serialise board as minimal {status, age} array.
-                    var payload = new Array(boardSnapshot.length);
-                    for(var pi = 0; pi < boardSnapshot.length; pi++){
-                        payload[pi] = {status: boardSnapshot[pi].status, age: boardSnapshot[pi].age || 0};
-                    }
+                    // Async path: serialise sparse Map as [[r, c, age], ...].
+                    var payload = [];
+                    liveCells.forEach(function(age, key){
+                        var comma = key.indexOf(',');
+                        payload.push([parseInt(key.substring(0, comma)),
+                                      parseInt(key.substring(comma + 1)), age]);
+                    });
                     this._worker.postMessage({
-                        board: payload, cols: cols, rows: rows,
+                        liveCells: payload, cols: cols, rows: rows,
                         birth: birth, survive: survive, boundary: boundary,
                         tickId: tickId
                     });
-                    // _handleWorkerMessage will continue the loop.
                 } else {
-                    // Sync fallback.
-                    var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive, boundary);
-                    this._applyNewStates(newStates, boardSnapshot, tickId);
+                    var newLiveCells = this.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
+                    this._applyNewStates(newLiveCells, tickId);
                 }
             },
 
             // Called by the worker response handler and the sync path.
-            _applyNewStates : function(newStates, boardSnapshot, tickId){
+            _applyNewStates : function(newLiveCells, tickId){
                 if(tickId !== this._tickId){ this._loopRunning = false; return; }
 
-                // Stability detection.
-                var boardHash = newStates.map(function(s){ return s.status; }).join('');
+                // Stability detection via sorted key set.
+                var keys = [];
+                newLiveCells.forEach(function(age, key){ keys.push(key); });
+                var boardHash = keys.sort().join('|');
                 var isStable  = (boardHash === this._prevBoardHash);
                 this._prevBoardHash = boardHash;
                 this._stableCount = isStable ? this._stableCount + 1 : 0;
                 var hitStable = this._stableCount >= 2;
 
-                // Population count.
-                var newPop = 0;
-                for(var k = 0; k < newStates.length; k++){
-                    if(newStates[k].status === 1){ newPop++; }
-                }
+                var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory.concat([newPop]);
                 if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
 
@@ -522,13 +593,11 @@ $(document).ready(function(){
                     if(dt > 0){ this._measuredGps = (ts.length - 1) / dt * 1000; }
                 }
 
-                var copyOfBoard = boardSnapshot.map(function(cell){
-                    return {x: cell.x, y: cell.y, status: cell.status, age: cell.age || 0};
-                });
+                this._minimapDirty = true;
                 var self = this;
                 var myTickId = tickId;
                 this.setState({
-                    board :       this.changeCopiedBoard(copyOfBoard, newStates),
+                    liveCells :   newLiveCells,
                     generations : this.state.generations + 1,
                     popHistory :  newHistory,
                     stable :      hitStable,
@@ -545,31 +614,31 @@ $(document).ready(function(){
 
             // Receives computation results from the Web Worker.
             _handleWorkerMessage : function(data){
-                var boardSnapshot = this.state.board.slice();
-                this._applyNewStates(data.newStates, boardSnapshot, data.tickId);
+                // Reconstruct sparse Map from [[r, c, age], ...] payload.
+                var newLiveCells = new Map();
+                for(var i = 0; i < data.liveCells.length; i++){
+                    var cell = data.liveCells[i];
+                    newLiveCells.set(cell[0] + ',' + cell[1], cell[2]);
+                }
+                this._applyNewStates(newLiveCells, data.tickId);
             },
 
             stepGame : function(){
                 this.pushUndo();
-                var boardSnapshot = this.state.board.slice();
-                var cols     = this.state.cols;
-                var rows     = this.state.rows;
-                var birth    = this.state.birthRule;
-                var survive  = this.state.surviveRule;
-                var boundary = this.state.boundary;
-                var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive, boundary);
-                var newPop = 0;
-                for(var k = 0; k < newStates.length; k++){
-                    if(newStates[k].status === 1){ newPop++; }
-                }
+                var liveCells = this.state.liveCells;
+                var cols      = this.state.cols;
+                var rows      = this.state.rows;
+                var birth     = this.state.birthRule;
+                var survive   = this.state.surviveRule;
+                var boundary  = this.state.boundary;
+                var newLiveCells = this.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
+                var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory.concat([newPop]);
                 if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
-                var copyOfBoard = boardSnapshot.map(function(cell){
-                    return {x: cell.x, y: cell.y, status: cell.status, age: cell.age || 0};
-                });
+                this._minimapDirty = true;
                 var self = this;
                 this.setState({
-                    board :       this.changeCopiedBoard(copyOfBoard, newStates),
+                    liveCells :   newLiveCells,
                     running :     false,
                     generations : this.state.generations + 1,
                     popHistory :  newHistory,
@@ -577,21 +646,13 @@ $(document).ready(function(){
                 }, function(){ self.drawBoard(); });
             },
 
-            changeCopiedBoard : function(copyOfBoard, newStates){
-                for(var i = 0; i < copyOfBoard.length; i++){
-                    copyOfBoard[i].status = newStates[i].status;
-                    copyOfBoard[i].age    = newStates[i].age;
-                }
-                return copyOfBoard;
-            },
-
             // ── Undo ──────────────────────────────────────────────────────────
 
             pushUndo : function(){
-                var snapshot = this.state.board.map(function(cell){
-                    return {x: cell.x, y: cell.y, status: cell.status, age: cell.age || 0};
+                this._undoStack.push({
+                    liveCells :   new Map(this.state.liveCells),
+                    generations : this.state.generations
                 });
-                this._undoStack.push({board: snapshot, generations: this.state.generations});
                 if(this._undoStack.length > 30){ this._undoStack.shift(); }
             },
 
@@ -602,9 +663,10 @@ $(document).ready(function(){
                 this._loopRunning = false;
                 this._prevBoardHash = null;
                 this._stableCount = 0;
+                this._minimapDirty = true;
                 var self = this;
                 this.setState({
-                    board :       entry.board,
+                    liveCells :   entry.liveCells,
                     generations : entry.generations,
                     running :     false,
                     stable :      false
@@ -623,22 +685,17 @@ $(document).ready(function(){
             // ── RLE export ────────────────────────────────────────────────────
 
             boardToRLE : function(){
-                var board = this.state.board;
-                var cols  = this.state.cols;
-                var rows  = this.state.rows;
-                var rule  = this.state.ruleString;
-                var minR = rows, maxR = -1, minC = cols, maxC = -1;
-                for(var i = 0; i < board.length; i++){
-                    if(board[i].status === 1){
-                        var ri = Math.floor(i / cols);
-                        var ci = i % cols;
-                        if(ri < minR){ minR = ri; }
-                        if(ri > maxR){ maxR = ri; }
-                        if(ci < minC){ minC = ci; }
-                        if(ci > maxC){ maxC = ci; }
-                    }
-                }
-                if(maxR < 0){ return ''; }
+                var liveCells = this.state.liveCells;
+                var rule = this.state.ruleString;
+                var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+                liveCells.forEach(function(age, key){
+                    var comma = key.indexOf(',');
+                    var kr = parseInt(key.substring(0, comma));
+                    var kc = parseInt(key.substring(comma + 1));
+                    if(kr < minR){ minR = kr; } if(kr > maxR){ maxR = kr; }
+                    if(kc < minC){ minC = kc; } if(kc > maxC){ maxC = kc; }
+                });
+                if(!isFinite(maxR)){ return ''; }
                 var W = maxC - minC + 1;
                 var H = maxR - minR + 1;
                 var header = 'x = ' + W + ', y = ' + H + ', rule = ' + rule + '\n';
@@ -646,7 +703,7 @@ $(document).ready(function(){
                 for(var row = minR; row <= maxR; row++){
                     var runChar = null, runLen = 0, rowStr = '';
                     for(var col = minC; col <= maxC; col++){
-                        var ch = board[row * cols + col].status === 1 ? 'o' : 'b';
+                        var ch = liveCells.has(row + ',' + col) ? 'o' : 'b';
                         if(ch === runChar){
                             runLen++;
                         } else {
@@ -656,13 +713,11 @@ $(document).ready(function(){
                             runChar = ch; runLen = 1;
                         }
                     }
-                    // Omit trailing dead cells.
                     if(runChar === 'o'){ rowStr += (runLen > 1 ? runLen : '') + runChar; }
                     if(row < maxR){ rowStr += '$'; }
                     rleData += rowStr;
                 }
                 rleData += '!';
-                // Wrap lines at 70 characters (RLE convention).
                 var wrapped = '';
                 for(var k = 0; k < rleData.length; k += 70){
                     wrapped += rleData.slice(k, k + 70) + '\n';
@@ -744,6 +799,22 @@ $(document).ready(function(){
 
             onMouseDown : function(event){
                 event.preventDefault();
+                // Click on minimap: pan viewport to that position.
+                if(event.button === 0 && this._minimapRect && this.state.showMinimap){
+                    var mouse = this.getMousePos(event);
+                    var mm = this._minimapRect;
+                    if(mouse.x >= mm.x && mouse.x <= mm.x + mm.w &&
+                       mouse.y >= mm.y && mouse.y <= mm.y + mm.h){
+                        var frac_c = (mouse.x - mm.x) / mm.w;
+                        var frac_r = (mouse.y - mm.y) / mm.h;
+                        var newVX = Math.round(frac_c * this.state.cols - (this._canvas.width  / this.state.cellSize) / 2);
+                        var newVY = Math.round(frac_r * this.state.rows - (this._canvas.height / this.state.cellSize) / 2);
+                        var clamped = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
+                        var self0 = this;
+                        this.setState({viewX: clamped.viewX, viewY: clamped.viewY}, function(){ self0.drawBoard(); });
+                        return;
+                    }
+                }
                 // Middle-mouse or Space+left starts pan drag.
                 if(event.button === 1){
                     this._panDragging = true;
@@ -782,12 +853,12 @@ $(document).ready(function(){
 
                 // Paint mode.
                 if(!this.state.liveClickMode){ this.setState({running : false}); }
-                var idx = r * this.state.cols + c;
+                var key = r + ',' + c;
                 this.pushUndo();
                 this._dragging = true;
-                this._dragStatus = this.state.board[idx].status === 0 ? 1 : 0;
+                this._dragStatus = this.state.liveCells.has(key) ? 0 : 1;
                 this._paintedCells = {};
-                this._paintedCells[idx] = this._dragStatus;
+                this._paintedCells[key] = this._dragStatus;
                 this.paintCellDirect(c, r);
             },
 
@@ -842,9 +913,9 @@ $(document).ready(function(){
                 }
                 if(!this._dragging){ return; }
                 if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
-                var idx = r * this.state.cols + c;
-                if(this._paintedCells[idx] !== undefined){ return; }
-                this._paintedCells[idx] = this._dragStatus;
+                var paintKey = r + ',' + c;
+                if(this._paintedCells[paintKey] !== undefined){ return; }
+                this._paintedCells[paintKey] = this._dragStatus;
                 this.paintCellDirect(c, r);
             },
 
@@ -868,17 +939,15 @@ $(document).ready(function(){
                 if(!this._dragging){ return; }
                 this._dragging = false;
                 var paintedCells = this._paintedCells;
-                var newBoard = this.state.board.map(function(cell, i){
-                    return {
-                        x :      cell.x,
-                        y :      cell.y,
-                        status : paintedCells[i] !== undefined ? paintedCells[i] : cell.status,
-                        age :    paintedCells[i] !== undefined ? 0 : (cell.age || 0)
-                    };
+                var newLiveCells = new Map(this.state.liveCells);
+                Object.keys(paintedCells).forEach(function(k){
+                    if(paintedCells[k] === 1){ newLiveCells.set(k, 1); }
+                    else { newLiveCells.delete(k); }
                 });
                 this._paintedCells = {};
+                this._minimapDirty = true;
                 var self = this;
-                this.setState({board : newBoard, stable : false}, function(){ self.drawBoard(); });
+                this.setState({liveCells: newLiveCells, stable: false}, function(){ self.drawBoard(); });
             },
 
             onMouseLeave : function(){
@@ -939,27 +1008,26 @@ $(document).ready(function(){
             },
 
             fitView : function(){
-                var board = this.state.board;
+                var liveCells = this.state.liveCells;
                 var cols  = this.state.cols;
                 var rows  = this.state.rows;
                 var canvas = this._canvas;
                 if(!canvas){ return; }
                 var canvasW = canvas.width;
                 var canvasH = canvas.height;
-                var minR = rows, maxR = -1, minC = cols, maxC = -1;
-                for(var i = 0; i < board.length; i++){
-                    if(board[i].status === 1){
-                        var ri = Math.floor(i / cols);
-                        var ci = i % cols;
-                        if(ri < minR){ minR = ri; } if(ri > maxR){ maxR = ri; }
-                        if(ci < minC){ minC = ci; } if(ci > maxC){ maxC = ci; }
-                    }
-                }
                 var self = this;
-                if(maxR < 0){
+                if(liveCells.size === 0){
                     this.setState({viewX: 0, viewY: 0}, function(){ self.drawBoard(); });
                     return;
                 }
+                var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+                liveCells.forEach(function(age, key){
+                    var comma = key.indexOf(',');
+                    var kr = parseInt(key.substring(0, comma));
+                    var kc = parseInt(key.substring(comma + 1));
+                    if(kr < minR){ minR = kr; } if(kr > maxR){ maxR = kr; }
+                    if(kc < minC){ minC = kc; } if(kc > maxC){ maxC = kc; }
+                });
                 var patCols = maxC - minC + 1;
                 var patRows = maxR - minR + 1;
                 var newCS = Math.max(2, Math.min(32,
@@ -997,16 +1065,13 @@ $(document).ready(function(){
             copySelection : function(){
                 var sel = this.state.selection;
                 if(!sel){ return; }
-                var board = this.state.board;
-                var cols = this.state.cols;
+                var liveCells = this.state.liveCells;
                 var r1 = sel.r1, c1 = sel.c1, r2 = sel.r2, c2 = sel.c2;
                 var cells = [];
                 for(var r = r1; r <= r2; r++){
                     for(var c = c1; c <= c2; c++){
-                        if(r >= 0 && r < this.state.rows && c >= 0 && c < cols){
-                            if(board[r * cols + c].status === 1){
-                                cells.push([r - r1, c - c1]);
-                            }
+                        if(liveCells.has(r + ',' + c)){
+                            cells.push([r - r1, c - c1]);
                         }
                     }
                 }
@@ -1027,17 +1092,16 @@ $(document).ready(function(){
                 var sel = this.state.selection;
                 if(!sel){ return; }
                 this.pushUndo();
-                var cols = this.state.cols;
+                var newLiveCells = new Map(this.state.liveCells);
                 var r1 = sel.r1, c1 = sel.c1, r2 = sel.r2, c2 = sel.c2;
-                var newBoard = this.state.board.map(function(cell, i){
-                    var ri = Math.floor(i / cols), ci = i % cols;
-                    if(ri >= r1 && ri <= r2 && ci >= c1 && ci <= c2){
-                        return {x: cell.x, y: cell.y, status: 0, age: 0};
+                for(var r = r1; r <= r2; r++){
+                    for(var c = c1; c <= c2; c++){
+                        newLiveCells.delete(r + ',' + c);
                     }
-                    return cell;
-                });
+                }
+                this._minimapDirty = true;
                 var self = this;
-                this.setState({board: newBoard, stable: false},
+                this.setState({liveCells: newLiveCells, stable: false},
                     function(){ self.drawBoard(); });
             },
 
@@ -1054,6 +1118,44 @@ $(document).ready(function(){
                     var self = this;
                     this.setState({drawMode: 'select', selectedPattern: null},
                         function(){ self.drawBoard(); });
+                }
+            },
+
+            toggleMinimap : function(){
+                var self = this;
+                this.setState({showMinimap: !this.state.showMinimap}, function(){ self.drawBoard(); });
+            },
+
+            // ── GIF recording ─────────────────────────────────────────────────
+
+            toggleRecording : function(){
+                if(this.state.recording){
+                    // Stop recording and render.
+                    if(this._gif){ this._gif.render(); }
+                    this.setState({recording: false});
+                } else {
+                    // Start recording (requires gif.js loaded).
+                    if(typeof GIF === 'undefined'){
+                        alert('gif.js is not loaded. Add it to index.html to enable GIF export.');
+                        return;
+                    }
+                    var delay = Math.max(20, SPEED_DELAYS[this.state.speed - 1] || 50);
+                    var self = this;
+                    this._gif = new GIF({
+                        workers:   2,
+                        quality:   10,
+                        workerScript: 'js/gif.worker.js'
+                    });
+                    this._gif.on('finished', function(blob){
+                        var url  = URL.createObjectURL(blob);
+                        var link = document.createElement('a');
+                        link.href = url;
+                        link.download = 'life-gen' + self.state.generations + '.gif';
+                        link.click();
+                        setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
+                        self._gif = null;
+                    });
+                    this.setState({recording: true});
                 }
             },
 
@@ -1155,6 +1257,9 @@ $(document).ready(function(){
                     case '?':
                         this.toggleHelp();
                         break;
+                    case 'm': case 'M':
+                        this.toggleMinimap();
+                        break;
                 }
             },
 
@@ -1189,31 +1294,25 @@ $(document).ready(function(){
             // ── Sliders ───────────────────────────────────────────────────────
 
             resizeBoard : function(newCols, newRows){
-                var cellSize = this.state.cellSize;
-                var oldCols = this.state.cols;
-                var oldRows = this.state.rows;
-                var oldBoard = this.state.board;
-                var newBoard = [];
-                for(var r = 0; r < newRows; r++){
-                    for(var c = 0; c < newCols; c++){
-                        var inOld = r < oldRows && c < oldCols;
-                        newBoard.push({
-                            x :      c * cellSize,
-                            y :      r * cellSize,
-                            status : inOld ? oldBoard[r * oldCols + c].status : 0,
-                            age :    inOld ? (oldBoard[r * oldCols + c].age || 0) : 0
-                        });
-                    }
-                }
+                // Keep only cells that still fall within the new bounds.
+                var oldLiveCells = this.state.liveCells;
+                var newLiveCells = new Map();
+                oldLiveCells.forEach(function(age, key){
+                    var comma = key.indexOf(',');
+                    var kr = parseInt(key.substring(0, comma));
+                    var kc = parseInt(key.substring(comma + 1));
+                    if(kr < newRows && kc < newCols){ newLiveCells.set(key, age); }
+                });
                 var clamped = this.clampView(
                     this.state.viewX, this.state.viewY, newCols, newRows, this.state.cellSize);
+                this._minimapDirty = true;
                 var self = this;
                 this.setState({
                     cols :        newCols,
                     rows :        newRows,
                     pendingCols : newCols,
                     pendingRows : newRows,
-                    board :       newBoard,
+                    liveCells :   newLiveCells,
                     viewX :       clamped.viewX,
                     viewY :       clamped.viewY,
                     selection :   null
@@ -1426,49 +1525,44 @@ $(document).ready(function(){
                 }
                 var offsetR = centerR - Math.floor(maxR / 2);
                 var offsetC = centerC - Math.floor(maxC / 2);
-                var newBoard = this.state.board.map(function(cell){
-                    return {x : cell.x, y : cell.y, status : cell.status, age : cell.age || 0};
-                });
+                var newLiveCells = new Map(this.state.liveCells);
                 for(var i = 0; i < pattern.length; i++){
                     var pr = pattern[i][0] + offsetR;
                     var pc = pattern[i][1] + offsetC;
                     if(pr >= 0 && pr < rows && pc >= 0 && pc < cols){
-                        newBoard[pr * cols + pc].status = 1;
-                        newBoard[pr * cols + pc].age    = 0;
+                        newLiveCells.set(pr + ',' + pc, 1);
                     }
                 }
                 this._previewPos = null;
+                this._minimapDirty = true;
                 var self = this;
-                this.setState({board : newBoard, stable : false}, function(){ self.drawBoard(); });
+                this.setState({liveCells: newLiveCells, stable: false}, function(){ self.drawBoard(); });
             },
 
             // ── Board actions ─────────────────────────────────────────────────
 
             emptyBoard : function(){
                 this.pushUndo();
-                var newBoard = this.state.board.map(function(cell){
-                    return {x : cell.x, y : cell.y, status : 0, age : 0};
-                });
                 this._prevBoardHash = null;
                 this._stableCount = 0;
+                this._minimapDirty = true;
                 var self = this;
-                this.setState({running : false, generations : 0, board : newBoard,
+                this.setState({running : false, generations : 0, liveCells : new Map(),
                     popHistory : [], stable : false}, function(){ self.drawBoard(); });
             },
 
             resetGame : function(){
                 this.pushUndo();
-                var newBoard = this.buildBoard(
-                    this.state.cols, this.state.rows,
-                    this.state.sparseness, this.state.cellSize
-                );
+                var newLiveCells = this.buildLiveCells(
+                    this.state.cols, this.state.rows, this.state.sparseness);
                 var wasRunning = this.state.running;
                 this._tickId++;
                 this._loopRunning = false;
                 this._prevBoardHash = null;
                 this._stableCount = 0;
+                this._minimapDirty = true;
                 var self = this;
-                this.setState({running : false, generations : 0, board : newBoard,
+                this.setState({running : false, generations : 0, liveCells : newLiveCells,
                     popHistory : [], stable : false}, function(){
                     self.drawBoard();
                     if(wasRunning){
@@ -1481,10 +1575,7 @@ $(document).ready(function(){
 
             render : function(){
                 var self = this;
-                var population = 0;
-                for(var i = 0; i < this.state.board.length; i++){
-                    if(this.state.board[i].status === 1){ population++; }
-                }
+                var population = this.state.liveCells.size;
 
                 var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
                 var delay = SPEED_DELAYS[this.state.speed - 1];
@@ -1594,6 +1685,7 @@ $(document).ready(function(){
                                             <tr><td>Ctrl+V</td><td>Paste selection</td></tr>
                                             <tr><td>Del</td><td>Delete selection</td></tr>
                                             <tr><td>Esc</td><td>Cancel / close</td></tr>
+                                            <tr><td>M</td><td>Toggle minimap</td></tr>
                                             <tr><td>?</td><td>Show / hide this help</td></tr>
                                         </tbody>
                                     </table>
@@ -1656,6 +1748,8 @@ $(document).ready(function(){
                                         <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
                                         <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary}>{this.state.boundary === 'toroidal' ? "Wrap" : "Dead"}</button>
                                         <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
+                                        <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap}>Map</button>
+                                        <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording}>{this.state.recording ? "Stop GIF" : "Rec GIF"}</button>
                                         <button className="btn" onClick={this.toggleHelp}>Help</button>
                                     </div>
                                 </div>
@@ -1717,7 +1811,7 @@ $(document).ready(function(){
                                 <div className="sliders">
                                     <label className="slider-title">{"Width: " + this.state.pendingCols}</label>
                                     <div className="slider-row">
-                                        <input type="range" min="20" max="200" step="10"
+                                        <input type="range" min="20" max="400" step="10"
                                             value={this.state.pendingCols}
                                             onChange={this.setWidth}
                                             onMouseUp={this.applyWidth}
@@ -1728,7 +1822,7 @@ $(document).ready(function(){
                                 <div className="sliders">
                                     <label className="slider-title">{"Height: " + this.state.pendingRows}</label>
                                     <div className="slider-row">
-                                        <input type="range" min="20" max="200" step="10"
+                                        <input type="range" min="20" max="400" step="10"
                                             value={this.state.pendingRows}
                                             onChange={this.setHeight}
                                             onMouseUp={this.applyHeight}
