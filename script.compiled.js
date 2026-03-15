@@ -660,9 +660,15 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (h / w > 1 / gridAspect) {
           h = Math.max(1, Math.round(w / gridAspect));
         }
+        // Scale up buffer to fill available space (displayScale is always ≥ 1).
+        var displayScale = w > 0 && h > 0 ? Math.min(maxW / w, maxH / h) : 1;
+        var displayW = Math.round(w * displayScale);
+        var displayH = Math.round(h * displayScale);
         return {
           w: w,
-          h: h
+          h: h,
+          displayW: displayW,
+          displayH: displayH
         };
       },
       componentWillUnmount: function () {
@@ -1314,8 +1320,11 @@ document.addEventListener('DOMContentLoaded', function () {
           var dx = event.clientX - this._panStart.x;
           var dy = event.clientY - this._panStart.y;
           var cellSize = this.state.cellSize;
-          var dcells = -Math.round(dx / cellSize);
-          var drows = -Math.round(dy / cellSize);
+          // Account for CSS display scale: pan speed must match visual cell size.
+          var rect = this._canvas.getBoundingClientRect();
+          var displayCellSize = rect.width > 0 && this._canvas.width > 0 ? cellSize * (rect.width / this._canvas.width) : cellSize;
+          var dcells = -Math.round(dx / displayCellSize);
+          var drows = -Math.round(dy / displayCellSize);
           var clamped = this.clampView(this._panStart.vx + dcells, this._panStart.vy + drows, this.state.cols, this.state.rows, cellSize);
           var self0 = this;
           this.setState({
@@ -2882,6 +2891,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "display",
           width: cs.w,
           height: cs.h,
+          style: {
+            width: cs.displayW + 'px',
+            height: cs.displayH + 'px'
+          },
           id: "life-canvas",
           draggable: false,
           onMouseDown: this.onMouseDown,
