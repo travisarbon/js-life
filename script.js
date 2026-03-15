@@ -6,10 +6,15 @@
 // All cells are [row, col] offsets (0-indexed from top-left of bounding box).
 var PATTERN_GROUPS = {
     'Still lifes': {
-        'Block':   [[0,0],[0,1],[1,0],[1,1]],
-        'Beehive': [[0,1],[0,2],[1,0],[1,3],[2,1],[2,2]],
-        'Loaf':    [[0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2]],
-        'Boat':    [[0,0],[0,1],[1,0],[1,2],[2,1]]
+        'Block':     [[0,0],[0,1],[1,0],[1,1]],
+        'Beehive':   [[0,1],[0,2],[1,0],[1,3],[2,1],[2,2]],
+        'Loaf':      [[0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2]],
+        'Boat':      [[0,0],[0,1],[1,0],[1,2],[2,1]],
+        'Tub':       [[0,1],[1,0],[1,2],[2,1]],
+        'Ship':      [[0,0],[0,1],[1,0],[1,2],[2,1],[2,2]],
+        'Barge':     [[0,1],[1,0],[1,2],[2,1],[2,3],[3,2]],
+        'Long boat': [[0,0],[0,1],[1,0],[1,2],[2,1],[2,3],[3,2]],
+        'Pond':      [[0,1],[0,2],[1,0],[1,3],[2,0],[2,3],[3,1],[3,2]]
     },
     'Oscillators': {
         'Blinker':        [[0,0],[0,1],[0,2]],
@@ -27,8 +32,15 @@ var PATTERN_GROUPS = {
                             [10,0],[10,5],[10,7],[10,12],
                             [12,2],[12,3],[12,4],[12,8],[12,9],[12,10]
                           ],
-        // Period-15 oscillator: row of 10 with specific corners modified.
-        'Pentadecathlon': [[0,1],[1,1],[2,0],[2,2],[3,1],[4,1],[5,1],[6,1],[7,0],[7,2],[8,1],[9,1]]
+        // Period-15 oscillator.
+        'Pentadecathlon': [[0,1],[1,1],[2,0],[2,2],[3,1],[4,1],[5,1],[6,1],[7,0],[7,2],[8,1],[9,1]],
+        // Period-4 oscillator.
+        'Mold':           [[0,1],[0,2],[0,3],[1,1],[1,3],[2,0],[2,2],[3,0],[3,1],[3,2]],
+        // Period-14 oscillator.
+        'Tumbler':        [[0,1],[0,2],[0,4],[0,5],
+                           [1,1],[1,3],[1,5],
+                           [2,0],[2,2],[2,4],[2,6],
+                           [3,0],[3,1],[3,5],[3,6]]
     },
     'Spaceships': {
         'Glider': [[0,1],[1,2],[2,0],[2,1],[2,2]],
@@ -40,10 +52,16 @@ var PATTERN_GROUPS = {
         'HWSS':   [[0,3],[0,4],[1,1],[1,6],[2,0],[3,0],[3,6],[4,0],[4,1],[4,2],[4,3],[4,4],[4,5]]
     },
     'Methuselahs': {
-        'R-pentomino': [[0,1],[0,2],[1,0],[1,1],[2,1]],
-        'Acorn':       [[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]],
+        'R-pentomino':  [[0,1],[0,2],[1,0],[1,1],[2,1]],
+        'Acorn':        [[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]],
         // Diehard: vanishes completely after 130 generations.
-        'Diehard':     [[0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7]]
+        'Diehard':      [[0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7]],
+        // Pi heptomino: stabilises after 173 generations.
+        'Pi heptomino': [[0,0],[0,1],[0,2],[1,1],[2,0],[2,1],[2,2]],
+        // Thunderbird: lives 243 generations.
+        'Thunderbird':  [[0,0],[0,1],[0,2],[1,1],[2,1],[3,1]],
+        // Herschel: 7-cell signal used in conduit chains.
+        'Herschel':     [[0,0],[1,0],[1,1],[1,2],[2,0],[2,2],[3,2]]
     },
     'Guns': {
         'Gosper Glider Gun': [
@@ -56,6 +74,22 @@ var PATTERN_GROUPS = {
                             [6,10],[6,16],[6,24],
                             [7,11],[7,15],
                             [8,12],[8,13]
+                          ],
+        // Simkin glider gun: period 120, more compact than Gosper.
+        'Simkin Glider Gun': [
+                            [0,0],[0,1],[0,7],[0,8],
+                            [1,0],[1,1],[1,7],[1,8],
+                            [4,4],[4,5],
+                            [5,4],[5,5],
+                            [10,2],[10,3],[11,2],[11,3],
+                            [15,25],[15,26],
+                            [16,24],[16,28],
+                            [17,24],[17,28],
+                            [18,25],[18,27],
+                            [19,26],
+                            [20,24],[20,25],[20,26],
+                            [23,22],[23,23],
+                            [24,22],[24,23]
                           ]
     }
 };
@@ -67,6 +101,38 @@ Object.keys(PATTERN_GROUPS).forEach(function(group){
         PATTERNS[name] = PATTERN_GROUPS[group][name];
     });
 });
+
+// Metadata for pattern tooltips (period, type, cell count, notes).
+var PATTERN_META = {
+    'Block':               { type: 'Still life',  cells: 4 },
+    'Beehive':             { type: 'Still life',  cells: 6 },
+    'Loaf':                { type: 'Still life',  cells: 7 },
+    'Boat':                { type: 'Still life',  cells: 5 },
+    'Tub':                 { type: 'Still life',  cells: 4 },
+    'Ship':                { type: 'Still life',  cells: 6 },
+    'Barge':               { type: 'Still life',  cells: 7 },
+    'Long boat':           { type: 'Still life',  cells: 7 },
+    'Pond':                { type: 'Still life',  cells: 8 },
+    'Blinker':             { type: 'Oscillator',  period: 2,  cells: 3 },
+    'Toad':                { type: 'Oscillator',  period: 2,  cells: 6 },
+    'Beacon':              { type: 'Oscillator',  period: 2,  cells: 6 },
+    'Pulsar':              { type: 'Oscillator',  period: 3,  cells: 48 },
+    'Pentadecathlon':      { type: 'Oscillator',  period: 15, cells: 12 },
+    'Mold':                { type: 'Oscillator',  period: 4,  cells: 10 },
+    'Tumbler':             { type: 'Oscillator',  period: 14, cells: 15 },
+    'Glider':              { type: 'Spaceship',   period: 4,  cells: 5,  note: 'c/4 diagonal' },
+    'LWSS':                { type: 'Spaceship',   period: 4,  cells: 9,  note: 'c/2 orthogonal' },
+    'MWSS':                { type: 'Spaceship',   period: 4,  cells: 11, note: 'c/2 orthogonal' },
+    'HWSS':                { type: 'Spaceship',   period: 4,  cells: 13, note: 'c/2 orthogonal' },
+    'R-pentomino':         { type: 'Methuselah',  lifespan: 1103, cells: 5 },
+    'Acorn':               { type: 'Methuselah',  lifespan: 5206, cells: 7 },
+    'Diehard':             { type: 'Methuselah',  lifespan: 130,  cells: 7 },
+    'Pi heptomino':        { type: 'Methuselah',  lifespan: 173,  cells: 7 },
+    'Thunderbird':         { type: 'Methuselah',  lifespan: 243,  cells: 6 },
+    'Herschel':            { type: 'Methuselah',  lifespan: 128,  cells: 7 },
+    'Gosper Glider Gun':   { type: 'Gun',         period: 30, cells: 36 },
+    'Simkin Glider Gun':   { type: 'Gun',         period: 120, cells: 36 }
+};
 
 // ── Rule presets ──────────────────────────────────────────────────────────────
 var RULE_PRESETS = [
@@ -119,7 +185,9 @@ $(document).ready(function(){
                     showHelp :       false,
                     showRle :        false,
                     rleInput :       '',
-                    rleError :       ''
+                    rleError :       '',
+                    patternFilter :  '',
+                    hoverCell :      null
                 };
             },
 
@@ -133,6 +201,8 @@ $(document).ready(function(){
                 this._undoStack = [];
                 this._prevBoardHash = null;
                 this._stableCount = 0;
+                this._genTimestamps = [];
+                this._measuredGps = 0;
                 this._canvas = document.getElementById("life-canvas");
                 document.addEventListener('keydown', this.handleKeyDown);
                 this.drawBoard();
@@ -337,6 +407,15 @@ $(document).ready(function(){
                     var newHistory = this.state.popHistory.concat([newPop]);
                     if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
 
+                    // Track generation timestamps for gen/sec display.
+                    this._genTimestamps.push(Date.now());
+                    if(this._genTimestamps.length > 20){ this._genTimestamps.shift(); }
+                    if(this._genTimestamps.length >= 2){
+                        var ts = this._genTimestamps;
+                        var dt = ts[ts.length - 1] - ts[0];
+                        if(dt > 0){ this._measuredGps = (ts.length - 1) / dt * 1000; }
+                    }
+
                     var copyOfBoard = boardSnapshot.map(function(cell){
                         return {x: cell.x, y: cell.y, status: cell.status, age: cell.age || 0};
                     });
@@ -432,6 +511,67 @@ $(document).ready(function(){
                 link.click();
             },
 
+            // ── RLE export ────────────────────────────────────────────────────
+
+            boardToRLE : function(){
+                var board = this.state.board;
+                var cols  = this.state.cols;
+                var rows  = this.state.rows;
+                var rule  = this.state.ruleString;
+                var minR = rows, maxR = -1, minC = cols, maxC = -1;
+                for(var i = 0; i < board.length; i++){
+                    if(board[i].status === 1){
+                        var ri = Math.floor(i / cols);
+                        var ci = i % cols;
+                        if(ri < minR){ minR = ri; }
+                        if(ri > maxR){ maxR = ri; }
+                        if(ci < minC){ minC = ci; }
+                        if(ci > maxC){ maxC = ci; }
+                    }
+                }
+                if(maxR < 0){ return ''; }
+                var W = maxC - minC + 1;
+                var H = maxR - minR + 1;
+                var header = 'x = ' + W + ', y = ' + H + ', rule = ' + rule + '\n';
+                var rleData = '';
+                for(var row = minR; row <= maxR; row++){
+                    var runChar = null, runLen = 0, rowStr = '';
+                    for(var col = minC; col <= maxC; col++){
+                        var ch = board[row * cols + col].status === 1 ? 'o' : 'b';
+                        if(ch === runChar){
+                            runLen++;
+                        } else {
+                            if(runChar !== null){
+                                rowStr += (runLen > 1 ? runLen : '') + runChar;
+                            }
+                            runChar = ch; runLen = 1;
+                        }
+                    }
+                    // Omit trailing dead cells.
+                    if(runChar === 'o'){ rowStr += (runLen > 1 ? runLen : '') + runChar; }
+                    if(row < maxR){ rowStr += '$'; }
+                    rleData += rowStr;
+                }
+                rleData += '!';
+                // Wrap lines at 70 characters (RLE convention).
+                var wrapped = '';
+                for(var k = 0; k < rleData.length; k += 70){
+                    wrapped += rleData.slice(k, k + 70) + '\n';
+                }
+                return header + wrapped;
+            },
+
+            copyRLE : function(){
+                var rle = this.boardToRLE();
+                if(!rle){ return; }
+                var self = this;
+                this.setState({showRle: true, rleInput: rle, rleError: ''}, function(){
+                    if(navigator.clipboard && navigator.clipboard.writeText){
+                        navigator.clipboard.writeText(rle);
+                    }
+                });
+            },
+
             // ── Help modal ─────────────────────────────────────────────────────
 
             toggleHelp : function(){
@@ -496,13 +636,20 @@ $(document).ready(function(){
             },
 
             onMouseMove : function(event){
-                if(!this.state.selectedPattern && !this._dragging){ return; }
                 var mouse = this.getMousePos(event);
                 var cellSize = this.state.cellSize;
                 var c = Math.floor(mouse.x / cellSize);
                 var r = Math.floor(mouse.y / cellSize);
+                var inBounds = c >= 0 && c < this.state.cols && r >= 0 && r < this.state.rows;
+
+                // Always update hover cell for coordinate display.
+                var newHover = inBounds ? {c : c, r : r} : null;
+                var ph = this.state.hoverCell;
+                var hoverChanged = (!!newHover !== !!ph) ||
+                    (newHover && ph && (newHover.c !== ph.c || newHover.r !== ph.r));
+                if(hoverChanged){ this.setState({hoverCell : newHover}); }
+
                 if(this.state.selectedPattern){
-                    var inBounds = c >= 0 && c < this.state.cols && r >= 0 && r < this.state.rows;
                     var newPos = inBounds ? {c : c, r : r} : null;
                     var prev = this._previewPos;
                     if(prev === newPos){ return; }
@@ -511,6 +658,7 @@ $(document).ready(function(){
                     this.drawBoard();
                     return;
                 }
+                if(!this._dragging){ return; }
                 if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
                 var idx = r * this.state.cols + c;
                 if(this._paintedCells[idx] !== undefined){ return; }
@@ -536,6 +684,7 @@ $(document).ready(function(){
             },
 
             onMouseLeave : function(){
+                if(this.state.hoverCell){ this.setState({hoverCell : null}); }
                 if(this.state.selectedPattern){
                     this._previewPos = null;
                     this.drawBoard();
@@ -599,6 +748,9 @@ $(document).ready(function(){
                         break;
                     case 's': case 'S':
                         if(!e.ctrlKey && !e.metaKey){ this.exportPNG(); }
+                        break;
+                    case 'x': case 'X':
+                        if(!e.ctrlKey && !e.metaKey){ this.copyRLE(); }
                         break;
                     case '[':
                         if(this.state.selectedPattern){ this.rotateCCW(); }
@@ -761,23 +913,25 @@ $(document).ready(function(){
 
             loadRle : function(){
                 var text = this.state.rleInput.trim();
-                if(!text){ this.setState({rleError : 'Paste an RLE pattern first.'}); return; }
+                if(!text){ this.setState({rleError : 'Paste a pattern first.'}); return; }
                 try {
-                    var result = this.parseRLE(text);
+                    // Auto-detect format: use RLE if text contains b/o/$  with a !
+                    var isRle = /[bo\$]/.test(text) && /!/.test(text);
+                    var result = isRle ? this.parseRLE(text) : this.parsePlaintext(text);
                     if(result.cells.length === 0){
                         this.setState({rleError : 'No live cells found in pattern.'}); return;
                     }
-                    PATTERNS['Custom (RLE)'] = result.cells;
+                    PATTERNS['Custom'] = result.cells;
                     var self = this;
                     this._previewPos = null;
                     this.setState({
-                        selectedPattern : 'Custom (RLE)',
+                        selectedPattern : 'Custom',
                         patternRotation : 0,
                         showRle :         false,
                         rleError :        ''
                     }, function(){ self.drawBoard(); });
                 } catch(ex){
-                    this.setState({rleError : 'Could not parse RLE: ' + ex.message});
+                    this.setState({rleError : 'Could not parse pattern: ' + ex.message});
                 }
             },
 
@@ -812,6 +966,25 @@ $(document).ready(function(){
                     } else if(ch === '!'){
                         break;
                     }
+                }
+                return {cells : cells};
+            },
+
+            // Parses LifeWiki plaintext (.cells) format into [row, col] coordinates.
+            parsePlaintext : function(text){
+                var lines = text.split(/\r?\n/);
+                var cells = [];
+                var row = 0;
+                for(var i = 0; i < lines.length; i++){
+                    var line = lines[i];
+                    if(line.charAt(0) === '!' || line.charAt(0) === '#'){ continue; }
+                    for(var col = 0; col < line.length; col++){
+                        var ch = line.charAt(col);
+                        if(ch === 'O' || ch === 'o' || ch === '*'){
+                            cells.push([row, col]);
+                        }
+                    }
+                    row++;
                 }
                 return {cells : cells};
             },
@@ -927,6 +1100,10 @@ $(document).ready(function(){
                 var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
                 var delay = SPEED_DELAYS[this.state.speed - 1];
                 var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+                var hc = this.state.hoverCell;
+                var coordText = hc ? ('Col\u00a0' + hc.c + '\u2002Row\u00a0' + hc.r) : '\u2014';
+                var gpsText = (this.state.running && this._measuredGps > 0)
+                    ? this._measuredGps.toFixed(1) + '\u00a0gen/s' : null;
 
                 // Build sparkline from population history.
                 // The SVG uses a fixed viewBox (200×36) and width="100%" so it
@@ -968,17 +1145,38 @@ $(document).ready(function(){
                     );
                 }
 
-                // Build categorised pattern dropdown using <optgroup>.
+                // Build categorised pattern dropdown, filtered by patternFilter.
+                var filterLc = this.state.patternFilter.toLowerCase();
                 var patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
-                    var opts = Object.keys(PATTERN_GROUPS[group]).map(function(name){
-                        return <option key={name} value={name}>{name}</option>;
+                    var names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
+                        return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
+                    });
+                    if(names.length === 0){ return null; }
+                    var opts = names.map(function(name){
+                        var meta = PATTERN_META[name];
+                        var title = '';
+                        if(meta){
+                            if(meta.type === 'Still life'){
+                                title = 'Still life \xB7 ' + meta.cells + ' cells';
+                            } else if(meta.type === 'Oscillator'){
+                                title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+                            } else if(meta.type === 'Spaceship'){
+                                title = 'Spaceship \xB7 Period\u00a0' + meta.period +
+                                    (meta.note ? ' \xB7 ' + meta.note : '');
+                            } else if(meta.type === 'Methuselah'){
+                                title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';
+                            } else if(meta.type === 'Gun'){
+                                title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+                            }
+                        }
+                        return <option key={name} value={name} title={title}>{name}</option>;
                     });
                     return <optgroup key={group} label={group}>{opts}</optgroup>;
-                });
-                if(PATTERNS['Custom (RLE)']){
+                }).filter(function(x){ return x !== null; });
+                if(PATTERNS['Custom']){
                     patternOptions = patternOptions.concat(
                         <optgroup key="custom" label="Custom">
-                            <option value="Custom (RLE)">Custom (RLE)</option>
+                            <option value="Custom">Custom</option>
                         </optgroup>
                     );
                 }
@@ -997,6 +1195,7 @@ $(document).ready(function(){
                                             <tr><td>E</td><td>Empty board</td></tr>
                                             <tr><td>Ctrl+Z</td><td>Undo</td></tr>
                                             <tr><td>S</td><td>Export PNG</td></tr>
+                                            <tr><td>X</td><td>Copy board as RLE</td></tr>
                                             <tr><td>[</td><td>Rotate pattern CCW</td></tr>
                                             <tr><td>]</td><td>Rotate pattern CW</td></tr>
                                             <tr><td>Esc</td><td>Cancel placement / close help</td></tr>
@@ -1030,7 +1229,11 @@ $(document).ready(function(){
                                         <span>{"Gen: " + this.state.generations}</span>
                                         <span className="board-dims">{this.state.cols + " \xD7 " + this.state.rows}</span>
                                     </div>
-                                    <div>{"Pop: " + population}</div>
+                                    <div className="stat-row">
+                                        <span>{"Pop: " + population}</span>
+                                        {gpsText && <span className="gps-display">{gpsText}</span>}
+                                    </div>
+                                    <div className="coord-display">{coordText}</div>
                                     <div className="status-badges">
                                         <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
                                             {this.state.running ? "Running" : "Paused"}
@@ -1074,6 +1277,11 @@ $(document).ready(function(){
                                         value={this.state.ruleString}
                                         onChange={this.setRule}
                                         title="Birth/Survival rule string (e.g. B3/S23)" />
+                                    <input className="pattern-filter-input"
+                                        type="text"
+                                        placeholder="Filter patterns..."
+                                        value={this.state.patternFilter}
+                                        onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
                                     <select className={"preset-select" + (this.state.selectedPattern ? " active" : "")}
                                         value={this.state.selectedPattern || ""}
                                         onChange={this.selectPattern}>
@@ -1141,13 +1349,16 @@ $(document).ready(function(){
                                 </div>
 
                                 <div className="rle-section">
-                                    <button className={"btn btn-block btn-rle-toggle" + (this.state.showRle ? " active" : "")}
-                                        onClick={this.toggleRle}>Import RLE</button>
+                                    <div className="buttons rle-toggle-row">
+                                        <button className={"btn btn-rle-toggle" + (this.state.showRle ? " active" : "")}
+                                            onClick={this.toggleRle}>Import</button>
+                                        <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
+                                    </div>
                                     {this.state.showRle &&
                                         <div className="rle-body">
                                             <textarea className="rle-input"
                                                 rows="5"
-                                                placeholder={"Paste RLE pattern here\n(from LifeWiki or Golly)"}
+                                                placeholder={"Paste RLE or plaintext pattern\n(from LifeWiki or Golly)"}
                                                 value={this.state.rleInput}
                                                 onChange={this.setRleInput} />
                                             <button className="btn btn-block" onClick={this.loadRle}>Load pattern</button>
