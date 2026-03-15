@@ -149,6 +149,33 @@ var RULE_PRESETS = [
 // Delay in ms per generation, indexed by speed 1-10.
 var SPEED_DELAYS = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
 
+// ── Color themes ──────────────────────────────────────────────────────────────
+// Each theme defines alive/young RGB channels for age-gradient rendering plus
+// canvas background and grid/selection overlay colours.
+var THEMES = {
+    'Teal': {
+        bg: '#FFFFFF',
+        aliveR: 112,  aliveG: 149,  aliveB: 154,
+        youngR: 200,  youngG: 220,  youngB: 222,
+        grid:   'rgba(0,0,0,0.15)',
+        sel:    'rgba(112,149,154,0.25)'
+    },
+    'Midnight': {
+        bg: '#0A0E1A',
+        aliveR: 74,   aliveG: 158,  aliveB: 205,
+        youngR: 150,  youngG: 190,  youngB: 225,
+        grid:   'rgba(255,255,255,0.12)',
+        sel:    'rgba(74,158,205,0.25)'
+    },
+    'Ember': {
+        bg: '#FFF8F0',
+        aliveR: 196,  aliveG: 113,  aliveB: 58,
+        youngR: 230,  youngG: 200,  youngB: 160,
+        grid:   'rgba(0,0,0,0.15)',
+        sel:    'rgba(196,113,58,0.25)'
+    }
+};
+
 $(document).ready(function(){
     (function(){
 
@@ -165,6 +192,8 @@ $(document).ready(function(){
                     cellSize :       cellSize,
                     cols :           cols,
                     rows :           rows,
+                    viewX :          0,
+                    viewY :          0,
                     sparseness :     2,
                     board :          this.buildBoard(cols, rows, 2, cellSize),
                     generations :    0,
@@ -187,7 +216,11 @@ $(document).ready(function(){
                     rleInput :       '',
                     rleError :       '',
                     patternFilter :  '',
-                    hoverCell :      null
+                    hoverCell :      null,
+                    theme :          'Teal',
+                    drawMode :       'paint',
+                    selection :      null,
+                    clipboard :      null
                 };
             },
 
@@ -203,8 +236,23 @@ $(document).ready(function(){
                 this._stableCount = 0;
                 this._genTimestamps = [];
                 this._measuredGps = 0;
+                this._selStart = null;
+                this._panDragging = false;
+                this._panStart = null;
+                this._worker = null;
                 this._canvas = document.getElementById("life-canvas");
+                // Attach wheel listener as non-passive so preventDefault works.
+                this._canvas.addEventListener('wheel', this.onWheel, {passive: false});
                 document.addEventListener('keydown', this.handleKeyDown);
+                // Initialise Web Worker for async simulation (falls back to sync).
+                if(typeof Worker !== 'undefined'){
+                    try {
+                        this._worker = new Worker('life-worker.js');
+                        var self = this;
+                        this._worker.onmessage = function(e){ self._handleWorkerMessage(e.data); };
+                        this._worker.onerror   = function(){ self._worker = null; };
+                    } catch(ex){ this._worker = null; }
+                }
                 this.drawBoard();
                 this._startLoop();
             },
@@ -217,7 +265,9 @@ $(document).ready(function(){
             },
 
             componentWillUnmount : function(){
+                this._canvas.removeEventListener('wheel', this.onWheel);
                 document.removeEventListener('keydown', this.handleKeyDown);
+                if(this._worker){ this._worker.terminate(); }
             },
 
             // ── Board construction ─────────────────────────────────────────────
@@ -245,39 +295,73 @@ $(document).ready(function(){
                 var cellSize = this.state.cellSize;
                 var cols = this.state.cols;
                 var rows = this.state.rows;
-                var pendingCols = this.state.pendingCols;
-                var pendingRows = this.state.pendingRows;
+                var viewX = this.state.viewX;
+                var viewY = this.state.viewY;
+                var canvasW = canvas.width;
+                var canvasH = canvas.height;
+                var theme = THEMES[this.state.theme] || THEMES['Teal'];
 
-                // Draw cells with age-based coloring.
-                // Young cells (age 1) render as a light tint that deepens toward
-                // the full teal #70959A as cells age past 10 generations.
-                for(var i = 0; i < this.state.board.length; i++){
-                    var cell = this.state.board[i];
-                    if(cell.status === 1){
-                        var t = Math.min((cell.age || 1) / 10, 1);
-                        var cr = Math.round(200 - 88 * t);
-                        var cg = Math.round(220 - 71 * t);
-                        var cb = Math.round(222 - 68 * t);
-                        ctx.fillStyle = 'rgb(' + cr + ',' + cg + ',' + cb + ')';
-                    } else {
-                        ctx.fillStyle = '#FFFFFF';
+                // Clear canvas with background colour.
+                ctx.fillStyle = theme.bg;
+                ctx.fillRect(0, 0, canvasW, canvasH);
+
+                // Compute visible cell range.
+                var startC = Math.max(0, viewX);
+                var startR = Math.max(0, viewY);
+                var endC   = Math.min(cols, viewX + Math.ceil(canvasW / cellSize) + 1);
+                var endR   = Math.min(rows, viewY + Math.ceil(canvasH / cellSize) + 1);
+
+                // Draw live cells with age-based coloring.
+                // Young cells (age 1) start at the "young" colour and blend to the
+                // full "alive" colour as age exceeds 10 generations.
+                var aR = theme.aliveR, aG = theme.aliveG, aB = theme.aliveB;
+                var yR = theme.youngR, yG = theme.youngG, yB = theme.youngB;
+                for(var r = startR; r < endR; r++){
+                    for(var c = startC; c < endC; c++){
+                        var cell = this.state.board[r * cols + c];
+                        if(cell.status === 1){
+                            var t = Math.min((cell.age || 1) / 10, 1);
+                            ctx.fillStyle = 'rgb(' +
+                                Math.round(yR + (aR - yR) * t) + ',' +
+                                Math.round(yG + (aG - yG) * t) + ',' +
+                                Math.round(yB + (aB - yB) * t) + ')';
+                            ctx.fillRect((c - viewX) * cellSize, (r - viewY) * cellSize, cellSize, cellSize);
+                        }
                     }
-                    ctx.fillRect(cell.x, cell.y, cellSize, cellSize);
                 }
 
+                // Grid lines.
                 if(this.state.gridLines){
-                    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                    ctx.strokeStyle = theme.grid;
                     ctx.lineWidth = 0.5;
                     ctx.beginPath();
-                    for(var c = 0; c <= pendingCols; c++){
-                        ctx.moveTo(c * cellSize, 0);
-                        ctx.lineTo(c * cellSize, pendingRows * cellSize);
+                    for(var cv = startC; cv <= endC; cv++){
+                        var gx = (cv - viewX) * cellSize;
+                        ctx.moveTo(gx, 0); ctx.lineTo(gx, canvasH);
                     }
-                    for(var r = 0; r <= pendingRows; r++){
-                        ctx.moveTo(0, r * cellSize);
-                        ctx.lineTo(pendingCols * cellSize, r * cellSize);
+                    for(var rv = startR; rv <= endR; rv++){
+                        var gy = (rv - viewY) * cellSize;
+                        ctx.moveTo(0, gy); ctx.lineTo(canvasW, gy);
                     }
                     ctx.stroke();
+                }
+
+                // Selection rectangle overlay.
+                var sel = this.state.selection;
+                if(sel){
+                    var sx1 = (Math.min(sel.c1, sel.c2) - viewX) * cellSize;
+                    var sy1 = (Math.min(sel.r1, sel.r2) - viewY) * cellSize;
+                    var sx2 = (Math.max(sel.c1, sel.c2) - viewX + 1) * cellSize;
+                    var sy2 = (Math.max(sel.r1, sel.r2) - viewY + 1) * cellSize;
+                    ctx.fillStyle = theme.sel;
+                    ctx.fillRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
+                    ctx.strokeStyle = theme.aliveR !== undefined
+                        ? ('rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')')
+                        : '#70959A';
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([5, 3]);
+                    ctx.strokeRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
+                    ctx.setLineDash([]);
                 }
 
                 // Pattern placement preview — semi-transparent overlay under cursor.
@@ -290,12 +374,12 @@ $(document).ready(function(){
                     }
                     var offsetPR = this._previewPos.r - Math.floor(maxPR / 2);
                     var offsetPC = this._previewPos.c - Math.floor(maxPC / 2);
-                    ctx.fillStyle = 'rgba(112, 149, 154, 0.55)';
+                    ctx.fillStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.55)';
                     for(var pj = 0; pj < pattern.length; pj++){
                         var pvR = pattern[pj][0] + offsetPR;
                         var pvC = pattern[pj][1] + offsetPC;
                         if(pvR >= 0 && pvR < rows && pvC >= 0 && pvC < cols){
-                            ctx.fillRect(pvC * cellSize, pvR * cellSize, cellSize, cellSize);
+                            ctx.fillRect((pvC - viewX) * cellSize, (pvR - viewY) * cellSize, cellSize, cellSize);
                         }
                     }
                 }
@@ -304,6 +388,7 @@ $(document).ready(function(){
             drawRotationPreview : function(){
                 var canvas = this._previewCanvas;
                 if(!canvas || !this.state.selectedPattern){ return; }
+                var theme = THEMES[this.state.theme] || THEMES['Teal'];
                 var pattern = this.rotatePattern(
                     PATTERNS[this.state.selectedPattern], this.state.patternRotation);
                 var maxR = 0, maxC = 0;
@@ -318,9 +403,9 @@ $(document).ready(function(){
                 var offX   = Math.floor((size - patCols * cellPx) / 2);
                 var offY   = Math.floor((size - patRows * cellPx) / 2);
                 var ctx    = canvas.getContext('2d');
-                ctx.fillStyle = '#FFFFFF';
+                ctx.fillStyle = theme.bg;
                 ctx.fillRect(0, 0, size, size);
-                ctx.fillStyle = '#70959A';
+                ctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
                 for(var j = 0; j < pattern.length; j++){
                     ctx.fillRect(offX + pattern[j][1] * cellPx,
                                  offY + pattern[j][0] * cellPx, cellPx, cellPx);
@@ -379,65 +464,89 @@ $(document).ready(function(){
             },
 
             findNewStates : function(tickId){
-                if(tickId !== this._tickId){
-                    this._loopRunning = false;
-                    return;
-                }
-                if(this.state.running === true){
-                    var boardSnapshot = this.state.board.slice();
-                    var cols     = this.state.cols;
-                    var rows     = this.state.rows;
-                    var birth    = this.state.birthRule;
-                    var survive  = this.state.surviveRule;
-                    var boundary = this.state.boundary;
-                    var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive, boundary);
+                if(tickId !== this._tickId){ this._loopRunning = false; return; }
+                if(this.state.running !== true){ this._loopRunning = false; return; }
 
-                    // Stability detection: auto-pause when the board stops changing.
-                    var boardHash = newStates.map(function(s){ return s.status; }).join('');
-                    var isStable  = (boardHash === this._prevBoardHash);
-                    this._prevBoardHash = boardHash;
-                    this._stableCount = isStable ? this._stableCount + 1 : 0;
-                    var hitStable = this._stableCount >= 2;
+                var boardSnapshot = this.state.board.slice();
+                var cols     = this.state.cols;
+                var rows     = this.state.rows;
+                var birth    = this.state.birthRule;
+                var survive  = this.state.surviveRule;
+                var boundary = this.state.boundary;
 
-                    // Maintain population history (last 60 data points for sparkline).
-                    var newPop = 0;
-                    for(var k = 0; k < newStates.length; k++){
-                        if(newStates[k].status === 1){ newPop++; }
+                if(this._worker){
+                    // Async path: offload to Web Worker.
+                    // Serialise board as minimal {status, age} array.
+                    var payload = new Array(boardSnapshot.length);
+                    for(var pi = 0; pi < boardSnapshot.length; pi++){
+                        payload[pi] = {status: boardSnapshot[pi].status, age: boardSnapshot[pi].age || 0};
                     }
-                    var newHistory = this.state.popHistory.concat([newPop]);
-                    if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
-
-                    // Track generation timestamps for gen/sec display.
-                    this._genTimestamps.push(Date.now());
-                    if(this._genTimestamps.length > 20){ this._genTimestamps.shift(); }
-                    if(this._genTimestamps.length >= 2){
-                        var ts = this._genTimestamps;
-                        var dt = ts[ts.length - 1] - ts[0];
-                        if(dt > 0){ this._measuredGps = (ts.length - 1) / dt * 1000; }
-                    }
-
-                    var copyOfBoard = boardSnapshot.map(function(cell){
-                        return {x: cell.x, y: cell.y, status: cell.status, age: cell.age || 0};
+                    this._worker.postMessage({
+                        board: payload, cols: cols, rows: rows,
+                        birth: birth, survive: survive, boundary: boundary,
+                        tickId: tickId
                     });
-                    var self = this;
-                    var myTickId = tickId;
-                    this.setState({
-                        board :       this.changeCopiedBoard(copyOfBoard, newStates),
-                        generations : this.state.generations + 1,
-                        popHistory :  newHistory,
-                        stable :      hitStable,
-                        running :     hitStable ? false : this.state.running
-                    }, function(){
-                        self.drawBoard();
-                        if(hitStable){ self._loopRunning = false; return; }
-                        var delay = SPEED_DELAYS[self.state.speed - 1];
-                        setTimeout(function(){
-                            requestAnimationFrame(function(){ self.findNewStates(myTickId); });
-                        }, delay);
-                    });
+                    // _handleWorkerMessage will continue the loop.
                 } else {
-                    this._loopRunning = false;
+                    // Sync fallback.
+                    var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive, boundary);
+                    this._applyNewStates(newStates, boardSnapshot, tickId);
                 }
+            },
+
+            // Called by the worker response handler and the sync path.
+            _applyNewStates : function(newStates, boardSnapshot, tickId){
+                if(tickId !== this._tickId){ this._loopRunning = false; return; }
+
+                // Stability detection.
+                var boardHash = newStates.map(function(s){ return s.status; }).join('');
+                var isStable  = (boardHash === this._prevBoardHash);
+                this._prevBoardHash = boardHash;
+                this._stableCount = isStable ? this._stableCount + 1 : 0;
+                var hitStable = this._stableCount >= 2;
+
+                // Population count.
+                var newPop = 0;
+                for(var k = 0; k < newStates.length; k++){
+                    if(newStates[k].status === 1){ newPop++; }
+                }
+                var newHistory = this.state.popHistory.concat([newPop]);
+                if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
+
+                // Gen/sec tracking.
+                this._genTimestamps.push(Date.now());
+                if(this._genTimestamps.length > 20){ this._genTimestamps.shift(); }
+                if(this._genTimestamps.length >= 2){
+                    var ts = this._genTimestamps;
+                    var dt = ts[ts.length - 1] - ts[0];
+                    if(dt > 0){ this._measuredGps = (ts.length - 1) / dt * 1000; }
+                }
+
+                var copyOfBoard = boardSnapshot.map(function(cell){
+                    return {x: cell.x, y: cell.y, status: cell.status, age: cell.age || 0};
+                });
+                var self = this;
+                var myTickId = tickId;
+                this.setState({
+                    board :       this.changeCopiedBoard(copyOfBoard, newStates),
+                    generations : this.state.generations + 1,
+                    popHistory :  newHistory,
+                    stable :      hitStable,
+                    running :     hitStable ? false : this.state.running
+                }, function(){
+                    self.drawBoard();
+                    if(hitStable){ self._loopRunning = false; return; }
+                    var delay = SPEED_DELAYS[self.state.speed - 1];
+                    setTimeout(function(){
+                        requestAnimationFrame(function(){ self.findNewStates(myTickId); });
+                    }, delay);
+                });
+            },
+
+            // Receives computation results from the Web Worker.
+            _handleWorkerMessage : function(data){
+                var boardSnapshot = this.state.board.slice();
+                this._applyNewStates(data.newStates, boardSnapshot, data.tickId);
             },
 
             stepGame : function(){
@@ -595,17 +704,53 @@ $(document).ready(function(){
                 var canvas = this._canvas;
                 var ctx = canvas.getContext("2d");
                 var cellSize = this.state.cellSize;
-                ctx.fillStyle = this._dragStatus === 1 ? "#70959A" : "#FFFFFF";
-                ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+                var viewX = this.state.viewX;
+                var viewY = this.state.viewY;
+                var theme = THEMES[this.state.theme] || THEMES['Teal'];
+                var px = (c - viewX) * cellSize;
+                var py = (r - viewY) * cellSize;
+                ctx.fillStyle = this._dragStatus === 1
+                    ? ('rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')')
+                    : theme.bg;
+                ctx.fillRect(px, py, cellSize, cellSize);
                 if(this.state.gridLines){
-                    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                    ctx.strokeStyle = theme.grid;
                     ctx.lineWidth = 0.5;
-                    ctx.strokeRect(c * cellSize, r * cellSize, cellSize, cellSize);
+                    ctx.strokeRect(px, py, cellSize, cellSize);
                 }
+            },
+
+            // Convert a mouse event to board cell coordinates using the viewport.
+            getCellPos : function(event){
+                var mouse = this.getMousePos(event);
+                var cellSize = this.state.cellSize;
+                return {
+                    c : this.state.viewX + Math.floor(mouse.x / cellSize),
+                    r : this.state.viewY + Math.floor(mouse.y / cellSize)
+                };
+            },
+
+            // Clamp view offsets to valid range given current canvas and cell size.
+            clampView : function(viewX, viewY, cols, rows, cellSize){
+                var canvasW = this._canvas ? this._canvas.width  : cols * cellSize;
+                var canvasH = this._canvas ? this._canvas.height : rows * cellSize;
+                var maxVX = Math.max(0, cols - Math.ceil(canvasW / cellSize));
+                var maxVY = Math.max(0, rows - Math.ceil(canvasH / cellSize));
+                return {
+                    viewX : Math.max(0, Math.min(maxVX, viewX)),
+                    viewY : Math.max(0, Math.min(maxVY, viewY))
+                };
             },
 
             onMouseDown : function(event){
                 event.preventDefault();
+                // Middle-mouse or Space+left starts pan drag.
+                if(event.button === 1){
+                    this._panDragging = true;
+                    this._panStart = {x: event.clientX, y: event.clientY,
+                                      vx: this.state.viewX, vy: this.state.viewY};
+                    return;
+                }
                 // Right-click exits pattern placement mode.
                 if(event.button === 2 && this.state.selectedPattern){
                     this._previewPos = null;
@@ -615,16 +760,27 @@ $(document).ready(function(){
                     return;
                 }
                 if(event.button !== 0){ return; }
-                var mouse = this.getMousePos(event);
-                var cellSize = this.state.cellSize;
-                var c = Math.floor(mouse.x / cellSize);
-                var r = Math.floor(mouse.y / cellSize);
+                var pos = this.getCellPos(event);
+                var c = pos.c, r = pos.r;
                 if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
+
+                // Selection mode: begin drag-select.
+                if(this.state.drawMode === 'select'){
+                    this._selStart = {c : c, r : r};
+                    var self2 = this;
+                    this.setState({selection : {c1: c, r1: r, c2: c, r2: r}},
+                        function(){ self2.drawBoard(); });
+                    return;
+                }
+
+                // Pattern placement mode.
                 if(this.state.selectedPattern){
                     if(!this.state.liveClickMode){ this.setState({running : false}); }
                     this.placePattern(this.state.selectedPattern, c, r);
                     return;
                 }
+
+                // Paint mode.
                 if(!this.state.liveClickMode){ this.setState({running : false}); }
                 var idx = r * this.state.cols + c;
                 this.pushUndo();
@@ -636,10 +792,24 @@ $(document).ready(function(){
             },
 
             onMouseMove : function(event){
-                var mouse = this.getMousePos(event);
-                var cellSize = this.state.cellSize;
-                var c = Math.floor(mouse.x / cellSize);
-                var r = Math.floor(mouse.y / cellSize);
+                // Pan drag (middle mouse button).
+                if(this._panDragging && this._panStart){
+                    var dx = event.clientX - this._panStart.x;
+                    var dy = event.clientY - this._panStart.y;
+                    var cellSize = this.state.cellSize;
+                    var dcells = -Math.round(dx / cellSize);
+                    var drows  = -Math.round(dy / cellSize);
+                    var clamped = this.clampView(
+                        this._panStart.vx + dcells, this._panStart.vy + drows,
+                        this.state.cols, this.state.rows, cellSize);
+                    var self0 = this;
+                    this.setState({viewX: clamped.viewX, viewY: clamped.viewY},
+                        function(){ self0.drawBoard(); });
+                    return;
+                }
+
+                var pos = this.getCellPos(event);
+                var c = pos.c, r = pos.r;
                 var inBounds = c >= 0 && c < this.state.cols && r >= 0 && r < this.state.rows;
 
                 // Always update hover cell for coordinate display.
@@ -648,6 +818,18 @@ $(document).ready(function(){
                 var hoverChanged = (!!newHover !== !!ph) ||
                     (newHover && ph && (newHover.c !== ph.c || newHover.r !== ph.r));
                 if(hoverChanged){ this.setState({hoverCell : newHover}); }
+
+                // Update selection rect while dragging in select mode.
+                if(this.state.drawMode === 'select' && this._selStart){
+                    var bc = Math.max(0, Math.min(this.state.cols - 1, c));
+                    var br = Math.max(0, Math.min(this.state.rows - 1, r));
+                    var prev2 = this.state.selection;
+                    if(prev2 && prev2.c2 === bc && prev2.r2 === br){ return; }
+                    var self1 = this;
+                    this.setState({selection: {c1: this._selStart.c, r1: this._selStart.r, c2: bc, r2: br}},
+                        function(){ self1.drawBoard(); });
+                    return;
+                }
 
                 if(this.state.selectedPattern){
                     var newPos = inBounds ? {c : c, r : r} : null;
@@ -667,6 +849,22 @@ $(document).ready(function(){
             },
 
             onMouseUp : function(){
+                if(this._panDragging){
+                    this._panDragging = false;
+                    this._panStart = null;
+                }
+                if(this.state.drawMode === 'select' && this._selStart){
+                    // Normalise selection bounds (ensure r1≤r2, c1≤c2).
+                    var sel = this.state.selection;
+                    if(sel){
+                        this.setState({selection: {
+                            r1: Math.min(sel.r1, sel.r2), c1: Math.min(sel.c1, sel.c2),
+                            r2: Math.max(sel.r1, sel.r2), c2: Math.max(sel.c1, sel.c2)
+                        }});
+                    }
+                    this._selStart = null;
+                    return;
+                }
                 if(!this._dragging){ return; }
                 this._dragging = false;
                 var paintedCells = this._paintedCells;
@@ -685,6 +883,8 @@ $(document).ready(function(){
 
             onMouseLeave : function(){
                 if(this.state.hoverCell){ this.setState({hoverCell : null}); }
+                this._panDragging = false;
+                this._panStart = null;
                 if(this.state.selectedPattern){
                     this._previewPos = null;
                     this.drawBoard();
@@ -699,6 +899,160 @@ $(document).ready(function(){
                     this._previewPos = null;
                     var self = this;
                     this.setState({selectedPattern : null, patternRotation : 0},
+                        function(){ self.drawBoard(); });
+                }
+            },
+
+            // ── Zoom and pan ──────────────────────────────────────────────────
+
+            onWheel : function(event){
+                event.preventDefault();
+                var mouse = this.getMousePos(event);
+                var cellSize = this.state.cellSize;
+                var viewX = this.state.viewX;
+                var viewY = this.state.viewY;
+                // Cell under cursor before zoom.
+                var cellC = viewX + Math.floor(mouse.x / cellSize);
+                var cellR = viewY + Math.floor(mouse.y / cellSize);
+                var step  = Math.max(1, Math.round(cellSize / 8));
+                var newCS = event.deltaY < 0
+                    ? Math.min(32, cellSize + step)
+                    : Math.max(2, cellSize - step);
+                if(newCS === cellSize){ return; }
+                // Keep the cell under cursor in the same pixel position.
+                var newVX = Math.round(cellC - mouse.x / newCS);
+                var newVY = Math.round(cellR - mouse.y / newCS);
+                var clamped = this.clampView(newVX, newVY,
+                    this.state.cols, this.state.rows, newCS);
+                var self = this;
+                this.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
+                    function(){ self.drawBoard(); });
+            },
+
+            pan : function(dc, dr){
+                var clamped = this.clampView(
+                    this.state.viewX + dc, this.state.viewY + dr,
+                    this.state.cols, this.state.rows, this.state.cellSize);
+                var self = this;
+                this.setState({viewX: clamped.viewX, viewY: clamped.viewY},
+                    function(){ self.drawBoard(); });
+            },
+
+            fitView : function(){
+                var board = this.state.board;
+                var cols  = this.state.cols;
+                var rows  = this.state.rows;
+                var canvas = this._canvas;
+                if(!canvas){ return; }
+                var canvasW = canvas.width;
+                var canvasH = canvas.height;
+                var minR = rows, maxR = -1, minC = cols, maxC = -1;
+                for(var i = 0; i < board.length; i++){
+                    if(board[i].status === 1){
+                        var ri = Math.floor(i / cols);
+                        var ci = i % cols;
+                        if(ri < minR){ minR = ri; } if(ri > maxR){ maxR = ri; }
+                        if(ci < minC){ minC = ci; } if(ci > maxC){ maxC = ci; }
+                    }
+                }
+                var self = this;
+                if(maxR < 0){
+                    this.setState({viewX: 0, viewY: 0}, function(){ self.drawBoard(); });
+                    return;
+                }
+                var patCols = maxC - minC + 1;
+                var patRows = maxR - minR + 1;
+                var newCS = Math.max(2, Math.min(32,
+                    Math.min(Math.floor(canvasW / (patCols * 1.15)),
+                             Math.floor(canvasH / (patRows * 1.15)))));
+                var visCols = Math.ceil(canvasW / newCS);
+                var visRows = Math.ceil(canvasH / newCS);
+                var centerC = Math.floor((minC + maxC) / 2);
+                var centerR = Math.floor((minR + maxR) / 2);
+                var clamped = this.clampView(
+                    centerC - Math.floor(visCols / 2),
+                    centerR - Math.floor(visRows / 2),
+                    cols, rows, newCS);
+                this.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
+                    function(){ self.drawBoard(); });
+            },
+
+            setZoom : function(e){
+                var newCS = parseInt(e.target.value);
+                var clamped = this.clampView(
+                    this.state.viewX, this.state.viewY,
+                    this.state.cols, this.state.rows, newCS);
+                var self = this;
+                this.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
+                    function(){ self.drawBoard(); });
+            },
+
+            setTheme : function(e){
+                var self = this;
+                this.setState({theme: e.target.value}, function(){ self.drawBoard(); });
+            },
+
+            // ── Selection ─────────────────────────────────────────────────────
+
+            copySelection : function(){
+                var sel = this.state.selection;
+                if(!sel){ return; }
+                var board = this.state.board;
+                var cols = this.state.cols;
+                var r1 = sel.r1, c1 = sel.c1, r2 = sel.r2, c2 = sel.c2;
+                var cells = [];
+                for(var r = r1; r <= r2; r++){
+                    for(var c = c1; c <= c2; c++){
+                        if(r >= 0 && r < this.state.rows && c >= 0 && c < cols){
+                            if(board[r * cols + c].status === 1){
+                                cells.push([r - r1, c - c1]);
+                            }
+                        }
+                    }
+                }
+                this.setState({clipboard: cells});
+            },
+
+            pasteAsPattern : function(){
+                if(!this.state.clipboard || this.state.clipboard.length === 0){ return; }
+                PATTERNS['Clipboard'] = this.state.clipboard;
+                this._previewPos = null;
+                var self = this;
+                this.setState({selectedPattern: 'Clipboard', patternRotation: 0,
+                               drawMode: 'paint', selection: null},
+                    function(){ self.drawBoard(); });
+            },
+
+            deleteSelection : function(){
+                var sel = this.state.selection;
+                if(!sel){ return; }
+                this.pushUndo();
+                var cols = this.state.cols;
+                var r1 = sel.r1, c1 = sel.c1, r2 = sel.r2, c2 = sel.c2;
+                var newBoard = this.state.board.map(function(cell, i){
+                    var ri = Math.floor(i / cols), ci = i % cols;
+                    if(ri >= r1 && ri <= r2 && ci >= c1 && ci <= c2){
+                        return {x: cell.x, y: cell.y, status: 0, age: 0};
+                    }
+                    return cell;
+                });
+                var self = this;
+                this.setState({board: newBoard, stable: false},
+                    function(){ self.drawBoard(); });
+            },
+
+            clearSelection : function(){
+                var self = this;
+                this.setState({selection: null, drawMode: 'paint'},
+                    function(){ self.drawBoard(); });
+            },
+
+            toggleSelectMode : function(){
+                if(this.state.drawMode === 'select'){
+                    this.clearSelection();
+                } else {
+                    var self = this;
+                    this.setState({drawMode: 'select', selectedPattern: null},
                         function(){ self.drawBoard(); });
                 }
             },
@@ -746,11 +1100,27 @@ $(document).ready(function(){
                     case 'z': case 'Z':
                         if(e.ctrlKey || e.metaKey){ e.preventDefault(); this.undo(); }
                         break;
+                    case 'c': case 'C':
+                        if((e.ctrlKey || e.metaKey) && this.state.selection){
+                            e.preventDefault(); this.copySelection();
+                        }
+                        break;
+                    case 'v': case 'V':
+                        if((e.ctrlKey || e.metaKey) && this.state.clipboard){
+                            e.preventDefault(); this.pasteAsPattern();
+                        }
+                        break;
+                    case 'Delete': case 'Backspace':
+                        if(this.state.selection){ this.deleteSelection(); }
+                        break;
                     case 's': case 'S':
                         if(!e.ctrlKey && !e.metaKey){ this.exportPNG(); }
                         break;
                     case 'x': case 'X':
                         if(!e.ctrlKey && !e.metaKey){ this.copyRLE(); }
+                        break;
+                    case 'f': case 'F':
+                        this.fitView();
                         break;
                     case '[':
                         if(this.state.selectedPattern){ this.rotateCCW(); }
@@ -758,11 +1128,25 @@ $(document).ready(function(){
                     case ']':
                         if(this.state.selectedPattern){ this.rotateCW(); }
                         break;
+                    case 'ArrowLeft':
+                        e.preventDefault(); this.pan(-5, 0);
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault(); this.pan(5, 0);
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault(); this.pan(0, -5);
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault(); this.pan(0, 5);
+                        break;
                     case 'Escape':
+                        if(this.state.selection){ this.clearSelection(); break; }
                         if(this.state.selectedPattern){
                             this._previewPos = null;
                             this.setState({selectedPattern : null, patternRotation : 0},
                                 function(){ self.drawBoard(); });
+                            break;
                         }
                         if(this.state.showHelp){
                             this.setState({showHelp : false});
@@ -821,13 +1205,18 @@ $(document).ready(function(){
                         });
                     }
                 }
+                var clamped = this.clampView(
+                    this.state.viewX, this.state.viewY, newCols, newRows, this.state.cellSize);
                 var self = this;
                 this.setState({
                     cols :        newCols,
                     rows :        newRows,
                     pendingCols : newCols,
                     pendingRows : newRows,
-                    board :       newBoard
+                    board :       newBoard,
+                    viewX :       clamped.viewX,
+                    viewY :       clamped.viewY,
+                    selection :   null
                 }, function(){ self.drawBoard(); });
             },
 
@@ -1196,9 +1585,15 @@ $(document).ready(function(){
                                             <tr><td>Ctrl+Z</td><td>Undo</td></tr>
                                             <tr><td>S</td><td>Export PNG</td></tr>
                                             <tr><td>X</td><td>Copy board as RLE</td></tr>
+                                            <tr><td>F</td><td>Fit live cells in view</td></tr>
+                                            <tr><td>Wheel</td><td>Zoom in / out</td></tr>
+                                            <tr><td>Arrows</td><td>Pan viewport</td></tr>
                                             <tr><td>[</td><td>Rotate pattern CCW</td></tr>
                                             <tr><td>]</td><td>Rotate pattern CW</td></tr>
-                                            <tr><td>Esc</td><td>Cancel placement / close help</td></tr>
+                                            <tr><td>Ctrl+C</td><td>Copy selection</td></tr>
+                                            <tr><td>Ctrl+V</td><td>Paste selection</td></tr>
+                                            <tr><td>Del</td><td>Delete selection</td></tr>
+                                            <tr><td>Esc</td><td>Cancel / close</td></tr>
                                             <tr><td>?</td><td>Show / hide this help</td></tr>
                                         </tbody>
                                     </table>
@@ -1210,8 +1605,8 @@ $(document).ready(function(){
                         <div className="content-body">
                             <div className={"canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")}>
                                 <canvas className="display"
-                                    width  = {this.state.pendingCols * this.state.cellSize}
-                                    height = {this.state.pendingRows * this.state.cellSize}
+                                    width  = {Math.min(this.state.pendingCols * this.state.cellSize, 800)}
+                                    height = {Math.min(this.state.pendingRows * this.state.cellSize, 600)}
                                     id = "life-canvas"
                                     draggable     = {false}
                                     onMouseDown   = {this.onMouseDown}
@@ -1252,12 +1647,15 @@ $(document).ready(function(){
                                         <button className="btn" onClick={this.resetGame}>Reset</button>
                                         <button className="btn" onClick={this.emptyBoard}>Empty</button>
                                         <button className="btn" onClick={this.undo}>Undo</button>
+                                        <button className="btn" onClick={this.fitView}>Fit</button>
                                         <button className="btn" onClick={this.exportPNG}>Export PNG</button>
+                                        <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
                                     </div>
                                     <div className="buttons buttons-secondary">
                                         <button className={"btn btn-toggle" + (this.state.liveClickMode ? " active" : "")} onClick={this.toggleClickMode}>{this.state.liveClickMode ? "Draw: On" : "Draw: Off"}</button>
                                         <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
                                         <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary}>{this.state.boundary === 'toroidal' ? "Wrap" : "Dead"}</button>
+                                        <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
                                         <button className="btn" onClick={this.toggleHelp}>Help</button>
                                     </div>
                                 </div>
@@ -1269,6 +1667,13 @@ $(document).ready(function(){
                                         <option value="">Rule preset...</option>
                                         {RULE_PRESETS.map(function(p){
                                             return <option key={p.rule} value={p.rule}>{p.name}</option>;
+                                        })}
+                                    </select>
+                                    <select className="rule-preset-select"
+                                        value={this.state.theme}
+                                        onChange={this.setTheme}>
+                                        {Object.keys(THEMES).map(function(t){
+                                            return <option key={t} value={t}>{t}</option>;
                                         })}
                                     </select>
                                     <label className="slider-title rule-label">Rule (B/S notation)</label>
@@ -1347,12 +1752,19 @@ $(document).ready(function(){
                                             onChange={this.setSpeed} />
                                     </div>
                                 </div>
+                                <div className="sliders">
+                                    <label className="slider-title">{"Zoom: " + this.state.cellSize + "\u00a0px/cell"}</label>
+                                    <div className="slider-row">
+                                        <input type="range" min="2" max="32" step="2"
+                                            value={this.state.cellSize}
+                                            onChange={this.setZoom} />
+                                    </div>
+                                </div>
 
                                 <div className="rle-section">
                                     <div className="buttons rle-toggle-row">
-                                        <button className={"btn btn-rle-toggle" + (this.state.showRle ? " active" : "")}
-                                            onClick={this.toggleRle}>Import</button>
-                                        <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
+                                        <button className={"btn btn-rle-toggle btn-block" + (this.state.showRle ? " active" : "")}
+                                            onClick={this.toggleRle}>Import RLE / Plaintext</button>
                                     </div>
                                     {this.state.showRle &&
                                         <div className="rle-body">
