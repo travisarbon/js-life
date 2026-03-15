@@ -152,8 +152,18 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px; }
-  /* Secondary button row: 4-column grid for view/mode toggles (7 items = 4+3). */
+  /* Secondary button row: 4-column grid for view/mode toggles. */
   #content .buttons-secondary {
+    grid-template-columns: repeat(4, 1fr);
+    padding-top: 4px;
+    border-top: 1px solid rgba(0,0,0,0.15); }
+  /* Selection action row: 3-column grid (Copy, Paste, Delete). */
+  #content .buttons-selection {
+    grid-template-columns: repeat(3, 1fr);
+    padding-top: 4px;
+    border-top: 1px solid rgba(0,0,0,0.1); }
+  /* Export row: 4-column grid (Export PNG, Copy RLE, Record, Help). */
+  #content .buttons-export {
     grid-template-columns: repeat(4, 1fr);
     padding-top: 4px;
     border-top: 1px solid rgba(0,0,0,0.15); }
@@ -326,6 +336,32 @@ body {
     opacity: 0.65;
     padding: 2px 0 4px; }
 
+/* ── Mobile quick bar ─────────────────────────────────────────────────────── */
+/* Hidden on desktop; shown on mobile below the canvas. */
+.mobile-quickbar {
+  display: none; }
+.mobile-quickbar .btn {
+  background-color: #e0d5cb;
+  border: 1px solid #c5bab0;
+  border-radius: 3px;
+  text-align: center;
+  padding: 5px 4px;
+  color: #67635F;
+  white-space: nowrap;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.88em;
+  cursor: pointer; }
+.mobile-quickbar .btn.active {
+  background-color: #70959A;
+  color: #F4E9E1; }
+
+/* ── Mobile bottom sheet backdrop ────────────────────────────────────────── */
+.mobile-sheet-backdrop {
+  display: none; }
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
 /* Tablet landscape / narrow desktop: shrink sidebar slightly. */
@@ -343,8 +379,38 @@ body {
     align-items: stretch; }
   #content .canvas-container {
     width: 100%; }
+  /* Quick bar: always-visible row of key actions below the canvas. */
+  .mobile-quickbar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 4px 0 2px; }
+  /* Sidebar becomes a fixed bottom sheet that slides up on demand. */
   #content .sidebar {
-    width: 100%; }
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 60vh;
+    overflow-y: auto;
+    transform: translateY(105%);
+    transition: transform 0.25s ease;
+    z-index: 50;
+    padding: 10px 16px 20px;
+    border-top: 2px solid rgba(255,255,255,0.2);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+    box-sizing: border-box;
+    background-color: #A7A09A; }
+  #content .sidebar.mobile-open {
+    transform: translateY(0); }
+  /* Backdrop dims content behind the open sheet. */
+  .mobile-sheet-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 49; }
   #content .buttons {
     grid-template-columns: repeat(3, 1fr); }
   #content .buttons-secondary {
@@ -360,6 +426,9 @@ body {
   #content .sidebar {
     gap: 6px; }
   #content .btn {
+    min-height: 40px;
+    font-size: 0.82em; }
+  .mobile-quickbar .btn {
     min-height: 40px;
     font-size: 0.82em; }
   #content .buttons {
