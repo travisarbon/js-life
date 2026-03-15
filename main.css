@@ -134,7 +134,12 @@ body {
     padding: 5px 6px;
     color: #67635F;
     white-space: nowrap;
-    width: 100%; }
+    width: 100%;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center; }
+  /* .btn-block must come after .btn to correctly override display back to block. */
   #content .btn-block {
     display: block;
     width: 100%;
@@ -149,15 +154,7 @@ body {
     gap: 4px; }
   /* Secondary button row: 4-column grid for view/mode toggles (7 items = 4+3). */
   #content .buttons-secondary {
-    grid-template-columns: repeat(4, 1fr); }
-  /* Minimum touch target height per platform HIG guidelines. */
-  #content .btn {
-    min-height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center; }
-  /* Visual separator between simulation buttons and view toggles. */
-  #content .buttons-secondary {
+    grid-template-columns: repeat(4, 1fr);
     padding-top: 4px;
     border-top: 1px solid rgba(0,0,0,0.15); }
   #content .btn-toggle.active {
@@ -342,13 +339,16 @@ body {
     padding-left: 12px;
     padding-right: 12px; }
   #content .content-body {
-    flex-direction: column; }
+    flex-direction: column;
+    align-items: stretch; }
+  #content .canvas-container {
+    width: 100%; }
   #content .sidebar {
     width: 100%; }
   #content .buttons {
     grid-template-columns: repeat(3, 1fr); }
   #content .buttons-secondary {
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     border-top: none;
     padding-top: 0; } }
 
