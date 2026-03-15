@@ -2976,15 +2976,14 @@ document.addEventListener('DOMContentLoaded', function () {
           this._minimapCanvas.height = mmH_css;
         }
 
-        // Render minimap cells to off-screen canvas
+        // Render minimap cells to off-screen canvas using actual theme colors.
         var mmCtx = this._minimapCanvas.getContext('2d');
-        var isDark = theme === 'dark' || theme === 'matrix';
-        mmCtx.fillStyle = isDark ? '#1a1a1a' : '#f0f0f0';
+        // Dark background for contrast (same approach as desktop drawMinimap).
+        mmCtx.fillStyle = 'rgba(10,14,26,0.85)';
         mmCtx.fillRect(0, 0, mmW_css, mmH_css);
         var cellW = mmW_css / cols;
         var cellH = mmH_css / rows;
-        var liveColor = isDark ? '#aaffaa' : '#228822';
-        mmCtx.fillStyle = liveColor;
+        mmCtx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
         liveCells.forEach(function (_, key) {
           var parts = key.split(',');
           var cc = parseInt(parts[0], 10);
@@ -2996,12 +2995,17 @@ document.addEventListener('DOMContentLoaded', function () {
           mmCtx.fillRect(px, py, pw, ph);
         });
 
-        // Draw viewport rectangle
+        // Border.
+        mmCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+        mmCtx.lineWidth = 1;
+        mmCtx.strokeRect(0.5, 0.5, mmW_css - 1, mmH_css - 1);
+
+        // Viewport rectangle.
         var vpW = this._canvas.width / cellSize * cellW;
         var vpH = this._canvas.height / cellSize * cellH;
         var vpX = viewX * cellW;
         var vpY = viewY * cellH;
-        mmCtx.strokeStyle = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)';
+        mmCtx.strokeStyle = 'rgba(255,255,255,0.75)';
         mmCtx.lineWidth = 1;
         mmCtx.strokeRect(vpX + 0.5, vpY + 0.5, Math.min(vpW, mmW_css - vpX), Math.min(vpH, mmH_css - vpY));
 
@@ -3041,7 +3045,7 @@ document.addEventListener('DOMContentLoaded', function () {
       renderMobileContextPanel: function () {
         var self = this;
         var showRotation = this.state.drawMode === 'preset' && this.state.selectedPattern;
-        var showSelection = this.state.drawMode === 'select' || this.state.selection !== null;
+        var showSelection = this.state.selection !== null;
         if (!showRotation && !showSelection) {
           return null;
         }
@@ -3109,6 +3113,51 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       renderButtons: function () {
         var self = this;
+        var filterLc = this.state.patternFilter.toLowerCase();
+        var patternOptions = Object.keys(PATTERN_GROUPS).map(function (group) {
+          var names = Object.keys(PATTERN_GROUPS[group]).filter(function (name) {
+            return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
+          });
+          if (names.length === 0) {
+            return null;
+          }
+          var opts = names.map(function (name) {
+            var meta = PATTERN_META[name];
+            var title = '';
+            if (meta) {
+              if (meta.type === 'Still life') {
+                title = 'Still life \xB7 ' + meta.cells + ' cells';
+              } else if (meta.type === 'Oscillator') {
+                title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+              } else if (meta.type === 'Spaceship') {
+                title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');
+              } else if (meta.type === 'Methuselah') {
+                title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';
+              } else if (meta.type === 'Gun') {
+                title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+              }
+            }
+            return /*#__PURE__*/React.createElement("option", {
+              key: name,
+              value: name,
+              title: title
+            }, name);
+          });
+          return /*#__PURE__*/React.createElement("optgroup", {
+            key: group,
+            label: group
+          }, opts);
+        }).filter(function (x) {
+          return x !== null;
+        });
+        if (PATTERNS['Custom']) {
+          patternOptions = patternOptions.concat(/*#__PURE__*/React.createElement("optgroup", {
+            key: "custom",
+            label: "Custom"
+          }, /*#__PURE__*/React.createElement("option", {
+            value: "Custom"
+          }, "Custom")));
+        }
         return /*#__PURE__*/React.createElement("div", {
           className: "sidebar-section"
         }, /*#__PURE__*/React.createElement("div", {
@@ -3166,17 +3215,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }, "Select"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : ""),
           onClick: this.toggleMinimap,
-          title: "Show/hide minimap overview (M)",
-          style: {
-            gridColumn: '1 / -1'
-          }
-        }, "Minimap")), this.state.drawMode === 'paint' && /*#__PURE__*/React.createElement("div", {
+          title: "Show/hide minimap overview (M)"
+        }, "Minimap")), /*#__PURE__*/React.createElement("div", {
           className: "tool-subtype-row"
-        }, /*#__PURE__*/React.createElement("select", {
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "tool-label"
+        }, "Draw:"), /*#__PURE__*/React.createElement("select", {
           value: this.state.drawTool,
           onChange: function (e) {
             self.setState({
               drawTool: e.target.value,
+              drawMode: 'paint',
               selection: null
             });
           }
@@ -3190,13 +3239,16 @@ document.addEventListener('DOMContentLoaded', function () {
           value: "shape-rect"
         }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
           value: "shape-circle"
-        }, "Circle"))), this.state.drawMode === 'select' && /*#__PURE__*/React.createElement("div", {
+        }, "Circle"))), /*#__PURE__*/React.createElement("div", {
           className: "tool-subtype-row"
-        }, /*#__PURE__*/React.createElement("select", {
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "tool-label"
+        }, "Select:"), /*#__PURE__*/React.createElement("select", {
           value: this.state.selectTool,
           onChange: function (e) {
             self.setState({
               selectTool: e.target.value,
+              drawMode: 'select',
               selection: null
             });
           }
@@ -3208,7 +3260,50 @@ document.addEventListener('DOMContentLoaded', function () {
           value: "freeform"
         }, "Freeform"), /*#__PURE__*/React.createElement("option", {
           value: "all-visible"
-        }, "All visible"))), this.state.drawMode === 'select' && this.state.selection && /*#__PURE__*/React.createElement("div", {
+        }, "All visible"))), /*#__PURE__*/React.createElement("div", {
+          className: "tool-subtype-row"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "tool-label"
+        }, "Preset:"), /*#__PURE__*/React.createElement("select", {
+          className: "preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : ""),
+          value: this.state.selectedPattern || "",
+          onChange: this.selectPattern
+        }, /*#__PURE__*/React.createElement("option", {
+          value: ""
+        }, "Choose preset..."), patternOptions)), /*#__PURE__*/React.createElement("input", {
+          className: "pattern-filter-input",
+          type: "text",
+          placeholder: "Filter patterns...",
+          value: this.state.patternFilter,
+          onChange: function (e) {
+            self.setState({
+              patternFilter: e.target.value
+            });
+          }
+        }), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("div", {
+          className: "rotation-row"
+        }, /*#__PURE__*/React.createElement("canvas", {
+          className: "rotation-preview",
+          width: "96",
+          height: "96",
+          ref: function (c) {
+            self._previewCanvas = c;
+          }
+        }), /*#__PURE__*/React.createElement("div", {
+          className: "rotation-btns"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-rotate",
+          onClick: this.rotateCCW,
+          title: "Rotate 90\xB0 counter-clockwise"
+        }, "\u21BA"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-rotate",
+          onClick: this.rotateCW,
+          title: "Rotate 90\xB0 clockwise"
+        }, "\u21BB"))), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("p", {
+          className: "placement-hint"
+        }, "Click canvas to place \xB7 " + this.state.selectedPattern, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+          className: "placement-hint-sub"
+        }, "Right-click or Esc to cancel")), this.state.selection && /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
@@ -3237,59 +3332,13 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.toggleHelp
         }, "Help"))));
       },
-      renderPresets: function () {
-        var self = this;
+      renderRulesSection: function () {
         var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
-        var filterLc = this.state.patternFilter.toLowerCase();
-        var patternOptions = Object.keys(PATTERN_GROUPS).map(function (group) {
-          var names = Object.keys(PATTERN_GROUPS[group]).filter(function (name) {
-            return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
-          });
-          if (names.length === 0) {
-            return null;
-          }
-          var opts = names.map(function (name) {
-            var meta = PATTERN_META[name];
-            var title = '';
-            if (meta) {
-              if (meta.type === 'Still life') {
-                title = 'Still life \xB7 ' + meta.cells + ' cells';
-              } else if (meta.type === 'Oscillator') {
-                title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-              } else if (meta.type === 'Spaceship') {
-                title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');
-              } else if (meta.type === 'Methuselah') {
-                title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';
-              } else if (meta.type === 'Gun') {
-                title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-              }
-            }
-            return /*#__PURE__*/React.createElement("option", {
-              key: name,
-              value: name,
-              title: title
-            }, name);
-          });
-          return /*#__PURE__*/React.createElement("optgroup", {
-            key: group,
-            label: group
-          }, opts);
-        }).filter(function (x) {
-          return x !== null;
-        });
-        if (PATTERNS['Custom']) {
-          patternOptions = patternOptions.concat(/*#__PURE__*/React.createElement("optgroup", {
-            key: "custom",
-            label: "Custom"
-          }, /*#__PURE__*/React.createElement("option", {
-            value: "Custom"
-          }, "Custom")));
-        }
         return /*#__PURE__*/React.createElement("div", {
           className: "sidebar-section"
         }, /*#__PURE__*/React.createElement("div", {
           className: "sidebar-section-title"
-        }, "Patterns & Rules"), /*#__PURE__*/React.createElement("div", {
+        }, "Rules & Display"), /*#__PURE__*/React.createElement("div", {
           className: "presets-col"
         }, /*#__PURE__*/React.createElement("select", {
           className: "rule-preset-select",
@@ -3319,46 +3368,7 @@ document.addEventListener('DOMContentLoaded', function () {
           value: this.state.ruleString,
           onChange: this.setRule,
           title: "Birth/Survival rule string (e.g. B3/S23)"
-        }), /*#__PURE__*/React.createElement("input", {
-          className: "pattern-filter-input",
-          type: "text",
-          placeholder: "Filter patterns...",
-          value: this.state.patternFilter,
-          onChange: function (e) {
-            self.setState({
-              patternFilter: e.target.value
-            });
-          }
-        }), /*#__PURE__*/React.createElement("select", {
-          className: "preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : ""),
-          value: this.state.selectedPattern || "",
-          onChange: this.selectPattern
-        }, /*#__PURE__*/React.createElement("option", {
-          value: ""
-        }, "Choose preset..."), patternOptions), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("div", {
-          className: "rotation-row"
-        }, /*#__PURE__*/React.createElement("canvas", {
-          className: "rotation-preview",
-          width: "96",
-          height: "96",
-          ref: function (c) {
-            self._previewCanvas = c;
-          }
-        }), /*#__PURE__*/React.createElement("div", {
-          className: "rotation-btns"
-        }, /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-rotate",
-          onClick: this.rotateCCW,
-          title: "Rotate 90\xB0 counter-clockwise"
-        }, "\u21BA"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-rotate",
-          onClick: this.rotateCW,
-          title: "Rotate 90\xB0 clockwise"
-        }, "\u21BB"))), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("p", {
-          className: "placement-hint"
-        }, "Click canvas to place \xB7 " + this.state.selectedPattern, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-          className: "placement-hint-sub"
-        }, "Right-click or Esc to cancel"))));
+        })));
       },
       renderSliders: function () {
         var delay = SPEED_DELAYS[this.state.speed - 1];
@@ -3511,7 +3521,9 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.toggleMobileTools
         }, "Controls"))), /*#__PURE__*/React.createElement("div", {
           className: "sidebar" + (this.state.showMobileTools ? " mobile-open" : "")
-        }, this.renderStats(), this.renderButtons(), this.renderPresets(), this.renderSliders(), this.renderRLESection())), this.state.showMobileTools && /*#__PURE__*/React.createElement("div", {
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "sidebar-scroll-content"
+        }, this.renderStats(), this.renderButtons(), this.renderRulesSection(), this.renderSliders(), this.renderRLESection()))), this.state.showMobileTools && /*#__PURE__*/React.createElement("div", {
           className: "mobile-sheet-backdrop",
           onClick: this.toggleMobileTools
         }));

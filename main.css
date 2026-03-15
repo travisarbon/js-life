@@ -146,11 +146,14 @@ body {
   #content .btn-section {
     display: flex;
     flex-direction: column;
-    gap: 4px; }
+    gap: 4px;
+    overflow: hidden; }
   #content .buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px; }
+    gap: 4px;
+    width: 100%;
+    box-sizing: border-box; }
   /* Secondary button row: 3-column grid for view/mode toggles. */
   #content .buttons-secondary {
     grid-template-columns: repeat(3, 1fr);
@@ -166,13 +169,15 @@ body {
     grid-template-columns: repeat(2, 1fr);
     padding-top: 4px;
     border-top: 1px solid rgba(0,0,0,0.15); }
-  /* Tool subtype dropdown row (shown under Draw/Select mode buttons). */
+  /* Tool subtype dropdown row. */
   #content .tool-subtype-row {
     display: flex;
     align-items: center;
+    gap: 4px;
     padding-top: 4px; }
   #content .tool-subtype-row select {
     flex: 1;
+    min-width: 0;
     font-size: 0.88em;
     padding: 4px 6px;
     border-radius: 3px;
@@ -180,6 +185,11 @@ body {
     color: #67635F;
     background: white;
     box-sizing: border-box; }
+  #content .tool-label {
+    font-size: 0.80em;
+    opacity: 0.75;
+    white-space: nowrap;
+    min-width: 42px; }
   #content .btn-toggle.active {
     background-color: #70959A;
     color: #F4E9E1; }
@@ -450,17 +460,23 @@ body {
     right: 0;
     width: 100%;
     max-height: 60vh;
-    overflow-y: auto;
+    overflow: hidden;
     transform: translateY(105%);
     transition: transform 0.25s ease;
     z-index: 50;
-    padding: 10px 16px 20px;
     border-top: 2px solid rgba(255,255,255,0.2);
     box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
     box-sizing: border-box;
     background-color: #A7A09A; }
   #content .sidebar.mobile-open {
     transform: translateY(0); }
+  /* Inner scroll wrapper avoids the iOS fixed+overflow-y touch-offset bug. */
+  #content .sidebar-scroll-content {
+    max-height: 60vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 16px 20px;
+    box-sizing: border-box; }
   /* Backdrop dims content behind the open sheet. */
   .mobile-sheet-backdrop {
     display: block;
@@ -483,8 +499,8 @@ body {
   #content {
     padding-left: 8px;
     padding-right: 8px; }
-  #content .sidebar {
-    gap: 6px; }
+  #content .sidebar-scroll-content {
+    padding: 6px 12px 16px; }
   #content .btn {
     min-height: 40px;
     font-size: 0.82em; }
