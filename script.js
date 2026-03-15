@@ -387,6 +387,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     pendingCols :    cols,
                     pendingRows :    rows,
                     popHistory :     [],
+                    sessionPeakPop : 0,
                     stable :         false,
                     showHelp :       false,
                     showRle :        false,
@@ -398,8 +399,9 @@ document.addEventListener('DOMContentLoaded', function(){
                     drawMode :       'paint',
                     selection :      null,
                     clipboard :      null,
-                    showMinimap :    true,
-                    recording :      false
+                    showMinimap :     true,
+                    recording :       false,
+                    showMobileTools : false
                 };
             },
 
@@ -421,6 +423,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._worker = null;
                 this._gif = null;
                 this._minimapDirty = true;
+                this._minimapDragging = false;
                 this._minimapCanvas = document.createElement('canvas');
                 this._minimapCanvas.width  = 100;
                 this._minimapCanvas.height = 75;
@@ -432,7 +435,18 @@ document.addEventListener('DOMContentLoaded', function(){
                 document.addEventListener('keydown', this.handleKeyDown);
                 // Respond to viewport resize (throttled) to update canvas dimensions.
                 var self = this;
+                // Cache initial dimensions to filter out browser-chrome-only height changes on mobile.
+                this._lastResizeW = window.innerWidth;
+                this._lastResizeH = window.innerHeight;
                 this._onResize = function(){
+                    var newW = window.innerWidth;
+                    var newH = window.innerHeight;
+                    var widthChanged = Math.abs(newW - self._lastResizeW) > 10;
+                    var heightBigChange = Math.abs(newH - self._lastResizeH) > 100;
+                    // Ignore height-only changes < 100px (mobile browser chrome show/hide on scroll).
+                    if(!widthChanged && !heightBigChange){ return; }
+                    self._lastResizeW = newW;
+                    self._lastResizeH = newH;
                     clearTimeout(self._resizeTimer);
                     self._resizeTimer = setTimeout(function(){ self.forceUpdate(function(){ self.drawBoard(); }); }, 120);
                 };
@@ -472,8 +486,11 @@ document.addEventListener('DOMContentLoaded', function(){
                 var maxW = typeof window !== 'undefined'
                     ? Math.min(window.innerWidth - 24, 800) : 800;
                 var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
+                var isMobileToolsOpen = typeof window !== 'undefined'
+                    && window.innerWidth <= 620 && this.state.showMobileTools;
+                var hFrac = isLandscape ? 0.75 : (isMobileToolsOpen ? 0.36 : 0.58);
                 var maxH = typeof window !== 'undefined'
-                    ? Math.min(Math.round(window.innerHeight * (isLandscape ? 0.75 : 0.58)), 600) : 600;
+                    ? Math.min(Math.round(window.innerHeight * hFrac), 600) : 600;
                 return {
                     w: Math.min(pendingCols * cellSize, maxW),
                     h: Math.min(pendingRows * cellSize, maxH)
@@ -760,6 +777,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory.concat([newPop]);
                 if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
+                var newSessionPeak = Math.max(this.state.sessionPeakPop || 0, newPop);
                 // Store last measured GPS so it persists briefly after pausing.
                 this._gpsDisplayUntil = this._gpsDisplayUntil || 0;
 
@@ -779,11 +797,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 var self = this;
                 var myTickId = tickId;
                 this.setState({
-                    liveCells :   newLiveCells,
-                    generations : this.state.generations + 1,
-                    popHistory :  newHistory,
-                    stable :      hitStable,
-                    running :     hitStable ? false : this.state.running
+                    liveCells :      newLiveCells,
+                    generations :    this.state.generations + 1,
+                    popHistory :     newHistory,
+                    sessionPeakPop : newSessionPeak,
+                    stable :         hitStable,
+                    running :        hitStable ? false : this.state.running
                 }, function(){
                     self.drawBoard();
                     if(hitStable){ self._loopRunning = false; return; }
@@ -817,14 +836,16 @@ document.addEventListener('DOMContentLoaded', function(){
                 var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory.concat([newPop]);
                 if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
+                var newSessionPeakStep = Math.max(this.state.sessionPeakPop || 0, newPop);
                 this._minimapDirty = true;
                 var self = this;
                 this.setState({
-                    liveCells :   newLiveCells,
-                    running :     false,
-                    generations : this.state.generations + 1,
-                    popHistory :  newHistory,
-                    stable :      false
+                    liveCells :      newLiveCells,
+                    running :        false,
+                    generations :    this.state.generations + 1,
+                    popHistory :     newHistory,
+                    sessionPeakPop : newSessionPeakStep,
+                    stable :         false
                 }, function(){ self.drawBoard(); });
             },
 
@@ -957,6 +978,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         var clamped = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
                         var self0 = this;
                         this.setState({viewX: clamped.viewX, viewY: clamped.viewY}, function(){ self0.drawBoard(); });
+                        this._minimapDragging = true;
                         return;
                     }
                 }
@@ -1008,6 +1030,19 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             onMouseMove : function(event){
+                // Minimap drag: pan viewport continuously while dragging on minimap.
+                if(this._minimapDragging && this._minimapRect && this.state.showMinimap){
+                    var mm = this._minimapRect;
+                    var mouse = this.getMousePos(event);
+                    var frac_c = Math.max(0, Math.min(1, (mouse.x - mm.x) / mm.w));
+                    var frac_r = Math.max(0, Math.min(1, (mouse.y - mm.y) / mm.h));
+                    var newVX = Math.round(frac_c * this.state.cols - (this._canvas.width  / this.state.cellSize) / 2);
+                    var newVY = Math.round(frac_r * this.state.rows - (this._canvas.height / this.state.cellSize) / 2);
+                    var clamped = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
+                    var selfMm = this;
+                    this.setState({viewX: clamped.viewX, viewY: clamped.viewY}, function(){ selfMm.drawBoard(); });
+                    return;
+                }
                 // Pan drag (middle mouse button).
                 if(this._panDragging && this._panStart){
                     var dx = event.clientX - this._panStart.x;
@@ -1065,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             onMouseUp : function(){
+                this._minimapDragging = false;
                 if(this._panDragging){
                     this._panDragging = false;
                     this._panStart = null;
@@ -1097,6 +1133,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
             onMouseLeave : function(){
                 if(this.state.hoverCell){ this.setState({hoverCell : null}); }
+                this._minimapDragging = false;
                 this._panDragging = false;
                 this._panStart = null;
                 if(this.state.selectedPattern){
@@ -1274,6 +1311,11 @@ document.addEventListener('DOMContentLoaded', function(){
                 this.setState({showMinimap: !this.state.showMinimap}, function(){ self.drawBoard(); });
             },
 
+            toggleMobileTools : function(){
+                var self = this;
+                this.setState({showMobileTools: !this.state.showMobileTools}, function(){ self.drawBoard(); });
+            },
+
             // ── GIF recording ─────────────────────────────────────────────────
 
             toggleRecording : function(){
@@ -1394,6 +1436,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     // For pattern placement, place at the final preview position rather than
                     // the initial tap position (which onMouseUp would have used).
                     if(this.state.selectedPattern && this._previewPos){
+                        if(!this.state.livePaintMode){ this.setState({running: false}); }
                         this.placePattern(this.state.selectedPattern, this._previewPos.c, this._previewPos.r);
                         return;
                     }
@@ -1537,8 +1580,9 @@ document.addEventListener('DOMContentLoaded', function(){
                     liveCells :   newLiveCells,
                     viewX :       clamped.viewX,
                     viewY :       clamped.viewY,
-                    selection :   null,
-                    popHistory :  []
+                    selection :      null,
+                    popHistory :     [],
+                    sessionPeakPop : 0
                 }, function(){ self.drawBoard(); });
             },
 
@@ -1711,7 +1755,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._minimapDirty = true;
                 var self = this;
                 this.setState({running : false, generations : 0, liveCells : new Map(),
-                    popHistory : [], stable : false}, function(){ self.drawBoard(); });
+                    popHistory : [], sessionPeakPop : 0, stable : false}, function(){ self.drawBoard(); });
             },
 
             resetGame : function(){
@@ -1726,7 +1770,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._minimapDirty = true;
                 var self = this;
                 this.setState({running : false, generations : 0, liveCells : newLiveCells,
-                    popHistory : [], stable : false}, function(){
+                    popHistory : [], sessionPeakPop : 0, stable : false}, function(){
                     self.drawBoard();
                     if(wasRunning){
                         self.setState({running : true}, function(){ self._startLoop(); });
@@ -1810,7 +1854,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div className="sparkline-wrap">
                             <div className="sparkline-header">
                                 <span className="sparkline-title">{"Pop: " + population.toLocaleString() + trendArrow}</span>
-                                <span className="sparkline-peak">{"peak " + maxPop.toLocaleString()}</span>
+                                <span className="sparkline-peak">{"peak " + maxPop.toLocaleString() + (this.state.sessionPeakPop > maxPop ? " · all " + this.state.sessionPeakPop.toLocaleString() : "")}</span>
                             </div>
                             <svg className="sparkline" width="100%" height={vbH}
                                  viewBox={"0 0 " + vbW + " " + vbH}
@@ -1869,8 +1913,6 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <button className="btn" onClick={this.emptyBoard}>Empty</button>
                                 <button className="btn" onClick={this.undo}>Undo</button>
                                 <button className="btn" onClick={this.fitView}>Fit</button>
-                                <button className="btn" onClick={this.exportPNG}>Export PNG</button>
-                                <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
                             </div>
                             <div className="buttons buttons-secondary">
                                 <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
@@ -1878,6 +1920,18 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
                                 <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
                                 <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)">Minimap</button>
+                            </div>
+                            {this.state.drawMode === 'select' && this.state.selection &&
+                                <div className="buttons buttons-selection">
+                                    <button className="btn" onClick={this.copySelection}>Copy</button>
+                                    <button className="btn" onClick={this.pasteAsPattern}
+                                        disabled={!this.state.clipboard || this.state.clipboard.length === 0}>Paste</button>
+                                    <button className="btn" onClick={this.deleteSelection}>Delete</button>
+                                </div>
+                            }
+                            <div className="buttons buttons-export">
+                                <button className="btn" onClick={this.exportPNG}>Export PNG</button>
+                                <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
                                 <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF of the simulation">{this.state.recording ? "Stop" : "Record"}</button>
                                 <button className="btn" onClick={this.toggleHelp}>Help</button>
                             </div>
@@ -2088,8 +2142,14 @@ document.addEventListener('DOMContentLoaded', function(){
                                     onTouchStart  = {this.onTouchStart}
                                     onTouchMove   = {this.onTouchMove}
                                     onTouchEnd    = {this.onTouchEnd}></canvas>
+                                <div className="mobile-quickbar">
+                                    <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
+                                    <button className="btn" onClick={this.stepGame}>Step</button>
+                                    <button className="btn" onClick={this.resetGame}>Reset</button>
+                                    <button className={"btn btn-toggle" + (this.state.showMobileTools ? " active" : "")} onClick={this.toggleMobileTools}>Controls</button>
+                                </div>
                             </div>
-                            <div className="sidebar">
+                            <div className={"sidebar" + (this.state.showMobileTools ? " mobile-open" : "")}>
                                 {this.renderStats()}
                                 {this.renderButtons()}
                                 {this.renderPresets()}
@@ -2097,6 +2157,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this.renderRLESection()}
                             </div>
                         </div>
+                        {this.state.showMobileTools &&
+                            <div className="mobile-sheet-backdrop" onClick={this.toggleMobileTools}></div>
+                        }
                     </div>
                 );
             }
