@@ -336,6 +336,11 @@ body {
     opacity: 0.65;
     padding: 2px 0 4px; }
 
+/* ── Mobile context panel ─────────────────────────────────────────────────── */
+/* Contextual controls (rotation preview, selection actions) below canvas on mobile. */
+.mobile-context-panel {
+  display: none; }
+
 /* ── Mobile stats bar ─────────────────────────────────────────────────────── */
 /* Compact always-visible stats strip below canvas on mobile; hidden on desktop. */
 .mobile-stats-bar {
@@ -375,7 +380,8 @@ body {
     position: sticky;
     top: 10px;
     max-height: calc(100vh - 20px);
-    overflow-y: auto; } }
+    overflow-y: auto;
+    scrollbar-gutter: stable; } }
 
 /* Tablet landscape / narrow desktop: shrink sidebar slightly. */
 @media (min-width: 621px) and (max-width: 900px) {
@@ -392,6 +398,12 @@ body {
     align-items: stretch; }
   #content .canvas-container {
     width: 100%; }
+  /* Context panel: rotation preview + selection actions shown outside bottom sheet. */
+  .mobile-context-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 2px 2px; }
   /* Stats bar: always-visible compact stats strip below canvas. */
   .mobile-stats-bar {
     display: flex;

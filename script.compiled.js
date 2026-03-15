@@ -568,6 +568,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this._minimapDirty = true;
         this._minimapDragging = false;
         this._minimapCanvas = document.createElement('canvas');
+        this._mobilePreviewCanvas = null;
         this._minimapCanvas.width = 100;
         this._minimapCanvas.height = 75;
         this._pinchStart = null;
@@ -756,7 +757,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Pattern placement preview.
-        if (this.state.selectedPattern && this._previewPos) {
+        if (this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos) {
           var pattern = this.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
           var maxPR = 0,
             maxPC = 0;
@@ -859,8 +860,7 @@ document.addEventListener('DOMContentLoaded', function () {
         };
       },
       drawRotationPreview: function () {
-        var canvas = this._previewCanvas;
-        if (!canvas || !this.state.selectedPattern) {
+        if (!this.state.selectedPattern) {
           return;
         }
         var theme = THEMES[this.state.theme] || THEMES['Teal'];
@@ -877,18 +877,25 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var patRows = maxR + 1,
           patCols = maxC + 1;
-        var size = canvas.width;
         var pad = 4;
-        var cellPx = Math.max(1, Math.floor((size - pad * 2) / Math.max(patRows, patCols)));
-        var offX = Math.floor((size - patCols * cellPx) / 2);
-        var offY = Math.floor((size - patRows * cellPx) / 2);
-        var ctx = canvas.getContext('2d');
-        ctx.fillStyle = theme.bg;
-        ctx.fillRect(0, 0, size, size);
-        ctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
-        for (var j = 0; j < pattern.length; j++) {
-          ctx.fillRect(offX + pattern[j][1] * cellPx, offY + pattern[j][0] * cellPx, cellPx, cellPx);
-        }
+        var drawOn = function (canvas) {
+          if (!canvas) {
+            return;
+          }
+          var size = canvas.width;
+          var cellPx = Math.max(1, Math.floor((size - pad * 2) / Math.max(patRows, patCols)));
+          var offX = Math.floor((size - patCols * cellPx) / 2);
+          var offY = Math.floor((size - patRows * cellPx) / 2);
+          var ctx = canvas.getContext('2d');
+          ctx.fillStyle = theme.bg;
+          ctx.fillRect(0, 0, size, size);
+          ctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
+          for (var j = 0; j < pattern.length; j++) {
+            ctx.fillRect(offX + pattern[j][1] * cellPx, offY + pattern[j][0] * cellPx, cellPx, cellPx);
+          }
+        };
+        drawOn(this._previewCanvas);
+        drawOn(this._mobilePreviewCanvas);
       },
       // ── Sparse generation logic ────────────────────────────────────────
 
@@ -1212,12 +1219,13 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         // Right-click exits pattern placement mode.
-        if (event.button === 2 && this.state.selectedPattern) {
+        if (event.button === 2 && this.state.drawMode === 'preset' && this.state.selectedPattern) {
           this._previewPos = null;
           var self = this;
           this.setState({
             selectedPattern: null,
-            patternRotation: 0
+            patternRotation: 0,
+            drawMode: 'paint'
           }, function () {
             self.drawBoard();
           });
@@ -1254,7 +1262,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Pattern placement mode.
-        if (this.state.selectedPattern) {
+        if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
           if (!this.state.livePaintMode) {
             this.setState({
               running: false
@@ -1353,7 +1361,7 @@ document.addEventListener('DOMContentLoaded', function () {
           });
           return;
         }
-        if (this.state.selectedPattern) {
+        if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
           var newPos = inBounds ? {
             c: c,
             r: r
@@ -1436,7 +1444,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this._minimapDragging = false;
         this._panDragging = false;
         this._panStart = null;
-        if (this.state.selectedPattern) {
+        if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
           this._previewPos = null;
           this.drawBoard();
           return;
@@ -1445,12 +1453,13 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       onContextMenu: function (event) {
         event.preventDefault();
-        if (this.state.selectedPattern) {
+        if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
           this._previewPos = null;
           var self = this;
           this.setState({
             selectedPattern: null,
-            patternRotation: 0
+            patternRotation: 0,
+            drawMode: 'paint'
           }, function () {
             self.drawBoard();
           });
@@ -1496,67 +1505,31 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       },
       fitView: function () {
-        var liveCells = this.state.liveCells;
-        var cols = this.state.cols;
-        var rows = this.state.rows;
         if (!this._canvas) {
           return;
         }
-        // Use the maximum available viewport dimensions rather than the current
-        // canvas size, which may be smaller due to a low cellSize setting.
+        var cols = this.state.cols;
+        var rows = this.state.rows;
+        // Use the same max-canvas dimensions as getCanvasSize.
         var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
-        var canvasW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 1160) : 1160;
-        var canvasH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * (isLandscape ? 0.75 : 0.82)), 900) : 900;
-        // Apply the same grid-aspect-ratio constraint as getCanvasSize.
+        var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
+        var hFrac = isLandscape ? 0.75 : isMobileToolsOpen ? 0.36 : 0.82;
+        var effW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 1160) : 1160;
+        var effH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 900) : 900;
+        // Apply the same aspect-ratio constraint as getCanvasSize.
         var fitAspect = cols / rows;
-        if (canvasW / canvasH > fitAspect) {
-          canvasW = Math.max(1, Math.round(canvasH * fitAspect));
-        } else if (canvasH / canvasW > 1 / fitAspect) {
-          canvasH = Math.max(1, Math.round(canvasW / fitAspect));
+        if (effW / effH > fitAspect) {
+          effW = Math.max(1, Math.round(effH * fitAspect));
+        } else if (effH / effW > 1 / fitAspect) {
+          effH = Math.max(1, Math.round(effW / fitAspect));
         }
+        // Largest integer cellSize where every grid cell fits in the canvas.
+        var newCS = Math.max(1, Math.floor(Math.min(effW / cols, effH / rows)));
         var self = this;
-        if (liveCells.size === 0) {
-          this.setState({
-            viewX: 0,
-            viewY: 0
-          }, function () {
-            self.drawBoard();
-          });
-          return;
-        }
-        var minR = Infinity,
-          maxR = -Infinity,
-          minC = Infinity,
-          maxC = -Infinity;
-        liveCells.forEach(function (age, key) {
-          var comma = key.indexOf(',');
-          var kr = parseInt(key.substring(0, comma));
-          var kc = parseInt(key.substring(comma + 1));
-          if (kr < minR) {
-            minR = kr;
-          }
-          if (kr > maxR) {
-            maxR = kr;
-          }
-          if (kc < minC) {
-            minC = kc;
-          }
-          if (kc > maxC) {
-            maxC = kc;
-          }
-        });
-        var patCols = maxC - minC + 1;
-        var patRows = maxR - minR + 1;
-        var newCS = Math.max(2, Math.min(32, Math.min(Math.floor(canvasW / (patCols * 1.15)), Math.floor(canvasH / (patRows * 1.15)))));
-        var visCols = Math.ceil(canvasW / newCS);
-        var visRows = Math.ceil(canvasH / newCS);
-        var centerC = Math.floor((minC + maxC) / 2);
-        var centerR = Math.floor((minR + maxR) / 2);
-        var clamped = this.clampView(centerC - Math.floor(visCols / 2), centerR - Math.floor(visRows / 2), cols, rows, newCS);
         this.setState({
           cellSize: newCS,
-          viewX: clamped.viewX,
-          viewY: clamped.viewY
+          viewX: 0,
+          viewY: 0
         }, function () {
           self.drawBoard();
         });
@@ -1615,7 +1588,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this.setState({
           selectedPattern: 'Clipboard',
           patternRotation: 0,
-          drawMode: 'paint',
+          drawMode: 'preset',
           selection: null
         }, function () {
           self.drawBoard();
@@ -1648,9 +1621,11 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       clearSelection: function () {
         var self = this;
+        // Restore to preset or paint depending on whether a pattern is armed.
+        var restoreMode = this.state.selectedPattern ? 'preset' : 'paint';
         this.setState({
           selection: null,
-          drawMode: 'paint'
+          drawMode: restoreMode
         }, function () {
           self.drawBoard();
         });
@@ -1660,13 +1635,21 @@ document.addEventListener('DOMContentLoaded', function () {
           this.clearSelection();
         } else {
           var self = this;
+          // Enter select mode without clearing the armed preset.
           this.setState({
-            drawMode: 'select',
-            selectedPattern: null
+            drawMode: 'select'
           }, function () {
             self.drawBoard();
           });
         }
+      },
+      toggleDrawMode: function () {
+        var self = this;
+        this.setState({
+          drawMode: 'paint'
+        }, function () {
+          self.drawBoard();
+        });
       },
       toggleMinimap: function () {
         var self = this;
@@ -1769,7 +1752,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         // Pattern placement: show a preview at the initial tap position instead of
         // placing immediately. The pattern is placed on touchend at the final position.
-        if (this.state.selectedPattern) {
+        if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
           if (pos.c >= 0 && pos.c < this.state.cols && pos.r >= 0 && pos.r < this.state.rows) {
             this._previewPos = {
               c: pos.c,
@@ -1833,7 +1816,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (event.touches.length === 0) {
           // For pattern placement, place at the final preview position rather than
           // the initial tap position (which onMouseUp would have used).
-          if (this.state.selectedPattern && this._previewPos) {
+          if (this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos) {
             if (!this.state.livePaintMode) {
               this.setState({
                 running: false
@@ -1943,11 +1926,12 @@ document.addEventListener('DOMContentLoaded', function () {
               this.clearSelection();
               break;
             }
-            if (this.state.selectedPattern) {
+            if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
               this._previewPos = null;
               this.setState({
                 selectedPattern: null,
-                patternRotation: 0
+                patternRotation: 0,
+                drawMode: 'paint'
               }, function () {
                 self.drawBoard();
               });
@@ -2207,8 +2191,10 @@ document.addEventListener('DOMContentLoaded', function () {
         var name = e.target.value || null;
         this._previewPos = null;
         var self = this;
+        var newMode = name ? 'preset' : 'paint';
         this.setState({
           selectedPattern: name,
+          drawMode: newMode,
           patternRotation: 0
         }, function () {
           self.drawBoard();
@@ -2421,6 +2407,52 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "sparkline-placeholder"
         }, "Pop: " + population.toLocaleString()));
       },
+      renderMobileContextPanel: function () {
+        var self = this;
+        var showRotation = this.state.drawMode === 'preset' && this.state.selectedPattern;
+        var showSelection = this.state.drawMode === 'select' && this.state.selection;
+        if (!showRotation && !showSelection) {
+          return null;
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "mobile-context-panel"
+        }, showRotation && /*#__PURE__*/React.createElement("div", {
+          className: "rotation-row"
+        }, /*#__PURE__*/React.createElement("canvas", {
+          className: "rotation-preview",
+          width: "72",
+          height: "72",
+          ref: function (c) {
+            self._mobilePreviewCanvas = c;
+          }
+        }), /*#__PURE__*/React.createElement("div", {
+          className: "rotation-btns"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-rotate",
+          onClick: this.rotateCCW,
+          title: "Rotate 90\xB0 counter-clockwise"
+        }, "\u21BA"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-rotate",
+          onClick: this.rotateCW,
+          title: "Rotate 90\xB0 clockwise"
+        }, "\u21BB")), /*#__PURE__*/React.createElement("p", {
+          className: "placement-hint"
+        }, this.state.selectedPattern, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+          className: "placement-hint-sub"
+        }, "Tap canvas to place"))), showSelection && /*#__PURE__*/React.createElement("div", {
+          className: "buttons buttons-selection"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.copySelection
+        }, "Copy"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.pasteAsPattern,
+          disabled: !this.state.clipboard || this.state.clipboard.length === 0
+        }, "Paste"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.deleteSelection
+        }, "Delete")));
+      },
       renderMobileStatsBar: function () {
         var population = this.state.liveCells.size;
         var hist = this.state.popHistory;
@@ -2431,7 +2463,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var statusLabel = this.state.stable ? 'Stable' : this.state.running ? 'Running' : 'Paused';
         var statusClass = this.state.stable ? 'status-stable' : this.state.running ? 'status-running' : 'status-paused';
-        var contextLabel = this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw';
+        var contextLabel = this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw';
         return /*#__PURE__*/React.createElement("div", {
           className: "mobile-stats-bar"
         }, /*#__PURE__*/React.createElement("span", {
@@ -2483,6 +2515,9 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.toggleBoundary,
           title: "Toggle between toroidal (wrapping) and finite (hard-edge) boundaries"
         }, this.state.boundary === 'toroidal' ? "Wrap" : "Hard"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : ""),
+          onClick: this.toggleDrawMode
+        }, "Draw"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
           onClick: this.toggleSelectMode
         }, "Select"), /*#__PURE__*/React.createElement("button", {
@@ -2611,12 +2646,12 @@ document.addEventListener('DOMContentLoaded', function () {
             });
           }
         }), /*#__PURE__*/React.createElement("select", {
-          className: "preset-select" + (this.state.selectedPattern ? " active" : ""),
+          className: "preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : ""),
           value: this.state.selectedPattern || "",
           onChange: this.selectPattern
         }, /*#__PURE__*/React.createElement("option", {
           value: ""
-        }, "Draw mode"), patternOptions), this.state.selectedPattern && /*#__PURE__*/React.createElement("div", {
+        }, "Draw mode"), patternOptions), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("div", {
           className: "rotation-row"
         }, /*#__PURE__*/React.createElement("canvas", {
           className: "rotation-preview",
@@ -2635,7 +2670,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-rotate",
           onClick: this.rotateCW,
           title: "Rotate 90\xB0 clockwise"
-        }, "\u21BB"))), this.state.selectedPattern && /*#__PURE__*/React.createElement("p", {
+        }, "\u21BB"))), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("p", {
           className: "placement-hint"
         }, "Click canvas to place \xB7 " + this.state.selectedPattern, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
           className: "placement-hint-sub"
@@ -2712,9 +2747,9 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "slider-row"
         }, /*#__PURE__*/React.createElement("input", {
           type: "range",
-          min: "2",
+          min: "1",
           max: "32",
-          step: "2",
+          step: "1",
           value: this.state.cellSize,
           onChange: this.setZoom
         }))));
@@ -2770,7 +2805,7 @@ document.addEventListener('DOMContentLoaded', function () {
           onTouchStart: this.onTouchStart,
           onTouchMove: this.onTouchMove,
           onTouchEnd: this.onTouchEnd
-        }), this.renderMobileStatsBar(), /*#__PURE__*/React.createElement("div", {
+        }), this.renderMobileContextPanel(), this.renderMobileStatsBar(), /*#__PURE__*/React.createElement("div", {
           className: "mobile-quickbar"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
