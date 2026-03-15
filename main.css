@@ -318,46 +318,23 @@ body {
   background-color: #c0392b !important;
   color: #fff !important; }
 
-/* ── Sidebar collapsible sections ─────────────────────────────────────────── */
+/* ── Sidebar sections ─────────────────────────────────────────────────────── */
   #content .sidebar-section {
     border-top: 1px solid rgba(0,0,0,0.12);
     padding-top: 4px; }
-  #content .sidebar-section > summary {
+  #content .sidebar-section-title {
     font-size: 0.78em;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     opacity: 0.65;
-    cursor: pointer;
-    padding: 2px 0 4px;
-    user-select: none;
-    list-style: none; }
-  #content .sidebar-section > summary::-webkit-details-marker { display: none; }
-  #content .sidebar-section > summary::before {
-    content: '\25B8\00a0';
-    font-size: 0.85em; }
-  #content .sidebar-section[open] > summary::before {
-    content: '\25BE\00a0'; }
+    padding: 2px 0 4px; }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
 /* Tablet landscape / narrow desktop: shrink sidebar slightly. */
 @media (min-width: 621px) and (max-width: 900px) {
   #content .sidebar {
-    width: 162px; }
-  /* On desktop/tablet, section headers are decorative — disable toggle. */
-  #content .sidebar-section > summary {
-    pointer-events: none;
-    cursor: default; }
-  #content .sidebar-section > summary::before {
-    display: none; } }
-
-/* Desktop: force all sidebar sections open, hide toggle arrows. */
-@media (min-width: 621px) {
-  #content .sidebar-section > summary {
-    pointer-events: none;
-    cursor: default; }
-  #content .sidebar-section > summary::before {
-    display: none; } }
+    width: 162px; } }
 
 /* Mobile portrait. */
 @media (max-width: 620px) {

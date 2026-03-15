@@ -1816,8 +1816,8 @@ $(document).ready(function(){
 
             renderButtons : function(){
                 return (
-                    <details className="sidebar-section" open>
-                        <summary>Simulation</summary>
+                    <div className="sidebar-section">
+                        <div className="sidebar-section-title">Simulation</div>
                         <div className="btn-section">
                             <div className="buttons">
                                 <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
@@ -1839,7 +1839,7 @@ $(document).ready(function(){
                                 <button className="btn" onClick={this.toggleHelp}>Help</button>
                             </div>
                         </div>
-                    </details>
+                    </div>
                 );
             },
 
@@ -1881,8 +1881,8 @@ $(document).ready(function(){
                     );
                 }
                 return (
-                    <details className="sidebar-section" open>
-                        <summary>Patterns &amp; Rules</summary>
+                    <div className="sidebar-section">
+                        <div className="sidebar-section-title">Patterns &amp; Rules</div>
                         <div className="presets-col">
                             <select className="rule-preset-select"
                                 value={this.state.rulePreset}
@@ -1935,7 +1935,7 @@ $(document).ready(function(){
                                 </p>
                             }
                         </div>
-                    </details>
+                    </div>
                 );
             },
 
@@ -1943,8 +1943,8 @@ $(document).ready(function(){
                 var delay = SPEED_DELAYS[this.state.speed - 1];
                 var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
                 return (
-                    <details className="sidebar-section" open>
-                        <summary>Board</summary>
+                    <div className="sidebar-section">
+                        <div className="sidebar-section-title">Board</div>
                         <div className="sliders">
                             <label className="slider-title">{"Width: " + this.state.pendingCols}</label>
                             <div className="slider-row">
@@ -1991,14 +1991,14 @@ $(document).ready(function(){
                                     onChange={this.setZoom} />
                             </div>
                         </div>
-                    </details>
+                    </div>
                 );
             },
 
             renderRLESection : function(){
                 return (
-                    <details className="sidebar-section" open>
-                        <summary>Import / Export</summary>
+                    <div className="sidebar-section">
+                        <div className="sidebar-section-title">Import / Export</div>
                         <div className="rle-section">
                             <div className="buttons rle-toggle-row">
                                 <button className={"btn btn-rle-toggle btn-block" + (this.state.showRle ? " active" : "")}
@@ -2018,7 +2018,7 @@ $(document).ready(function(){
                                 </div>
                             }
                         </div>
-                    </details>
+                    </div>
                 );
             },
 
