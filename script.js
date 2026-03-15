@@ -482,19 +482,25 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cellSize   = this.state.cellSize;
                 var pendingCols = this.state.pendingCols;
                 var pendingRows = this.state.pendingRows;
-                // Leave 24px horizontal gutter; reserve more height in landscape where the viewport is short.
+                // Leave 24px horizontal gutter; expand to fill available screen space.
                 var maxW = typeof window !== 'undefined'
-                    ? Math.min(window.innerWidth - 24, 800) : 800;
+                    ? Math.min(window.innerWidth - 24, 1160) : 1160;
                 var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
                 var isMobileToolsOpen = typeof window !== 'undefined'
                     && window.innerWidth <= 620 && this.state.showMobileTools;
-                var hFrac = isLandscape ? 0.75 : (isMobileToolsOpen ? 0.36 : 0.58);
+                var hFrac = isLandscape ? 0.75 : (isMobileToolsOpen ? 0.36 : 0.82);
                 var maxH = typeof window !== 'undefined'
-                    ? Math.min(Math.round(window.innerHeight * hFrac), 600) : 600;
-                return {
-                    w: Math.min(pendingCols * cellSize, maxW),
-                    h: Math.min(pendingRows * cellSize, maxH)
-                };
+                    ? Math.min(Math.round(window.innerHeight * hFrac), 900) : 900;
+                var w = Math.min(pendingCols * cellSize, maxW);
+                var h = Math.min(pendingRows * cellSize, maxH);
+                // Preserve the grid's aspect ratio so a square grid renders as a square canvas.
+                var gridAspect = pendingCols / pendingRows;
+                if(w / h > gridAspect){
+                    w = Math.max(1, Math.round(h * gridAspect));
+                } else if(h / w > 1 / gridAspect){
+                    h = Math.max(1, Math.round(w / gridAspect));
+                }
+                return {w: w, h: h};
             },
 
             componentWillUnmount : function(){
@@ -1197,9 +1203,16 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Use the maximum available viewport dimensions rather than the current
                 // canvas size, which may be smaller due to a low cellSize setting.
                 var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
-                var canvasW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 800) : 800;
+                var canvasW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 1160) : 1160;
                 var canvasH = typeof window !== 'undefined'
-                    ? Math.min(Math.round(window.innerHeight * (isLandscape ? 0.75 : 0.58)), 600) : 600;
+                    ? Math.min(Math.round(window.innerHeight * (isLandscape ? 0.75 : 0.82)), 900) : 900;
+                // Apply the same grid-aspect-ratio constraint as getCanvasSize.
+                var fitAspect = cols / rows;
+                if(canvasW / canvasH > fitAspect){
+                    canvasW = Math.max(1, Math.round(canvasH * fitAspect));
+                } else if(canvasH / canvasW > 1 / fitAspect){
+                    canvasH = Math.max(1, Math.round(canvasW / fitAspect));
+                }
                 var self = this;
                 if(liveCells.size === 0){
                     this.setState({viewX: 0, viewY: 0}, function(){ self.drawBoard(); });
@@ -1901,6 +1914,32 @@ document.addEventListener('DOMContentLoaded', function(){
                 );
             },
 
+            renderMobileStatsBar : function(){
+                var population = this.state.liveCells.size;
+                var hist = this.state.popHistory;
+                var trendArrow = '';
+                if(hist.length >= 5){
+                    var delta = hist[hist.length - 1] - hist[hist.length - 5];
+                    trendArrow = delta > 2 ? ' \u25b2' : delta < -2 ? ' \u25bc' : ' \u223c';
+                }
+                var statusLabel = this.state.stable ? 'Stable' :
+                                  (this.state.running ? 'Running' : 'Paused');
+                var statusClass = this.state.stable ? 'status-stable' :
+                                  (this.state.running ? 'status-running' : 'status-paused');
+                var contextLabel = this.state.selectedPattern ? this.state.selectedPattern :
+                                   (this.state.drawMode === 'select' ? 'Select' : 'Draw');
+                return (
+                    <div className="mobile-stats-bar">
+                        <span className="msb-left">
+                            {'Gen\u00a0' + this.state.generations.toLocaleString()
+                             + '\u2002Pop\u00a0' + population.toLocaleString() + trendArrow}
+                        </span>
+                        <span className={'status-indicator ' + statusClass}>{statusLabel}</span>
+                        <span className="msb-right">{contextLabel}</span>
+                    </div>
+                );
+            },
+
             renderButtons : function(){
                 return (
                     <div className="sidebar-section">
@@ -2142,6 +2181,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     onTouchStart  = {this.onTouchStart}
                                     onTouchMove   = {this.onTouchMove}
                                     onTouchEnd    = {this.onTouchEnd}></canvas>
+                                {this.renderMobileStatsBar()}
                                 <div className="mobile-quickbar">
                                     <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
                                     <button className="btn" onClick={this.stepGame}>Step</button>
