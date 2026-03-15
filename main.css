@@ -142,9 +142,9 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px; }
-  /* Secondary button row: 3-column grid for view/mode toggles. */
+  /* Secondary button row: 4-column grid for view/mode toggles. */
   #content .buttons-secondary {
-    grid-template-columns: 1fr 1fr 1fr; }
+    grid-template-columns: repeat(4, 1fr); }
   /* Visual separator between simulation buttons and view toggles. */
   #content .buttons-secondary {
     padding-top: 4px;
@@ -297,6 +297,16 @@ body {
   width: 100%;
   box-sizing: border-box; }
 
+/* ── Recording indicator ─────────────────────────────────────────────────── */
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+#content .btn-record {
+  animation: rec-pulse 1.2s ease-in-out infinite;
+  background-color: #c0392b !important;
+  color: #fff !important; }
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 620px) {
   #content {
@@ -309,6 +319,6 @@ body {
   #content .buttons {
     grid-template-columns: repeat(3, 1fr); }
   #content .buttons-secondary {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     border-top: none;
     padding-top: 0; } }
