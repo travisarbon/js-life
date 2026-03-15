@@ -2342,16 +2342,15 @@ document.addEventListener('DOMContentLoaded', function(){
                     this._minimapCanvas.height = mmH_css;
                 }
 
-                // Render minimap cells to off-screen canvas
+                // Render minimap cells to off-screen canvas using actual theme colors.
                 var mmCtx = this._minimapCanvas.getContext('2d');
-                var isDark = theme === 'dark' || theme === 'matrix';
-                mmCtx.fillStyle = isDark ? '#1a1a1a' : '#f0f0f0';
+                // Dark background for contrast (same approach as desktop drawMinimap).
+                mmCtx.fillStyle = 'rgba(10,14,26,0.85)';
                 mmCtx.fillRect(0, 0, mmW_css, mmH_css);
 
                 var cellW = mmW_css / cols;
                 var cellH = mmH_css / rows;
-                var liveColor = isDark ? '#aaffaa' : '#228822';
-                mmCtx.fillStyle = liveColor;
+                mmCtx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
 
                 liveCells.forEach(function(_, key){
                     var parts = key.split(',');
@@ -2364,12 +2363,17 @@ document.addEventListener('DOMContentLoaded', function(){
                     mmCtx.fillRect(px, py, pw, ph);
                 });
 
-                // Draw viewport rectangle
+                // Border.
+                mmCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+                mmCtx.lineWidth = 1;
+                mmCtx.strokeRect(0.5, 0.5, mmW_css - 1, mmH_css - 1);
+
+                // Viewport rectangle.
                 var vpW = (this._canvas.width  / cellSize) * cellW;
                 var vpH = (this._canvas.height / cellSize) * cellH;
                 var vpX = viewX * cellW;
                 var vpY = viewY * cellH;
-                mmCtx.strokeStyle = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)';
+                mmCtx.strokeStyle = 'rgba(255,255,255,0.75)';
                 mmCtx.lineWidth = 1;
                 mmCtx.strokeRect(vpX + 0.5, vpY + 0.5, Math.min(vpW, mmW_css - vpX), Math.min(vpH, mmH_css - vpY));
 
@@ -2417,7 +2421,7 @@ document.addEventListener('DOMContentLoaded', function(){
             renderMobileContextPanel : function(){
                 var self = this;
                 var showRotation = this.state.drawMode === 'preset' && this.state.selectedPattern;
-                var showSelection = this.state.drawMode === 'select' || this.state.selection !== null;
+                var showSelection = this.state.selection !== null;
                 if(!showRotation && !showSelection){ return null; }
                 return (
                     <div className="mobile-context-panel">
@@ -2480,73 +2484,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
             renderButtons : function(){
                 var self = this;
-                return (
-                    <div className="sidebar-section">
-                        <div className="sidebar-section-title">Simulation</div>
-                        <div className="btn-section">
-                            <div className="buttons">
-                                <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
-                                <button className="btn" onClick={this.stepGame}>Step</button>
-                                <button className="btn" onClick={this.resetGame}>Reset</button>
-                                <button className="btn" onClick={this.emptyBoard}>Empty</button>
-                                <button className="btn" onClick={this.undo}>Undo</button>
-                                <button className="btn" onClick={this.fitView}>Fit Grid</button>
-                                <button className="btn" onClick={this.fitLiveCells} style={{gridColumn:'1 / -1'}}>Fit Cells</button>
-                            </div>
-                            <div className="buttons buttons-secondary">
-                                <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
-                                <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
-                                <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
-                                <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode}>Draw</button>
-                                <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode}>Preset</button>
-                                <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
-                                <button className={"btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)" style={{gridColumn:'1 / -1'}}>Minimap</button>
-                            </div>
-                            {this.state.drawMode === 'paint' &&
-                                <div className="tool-subtype-row">
-                                    <select value={this.state.drawTool}
-                                            onChange={function(e){ self.setState({drawTool: e.target.value, selection: null}); }}>
-                                        <option value="cell">Cell paint</option>
-                                        <option value="line">Line</option>
-                                        <option value="fill">Flood fill</option>
-                                        <option value="shape-rect">Rectangle</option>
-                                        <option value="shape-circle">Circle</option>
-                                    </select>
-                                </div>
-                            }
-                            {this.state.drawMode === 'select' &&
-                                <div className="tool-subtype-row">
-                                    <select value={this.state.selectTool}
-                                            onChange={function(e){ self.setState({selectTool: e.target.value, selection: null}); }}>
-                                        <option value="rect">Rectangle</option>
-                                        <option value="ellipse">Ellipse</option>
-                                        <option value="freeform">Freeform</option>
-                                        <option value="all-visible">All visible</option>
-                                    </select>
-                                </div>
-                            }
-                            {this.state.drawMode === 'select' && this.state.selection &&
-                                <div className="buttons buttons-selection">
-                                    <button className="btn" onClick={this.copySelection}>Copy</button>
-                                    <button className="btn" onClick={this.pasteAsPattern}
-                                        disabled={!this.state.clipboard || this.state.clipboard.length === 0}>Paste</button>
-                                    <button className="btn" onClick={this.deleteSelection}>Delete</button>
-                                </div>
-                            }
-                            <div className="buttons buttons-export">
-                                <button className="btn" onClick={this.exportPNG}>Export PNG</button>
-                                <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
-                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF of the simulation">{this.state.recording ? "Stop" : "Record"}</button>
-                                <button className="btn" onClick={this.toggleHelp}>Help</button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            },
-
-            renderPresets : function(){
-                var self = this;
-                var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
                 var filterLc = this.state.patternFilter.toLowerCase();
                 var patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
                     var names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
@@ -2583,7 +2520,103 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
                 return (
                     <div className="sidebar-section">
-                        <div className="sidebar-section-title">Patterns &amp; Rules</div>
+                        <div className="sidebar-section-title">Simulation</div>
+                        <div className="btn-section">
+                            <div className="buttons">
+                                <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
+                                <button className="btn" onClick={this.stepGame}>Step</button>
+                                <button className="btn" onClick={this.resetGame}>Reset</button>
+                                <button className="btn" onClick={this.emptyBoard}>Empty</button>
+                                <button className="btn" onClick={this.undo}>Undo</button>
+                                <button className="btn" onClick={this.fitView}>Fit Grid</button>
+                                <button className="btn" onClick={this.fitLiveCells} style={{gridColumn:'1 / -1'}}>Fit Cells</button>
+                            </div>
+                            <div className="buttons buttons-secondary">
+                                <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
+                                <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
+                                <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
+                                <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode}>Draw</button>
+                                <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode}>Preset</button>
+                                <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
+                                <button className={"btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)">Minimap</button>
+                            </div>
+                            <div className="tool-subtype-row">
+                                <label className="tool-label">Draw:</label>
+                                <select value={this.state.drawTool}
+                                        onChange={function(e){ self.setState({drawTool: e.target.value, drawMode: 'paint', selection: null}); }}>
+                                    <option value="cell">Cell paint</option>
+                                    <option value="line">Line</option>
+                                    <option value="fill">Flood fill</option>
+                                    <option value="shape-rect">Rectangle</option>
+                                    <option value="shape-circle">Circle</option>
+                                </select>
+                            </div>
+                            <div className="tool-subtype-row">
+                                <label className="tool-label">Select:</label>
+                                <select value={this.state.selectTool}
+                                        onChange={function(e){ self.setState({selectTool: e.target.value, drawMode: 'select', selection: null}); }}>
+                                    <option value="rect">Rectangle</option>
+                                    <option value="ellipse">Ellipse</option>
+                                    <option value="freeform">Freeform</option>
+                                    <option value="all-visible">All visible</option>
+                                </select>
+                            </div>
+                            <div className="tool-subtype-row">
+                                <label className="tool-label">Preset:</label>
+                                <select className={"preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : "")}
+                                    value={this.state.selectedPattern || ""}
+                                    onChange={this.selectPattern}>
+                                    <option value="">Choose preset...</option>
+                                    {patternOptions}
+                                </select>
+                            </div>
+                            <input className="pattern-filter-input"
+                                type="text"
+                                placeholder="Filter patterns..."
+                                value={this.state.patternFilter}
+                                onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
+                            {this.state.drawMode === 'preset' && this.state.selectedPattern &&
+                                <div className="rotation-row">
+                                    <canvas className="rotation-preview"
+                                        width="96" height="96"
+                                        ref={function(c){ self._previewCanvas = c; }} />
+                                    <div className="rotation-btns">
+                                        <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise">&#8634;</button>
+                                        <button className="btn btn-rotate" onClick={this.rotateCW}  title="Rotate 90° clockwise">&#8635;</button>
+                                    </div>
+                                </div>
+                            }
+                            {this.state.drawMode === 'preset' && this.state.selectedPattern &&
+                                <p className="placement-hint">
+                                    {"Click canvas to place \xB7 " + this.state.selectedPattern}
+                                    <br/>
+                                    <span className="placement-hint-sub">Right-click or Esc to cancel</span>
+                                </p>
+                            }
+                            {this.state.selection &&
+                                <div className="buttons buttons-selection">
+                                    <button className="btn" onClick={this.copySelection}>Copy</button>
+                                    <button className="btn" onClick={this.pasteAsPattern}
+                                        disabled={!this.state.clipboard || this.state.clipboard.length === 0}>Paste</button>
+                                    <button className="btn" onClick={this.deleteSelection}>Delete</button>
+                                </div>
+                            }
+                            <div className="buttons buttons-export">
+                                <button className="btn" onClick={this.exportPNG}>Export PNG</button>
+                                <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
+                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF of the simulation">{this.state.recording ? "Stop" : "Record"}</button>
+                                <button className="btn" onClick={this.toggleHelp}>Help</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            },
+
+            renderRulesSection : function(){
+                var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
+                return (
+                    <div className="sidebar-section">
+                        <div className="sidebar-section-title">Rules &amp; Display</div>
                         <div className="presets-col">
                             <select className="rule-preset-select"
                                 value={this.state.rulePreset}
@@ -2606,35 +2639,6 @@ document.addEventListener('DOMContentLoaded', function(){
                                 value={this.state.ruleString}
                                 onChange={this.setRule}
                                 title="Birth/Survival rule string (e.g. B3/S23)" />
-                            <input className="pattern-filter-input"
-                                type="text"
-                                placeholder="Filter patterns..."
-                                value={this.state.patternFilter}
-                                onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
-                            <select className={"preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : "")}
-                                value={this.state.selectedPattern || ""}
-                                onChange={this.selectPattern}>
-                                <option value="">Choose preset...</option>
-                                {patternOptions}
-                            </select>
-                            {this.state.drawMode === 'preset' && this.state.selectedPattern &&
-                                <div className="rotation-row">
-                                    <canvas className="rotation-preview"
-                                        width="96" height="96"
-                                        ref={function(c){ self._previewCanvas = c; }} />
-                                    <div className="rotation-btns">
-                                        <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise">&#8634;</button>
-                                        <button className="btn btn-rotate" onClick={this.rotateCW}  title="Rotate 90° clockwise">&#8635;</button>
-                                    </div>
-                                </div>
-                            }
-                            {this.state.drawMode === 'preset' && this.state.selectedPattern &&
-                                <p className="placement-hint">
-                                    {"Click canvas to place \xB7 " + this.state.selectedPattern}
-                                    <br/>
-                                    <span className="placement-hint-sub">Right-click or Esc to cancel</span>
-                                </p>
-                            }
                         </div>
                     </div>
                 );
@@ -2759,11 +2763,13 @@ document.addEventListener('DOMContentLoaded', function(){
                                 </div>
                             </div>
                             <div className={"sidebar" + (this.state.showMobileTools ? " mobile-open" : "")}>
-                                {this.renderStats()}
-                                {this.renderButtons()}
-                                {this.renderPresets()}
-                                {this.renderSliders()}
-                                {this.renderRLESection()}
+                                <div className="sidebar-scroll-content">
+                                    {this.renderStats()}
+                                    {this.renderButtons()}
+                                    {this.renderRulesSection()}
+                                    {this.renderSliders()}
+                                    {this.renderRLESection()}
+                                </div>
                             </div>
                         </div>
                         {this.state.showMobileTools &&
