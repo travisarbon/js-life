@@ -176,6 +176,183 @@ var THEMES = {
     }
 };
 
+// ── SimEngine ─────────────────────────────────────────────────────────────────
+// Pure simulation functions isolated from React state for testability and reuse.
+var SimEngine = {
+
+    // Returns a sparse Map keyed by "r,c" with value = age.
+    buildLiveCells : function(cols, rows, sparseness){
+        var map = new Map();
+        for(var r = 0; r < rows; r++){
+            for(var c = 0; c < cols; c++){
+                if(Math.random() < (1 / sparseness)){
+                    map.set(r + ',' + c, 1);
+                }
+            }
+        }
+        return map;
+    },
+
+    // Returns next-generation sparse Map in O(k) where k = live cell count.
+    computeNextGeneration : function(liveCells, cols, rows, birth, survive, boundary){
+        var toroidal = boundary === 'toroidal';
+        var candidates = new Map();
+        liveCells.forEach(function(age, key){
+            var comma = key.indexOf(',');
+            var kr = parseInt(key.substring(0, comma));
+            var kc = parseInt(key.substring(comma + 1));
+            candidates.set(key, [kr, kc]);
+            for(var dr = -1; dr <= 1; dr++){
+                for(var dc = -1; dc <= 1; dc++){
+                    if(dr === 0 && dc === 0){ continue; }
+                    var nr, nc;
+                    if(toroidal){
+                        nr = (kr + dr + rows) % rows;
+                        nc = (kc + dc + cols) % cols;
+                    } else {
+                        nr = kr + dr; nc = kc + dc;
+                        if(nr < 0 || nr >= rows || nc < 0 || nc >= cols){ continue; }
+                    }
+                    var nk = nr + ',' + nc;
+                    if(!candidates.has(nk)){ candidates.set(nk, [nr, nc]); }
+                }
+            }
+        });
+        var newLiveCells = new Map();
+        candidates.forEach(function(pos, key){
+            var r = pos[0], c = pos[1];
+            var count = 0;
+            for(var dr = -1; dr <= 1; dr++){
+                for(var dc = -1; dc <= 1; dc++){
+                    if(dr === 0 && dc === 0){ continue; }
+                    var nr, nc;
+                    if(toroidal){
+                        nr = (r + dr + rows) % rows;
+                        nc = (c + dc + cols) % cols;
+                    } else {
+                        nr = r + dr; nc = c + dc;
+                        if(nr < 0 || nr >= rows || nc < 0 || nc >= cols){ continue; }
+                    }
+                    if(liveCells.has(nr + ',' + nc)){ count++; }
+                }
+            }
+            var wasAlive = liveCells.has(key);
+            var alive = wasAlive ? survive.indexOf(count) !== -1 : birth.indexOf(count) !== -1;
+            if(alive){
+                newLiveCells.set(key, wasAlive ? (liveCells.get(key) || 0) + 1 : 1);
+            }
+        });
+        return newLiveCells;
+    },
+
+    // Serialises live cells to RLE string (header + wrapped body).
+    boardToRLE : function(liveCells, ruleString){
+        var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+        liveCells.forEach(function(age, key){
+            var comma = key.indexOf(',');
+            var kr = parseInt(key.substring(0, comma));
+            var kc = parseInt(key.substring(comma + 1));
+            if(kr < minR){ minR = kr; } if(kr > maxR){ maxR = kr; }
+            if(kc < minC){ minC = kc; } if(kc > maxC){ maxC = kc; }
+        });
+        if(!isFinite(maxR)){ return ''; }
+        var W = maxC - minC + 1;
+        var H = maxR - minR + 1;
+        var header = 'x = ' + W + ', y = ' + H + ', rule = ' + ruleString + '\n';
+        var rleData = '';
+        for(var row = minR; row <= maxR; row++){
+            var runChar = null, runLen = 0, rowStr = '';
+            for(var col = minC; col <= maxC; col++){
+                var ch = liveCells.has(row + ',' + col) ? 'o' : 'b';
+                if(ch === runChar){
+                    runLen++;
+                } else {
+                    if(runChar !== null){
+                        rowStr += (runLen > 1 ? runLen : '') + runChar;
+                    }
+                    runChar = ch; runLen = 1;
+                }
+            }
+            if(runChar === 'o'){ rowStr += (runLen > 1 ? runLen : '') + runChar; }
+            if(row < maxR){ rowStr += '$'; }
+            rleData += rowStr;
+        }
+        rleData += '!';
+        var wrapped = '';
+        for(var k = 0; k < rleData.length; k += 70){
+            wrapped += rleData.slice(k, k + 70) + '\n';
+        }
+        return header + wrapped;
+    },
+
+    // Parses standard RLE format into [[row, col], ...].
+    parseRLE : function(text){
+        var lines = text.split(/\r?\n/);
+        var dataLines = lines.filter(function(l){ return l.charAt(0) !== '#'; });
+        var headerIdx = -1;
+        for(var i = 0; i < dataLines.length; i++){
+            if(/x\s*=/i.test(dataLines[i])){ headerIdx = i; break; }
+        }
+        var dataStart = headerIdx >= 0 ? headerIdx + 1 : 0;
+        var data = dataLines.slice(dataStart).join('').replace(/\s/g, '');
+        var cells = [];
+        var row = 0, col = 0, countStr = '';
+        for(var k = 0; k < data.length; k++){
+            var ch = data[k];
+            if(ch >= '0' && ch <= '9'){
+                countStr += ch;
+            } else if(ch === 'b' || ch === 'o'){
+                var n = countStr ? parseInt(countStr, 10) : 1;
+                if(ch === 'o'){
+                    for(var j = 0; j < n; j++){ cells.push([row, col + j]); }
+                }
+                col += n;
+                countStr = '';
+            } else if(ch === '$'){
+                var n2 = countStr ? parseInt(countStr, 10) : 1;
+                row += n2;
+                col = 0;
+                countStr = '';
+            } else if(ch === '!'){ break; }
+        }
+        return {cells : cells};
+    },
+
+    // Parses LifeWiki plaintext (.cells) format into [[row, col], ...].
+    parsePlaintext : function(text){
+        var lines = text.split(/\r?\n/);
+        var cells = [];
+        var row = 0;
+        for(var i = 0; i < lines.length; i++){
+            var line = lines[i];
+            if(line.charAt(0) === '!' || line.charAt(0) === '#'){ continue; }
+            for(var col = 0; col < line.length; col++){
+                var ch = line.charAt(col);
+                if(ch === 'O' || ch === 'o' || ch === '*'){
+                    cells.push([row, col]);
+                }
+            }
+            row++;
+        }
+        return {cells : cells};
+    },
+
+    // Rotates a [[row,col],...] pattern 90° CW, `steps` times.
+    rotatePattern : function(cells, steps){
+        var result = cells.slice();
+        for(var s = 0; s < steps; s++){
+            var maxR = 0;
+            for(var k = 0; k < result.length; k++){
+                if(result[k][0] > maxR){ maxR = result[k][0]; }
+            }
+            result = result.map(function(cell){
+                return [cell[1], maxR - cell[0]];
+            });
+        }
+        return result;
+    }
+};
+
 $(document).ready(function(){
     (function(){
 
@@ -197,7 +374,7 @@ $(document).ready(function(){
                     sparseness :     2,
                     liveCells :      this.buildLiveCells(cols, rows, 2),
                     generations :    0,
-                    liveClickMode :  false,
+                    livePaintMode :  false,
                     speed :          5,
                     gridLines :      false,
                     boundary :       'toroidal',
@@ -247,10 +424,19 @@ $(document).ready(function(){
                 this._minimapCanvas = document.createElement('canvas');
                 this._minimapCanvas.width  = 100;
                 this._minimapCanvas.height = 75;
+                this._pinchStart = null;
+                this._longPressTimer = null;
                 this._canvas = document.getElementById("life-canvas");
                 // Attach wheel listener as non-passive so preventDefault works.
                 this._canvas.addEventListener('wheel', this.onWheel, {passive: false});
                 document.addEventListener('keydown', this.handleKeyDown);
+                // Respond to viewport resize (throttled) to update canvas dimensions.
+                var self = this;
+                this._onResize = function(){
+                    clearTimeout(self._resizeTimer);
+                    self._resizeTimer = setTimeout(function(){ self.forceUpdate(); }, 120);
+                };
+                window.addEventListener('resize', this._onResize);
                 // Initialise Web Worker for async simulation (falls back to sync).
                 if(typeof Worker !== 'undefined'){
                     try {
@@ -271,26 +457,34 @@ $(document).ready(function(){
                 }
             },
 
+            // Compute canvas pixel dimensions that fit the device viewport.
+            getCanvasSize : function(){
+                var cellSize   = this.state.cellSize;
+                var pendingCols = this.state.pendingCols;
+                var pendingRows = this.state.pendingRows;
+                // Leave 24px horizontal gutter; reserve ~55% of viewport height on mobile.
+                var maxW = typeof window !== 'undefined'
+                    ? Math.min(window.innerWidth - 24, 800) : 800;
+                var maxH = typeof window !== 'undefined'
+                    ? Math.min(Math.round(window.innerHeight * 0.58), 600) : 600;
+                return {
+                    w: Math.min(pendingCols * cellSize, maxW),
+                    h: Math.min(pendingRows * cellSize, maxH)
+                };
+            },
+
             componentWillUnmount : function(){
                 this._canvas.removeEventListener('wheel', this.onWheel);
                 document.removeEventListener('keydown', this.handleKeyDown);
+                window.removeEventListener('resize', this._onResize);
                 if(this._worker){ this._worker.terminate(); }
                 if(this._gif){ this._gif.abort(); this._gif = null; }
             },
 
             // ── Board construction ─────────────────────────────────────────────
 
-            // Returns a sparse Map: key = "r,c", value = age (1 for fresh cells).
             buildLiveCells : function(cols, rows, sparseness){
-                var map = new Map();
-                for(var r = 0; r < rows; r++){
-                    for(var c = 0; c < cols; c++){
-                        if(Math.random() < (1 / sparseness)){
-                            map.set(r + ',' + c, 1);
-                        }
-                    }
-                }
-                return map;
+                return SimEngine.buildLiveCells(cols, rows, sparseness);
             },
 
             // ── Rendering ─────────────────────────────────────────────────────
@@ -471,60 +665,9 @@ $(document).ready(function(){
             },
 
             // ── Sparse generation logic ────────────────────────────────────────
-            // Runs in O(k) where k = number of live cells, not O(rows × cols).
 
-            // Returns a new Map of live cells for the next generation.
             computeNextGeneration : function(liveCells, cols, rows, birth, survive, boundary){
-                var toroidal = boundary === 'toroidal';
-                // Build candidate set: every live cell plus each of its 8 neighbours.
-                var candidates = new Map();
-                liveCells.forEach(function(age, key){
-                    var comma = key.indexOf(',');
-                    var kr = parseInt(key.substring(0, comma));
-                    var kc = parseInt(key.substring(comma + 1));
-                    candidates.set(key, [kr, kc]);
-                    for(var dr = -1; dr <= 1; dr++){
-                        for(var dc = -1; dc <= 1; dc++){
-                            if(dr === 0 && dc === 0){ continue; }
-                            var nr, nc;
-                            if(toroidal){
-                                nr = (kr + dr + rows) % rows;
-                                nc = (kc + dc + cols) % cols;
-                            } else {
-                                nr = kr + dr; nc = kc + dc;
-                                if(nr < 0 || nr >= rows || nc < 0 || nc >= cols){ continue; }
-                            }
-                            var nk = nr + ',' + nc;
-                            if(!candidates.has(nk)){ candidates.set(nk, [nr, nc]); }
-                        }
-                    }
-                });
-                // Apply rules to each candidate.
-                var newLiveCells = new Map();
-                candidates.forEach(function(pos, key){
-                    var r = pos[0], c = pos[1];
-                    var count = 0;
-                    for(var dr = -1; dr <= 1; dr++){
-                        for(var dc = -1; dc <= 1; dc++){
-                            if(dr === 0 && dc === 0){ continue; }
-                            var nr, nc;
-                            if(toroidal){
-                                nr = (r + dr + rows) % rows;
-                                nc = (c + dc + cols) % cols;
-                            } else {
-                                nr = r + dr; nc = c + dc;
-                                if(nr < 0 || nr >= rows || nc < 0 || nc >= cols){ continue; }
-                            }
-                            if(liveCells.has(nr + ',' + nc)){ count++; }
-                        }
-                    }
-                    var wasAlive = liveCells.has(key);
-                    var alive = wasAlive ? survive.indexOf(count) !== -1 : birth.indexOf(count) !== -1;
-                    if(alive){
-                        newLiveCells.set(key, wasAlive ? (liveCells.get(key) || 0) + 1 : 1);
-                    }
-                });
-                return newLiveCells;
+                return SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
             },
 
             // ── Animation loop ─────────────────────────────────────────────────
@@ -571,6 +714,17 @@ $(document).ready(function(){
             _applyNewStates : function(newLiveCells, tickId){
                 if(tickId !== this._tickId){ this._loopRunning = false; return; }
 
+                // While the user is mid-stroke in Live Paint mode, merge the
+                // cells being painted so they aren't erased by the incoming
+                // generation (which was computed from the pre-stroke snapshot).
+                if(this._dragging && this.state.livePaintMode){
+                    var painted = this._paintedCells;
+                    Object.keys(painted).forEach(function(k){
+                        if(painted[k] === 1){ newLiveCells.set(k, 1); }
+                        else { newLiveCells.delete(k); }
+                    });
+                }
+
                 // Stability detection via sorted key set.
                 var keys = [];
                 newLiveCells.forEach(function(age, key){ keys.push(key); });
@@ -583,15 +737,20 @@ $(document).ready(function(){
                 var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory.concat([newPop]);
                 if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
+                // Store last measured GPS so it persists briefly after pausing.
+                this._gpsDisplayUntil = this._gpsDisplayUntil || 0;
 
                 // Gen/sec tracking.
-                this._genTimestamps.push(Date.now());
+                var now = Date.now();
+                this._genTimestamps.push(now);
                 if(this._genTimestamps.length > 20){ this._genTimestamps.shift(); }
                 if(this._genTimestamps.length >= 2){
                     var ts = this._genTimestamps;
                     var dt = ts[ts.length - 1] - ts[0];
                     if(dt > 0){ this._measuredGps = (ts.length - 1) / dt * 1000; }
                 }
+                // Keep GPS visible for 3 s after pausing.
+                this._gpsDisplayUntil = now + 3000;
 
                 this._minimapDirty = true;
                 var self = this;
@@ -685,44 +844,7 @@ $(document).ready(function(){
             // ── RLE export ────────────────────────────────────────────────────
 
             boardToRLE : function(){
-                var liveCells = this.state.liveCells;
-                var rule = this.state.ruleString;
-                var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-                liveCells.forEach(function(age, key){
-                    var comma = key.indexOf(',');
-                    var kr = parseInt(key.substring(0, comma));
-                    var kc = parseInt(key.substring(comma + 1));
-                    if(kr < minR){ minR = kr; } if(kr > maxR){ maxR = kr; }
-                    if(kc < minC){ minC = kc; } if(kc > maxC){ maxC = kc; }
-                });
-                if(!isFinite(maxR)){ return ''; }
-                var W = maxC - minC + 1;
-                var H = maxR - minR + 1;
-                var header = 'x = ' + W + ', y = ' + H + ', rule = ' + rule + '\n';
-                var rleData = '';
-                for(var row = minR; row <= maxR; row++){
-                    var runChar = null, runLen = 0, rowStr = '';
-                    for(var col = minC; col <= maxC; col++){
-                        var ch = liveCells.has(row + ',' + col) ? 'o' : 'b';
-                        if(ch === runChar){
-                            runLen++;
-                        } else {
-                            if(runChar !== null){
-                                rowStr += (runLen > 1 ? runLen : '') + runChar;
-                            }
-                            runChar = ch; runLen = 1;
-                        }
-                    }
-                    if(runChar === 'o'){ rowStr += (runLen > 1 ? runLen : '') + runChar; }
-                    if(row < maxR){ rowStr += '$'; }
-                    rleData += rowStr;
-                }
-                rleData += '!';
-                var wrapped = '';
-                for(var k = 0; k < rleData.length; k += 70){
-                    wrapped += rleData.slice(k, k + 70) + '\n';
-                }
-                return header + wrapped;
+                return SimEngine.boardToRLE(this.state.liveCells, this.state.ruleString);
             },
 
             copyRLE : function(){
@@ -846,13 +968,13 @@ $(document).ready(function(){
 
                 // Pattern placement mode.
                 if(this.state.selectedPattern){
-                    if(!this.state.liveClickMode){ this.setState({running : false}); }
+                    if(!this.state.livePaintMode){ this.setState({running : false}); }
                     this.placePattern(this.state.selectedPattern, c, r);
                     return;
                 }
 
                 // Paint mode.
-                if(!this.state.liveClickMode){ this.setState({running : false}); }
+                if(!this.state.livePaintMode){ this.setState({running : false}); }
                 var key = r + ',' + c;
                 this.pushUndo();
                 this._dragging = true;
@@ -1163,20 +1285,77 @@ $(document).ready(function(){
 
             onTouchStart : function(event){
                 event.preventDefault();
+                clearTimeout(this._longPressTimer);
+                if(event.touches.length === 2){
+                    // Begin pinch-zoom + two-finger pan tracking.
+                    var t0 = event.touches[0], t1 = event.touches[1];
+                    this._pinchStart = {
+                        dist:     Math.sqrt(
+                                    Math.pow(t1.clientX - t0.clientX, 2) +
+                                    Math.pow(t1.clientY - t0.clientY, 2)),
+                        midX:     (t0.clientX + t1.clientX) / 2,
+                        midY:     (t0.clientY + t1.clientY) / 2,
+                        cellSize: this.state.cellSize,
+                        viewX:    this.state.viewX,
+                        viewY:    this.state.viewY
+                    };
+                    this._dragging = false;
+                    return;
+                }
+                this._pinchStart = null;
                 var t = event.touches[0];
+                // Long-press: show cell coordinates in the stat bar.
+                var self = this;
+                var pos = this.getCellPos({clientX: t.clientX, clientY: t.clientY});
+                if(pos.c >= 0 && pos.c < this.state.cols && pos.r >= 0 && pos.r < this.state.rows){
+                    this._longPressTimer = setTimeout(function(){
+                        self.setState({hoverCell: {c: pos.c, r: pos.r}});
+                        self._longPressTimer = setTimeout(function(){
+                            self.setState({hoverCell: null});
+                        }, 2000);
+                    }, 420);
+                }
                 this.onMouseDown({preventDefault: function(){}, button: 0,
                     clientX: t.clientX, clientY: t.clientY});
             },
 
             onTouchMove : function(event){
                 event.preventDefault();
+                clearTimeout(this._longPressTimer);
+                this._longPressTimer = null;
+                if(event.touches.length === 2 && this._pinchStart){
+                    var t0 = event.touches[0], t1 = event.touches[1];
+                    var newDist = Math.sqrt(
+                        Math.pow(t1.clientX - t0.clientX, 2) +
+                        Math.pow(t1.clientY - t0.clientY, 2));
+                    var newMidX = (t0.clientX + t1.clientX) / 2;
+                    var newMidY = (t0.clientY + t1.clientY) / 2;
+                    var scale = this._pinchStart.dist > 0 ? newDist / this._pinchStart.dist : 1;
+                    var newCS = Math.max(2, Math.min(32,
+                        Math.round(this._pinchStart.cellSize * scale)));
+                    // Pan: shift view by finger-midpoint movement (in canvas cells).
+                    var dmx  = newMidX - this._pinchStart.midX;
+                    var dmy  = newMidY - this._pinchStart.midY;
+                    var newVX = this._pinchStart.viewX - Math.round(dmx / newCS);
+                    var newVY = this._pinchStart.viewY - Math.round(dmy / newCS);
+                    var clamped = this.clampView(newVX, newVY,
+                        this.state.cols, this.state.rows, newCS);
+                    var self = this;
+                    this.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
+                        function(){ self.drawBoard(); });
+                    return;
+                }
+                if(event.touches.length !== 1){ return; }
                 var t = event.touches[0];
                 this.onMouseMove({clientX: t.clientX, clientY: t.clientY});
             },
 
             onTouchEnd : function(event){
                 event.preventDefault();
-                this.onMouseUp();
+                clearTimeout(this._longPressTimer);
+                this._longPressTimer = null;
+                if(event.touches.length < 2){ this._pinchStart = null; }
+                if(event.touches.length === 0){ this.onMouseUp(); }
             },
 
             // ── Keyboard ──────────────────────────────────────────────────────
@@ -1265,8 +1444,8 @@ $(document).ready(function(){
 
             // ── Toggles ───────────────────────────────────────────────────────
 
-            toggleClickMode : function(){
-                this.setState({liveClickMode : !this.state.liveClickMode});
+            toggleLivePaint : function(){
+                this.setState({livePaintMode : !this.state.livePaintMode});
             },
 
             toggleGridLines : function(){
@@ -1315,7 +1494,8 @@ $(document).ready(function(){
                     liveCells :   newLiveCells,
                     viewX :       clamped.viewX,
                     viewY :       clamped.viewY,
-                    selection :   null
+                    selection :   null,
+                    popHistory :  []
                 }, function(){ self.drawBoard(); });
             },
 
@@ -1402,6 +1582,9 @@ $(document).ready(function(){
             loadRle : function(){
                 var text = this.state.rleInput.trim();
                 if(!text){ this.setState({rleError : 'Paste a pattern first.'}); return; }
+                if(text.length > 500000){
+                    this.setState({rleError : 'Pattern too large (max 500 KB). Use a smaller pattern or reduce it first.'}); return;
+                }
                 try {
                     // Auto-detect format: use RLE if text contains b/o/$  with a !
                     var isRle = /[bo\$]/.test(text) && /!/.test(text);
@@ -1423,75 +1606,12 @@ $(document).ready(function(){
                 }
             },
 
-            // Parses standard RLE format into an array of [row, col] cell coordinates.
-            parseRLE : function(text){
-                var lines = text.split(/\r?\n/);
-                var dataLines = lines.filter(function(l){ return l.charAt(0) !== '#'; });
-                var headerIdx = -1;
-                for(var i = 0; i < dataLines.length; i++){
-                    if(/x\s*=/i.test(dataLines[i])){ headerIdx = i; break; }
-                }
-                var dataStart = headerIdx >= 0 ? headerIdx + 1 : 0;
-                var data = dataLines.slice(dataStart).join('').replace(/\s/g, '');
-                var cells = [];
-                var row = 0, col = 0, countStr = '';
-                for(var k = 0; k < data.length; k++){
-                    var ch = data[k];
-                    if(ch >= '0' && ch <= '9'){
-                        countStr += ch;
-                    } else if(ch === 'b' || ch === 'o'){
-                        var n = countStr ? parseInt(countStr, 10) : 1;
-                        if(ch === 'o'){
-                            for(var j = 0; j < n; j++){ cells.push([row, col + j]); }
-                        }
-                        col += n;
-                        countStr = '';
-                    } else if(ch === '$'){
-                        var n2 = countStr ? parseInt(countStr, 10) : 1;
-                        row += n2;
-                        col = 0;
-                        countStr = '';
-                    } else if(ch === '!'){
-                        break;
-                    }
-                }
-                return {cells : cells};
-            },
-
-            // Parses LifeWiki plaintext (.cells) format into [row, col] coordinates.
-            parsePlaintext : function(text){
-                var lines = text.split(/\r?\n/);
-                var cells = [];
-                var row = 0;
-                for(var i = 0; i < lines.length; i++){
-                    var line = lines[i];
-                    if(line.charAt(0) === '!' || line.charAt(0) === '#'){ continue; }
-                    for(var col = 0; col < line.length; col++){
-                        var ch = line.charAt(col);
-                        if(ch === 'O' || ch === 'o' || ch === '*'){
-                            cells.push([row, col]);
-                        }
-                    }
-                    row++;
-                }
-                return {cells : cells};
-            },
+            parseRLE       : function(text)        { return SimEngine.parseRLE(text); },
+            parsePlaintext : function(text)        { return SimEngine.parsePlaintext(text); },
 
             // ── Patterns ──────────────────────────────────────────────────────
 
-            rotatePattern : function(cells, steps){
-                var result = cells.slice();
-                for(var s = 0; s < steps; s++){
-                    var maxR = 0;
-                    for(var k = 0; k < result.length; k++){
-                        if(result[k][0] > maxR){ maxR = result[k][0]; }
-                    }
-                    result = result.map(function(cell){
-                        return [cell[1], maxR - cell[0]];
-                    });
-                }
-                return result;
-            },
+            rotatePattern : function(cells, steps){ return SimEngine.rotatePattern(cells, steps); },
 
             rotateCW : function(){
                 var self = this;
@@ -1571,40 +1691,83 @@ $(document).ready(function(){
                 });
             },
 
-            // ── Render ────────────────────────────────────────────────────────
+            // ── Render sub-methods ────────────────────────────────────────────
 
-            render : function(){
-                var self = this;
+            renderHelpModal : function(){
+                if(!this.state.showHelp){ return null; }
+                return (
+                    <div className="help-overlay" onClick={this.toggleHelp}>
+                        <div className="help-modal" onClick={function(e){ e.stopPropagation(); }}>
+                            <h3 className="help-title">Keyboard Shortcuts</h3>
+                            <table className="help-table">
+                                <tbody>
+                                    <tr><td>Space</td><td>Play / Pause</td></tr>
+                                    <tr><td>.</td><td>Step one generation</td></tr>
+                                    <tr><td>R</td><td>Reset (random fill)</td></tr>
+                                    <tr><td>E</td><td>Empty board</td></tr>
+                                    <tr><td>Ctrl+Z</td><td>Undo</td></tr>
+                                    <tr><td>S</td><td>Export PNG</td></tr>
+                                    <tr><td>X</td><td>Copy board as RLE</td></tr>
+                                    <tr><td>F</td><td>Fit live cells in view</td></tr>
+                                    <tr><td>Wheel</td><td>Zoom in / out</td></tr>
+                                    <tr><td>Arrows</td><td>Pan viewport</td></tr>
+                                    <tr><td>[</td><td>Rotate pattern CCW</td></tr>
+                                    <tr><td>]</td><td>Rotate pattern CW</td></tr>
+                                    <tr><td>Ctrl+C</td><td>Copy selection</td></tr>
+                                    <tr><td>Ctrl+V</td><td>Paste selection</td></tr>
+                                    <tr><td>Del</td><td>Delete selection</td></tr>
+                                    <tr><td>Esc</td><td>Cancel / close</td></tr>
+                                    <tr><td>M</td><td>Toggle minimap</td></tr>
+                                    <tr><td>?</td><td>Show / hide this help</td></tr>
+                                    <tr><td colSpan="2" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em'}}>Touch gestures</td></tr>
+                                    <tr><td>Tap</td><td>Paint / place cell</td></tr>
+                                    <tr><td>Pinch</td><td>Zoom in / out</td></tr>
+                                    <tr><td>2-finger drag</td><td>Pan viewport</td></tr>
+                                    <tr><td>Long press</td><td>Show cell coordinates</td></tr>
+                                </tbody>
+                            </table>
+                            <button className="btn help-close" onClick={this.toggleHelp}>Close</button>
+                        </div>
+                    </div>
+                );
+            },
+
+            renderStats : function(){
                 var population = this.state.liveCells.size;
-
-                var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
-                var delay = SPEED_DELAYS[this.state.speed - 1];
-                var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
                 var hc = this.state.hoverCell;
                 var coordText = hc ? ('Col\u00a0' + hc.c + '\u2002Row\u00a0' + hc.r) : '\u2014';
-                var gpsText = (this.state.running && this._measuredGps > 0)
+                var now2 = Date.now();
+                var gpsText = (this._measuredGps > 0 &&
+                    (this.state.running || now2 < (this._gpsDisplayUntil || 0)))
                     ? this._measuredGps.toFixed(1) + '\u00a0gen/s' : null;
 
-                // Build sparkline from population history.
-                // The SVG uses a fixed viewBox (200×36) and width="100%" so it
-                // scales to fill the sidebar without distorting the line height.
-                // y maps population linearly into [2, 34] leaving 2px top padding.
+                // Population trend arrow from last 5 samples.
+                var hist0 = this.state.popHistory;
+                var trendArrow = '';
+                if(hist0.length >= 5){
+                    var recent = hist0.slice(-5);
+                    var delta  = recent[recent.length - 1] - recent[0];
+                    trendArrow = delta > 2 ? '\u2009\u25b2' : delta < -2 ? '\u2009\u25bc' : '\u2009\u223c';
+                }
+
+                // Sparkline SVG — shows only when history has ≥ 2 points.
+                var hist   = this.state.popHistory;
+                var maxPop = hist.length ? Math.max.apply(null, hist) : 0;
                 var sparkline = null;
-                if(this.state.popHistory.length > 1){
-                    var hist    = this.state.popHistory;
-                    var maxPop  = Math.max.apply(null, hist);
-                    if(maxPop === 0){ maxPop = 1; }
+                if(hist.length > 1){
                     var vbW = 200, vbH = 36, padT = 2, innerH = vbH - padT * 2;
+                    var spMax = maxPop || 1;
                     var sparkPts = hist.map(function(p, idx){
                         var x = hist.length === 1 ? vbW / 2 : (idx / (hist.length - 1)) * vbW;
-                        var y = padT + (1 - p / maxPop) * innerH;
+                        var y = padT + (1 - p / spMax) * innerH;
                         return x.toFixed(1) + ',' + y.toFixed(1);
                     }).join(' ');
+                    var spanLabel = hist.length >= 60 ? 'last 60 gen' : hist.length + ' gen';
                     sparkline = (
                         <div className="sparkline-wrap">
                             <div className="sparkline-header">
-                                <span className="sparkline-title">Population</span>
-                                <span className="sparkline-peak">{maxPop}</span>
+                                <span className="sparkline-title">{"Pop: " + population.toLocaleString() + trendArrow}</span>
+                                <span className="sparkline-peak">{"peak " + maxPop.toLocaleString()}</span>
                             </div>
                             <svg className="sparkline" width="100%" height={vbH}
                                  viewBox={"0 0 " + vbW + " " + vbH}
@@ -1618,14 +1781,71 @@ $(document).ready(function(){
                                           strokeLinecap="round"/>
                             </svg>
                             <div className="sparkline-footer">
-                                <span>0</span>
-                                <span>{hist.length + " gen"}</span>
+                                <span className="sparkline-gps">{gpsText || ''}</span>
+                                <span>{"← " + spanLabel + " →"}</span>
                             </div>
                         </div>
                     );
                 }
 
-                // Build categorised pattern dropdown, filtered by patternFilter.
+                return (
+                    <div className="stats">
+                        <div className="stat-row">
+                            <span>{"Gen: " + this.state.generations.toLocaleString()}</span>
+                            <span className="board-dims">{this.state.cols + "\u00d7" + this.state.rows}</span>
+                        </div>
+                        <div className="stat-row">
+                            <div className="status-badges">
+                                <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
+                                    {this.state.running ? "Running" : "Paused"}
+                                </span>
+                                {this.state.stable &&
+                                    <span className="status-indicator status-stable">Stable</span>
+                                }
+                            </div>
+                            <div className="coord-display">{coordText}</div>
+                        </div>
+                        {sparkline || (
+                            <div className="sparkline-placeholder">
+                                {"Pop: " + population.toLocaleString()}
+                            </div>
+                        )}
+                    </div>
+                );
+            },
+
+            renderButtons : function(){
+                return (
+                    <details className="sidebar-section" open>
+                        <summary>Simulation</summary>
+                        <div className="btn-section">
+                            <div className="buttons">
+                                <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
+                                <button className="btn" onClick={this.stepGame}>Step</button>
+                                <button className="btn" onClick={this.resetGame}>Reset</button>
+                                <button className="btn" onClick={this.emptyBoard}>Empty</button>
+                                <button className="btn" onClick={this.undo}>Undo</button>
+                                <button className="btn" onClick={this.fitView}>Fit</button>
+                                <button className="btn" onClick={this.exportPNG}>Export PNG</button>
+                                <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
+                            </div>
+                            <div className="buttons buttons-secondary">
+                                <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
+                                <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
+                                <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
+                                <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
+                                <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)">Minimap</button>
+                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF of the simulation">{this.state.recording ? "Stop" : "Record"}</button>
+                                <button className="btn" onClick={this.toggleHelp}>Help</button>
+                            </div>
+                        </div>
+                    </details>
+                );
+            },
+
+            renderPresets : function(){
+                var self = this;
+                var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
                 var filterLc = this.state.patternFilter.toLowerCase();
                 var patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
                     var names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
@@ -1660,45 +1880,161 @@ $(document).ready(function(){
                         </optgroup>
                     );
                 }
+                return (
+                    <details className="sidebar-section" open>
+                        <summary>Patterns &amp; Rules</summary>
+                        <div className="presets-col">
+                            <select className="rule-preset-select"
+                                value={this.state.rulePreset}
+                                onChange={this.setRulePreset}>
+                                <option value="">Rule preset...</option>
+                                {RULE_PRESETS.map(function(p){
+                                    return <option key={p.rule} value={p.rule}>{p.name}</option>;
+                                })}
+                            </select>
+                            <select className="rule-preset-select"
+                                value={this.state.theme}
+                                onChange={this.setTheme}>
+                                {Object.keys(THEMES).map(function(t){
+                                    return <option key={t} value={t}>{t}</option>;
+                                })}
+                            </select>
+                            <label className="slider-title rule-label">Rule (B/S notation)</label>
+                            <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
+                                type="text"
+                                value={this.state.ruleString}
+                                onChange={this.setRule}
+                                title="Birth/Survival rule string (e.g. B3/S23)" />
+                            <input className="pattern-filter-input"
+                                type="text"
+                                placeholder="Filter patterns..."
+                                value={this.state.patternFilter}
+                                onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
+                            <select className={"preset-select" + (this.state.selectedPattern ? " active" : "")}
+                                value={this.state.selectedPattern || ""}
+                                onChange={this.selectPattern}>
+                                <option value="">Draw mode</option>
+                                {patternOptions}
+                            </select>
+                            {this.state.selectedPattern &&
+                                <div className="rotation-row">
+                                    <canvas className="rotation-preview"
+                                        width="96" height="96"
+                                        ref={function(c){ self._previewCanvas = c; }} />
+                                    <div className="rotation-btns">
+                                        <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise">&#8634;</button>
+                                        <button className="btn btn-rotate" onClick={this.rotateCW}  title="Rotate 90° clockwise">&#8635;</button>
+                                    </div>
+                                </div>
+                            }
+                            {this.state.selectedPattern &&
+                                <p className="placement-hint">
+                                    {"Click canvas to place \xB7 " + this.state.selectedPattern}
+                                    <br/>
+                                    <span className="placement-hint-sub">Right-click or Esc to cancel</span>
+                                </p>
+                            }
+                        </div>
+                    </details>
+                );
+            },
 
+            renderSliders : function(){
+                var delay = SPEED_DELAYS[this.state.speed - 1];
+                var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+                return (
+                    <details className="sidebar-section" open>
+                        <summary>Board</summary>
+                        <div className="sliders">
+                            <label className="slider-title">{"Width: " + this.state.pendingCols}</label>
+                            <div className="slider-row">
+                                <input type="range" min="20" max="400" step="10"
+                                    value={this.state.pendingCols}
+                                    onChange={this.setWidth}
+                                    onMouseUp={this.applyWidth}
+                                    onKeyDown={this.onWidthKeyDown}
+                                    onTouchEnd={this.applyWidth} />
+                            </div>
+                        </div>
+                        <div className="sliders">
+                            <label className="slider-title">{"Height: " + this.state.pendingRows}</label>
+                            <div className="slider-row">
+                                <input type="range" min="20" max="400" step="10"
+                                    value={this.state.pendingRows}
+                                    onChange={this.setHeight}
+                                    onMouseUp={this.applyHeight}
+                                    onKeyDown={this.onHeightKeyDown}
+                                    onTouchEnd={this.applyHeight} />
+                            </div>
+                        </div>
+                        <div className="sliders">
+                            <label className="slider-title">Fill Density (on Reset)</label>
+                            <div className="slider-row">
+                                <input type="range" min="2" max="7"
+                                    value={9 - this.state.sparseness}
+                                    onChange={this.setDensity} />
+                            </div>
+                        </div>
+                        <div className="sliders">
+                            <label className="slider-title">{"Speed: " + speedLabel}</label>
+                            <div className="slider-row">
+                                <input type="range" min="1" max="10"
+                                    value={this.state.speed}
+                                    onChange={this.setSpeed} />
+                            </div>
+                        </div>
+                        <div className="sliders">
+                            <label className="slider-title">{"Zoom: " + this.state.cellSize + "\u00a0px/cell"}</label>
+                            <div className="slider-row">
+                                <input type="range" min="2" max="32" step="2"
+                                    value={this.state.cellSize}
+                                    onChange={this.setZoom} />
+                            </div>
+                        </div>
+                    </details>
+                );
+            },
+
+            renderRLESection : function(){
+                return (
+                    <details className="sidebar-section" open>
+                        <summary>Import / Export</summary>
+                        <div className="rle-section">
+                            <div className="buttons rle-toggle-row">
+                                <button className={"btn btn-rle-toggle btn-block" + (this.state.showRle ? " active" : "")}
+                                    onClick={this.toggleRle}>Import RLE / Plaintext</button>
+                            </div>
+                            {this.state.showRle &&
+                                <div className="rle-body">
+                                    <textarea className="rle-input"
+                                        rows="5"
+                                        placeholder={"Paste RLE or plaintext pattern\n(from LifeWiki or Golly)"}
+                                        value={this.state.rleInput}
+                                        onChange={this.setRleInput} />
+                                    <button className="btn btn-block" onClick={this.loadRle}>Load pattern</button>
+                                    {this.state.rleError &&
+                                        <p className="rle-error">{this.state.rleError}</p>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </details>
+                );
+            },
+
+            // ── Main render ───────────────────────────────────────────────────
+
+            render : function(){
+                var cs = this.getCanvasSize();
                 return (
                     <div>
-                        {this.state.showHelp &&
-                            <div className="help-overlay" onClick={this.toggleHelp}>
-                                <div className="help-modal" onClick={function(e){ e.stopPropagation(); }}>
-                                    <h3 className="help-title">Keyboard Shortcuts</h3>
-                                    <table className="help-table">
-                                        <tbody>
-                                            <tr><td>Space</td><td>Play / Pause</td></tr>
-                                            <tr><td>.</td><td>Step one generation</td></tr>
-                                            <tr><td>R</td><td>Reset (random fill)</td></tr>
-                                            <tr><td>E</td><td>Empty board</td></tr>
-                                            <tr><td>Ctrl+Z</td><td>Undo</td></tr>
-                                            <tr><td>S</td><td>Export PNG</td></tr>
-                                            <tr><td>X</td><td>Copy board as RLE</td></tr>
-                                            <tr><td>F</td><td>Fit live cells in view</td></tr>
-                                            <tr><td>Wheel</td><td>Zoom in / out</td></tr>
-                                            <tr><td>Arrows</td><td>Pan viewport</td></tr>
-                                            <tr><td>[</td><td>Rotate pattern CCW</td></tr>
-                                            <tr><td>]</td><td>Rotate pattern CW</td></tr>
-                                            <tr><td>Ctrl+C</td><td>Copy selection</td></tr>
-                                            <tr><td>Ctrl+V</td><td>Paste selection</td></tr>
-                                            <tr><td>Del</td><td>Delete selection</td></tr>
-                                            <tr><td>Esc</td><td>Cancel / close</td></tr>
-                                            <tr><td>M</td><td>Toggle minimap</td></tr>
-                                            <tr><td>?</td><td>Show / hide this help</td></tr>
-                                        </tbody>
-                                    </table>
-                                    <button className="btn help-close" onClick={this.toggleHelp}>Close</button>
-                                </div>
-                            </div>
-                        }
+                        {this.renderHelpModal()}
                         <h2 className="top">Conway's Game of Life</h2>
                         <div className="content-body">
                             <div className={"canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")}>
                                 <canvas className="display"
-                                    width  = {Math.min(this.state.pendingCols * this.state.cellSize, 800)}
-                                    height = {Math.min(this.state.pendingRows * this.state.cellSize, 600)}
+                                    width  = {cs.w}
+                                    height = {cs.h}
                                     id = "life-canvas"
                                     draggable     = {false}
                                     onMouseDown   = {this.onMouseDown}
@@ -1711,169 +2047,11 @@ $(document).ready(function(){
                                     onTouchEnd    = {this.onTouchEnd}></canvas>
                             </div>
                             <div className="sidebar">
-                                <div className="stats">
-                                    <div className="stat-row">
-                                        <span>{"Gen: " + this.state.generations}</span>
-                                        <span className="board-dims">{this.state.cols + " \xD7 " + this.state.rows}</span>
-                                    </div>
-                                    <div className="stat-row">
-                                        <span>{"Pop: " + population}</span>
-                                        {gpsText && <span className="gps-display">{gpsText}</span>}
-                                    </div>
-                                    <div className="coord-display">{coordText}</div>
-                                    <div className="status-badges">
-                                        <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
-                                            {this.state.running ? "Running" : "Paused"}
-                                        </span>
-                                        {this.state.stable &&
-                                            <span className="status-indicator status-stable">Stable</span>
-                                        }
-                                    </div>
-                                    {sparkline}
-                                </div>
-
-                                <div className="btn-section">
-                                    <div className="buttons">
-                                        <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
-                                        <button className="btn" onClick={this.stepGame}>Step</button>
-                                        <button className="btn" onClick={this.resetGame}>Reset</button>
-                                        <button className="btn" onClick={this.emptyBoard}>Empty</button>
-                                        <button className="btn" onClick={this.undo}>Undo</button>
-                                        <button className="btn" onClick={this.fitView}>Fit</button>
-                                        <button className="btn" onClick={this.exportPNG}>Export PNG</button>
-                                        <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
-                                    </div>
-                                    <div className="buttons buttons-secondary">
-                                        <button className={"btn btn-toggle" + (this.state.liveClickMode ? " active" : "")} onClick={this.toggleClickMode}>{this.state.liveClickMode ? "Draw: On" : "Draw: Off"}</button>
-                                        <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
-                                        <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary}>{this.state.boundary === 'toroidal' ? "Wrap" : "Dead"}</button>
-                                        <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
-                                        <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap}>Map</button>
-                                        <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording}>{this.state.recording ? "Stop GIF" : "Rec GIF"}</button>
-                                        <button className="btn" onClick={this.toggleHelp}>Help</button>
-                                    </div>
-                                </div>
-
-                                <div className="presets-col">
-                                    <select className="rule-preset-select"
-                                        value={this.state.rulePreset}
-                                        onChange={this.setRulePreset}>
-                                        <option value="">Rule preset...</option>
-                                        {RULE_PRESETS.map(function(p){
-                                            return <option key={p.rule} value={p.rule}>{p.name}</option>;
-                                        })}
-                                    </select>
-                                    <select className="rule-preset-select"
-                                        value={this.state.theme}
-                                        onChange={this.setTheme}>
-                                        {Object.keys(THEMES).map(function(t){
-                                            return <option key={t} value={t}>{t}</option>;
-                                        })}
-                                    </select>
-                                    <label className="slider-title rule-label">Rule (B/S notation)</label>
-                                    <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
-                                        type="text"
-                                        value={this.state.ruleString}
-                                        onChange={this.setRule}
-                                        title="Birth/Survival rule string (e.g. B3/S23)" />
-                                    <input className="pattern-filter-input"
-                                        type="text"
-                                        placeholder="Filter patterns..."
-                                        value={this.state.patternFilter}
-                                        onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
-                                    <select className={"preset-select" + (this.state.selectedPattern ? " active" : "")}
-                                        value={this.state.selectedPattern || ""}
-                                        onChange={this.selectPattern}>
-                                        <option value="">Draw mode</option>
-                                        {patternOptions}
-                                    </select>
-                                </div>
-
-                                {this.state.selectedPattern &&
-                                    <div className="rotation-row">
-                                        <canvas className="rotation-preview"
-                                            width="96" height="96"
-                                            ref={function(c){ self._previewCanvas = c; }} />
-                                        <div className="rotation-btns">
-                                            <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise">&#8634;</button>
-                                            <button className="btn btn-rotate" onClick={this.rotateCW}  title="Rotate 90° clockwise">&#8635;</button>
-                                        </div>
-                                    </div>
-                                }
-                                {this.state.selectedPattern &&
-                                    <p className="placement-hint">
-                                        {"Click canvas to place \xB7 " + this.state.selectedPattern}
-                                        <br/>
-                                        <span className="placement-hint-sub">Right-click or Esc to cancel</span>
-                                    </p>
-                                }
-
-                                <div className="sliders">
-                                    <label className="slider-title">{"Width: " + this.state.pendingCols}</label>
-                                    <div className="slider-row">
-                                        <input type="range" min="20" max="400" step="10"
-                                            value={this.state.pendingCols}
-                                            onChange={this.setWidth}
-                                            onMouseUp={this.applyWidth}
-                                            onKeyDown={this.onWidthKeyDown}
-                                            onTouchEnd={this.applyWidth} />
-                                    </div>
-                                </div>
-                                <div className="sliders">
-                                    <label className="slider-title">{"Height: " + this.state.pendingRows}</label>
-                                    <div className="slider-row">
-                                        <input type="range" min="20" max="400" step="10"
-                                            value={this.state.pendingRows}
-                                            onChange={this.setHeight}
-                                            onMouseUp={this.applyHeight}
-                                            onKeyDown={this.onHeightKeyDown}
-                                            onTouchEnd={this.applyHeight} />
-                                    </div>
-                                </div>
-                                <div className="sliders">
-                                    <label className="slider-title">Density (on Reset)</label>
-                                    <div className="slider-row">
-                                        <input type="range" min="2" max="7"
-                                            value={9 - this.state.sparseness}
-                                            onChange={this.setDensity} />
-                                    </div>
-                                </div>
-                                <div className="sliders">
-                                    <label className="slider-title">{"Speed: " + speedLabel}</label>
-                                    <div className="slider-row">
-                                        <input type="range" min="1" max="10"
-                                            value={this.state.speed}
-                                            onChange={this.setSpeed} />
-                                    </div>
-                                </div>
-                                <div className="sliders">
-                                    <label className="slider-title">{"Zoom: " + this.state.cellSize + "\u00a0px/cell"}</label>
-                                    <div className="slider-row">
-                                        <input type="range" min="2" max="32" step="2"
-                                            value={this.state.cellSize}
-                                            onChange={this.setZoom} />
-                                    </div>
-                                </div>
-
-                                <div className="rle-section">
-                                    <div className="buttons rle-toggle-row">
-                                        <button className={"btn btn-rle-toggle btn-block" + (this.state.showRle ? " active" : "")}
-                                            onClick={this.toggleRle}>Import RLE / Plaintext</button>
-                                    </div>
-                                    {this.state.showRle &&
-                                        <div className="rle-body">
-                                            <textarea className="rle-input"
-                                                rows="5"
-                                                placeholder={"Paste RLE or plaintext pattern\n(from LifeWiki or Golly)"}
-                                                value={this.state.rleInput}
-                                                onChange={this.setRleInput} />
-                                            <button className="btn btn-block" onClick={this.loadRle}>Load pattern</button>
-                                            {this.state.rleError &&
-                                                <p className="rle-error">{this.state.rleError}</p>
-                                            }
-                                        </div>
-                                    }
-                                </div>
+                                {this.renderStats()}
+                                {this.renderButtons()}
+                                {this.renderPresets()}
+                                {this.renderSliders()}
+                                {this.renderRLESection()}
                             </div>
                         </div>
                     </div>
