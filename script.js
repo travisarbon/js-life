@@ -928,25 +928,43 @@ $(document).ready(function(){
                 var delay = SPEED_DELAYS[this.state.speed - 1];
                 var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
 
-                // Build sparkline SVG from population history.
+                // Build sparkline from population history.
+                // The SVG uses a fixed viewBox (200×36) and width="100%" so it
+                // scales to fill the sidebar without distorting the line height.
+                // y maps population linearly into [2, 34] leaving 2px top padding.
                 var sparkline = null;
                 if(this.state.popHistory.length > 1){
-                    var hist = this.state.popHistory;
-                    var sparkW = 150, sparkH = 36;
-                    var maxPop = Math.max.apply(null, hist);
+                    var hist    = this.state.popHistory;
+                    var maxPop  = Math.max.apply(null, hist);
                     if(maxPop === 0){ maxPop = 1; }
+                    var vbW = 200, vbH = 36, padT = 2, innerH = vbH - padT * 2;
                     var sparkPts = hist.map(function(p, idx){
-                        var x = (idx / (hist.length - 1)) * sparkW;
-                        var y = sparkH - (p / maxPop) * sparkH;
+                        var x = hist.length === 1 ? vbW / 2 : (idx / (hist.length - 1)) * vbW;
+                        var y = padT + (1 - p / maxPop) * innerH;
                         return x.toFixed(1) + ',' + y.toFixed(1);
                     }).join(' ');
                     sparkline = (
-                        <svg className="sparkline" width={sparkW} height={sparkH}
-                             viewBox={"0 0 " + sparkW + " " + sparkH}>
-                            <polyline points={sparkPts} fill="none" stroke="#70959A"
-                                      strokeWidth="1.5" strokeLinejoin="round"
-                                      strokeLinecap="round"/>
-                        </svg>
+                        <div className="sparkline-wrap">
+                            <div className="sparkline-header">
+                                <span className="sparkline-title">Population</span>
+                                <span className="sparkline-peak">{maxPop}</span>
+                            </div>
+                            <svg className="sparkline" width="100%" height={vbH}
+                                 viewBox={"0 0 " + vbW + " " + vbH}
+                                 preserveAspectRatio="none">
+                                <line x1="0" y1={vbH - 0.5} x2={vbW} y2={vbH - 0.5}
+                                      stroke="rgba(244,233,225,0.25)" strokeWidth="1"/>
+                                <line x1="0" y1={padT + innerH / 2} x2={vbW} y2={padT + innerH / 2}
+                                      stroke="rgba(244,233,225,0.1)" strokeWidth="0.5"/>
+                                <polyline points={sparkPts} fill="none" stroke="#70959A"
+                                          strokeWidth="1.5" strokeLinejoin="round"
+                                          strokeLinecap="round"/>
+                            </svg>
+                            <div className="sparkline-footer">
+                                <span>0</span>
+                                <span>{hist.length + " gen"}</span>
+                            </div>
+                        </div>
                     );
                 }
 
@@ -1034,10 +1052,10 @@ $(document).ready(function(){
                                         <button className="btn" onClick={this.exportPNG}>Export PNG</button>
                                     </div>
                                     <div className="buttons buttons-secondary">
-                                        <button className={"btn btn-toggle" + (this.state.liveClickMode ? " active" : "")} onClick={this.toggleClickMode}>{this.state.liveClickMode ? "Draw: Live" : "Draw: Pause"}</button>
+                                        <button className={"btn btn-toggle" + (this.state.liveClickMode ? " active" : "")} onClick={this.toggleClickMode}>{this.state.liveClickMode ? "Draw: On" : "Draw: Off"}</button>
                                         <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
-                                        <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary}>{"Edges: " + (this.state.boundary === 'toroidal' ? "Wrap" : "Dead")}</button>
-                                        <button className="btn" onClick={this.toggleHelp}>Help (?)</button>
+                                        <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary}>{this.state.boundary === 'toroidal' ? "Wrap" : "Dead"}</button>
+                                        <button className="btn" onClick={this.toggleHelp}>Help</button>
                                     </div>
                                 </div>
 
@@ -1050,6 +1068,7 @@ $(document).ready(function(){
                                             return <option key={p.rule} value={p.rule}>{p.name}</option>;
                                         })}
                                     </select>
+                                    <label className="slider-title rule-label">Rule (B/S notation)</label>
                                     <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
                                         type="text"
                                         value={this.state.ruleString}

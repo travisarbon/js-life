@@ -46,7 +46,7 @@ body {
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
   #content .sidebar {
-    width: 175px;
+    width: 185px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -89,10 +89,30 @@ body {
     color: #F4E9E1; }
 
 /* ── Population sparkline ─────────────────────────────────────────────────── */
+  #content .sparkline-wrap {
+    margin-top: 5px; }
+  #content .sparkline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.72em;
+    opacity: 0.7;
+    margin-bottom: 2px; }
+  #content .sparkline-title {
+    text-transform: uppercase;
+    letter-spacing: 0.05em; }
+  #content .sparkline-peak {
+    font-variant-numeric: tabular-nums; }
   #content .sparkline {
     display: block;
-    margin: 4px auto 0;
-    opacity: 0.85; }
+    width: 100%;
+    opacity: 0.9; }
+  #content .sparkline-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68em;
+    opacity: 0.5;
+    margin-top: 1px; }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
   #content .btn {
@@ -113,10 +133,13 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px; }
-  /* Secondary button row uses a slightly smaller font to fit 4 per row. */
+  /* Secondary button row: 2×2 grid for view/mode toggles. */
   #content .buttons-secondary {
-    grid-template-columns: repeat(4, 1fr);
-    font-size: 0.8em; }
+    grid-template-columns: 1fr 1fr; }
+  /* Visual separator between simulation buttons and view toggles. */
+  #content .buttons-secondary {
+    padding-top: 4px;
+    border-top: 1px solid rgba(0,0,0,0.15); }
   #content .btn-toggle.active {
     background-color: #70959A;
     color: #F4E9E1; }
@@ -170,7 +193,9 @@ body {
     font-style: italic;
     color: #F4E9E1;
     text-align: center;
-    line-height: 1.5; }
+    line-height: 1.5;
+    overflow-wrap: break-word;
+    word-break: break-word; }
   #content .placement-hint-sub {
     font-size: 0.9em;
     opacity: 0.7; }
@@ -181,7 +206,12 @@ body {
   #content .slider-title {
     display: block;
     margin-bottom: 2px;
-    font-size: 0.9em; }
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; }
+  #content .rule-label {
+    margin-top: 2px; }
   #content .slider-row input[type="range"] {
     width: 100%;
     margin: 0; }
@@ -267,6 +297,6 @@ body {
   #content .buttons {
     grid-template-columns: repeat(3, 1fr); }
   #content .buttons-secondary {
-    grid-template-columns: repeat(4, 1fr); }
-  #content .sparkline {
-    width: 100% !important; } }
+    grid-template-columns: repeat(4, 1fr);
+    border-top: none;
+    padding-top: 0; } }
