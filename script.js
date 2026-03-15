@@ -1,14 +1,21 @@
 /**
- * Created by Travis on 8/6/2016.
+ * Conway's Game of Life
  */
 
-// Classic patterns as [row, col] offset arrays (0-indexed from top-left of bounding box).
-var PATTERNS = {
-    'Glider':             [[0,1],[1,2],[2,0],[2,1],[2,2]],
-    'Blinker':            [[0,0],[0,1],[0,2]],
-    'Toad':               [[0,1],[0,2],[0,3],[1,0],[1,1],[1,2]],
-    'Beacon':             [[0,0],[0,1],[1,0],[2,3],[3,2],[3,3]],
-    'Pulsar':             [
+// ── Preset patterns ───────────────────────────────────────────────────────────
+// All cells are [row, col] offsets (0-indexed from top-left of bounding box).
+var PATTERN_GROUPS = {
+    'Still lifes': {
+        'Block':   [[0,0],[0,1],[1,0],[1,1]],
+        'Beehive': [[0,1],[0,2],[1,0],[1,3],[2,1],[2,2]],
+        'Loaf':    [[0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2]],
+        'Boat':    [[0,0],[0,1],[1,0],[1,2],[2,1]]
+    },
+    'Oscillators': {
+        'Blinker':        [[0,0],[0,1],[0,2]],
+        'Toad':           [[0,1],[0,2],[0,3],[1,0],[1,1],[1,2]],
+        'Beacon':         [[0,0],[0,1],[1,0],[2,3],[3,2],[3,3]],
+        'Pulsar':         [
                             [0,2],[0,3],[0,4],[0,8],[0,9],[0,10],
                             [2,0],[2,5],[2,7],[2,12],
                             [3,0],[3,5],[3,7],[3,12],
@@ -20,9 +27,26 @@ var PATTERNS = {
                             [10,0],[10,5],[10,7],[10,12],
                             [12,2],[12,3],[12,4],[12,8],[12,9],[12,10]
                           ],
-    'R-pentomino':        [[0,1],[0,2],[1,0],[1,1],[2,1]],
-    'Acorn':              [[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]],
-    'Gosper Glider Gun':  [
+        // Period-15 oscillator: row of 10 with specific corners modified.
+        'Pentadecathlon': [[0,1],[1,1],[2,0],[2,2],[3,1],[4,1],[5,1],[6,1],[7,0],[7,2],[8,1],[9,1]]
+    },
+    'Spaceships': {
+        'Glider': [[0,1],[1,2],[2,0],[2,1],[2,2]],
+        // Lightweight spaceship — moves horizontally.
+        'LWSS':   [[0,1],[0,4],[1,0],[2,0],[2,4],[3,0],[3,1],[3,2],[3,3]],
+        // Middleweight spaceship.
+        'MWSS':   [[0,3],[1,1],[1,5],[2,0],[3,0],[3,5],[4,0],[4,1],[4,2],[4,3],[4,4]],
+        // Heavyweight spaceship.
+        'HWSS':   [[0,3],[0,4],[1,1],[1,6],[2,0],[3,0],[3,6],[4,0],[4,1],[4,2],[4,3],[4,4],[4,5]]
+    },
+    'Methuselahs': {
+        'R-pentomino': [[0,1],[0,2],[1,0],[1,1],[2,1]],
+        'Acorn':       [[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]],
+        // Diehard: vanishes completely after 130 generations.
+        'Diehard':     [[0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7]]
+    },
+    'Guns': {
+        'Gosper Glider Gun': [
                             [0,24],
                             [1,22],[1,24],
                             [2,12],[2,13],[2,20],[2,21],[2,34],[2,35],
@@ -33,36 +57,69 @@ var PATTERNS = {
                             [7,11],[7,15],
                             [8,12],[8,13]
                           ]
+    }
 };
+
+// Flat lookup keyed by pattern name for O(1) access.
+var PATTERNS = {};
+Object.keys(PATTERN_GROUPS).forEach(function(group){
+    Object.keys(PATTERN_GROUPS[group]).forEach(function(name){
+        PATTERNS[name] = PATTERN_GROUPS[group][name];
+    });
+});
+
+// ── Rule presets ──────────────────────────────────────────────────────────────
+var RULE_PRESETS = [
+    { name: 'Conway (B3/S23)',                rule: 'B3/S23' },
+    { name: 'HighLife (B36/S23)',             rule: 'B36/S23' },
+    { name: 'Day & Night (B3678/S34678)',     rule: 'B3678/S34678' },
+    { name: 'Maze (B3/S12345)',               rule: 'B3/S12345' },
+    { name: 'Seeds (B2/S)',                   rule: 'B2/S' },
+    { name: 'Replicator (B1357/S1357)',       rule: 'B1357/S1357' },
+    { name: 'Life w/o Death (B3/S012345678)', rule: 'B3/S012345678' },
+    { name: 'Anneal (B4678/S35678)',          rule: 'B4678/S35678' }
+];
+
+// Delay in ms per generation, indexed by speed 1-10.
+var SPEED_DELAYS = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
 
 $(document).ready(function(){
     (function(){
 
         var LifeBoard = React.createClass({
 
+            // ── Lifecycle ─────────────────────────────────────────────────────
+
             getInitialState : function(){
                 var cellSize = 5;
                 var cols = 100;
                 var rows = 100;
                 return {
-                    running :      true,
-                    cellSize :     cellSize,
-                    cols :         cols,
-                    rows :         rows,
-                    sparseness :   2,
-                    board :        this.buildBoard(cols, rows, 2, cellSize),
-                    generations :  0,
-                    liveClickMode: false,
-                    speed :        5,
-                    gridLines :    false,
+                    running :        true,
+                    cellSize :       cellSize,
+                    cols :           cols,
+                    rows :           rows,
+                    sparseness :     2,
+                    board :          this.buildBoard(cols, rows, 2, cellSize),
+                    generations :    0,
+                    liveClickMode :  false,
+                    speed :          5,
+                    gridLines :      false,
                     boundary :       'toroidal',
                     birthRule :      [3],
                     surviveRule :    [2, 3],
                     ruleString :     'B3/S23',
+                    rulePreset :     'B3/S23',
                     selectedPattern: null,
                     patternRotation: 0,
                     pendingCols :    cols,
-                    pendingRows :    rows
+                    pendingRows :    rows,
+                    popHistory :     [],
+                    stable :         false,
+                    showHelp :       false,
+                    showRle :        false,
+                    rleInput :       '',
+                    rleError :       ''
                 };
             },
 
@@ -73,6 +130,9 @@ $(document).ready(function(){
                 this._previewPos = null;
                 this._loopRunning = false;
                 this._tickId = 0;
+                this._undoStack = [];
+                this._prevBoardHash = null;
+                this._stableCount = 0;
                 this._canvas = document.getElementById("life-canvas");
                 document.addEventListener('keydown', this.handleKeyDown);
                 this.drawBoard();
@@ -90,6 +150,8 @@ $(document).ready(function(){
                 document.removeEventListener('keydown', this.handleKeyDown);
             },
 
+            // ── Board construction ─────────────────────────────────────────────
+
             buildBoard : function(cols, rows, sparseness, cellSize){
                 var arr = [];
                 for(var r = 0; r < rows; r++){
@@ -97,12 +159,15 @@ $(document).ready(function(){
                         arr.push({
                             x :      c * cellSize,
                             y :      r * cellSize,
-                            status : Math.random() < (1 / sparseness) ? 1 : 0
+                            status : Math.random() < (1 / sparseness) ? 1 : 0,
+                            age :    0
                         });
                     }
                 }
                 return arr;
             },
+
+            // ── Rendering ─────────────────────────────────────────────────────
 
             drawBoard : function(){
                 var canvas = this._canvas;
@@ -112,10 +177,24 @@ $(document).ready(function(){
                 var rows = this.state.rows;
                 var pendingCols = this.state.pendingCols;
                 var pendingRows = this.state.pendingRows;
+
+                // Draw cells with age-based coloring.
+                // Young cells (age 1) render as a light tint that deepens toward
+                // the full teal #70959A as cells age past 10 generations.
                 for(var i = 0; i < this.state.board.length; i++){
-                    ctx.fillStyle = this.state.board[i].status === 1 ? "#70959A" : "#FFFFFF";
-                    ctx.fillRect(this.state.board[i].x, this.state.board[i].y, cellSize, cellSize);
+                    var cell = this.state.board[i];
+                    if(cell.status === 1){
+                        var t = Math.min((cell.age || 1) / 10, 1);
+                        var cr = Math.round(200 - 88 * t);
+                        var cg = Math.round(220 - 71 * t);
+                        var cb = Math.round(222 - 68 * t);
+                        ctx.fillStyle = 'rgb(' + cr + ',' + cg + ',' + cb + ')';
+                    } else {
+                        ctx.fillStyle = '#FFFFFF';
+                    }
+                    ctx.fillRect(cell.x, cell.y, cellSize, cellSize);
                 }
+
                 if(this.state.gridLines){
                     ctx.strokeStyle = 'rgba(0,0,0,0.15)';
                     ctx.lineWidth = 0.5;
@@ -130,8 +209,8 @@ $(document).ready(function(){
                     }
                     ctx.stroke();
                 }
-                // Pattern placement preview — draw the selected pattern semi-transparently
-                // under the cursor so the user can see where it will land before clicking.
+
+                // Pattern placement preview — semi-transparent overlay under cursor.
                 if(this.state.selectedPattern && this._previewPos){
                     var pattern = this.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
                     var maxPR = 0, maxPC = 0;
@@ -178,9 +257,8 @@ $(document).ready(function(){
                 }
             },
 
-            // Returns the number of live neighbours for cell at index i.
-            // Accepts an explicit board snapshot so that a setState from a
-            // concurrent click cannot change the data mid-tick.
+            // ── Neighbour counting & generation logic ─────────────────────────
+
             countLiveNeighbours : function(i, board, cols, rows, boundary){
                 var col = i % cols;
                 var row = Math.floor(i / cols);
@@ -204,19 +282,23 @@ $(document).ready(function(){
                 return count;
             },
 
-            // Shared next-generation computation used by both findNewStates and stepGame.
+            // Returns an array of {status, age} objects for the next generation.
             computeNextGeneration : function(boardSnapshot, cols, rows, birth, survive, boundary){
                 var newStates = [];
                 for(var i = 0; i < boardSnapshot.length; i++){
                     var n = this.countLiveNeighbours(i, boardSnapshot, cols, rows, boundary);
-                    if(boardSnapshot[i].status === 0 && birth.indexOf(n) !== -1){
-                        newStates.push(1);
-                    } else if(boardSnapshot[i].status === 1 && survive.indexOf(n) !== -1){
-                        newStates.push(1);
-                    } else { newStates.push(0); }
+                    var wasAlive = boardSnapshot[i].status === 1;
+                    var alive = (wasAlive  && survive.indexOf(n) !== -1) ||
+                                (!wasAlive && birth.indexOf(n)   !== -1);
+                    newStates.push({
+                        status : alive ? 1 : 0,
+                        age :    alive ? (boardSnapshot[i].age || 0) + 1 : 0
+                    });
                 }
                 return newStates;
             },
+
+            // ── Animation loop ─────────────────────────────────────────────────
 
             _startLoop : function(){
                 if(this._loopRunning){ return; }
@@ -227,31 +309,49 @@ $(document).ready(function(){
             },
 
             findNewStates : function(tickId){
-                // Discard stale ticks that were queued before a reset or restart.
                 if(tickId !== this._tickId){
                     this._loopRunning = false;
                     return;
                 }
                 if(this.state.running === true){
                     var boardSnapshot = this.state.board.slice();
-                    var cols = this.state.cols;
-                    var rows = this.state.rows;
-                    var birth = this.state.birthRule;
-                    var survive = this.state.surviveRule;
+                    var cols     = this.state.cols;
+                    var rows     = this.state.rows;
+                    var birth    = this.state.birthRule;
+                    var survive  = this.state.surviveRule;
                     var boundary = this.state.boundary;
                     var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive, boundary);
+
+                    // Stability detection: auto-pause when the board stops changing.
+                    var boardHash = newStates.map(function(s){ return s.status; }).join('');
+                    var isStable  = (boardHash === this._prevBoardHash);
+                    this._prevBoardHash = boardHash;
+                    this._stableCount = isStable ? this._stableCount + 1 : 0;
+                    var hitStable = this._stableCount >= 2;
+
+                    // Maintain population history (last 60 data points for sparkline).
+                    var newPop = 0;
+                    for(var k = 0; k < newStates.length; k++){
+                        if(newStates[k].status === 1){ newPop++; }
+                    }
+                    var newHistory = this.state.popHistory.concat([newPop]);
+                    if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
+
                     var copyOfBoard = boardSnapshot.map(function(cell){
-                        return {x: cell.x, y: cell.y, status: cell.status};
+                        return {x: cell.x, y: cell.y, status: cell.status, age: cell.age || 0};
                     });
                     var self = this;
                     var myTickId = tickId;
                     this.setState({
                         board :       this.changeCopiedBoard(copyOfBoard, newStates),
-                        generations : this.state.generations + 1
+                        generations : this.state.generations + 1,
+                        popHistory :  newHistory,
+                        stable :      hitStable,
+                        running :     hitStable ? false : this.state.running
                     }, function(){
                         self.drawBoard();
-                        var delays = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
-                        var delay = delays[self.state.speed - 1];
+                        if(hitStable){ self._loopRunning = false; return; }
+                        var delay = SPEED_DELAYS[self.state.speed - 1];
                         setTimeout(function(){
                             requestAnimationFrame(function(){ self.findNewStates(myTickId); });
                         }, delay);
@@ -261,39 +361,89 @@ $(document).ready(function(){
                 }
             },
 
-            // Advance exactly one generation (pauses the game).
             stepGame : function(){
+                this.pushUndo();
                 var boardSnapshot = this.state.board.slice();
-                var cols = this.state.cols;
-                var rows = this.state.rows;
-                var birth = this.state.birthRule;
-                var survive = this.state.surviveRule;
+                var cols     = this.state.cols;
+                var rows     = this.state.rows;
+                var birth    = this.state.birthRule;
+                var survive  = this.state.surviveRule;
                 var boundary = this.state.boundary;
                 var newStates = this.computeNextGeneration(boardSnapshot, cols, rows, birth, survive, boundary);
+                var newPop = 0;
+                for(var k = 0; k < newStates.length; k++){
+                    if(newStates[k].status === 1){ newPop++; }
+                }
+                var newHistory = this.state.popHistory.concat([newPop]);
+                if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
                 var copyOfBoard = boardSnapshot.map(function(cell){
-                    return {x: cell.x, y: cell.y, status: cell.status};
+                    return {x: cell.x, y: cell.y, status: cell.status, age: cell.age || 0};
                 });
                 var self = this;
                 this.setState({
                     board :       this.changeCopiedBoard(copyOfBoard, newStates),
                     running :     false,
-                    generations : this.state.generations + 1
+                    generations : this.state.generations + 1,
+                    popHistory :  newHistory,
+                    stable :      false
                 }, function(){ self.drawBoard(); });
             },
 
             changeCopiedBoard : function(copyOfBoard, newStates){
                 for(var i = 0; i < copyOfBoard.length; i++){
-                    copyOfBoard[i].status = newStates[i];
+                    copyOfBoard[i].status = newStates[i].status;
+                    copyOfBoard[i].age    = newStates[i].age;
                 }
                 return copyOfBoard;
             },
 
-            // ── Mouse / painting ────────────────────────────────────────────
+            // ── Undo ──────────────────────────────────────────────────────────
+
+            pushUndo : function(){
+                var snapshot = this.state.board.map(function(cell){
+                    return {x: cell.x, y: cell.y, status: cell.status, age: cell.age || 0};
+                });
+                this._undoStack.push({board: snapshot, generations: this.state.generations});
+                if(this._undoStack.length > 30){ this._undoStack.shift(); }
+            },
+
+            undo : function(){
+                if(this._undoStack.length === 0){ return; }
+                var entry = this._undoStack.pop();
+                this._tickId++;
+                this._loopRunning = false;
+                this._prevBoardHash = null;
+                this._stableCount = 0;
+                var self = this;
+                this.setState({
+                    board :       entry.board,
+                    generations : entry.generations,
+                    running :     false,
+                    stable :      false
+                }, function(){ self.drawBoard(); });
+            },
+
+            // ── Export ─────────────────────────────────────────────────────────
+
+            exportPNG : function(){
+                var link = document.createElement('a');
+                link.download = 'game-of-life-gen-' + this.state.generations + '.png';
+                link.href = this._canvas.toDataURL('image/png');
+                link.click();
+            },
+
+            // ── Help modal ─────────────────────────────────────────────────────
+
+            toggleHelp : function(){
+                this.setState({showHelp : !this.state.showHelp});
+            },
+
+            // ── Mouse / painting ───────────────────────────────────────────────
 
             getMousePos : function(event){
                 var canvasEl = this._canvas;
                 var rect = canvasEl.getBoundingClientRect();
-                var scaleX = canvasEl.width / rect.width;
+                var scaleX = canvasEl.width  / rect.width;
                 var scaleY = canvasEl.height / rect.height;
                 return {
                     x : (event.clientX - rect.left) * scaleX,
@@ -301,8 +451,6 @@ $(document).ready(function(){
                 };
             },
 
-            // Paint a single cell directly to the canvas (used during drag for
-            // immediate visual feedback without waiting for a setState round-trip).
             paintCellDirect : function(c, r){
                 var canvas = this._canvas;
                 var ctx = canvas.getContext("2d");
@@ -318,24 +466,28 @@ $(document).ready(function(){
 
             onMouseDown : function(event){
                 event.preventDefault();
+                // Right-click exits pattern placement mode.
+                if(event.button === 2 && this.state.selectedPattern){
+                    this._previewPos = null;
+                    var self = this;
+                    this.setState({selectedPattern : null, patternRotation : 0},
+                        function(){ self.drawBoard(); });
+                    return;
+                }
+                if(event.button !== 0){ return; }
                 var mouse = this.getMousePos(event);
                 var cellSize = this.state.cellSize;
                 var c = Math.floor(mouse.x / cellSize);
                 var r = Math.floor(mouse.y / cellSize);
                 if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
-                // Pattern placement mode: stamp and return; do not start a drag.
                 if(this.state.selectedPattern){
-                    if(!this.state.liveClickMode){
-                        this.setState({running : false});
-                    }
+                    if(!this.state.liveClickMode){ this.setState({running : false}); }
                     this.placePattern(this.state.selectedPattern, c, r);
                     return;
                 }
-                // Normal draw mode: begin drag-paint.
-                if(!this.state.liveClickMode){
-                    this.setState({running : false});
-                }
+                if(!this.state.liveClickMode){ this.setState({running : false}); }
                 var idx = r * this.state.cols + c;
+                this.pushUndo();
                 this._dragging = true;
                 this._dragStatus = this.state.board[idx].status === 0 ? 1 : 0;
                 this._paintedCells = {};
@@ -344,25 +496,21 @@ $(document).ready(function(){
             },
 
             onMouseMove : function(event){
-                // Skip all work if there is nothing to do.
                 if(!this.state.selectedPattern && !this._dragging){ return; }
                 var mouse = this.getMousePos(event);
                 var cellSize = this.state.cellSize;
                 var c = Math.floor(mouse.x / cellSize);
                 var r = Math.floor(mouse.y / cellSize);
-                // Pattern placement mode: update hover preview.
                 if(this.state.selectedPattern){
                     var inBounds = c >= 0 && c < this.state.cols && r >= 0 && r < this.state.rows;
                     var newPos = inBounds ? {c : c, r : r} : null;
                     var prev = this._previewPos;
-                    // Only redraw if the hovered cell actually changed.
                     if(prev === newPos){ return; }
                     if(prev && newPos && prev.c === newPos.c && prev.r === newPos.r){ return; }
                     this._previewPos = newPos;
                     this.drawBoard();
                     return;
                 }
-                // Normal draw mode: continue drag-paint.
                 if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
                 var idx = r * this.state.cols + c;
                 if(this._paintedCells[idx] !== undefined){ return; }
@@ -370,7 +518,6 @@ $(document).ready(function(){
                 this.paintCellDirect(c, r);
             },
 
-            // Sync painted cells into React state when the drag ends.
             onMouseUp : function(){
                 if(!this._dragging){ return; }
                 this._dragging = false;
@@ -379,17 +526,59 @@ $(document).ready(function(){
                     return {
                         x :      cell.x,
                         y :      cell.y,
-                        status : paintedCells[i] !== undefined ? paintedCells[i] : cell.status
+                        status : paintedCells[i] !== undefined ? paintedCells[i] : cell.status,
+                        age :    paintedCells[i] !== undefined ? 0 : (cell.age || 0)
                     };
                 });
                 this._paintedCells = {};
                 var self = this;
-                this.setState({board : newBoard}, function(){ self.drawBoard(); });
+                this.setState({board : newBoard, stable : false}, function(){ self.drawBoard(); });
             },
 
+            onMouseLeave : function(){
+                if(this.state.selectedPattern){
+                    this._previewPos = null;
+                    this.drawBoard();
+                    return;
+                }
+                this.onMouseUp();
+            },
+
+            onContextMenu : function(event){
+                event.preventDefault();
+                if(this.state.selectedPattern){
+                    this._previewPos = null;
+                    var self = this;
+                    this.setState({selectedPattern : null, patternRotation : 0},
+                        function(){ self.drawBoard(); });
+                }
+            },
+
+            // ── Touch support ─────────────────────────────────────────────────
+
+            onTouchStart : function(event){
+                event.preventDefault();
+                var t = event.touches[0];
+                this.onMouseDown({preventDefault: function(){}, button: 0,
+                    clientX: t.clientX, clientY: t.clientY});
+            },
+
+            onTouchMove : function(event){
+                event.preventDefault();
+                var t = event.touches[0];
+                this.onMouseMove({clientX: t.clientX, clientY: t.clientY});
+            },
+
+            onTouchEnd : function(event){
+                event.preventDefault();
+                this.onMouseUp();
+            },
+
+            // ── Keyboard ──────────────────────────────────────────────────────
+
             handleKeyDown : function(e){
-                // Don't intercept when the user is typing in a form control.
                 if(['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].indexOf(e.target.tagName) !== -1){ return; }
+                var self = this;
                 switch(e.key){
                     case ' ':
                         e.preventDefault();
@@ -405,26 +594,35 @@ $(document).ready(function(){
                     case 'e': case 'E':
                         this.emptyBoard();
                         break;
+                    case 'z': case 'Z':
+                        if(e.ctrlKey || e.metaKey){ e.preventDefault(); this.undo(); }
+                        break;
+                    case 's': case 'S':
+                        if(!e.ctrlKey && !e.metaKey){ this.exportPNG(); }
+                        break;
                     case '[':
                         if(this.state.selectedPattern){ this.rotateCCW(); }
                         break;
                     case ']':
                         if(this.state.selectedPattern){ this.rotateCW(); }
                         break;
+                    case 'Escape':
+                        if(this.state.selectedPattern){
+                            this._previewPos = null;
+                            this.setState({selectedPattern : null, patternRotation : 0},
+                                function(){ self.drawBoard(); });
+                        }
+                        if(this.state.showHelp){
+                            this.setState({showHelp : false});
+                        }
+                        break;
+                    case '?':
+                        this.toggleHelp();
+                        break;
                 }
             },
 
-            // Clear the hover preview when the cursor leaves the canvas.
-            onMouseLeave : function(){
-                if(this.state.selectedPattern){
-                    this._previewPos = null;
-                    this.drawBoard();
-                    return;
-                }
-                this.onMouseUp();
-            },
-
-            // ── Toggles ──────────────────────────────────────────────────────
+            // ── Toggles ───────────────────────────────────────────────────────
 
             toggleClickMode : function(){
                 this.setState({liveClickMode : !this.state.liveClickMode});
@@ -442,10 +640,12 @@ $(document).ready(function(){
             },
 
             toggleGame : function(){
-                if(this.state.running === true){
+                if(this.state.running){
                     this.setState({running : false});
                 } else {
-                    this.setState({running : true});
+                    this._prevBoardHash = null;
+                    this._stableCount = 0;
+                    this.setState({running : true, stable : false});
                     this._startLoop();
                 }
             },
@@ -460,10 +660,13 @@ $(document).ready(function(){
                 var newBoard = [];
                 for(var r = 0; r < newRows; r++){
                     for(var c = 0; c < newCols; c++){
-                        var status = (r < oldRows && c < oldCols)
-                            ? oldBoard[r * oldCols + c].status
-                            : 0;
-                        newBoard.push({x : c * cellSize, y : r * cellSize, status : status});
+                        var inOld = r < oldRows && c < oldCols;
+                        newBoard.push({
+                            x :      c * cellSize,
+                            y :      r * cellSize,
+                            status : inOld ? oldBoard[r * oldCols + c].status : 0,
+                            age :    inOld ? (oldBoard[r * oldCols + c].age || 0) : 0
+                        });
                     }
                 }
                 var self = this;
@@ -473,12 +676,9 @@ $(document).ready(function(){
                     pendingCols : newCols,
                     pendingRows : newRows,
                     board :       newBoard
-                }, function(){
-                    self.drawBoard();
-                });
+                }, function(){ self.drawBoard(); });
             },
 
-            // onChange: update the pending display value and preview the canvas size.
             setWidth : function(e){
                 var self = this;
                 this.setState({pendingCols : parseInt(e.target.value)}, function(){
@@ -486,9 +686,12 @@ $(document).ready(function(){
                 });
             },
 
-            // onMouseUp/onTouchEnd: commit the pending value and actually resize.
             applyWidth : function(){
                 this.resizeBoard(this.state.pendingCols, this.state.rows);
+            },
+
+            onWidthKeyDown : function(e){
+                if(e.key === 'Enter'){ this.applyWidth(); }
             },
 
             setHeight : function(e){
@@ -502,8 +705,10 @@ $(document).ready(function(){
                 this.resizeBoard(this.state.cols, this.state.pendingRows);
             },
 
-            // Updating the density slider only changes the value used on the next
-            // Reset — it does not immediately randomise the board.
+            onHeightKeyDown : function(e){
+                if(e.key === 'Enter'){ this.applyHeight(); }
+            },
+
             setDensity : function(e){
                 this.setState({sparseness : 9 - parseInt(e.target.value)});
             },
@@ -514,22 +719,105 @@ $(document).ready(function(){
 
             // ── Rules ─────────────────────────────────────────────────────────
 
+            parseRuleString : function(val){
+                var match = val.trim().toUpperCase().match(/^B([0-8]*)\/?S([0-8]*)$/);
+                if(!match){ return null; }
+                return {
+                    birth :   match[1].split('').filter(Boolean).map(Number),
+                    survive : match[2].split('').filter(Boolean).map(Number)
+                };
+            },
+
             setRule : function(e){
                 var val = e.target.value;
-                var match = val.trim().toUpperCase().match(/^B([0-8]*)\/?S([0-8]*)$/);
-                if(match){
-                    var birth   = match[1].split('').filter(Boolean).map(Number);
-                    var survive = match[2].split('').filter(Boolean).map(Number);
-                    this.setState({birthRule : birth, surviveRule : survive, ruleString : val});
+                var parsed = this.parseRuleString(val);
+                if(parsed){
+                    this.setState({birthRule : parsed.birth, surviveRule : parsed.survive,
+                        ruleString : val, rulePreset : val.toUpperCase()});
                 } else {
-                    this.setState({ruleString : val});
+                    this.setState({ruleString : val, rulePreset : ''});
                 }
+            },
+
+            setRulePreset : function(e){
+                var rule = e.target.value;
+                if(!rule){ return; }
+                var parsed = this.parseRuleString(rule);
+                if(parsed){
+                    this.setState({birthRule : parsed.birth, surviveRule : parsed.survive,
+                        ruleString : rule, rulePreset : rule});
+                }
+            },
+
+            // ── RLE import ────────────────────────────────────────────────────
+
+            setRleInput : function(e){
+                this.setState({rleInput : e.target.value, rleError : ''});
+            },
+
+            toggleRle : function(){
+                this.setState({showRle : !this.state.showRle, rleError : ''});
+            },
+
+            loadRle : function(){
+                var text = this.state.rleInput.trim();
+                if(!text){ this.setState({rleError : 'Paste an RLE pattern first.'}); return; }
+                try {
+                    var result = this.parseRLE(text);
+                    if(result.cells.length === 0){
+                        this.setState({rleError : 'No live cells found in pattern.'}); return;
+                    }
+                    PATTERNS['Custom (RLE)'] = result.cells;
+                    var self = this;
+                    this._previewPos = null;
+                    this.setState({
+                        selectedPattern : 'Custom (RLE)',
+                        patternRotation : 0,
+                        showRle :         false,
+                        rleError :        ''
+                    }, function(){ self.drawBoard(); });
+                } catch(ex){
+                    this.setState({rleError : 'Could not parse RLE: ' + ex.message});
+                }
+            },
+
+            // Parses standard RLE format into an array of [row, col] cell coordinates.
+            parseRLE : function(text){
+                var lines = text.split(/\r?\n/);
+                var dataLines = lines.filter(function(l){ return l.charAt(0) !== '#'; });
+                var headerIdx = -1;
+                for(var i = 0; i < dataLines.length; i++){
+                    if(/x\s*=/i.test(dataLines[i])){ headerIdx = i; break; }
+                }
+                var dataStart = headerIdx >= 0 ? headerIdx + 1 : 0;
+                var data = dataLines.slice(dataStart).join('').replace(/\s/g, '');
+                var cells = [];
+                var row = 0, col = 0, countStr = '';
+                for(var k = 0; k < data.length; k++){
+                    var ch = data[k];
+                    if(ch >= '0' && ch <= '9'){
+                        countStr += ch;
+                    } else if(ch === 'b' || ch === 'o'){
+                        var n = countStr ? parseInt(countStr, 10) : 1;
+                        if(ch === 'o'){
+                            for(var j = 0; j < n; j++){ cells.push([row, col + j]); }
+                        }
+                        col += n;
+                        countStr = '';
+                    } else if(ch === '$'){
+                        var n2 = countStr ? parseInt(countStr, 10) : 1;
+                        row += n2;
+                        col = 0;
+                        countStr = '';
+                    } else if(ch === '!'){
+                        break;
+                    }
+                }
+                return {cells : cells};
             },
 
             // ── Patterns ──────────────────────────────────────────────────────
 
-            // Returns a copy of `cells` rotated 90° clockwise `steps` times.
-            // Each cell is [row, col] relative to the top-left of the bounding box.
             rotatePattern : function(cells, steps){
                 var result = cells.slice();
                 for(var s = 0; s < steps; s++){
@@ -546,31 +834,26 @@ $(document).ready(function(){
 
             rotateCW : function(){
                 var self = this;
-                this.setState({patternRotation : (this.state.patternRotation + 1) % 4}, function(){
-                    self.drawBoard();
-                });
+                this.setState({patternRotation : (this.state.patternRotation + 1) % 4},
+                    function(){ self.drawBoard(); });
             },
 
             rotateCCW : function(){
                 var self = this;
-                this.setState({patternRotation : (this.state.patternRotation + 3) % 4}, function(){
-                    self.drawBoard();
-                });
+                this.setState({patternRotation : (this.state.patternRotation + 3) % 4},
+                    function(){ self.drawBoard(); });
             },
 
-            // Enter/exit pattern placement mode.  Selecting a pattern arms the
-            // cursor so the next click on the canvas places it; selecting the
-            // blank "Draw mode" option returns to normal paint behaviour.
             selectPattern : function(e){
                 var name = e.target.value || null;
                 this._previewPos = null;
                 var self = this;
-                this.setState({selectedPattern : name, patternRotation : 0}, function(){ self.drawBoard(); });
+                this.setState({selectedPattern : name, patternRotation : 0},
+                    function(){ self.drawBoard(); });
             },
 
-            // Stamp pattern `name` centred on cell (centerC, centerR), merging
-            // with existing live cells (does not clear the board first).
             placePattern : function(name, centerC, centerR){
+                this.pushUndo();
                 var pattern = this.rotatePattern(PATTERNS[name], this.state.patternRotation);
                 var cols = this.state.cols;
                 var rows = this.state.rows;
@@ -582,51 +865,57 @@ $(document).ready(function(){
                 var offsetR = centerR - Math.floor(maxR / 2);
                 var offsetC = centerC - Math.floor(maxC / 2);
                 var newBoard = this.state.board.map(function(cell){
-                    return {x : cell.x, y : cell.y, status : cell.status};
+                    return {x : cell.x, y : cell.y, status : cell.status, age : cell.age || 0};
                 });
                 for(var i = 0; i < pattern.length; i++){
                     var pr = pattern[i][0] + offsetR;
                     var pc = pattern[i][1] + offsetC;
                     if(pr >= 0 && pr < rows && pc >= 0 && pc < cols){
                         newBoard[pr * cols + pc].status = 1;
+                        newBoard[pr * cols + pc].age    = 0;
                     }
                 }
                 this._previewPos = null;
                 var self = this;
-                this.setState({board : newBoard}, function(){ self.drawBoard(); });
+                this.setState({board : newBoard, stable : false}, function(){ self.drawBoard(); });
             },
 
             // ── Board actions ─────────────────────────────────────────────────
 
             emptyBoard : function(){
+                this.pushUndo();
                 var newBoard = this.state.board.map(function(cell){
-                    return {x : cell.x, y : cell.y, status : 0};
+                    return {x : cell.x, y : cell.y, status : 0, age : 0};
                 });
+                this._prevBoardHash = null;
+                this._stableCount = 0;
                 var self = this;
-                this.setState({running : false, generations : 0, board : newBoard}, function(){
-                    self.drawBoard();
-                });
+                this.setState({running : false, generations : 0, board : newBoard,
+                    popHistory : [], stable : false}, function(){ self.drawBoard(); });
             },
 
             resetGame : function(){
+                this.pushUndo();
                 var newBoard = this.buildBoard(
                     this.state.cols, this.state.rows,
                     this.state.sparseness, this.state.cellSize
                 );
                 var wasRunning = this.state.running;
-                var self = this;
-                // Invalidate any in-flight tick before swapping the board.
                 this._tickId++;
                 this._loopRunning = false;
-                this.setState({running : false, generations : 0, board : newBoard}, function(){
+                this._prevBoardHash = null;
+                this._stableCount = 0;
+                var self = this;
+                this.setState({running : false, generations : 0, board : newBoard,
+                    popHistory : [], stable : false}, function(){
                     self.drawBoard();
                     if(wasRunning){
-                        self.setState({running : true}, function(){
-                            self._startLoop();
-                        });
+                        self.setState({running : true}, function(){ self._startLoop(); });
                     }
                 });
             },
+
+            // ── Render ────────────────────────────────────────────────────────
 
             render : function(){
                 var self = this;
@@ -634,115 +923,225 @@ $(document).ready(function(){
                 for(var i = 0; i < this.state.board.length; i++){
                     if(this.state.board[i].status === 1){ population++; }
                 }
+
                 var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
-                return(
+                var delay = SPEED_DELAYS[this.state.speed - 1];
+                var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+
+                // Build sparkline SVG from population history.
+                var sparkline = null;
+                if(this.state.popHistory.length > 1){
+                    var hist = this.state.popHistory;
+                    var sparkW = 150, sparkH = 36;
+                    var maxPop = Math.max.apply(null, hist);
+                    if(maxPop === 0){ maxPop = 1; }
+                    var sparkPts = hist.map(function(p, idx){
+                        var x = (idx / (hist.length - 1)) * sparkW;
+                        var y = sparkH - (p / maxPop) * sparkH;
+                        return x.toFixed(1) + ',' + y.toFixed(1);
+                    }).join(' ');
+                    sparkline = (
+                        <svg className="sparkline" width={sparkW} height={sparkH}
+                             viewBox={"0 0 " + sparkW + " " + sparkH}>
+                            <polyline points={sparkPts} fill="none" stroke="#70959A"
+                                      strokeWidth="1.5" strokeLinejoin="round"
+                                      strokeLinecap="round"/>
+                        </svg>
+                    );
+                }
+
+                // Build categorised pattern dropdown using <optgroup>.
+                var patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
+                    var opts = Object.keys(PATTERN_GROUPS[group]).map(function(name){
+                        return <option key={name} value={name}>{name}</option>;
+                    });
+                    return <optgroup key={group} label={group}>{opts}</optgroup>;
+                });
+                if(PATTERNS['Custom (RLE)']){
+                    patternOptions = patternOptions.concat(
+                        <optgroup key="custom" label="Custom">
+                            <option value="Custom (RLE)">Custom (RLE)</option>
+                        </optgroup>
+                    );
+                }
+
+                return (
                     <div>
-                        <h2 className = "top">Conway's Game of Life</h2>
-                        <div className = "content-body">
-                            <div className = "canvas-container">
-                                <canvas className = "display"
-                                    width = {this.state.pendingCols * this.state.cellSize}
+                        {this.state.showHelp &&
+                            <div className="help-overlay" onClick={this.toggleHelp}>
+                                <div className="help-modal" onClick={function(e){ e.stopPropagation(); }}>
+                                    <h3 className="help-title">Keyboard Shortcuts</h3>
+                                    <table className="help-table">
+                                        <tbody>
+                                            <tr><td>Space</td><td>Play / Pause</td></tr>
+                                            <tr><td>.</td><td>Step one generation</td></tr>
+                                            <tr><td>R</td><td>Reset (random fill)</td></tr>
+                                            <tr><td>E</td><td>Empty board</td></tr>
+                                            <tr><td>Ctrl+Z</td><td>Undo</td></tr>
+                                            <tr><td>S</td><td>Export PNG</td></tr>
+                                            <tr><td>[</td><td>Rotate pattern CCW</td></tr>
+                                            <tr><td>]</td><td>Rotate pattern CW</td></tr>
+                                            <tr><td>Esc</td><td>Cancel placement / close help</td></tr>
+                                            <tr><td>?</td><td>Show / hide this help</td></tr>
+                                        </tbody>
+                                    </table>
+                                    <button className="btn help-close" onClick={this.toggleHelp}>Close</button>
+                                </div>
+                            </div>
+                        }
+                        <h2 className="top">Conway's Game of Life</h2>
+                        <div className="content-body">
+                            <div className={"canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")}>
+                                <canvas className="display"
+                                    width  = {this.state.pendingCols * this.state.cellSize}
                                     height = {this.state.pendingRows * this.state.cellSize}
                                     id = "life-canvas"
-                                    draggable = {false}
-                                    onMouseDown =  {this.onMouseDown}
-                                    onMouseMove =  {this.onMouseMove}
-                                    onMouseUp =    {this.onMouseUp}
-                                    onMouseLeave = {this.onMouseLeave}></canvas>
+                                    draggable     = {false}
+                                    onMouseDown   = {this.onMouseDown}
+                                    onMouseMove   = {this.onMouseMove}
+                                    onMouseUp     = {this.onMouseUp}
+                                    onMouseLeave  = {this.onMouseLeave}
+                                    onContextMenu = {this.onContextMenu}
+                                    onTouchStart  = {this.onTouchStart}
+                                    onTouchMove   = {this.onTouchMove}
+                                    onTouchEnd    = {this.onTouchEnd}></canvas>
                             </div>
-                            <div className = "sidebar">
-                                <div className = "stats">
-                                    <div>{"Generation: " + this.state.generations}</div>
-                                    <div>{"Population: " + population}</div>
-                                    <div className = {"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
-                                        {this.state.running ? "Running" : "Paused"}
+                            <div className="sidebar">
+                                <div className="stats">
+                                    <div className="stat-row">
+                                        <span>{"Gen: " + this.state.generations}</span>
+                                        <span className="board-dims">{this.state.cols + " \xD7 " + this.state.rows}</span>
+                                    </div>
+                                    <div>{"Pop: " + population}</div>
+                                    <div className="status-badges">
+                                        <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
+                                            {this.state.running ? "Running" : "Paused"}
+                                        </span>
+                                        {this.state.stable &&
+                                            <span className="status-indicator status-stable">Stable</span>
+                                        }
+                                    </div>
+                                    {sparkline}
+                                </div>
+
+                                <div className="btn-section">
+                                    <div className="buttons">
+                                        <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
+                                        <button className="btn" onClick={this.stepGame}>Step</button>
+                                        <button className="btn" onClick={this.resetGame}>Reset</button>
+                                        <button className="btn" onClick={this.emptyBoard}>Empty</button>
+                                        <button className="btn" onClick={this.undo}>Undo</button>
+                                        <button className="btn" onClick={this.exportPNG}>Export PNG</button>
+                                    </div>
+                                    <div className="buttons buttons-secondary">
+                                        <button className={"btn btn-toggle" + (this.state.liveClickMode ? " active" : "")} onClick={this.toggleClickMode}>{this.state.liveClickMode ? "Draw: Live" : "Draw: Pause"}</button>
+                                        <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
+                                        <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary}>{"Edges: " + (this.state.boundary === 'toroidal' ? "Wrap" : "Dead")}</button>
+                                        <button className="btn" onClick={this.toggleHelp}>Help (?)</button>
                                     </div>
                                 </div>
-                                <div className = "buttons">
-                                    <button className = {"btn btn-toggle" + (this.state.running ? " active" : "")} onClick = {this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
-                                    <button className = "btn" onClick = {this.stepGame}>Step</button>
-                                    <button className = "btn" onClick = {this.resetGame}>Reset</button>
-                                    <button className = "btn" onClick = {this.emptyBoard}>Empty</button>
-                                    <button className = {"btn btn-toggle" + (this.state.liveClickMode ? " active" : "")} onClick = {this.toggleClickMode}>{this.state.liveClickMode ? "Draw: Live" : "Draw: Pause"}</button>
-                                    <button className = {"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick = {this.toggleGridLines}>Grid</button>
-                                    <button className = {"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick = {this.toggleBoundary}>{"Edges: " + (this.state.boundary === 'toroidal' ? "Wrap" : "Dead")}</button>
-                                </div>
-                                <div className = "presets-col">
-                                    <select className = {"preset-select" + (this.state.selectedPattern ? " active" : "")}
-                                        value = {this.state.selectedPattern || ""}
-                                        onChange = {this.selectPattern}>
-                                        <option value = "">Draw mode</option>
-                                        <option value = "Glider">Glider</option>
-                                        <option value = "Blinker">Blinker</option>
-                                        <option value = "Toad">Toad</option>
-                                        <option value = "Beacon">Beacon</option>
-                                        <option value = "Pulsar">Pulsar</option>
-                                        <option value = "R-pentomino">R-pentomino</option>
-                                        <option value = "Acorn">Acorn</option>
-                                        <option value = "Gosper Glider Gun">Gosper Glider Gun</option>
+
+                                <div className="presets-col">
+                                    <select className="rule-preset-select"
+                                        value={this.state.rulePreset}
+                                        onChange={this.setRulePreset}>
+                                        <option value="">Rule preset...</option>
+                                        {RULE_PRESETS.map(function(p){
+                                            return <option key={p.rule} value={p.rule}>{p.name}</option>;
+                                        })}
                                     </select>
-                                    <input className = {"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
-                                        type = "text"
-                                        value = {this.state.ruleString}
-                                        onChange = {this.setRule}
-                                        title = "Birth/Survival rule string (e.g. B3/S23)" />
+                                    <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
+                                        type="text"
+                                        value={this.state.ruleString}
+                                        onChange={this.setRule}
+                                        title="Birth/Survival rule string (e.g. B3/S23)" />
+                                    <select className={"preset-select" + (this.state.selectedPattern ? " active" : "")}
+                                        value={this.state.selectedPattern || ""}
+                                        onChange={this.selectPattern}>
+                                        <option value="">Draw mode</option>
+                                        {patternOptions}
+                                    </select>
                                 </div>
+
                                 {this.state.selectedPattern &&
-                                    <div className = "rotation-row">
-                                        <canvas className = "rotation-preview"
-                                            width = "96" height = "96"
-                                            ref = {function(c){ self._previewCanvas = c; }} />
-                                        <div className = "rotation-btns">
-                                            <button className = "btn btn-rotate" onClick = {this.rotateCCW} title = "Rotate 90° counter-clockwise">&#8634;</button>
-                                            <button className = "btn btn-rotate" onClick = {this.rotateCW} title = "Rotate 90° clockwise">&#8635;</button>
+                                    <div className="rotation-row">
+                                        <canvas className="rotation-preview"
+                                            width="96" height="96"
+                                            ref={function(c){ self._previewCanvas = c; }} />
+                                        <div className="rotation-btns">
+                                            <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise">&#8634;</button>
+                                            <button className="btn btn-rotate" onClick={this.rotateCW}  title="Rotate 90° clockwise">&#8635;</button>
                                         </div>
                                     </div>
                                 }
                                 {this.state.selectedPattern &&
-                                    <p className = "placement-hint">
-                                        {"Click canvas to place · " + this.state.selectedPattern}
+                                    <p className="placement-hint">
+                                        {"Click canvas to place \xB7 " + this.state.selectedPattern}
+                                        <br/>
+                                        <span className="placement-hint-sub">Right-click or Esc to cancel</span>
                                     </p>
                                 }
-                                <div className = "sliders">
-                                    <label className = "slider-title">{"Width: " + this.state.pendingCols}</label>
-                                    <div className = "slider-row">
-                                        <input type = "range" min = "20" max = "200" step = "10"
-                                            value = {this.state.pendingCols}
-                                            onChange = {this.setWidth}
-                                            onMouseUp = {this.applyWidth}
-                                            onTouchEnd = {this.applyWidth} />
+
+                                <div className="sliders">
+                                    <label className="slider-title">{"Width: " + this.state.pendingCols}</label>
+                                    <div className="slider-row">
+                                        <input type="range" min="20" max="200" step="10"
+                                            value={this.state.pendingCols}
+                                            onChange={this.setWidth}
+                                            onMouseUp={this.applyWidth}
+                                            onKeyDown={this.onWidthKeyDown}
+                                            onTouchEnd={this.applyWidth} />
                                     </div>
                                 </div>
-                                <div className = "sliders">
-                                    <label className = "slider-title">{"Height: " + this.state.pendingRows}</label>
-                                    <div className = "slider-row">
-                                        <input type = "range" min = "20" max = "200" step = "10"
-                                            value = {this.state.pendingRows}
-                                            onChange = {this.setHeight}
-                                            onMouseUp = {this.applyHeight}
-                                            onTouchEnd = {this.applyHeight} />
+                                <div className="sliders">
+                                    <label className="slider-title">{"Height: " + this.state.pendingRows}</label>
+                                    <div className="slider-row">
+                                        <input type="range" min="20" max="200" step="10"
+                                            value={this.state.pendingRows}
+                                            onChange={this.setHeight}
+                                            onMouseUp={this.applyHeight}
+                                            onKeyDown={this.onHeightKeyDown}
+                                            onTouchEnd={this.applyHeight} />
                                     </div>
                                 </div>
-                                <div className = "sliders">
-                                    <label className = "slider-title">Density (on Reset)</label>
-                                    <div className = "slider-row">
-                                        <input type = "range" min = "2" max = "7"
-                                            value = {9 - this.state.sparseness}
-                                            onChange = {this.setDensity} />
+                                <div className="sliders">
+                                    <label className="slider-title">Density (on Reset)</label>
+                                    <div className="slider-row">
+                                        <input type="range" min="2" max="7"
+                                            value={9 - this.state.sparseness}
+                                            onChange={this.setDensity} />
                                     </div>
                                 </div>
-                                <div className = "sliders">
-                                    <label className = "slider-title">Speed</label>
-                                    <div className = "slider-row">
-                                        <input type = "range" min = "1" max = "10"
-                                            value = {this.state.speed}
-                                            onChange = {this.setSpeed} />
+                                <div className="sliders">
+                                    <label className="slider-title">{"Speed: " + speedLabel}</label>
+                                    <div className="slider-row">
+                                        <input type="range" min="1" max="10"
+                                            value={this.state.speed}
+                                            onChange={this.setSpeed} />
                                     </div>
+                                </div>
+
+                                <div className="rle-section">
+                                    <button className={"btn btn-block btn-rle-toggle" + (this.state.showRle ? " active" : "")}
+                                        onClick={this.toggleRle}>Import RLE</button>
+                                    {this.state.showRle &&
+                                        <div className="rle-body">
+                                            <textarea className="rle-input"
+                                                rows="5"
+                                                placeholder={"Paste RLE pattern here\n(from LifeWiki or Golly)"}
+                                                value={this.state.rleInput}
+                                                onChange={this.setRleInput} />
+                                            <button className="btn btn-block" onClick={this.loadRle}>Load pattern</button>
+                                            {this.state.rleError &&
+                                                <p className="rle-error">{this.state.rleError}</p>
+                                            }
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         </div>
                     </div>
-                )
+                );
             }
         });
 
