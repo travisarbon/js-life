@@ -27,18 +27,16 @@ body {
     flex: 1;
     min-width: 0; }
   #content canvas.display {
-    max-width: 100%;
-    height: auto;
     display: block;
-    margin-left: auto;
-    margin-right: auto;
     background-color: white;
     border: 2px solid #5a5652;
     box-shadow: 0 0 5px #000000;
     cursor: crosshair;
     user-select: none;
     touch-action: none;
-    transition: border-color 0.2s, box-shadow 0.2s; }
+    transition: border-color 0.2s, box-shadow 0.2s;
+    image-rendering: pixelated;    /* Chrome/Safari: crisp nearest-neighbour upscaling */
+    image-rendering: crisp-edges;  /* Firefox/Safari fallback */ }
   /* Toroidal boundary: teal border signals that edges connect. */
   #content .canvas-container.boundary-wrap canvas.display {
     border-color: #70959A;
@@ -47,7 +45,6 @@ body {
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
   #content .sidebar {
     width: 200px;
-    min-width: 200px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -135,11 +132,15 @@ body {
     padding: 5px 6px;
     color: #67635F;
     width: 100%;
+    min-width: 0;
     min-height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    line-height: 1.2; }
+    line-height: 1.2;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis; }
   /* .btn-block must come after .btn to correctly override display back to block. */
   #content .btn-block {
     display: block;
@@ -152,22 +153,26 @@ body {
   #content .buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px; }
+    gap: 4px;
+    min-width: 0; }
   /* Secondary button row: 3-column grid for view/mode toggles. */
   #content .buttons-secondary {
     grid-template-columns: repeat(3, 1fr);
     padding-top: 4px;
-    border-top: 1px solid rgba(0,0,0,0.15); }
+    border-top: 1px solid rgba(0,0,0,0.15);
+    min-width: 0; }
   /* Selection action row: 3-column grid (Copy, Paste, Delete). */
   #content .buttons-selection {
     grid-template-columns: repeat(3, 1fr);
     padding-top: 4px;
-    border-top: 1px solid rgba(0,0,0,0.1); }
+    border-top: 1px solid rgba(0,0,0,0.1);
+    min-width: 0; }
   /* Export row: 2-column grid (Export PNG, Copy RLE | Record, Help). */
   #content .buttons-export {
     grid-template-columns: repeat(2, 1fr);
     padding-top: 4px;
-    border-top: 1px solid rgba(0,0,0,0.15); }
+    border-top: 1px solid rgba(0,0,0,0.15);
+    min-width: 0; }
   #content .btn-toggle.active {
     background-color: #70959A;
     color: #F4E9E1; }
@@ -389,13 +394,12 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
-    scrollbar-gutter: stable; } }
+    padding-right: 18px; } }
 
 /* Tablet landscape / narrow desktop: shrink sidebar slightly. */
 @media (min-width: 621px) and (max-width: 900px) {
   #content .sidebar {
-    width: 178px;
-    min-width: 178px; } }
+    width: 178px; } }
 
 /* Mobile portrait. */
 @media (max-width: 620px) {
