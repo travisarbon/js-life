@@ -498,7 +498,7 @@ var SimEngine = {
     return result;
   }
 };
-$(document).ready(function () {
+document.addEventListener('DOMContentLoaded', function () {
   (function () {
     var LifeBoard = React.createClass({
       displayName: "LifeBoard",
