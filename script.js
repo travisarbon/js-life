@@ -353,7 +353,7 @@ var SimEngine = {
     }
 };
 
-$(document).ready(function(){
+document.addEventListener('DOMContentLoaded', function(){
     (function(){
 
         var LifeBoard = React.createClass({
