@@ -641,12 +641,16 @@ document.addEventListener('DOMContentLoaded', function () {
         var cellSize = this.state.cellSize;
         var pendingCols = this.state.pendingCols;
         var pendingRows = this.state.pendingRows;
-        // Leave 24px horizontal gutter; expand to fill available screen space.
-        var maxW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 1160) : 1160;
+        // Compute available canvas width by subtracting sidebar + padding from viewport.
+        var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
+        var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
+        var contentPad = isMobile ? 24 : 40; // 12×2 mobile, 20×2 desktop
+        var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14; // sidebar + gap
+        var maxW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
         var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
         var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
         var hFrac = isLandscape ? 0.75 : isMobileToolsOpen ? 0.36 : 0.82;
-        var maxH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 900) : 900;
+        var maxH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
         var w = Math.min(pendingCols * cellSize, maxW);
         var h = Math.min(pendingRows * cellSize, maxH);
         // Preserve the grid's aspect ratio so a square grid renders as a square canvas.
@@ -1510,12 +1514,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var cols = this.state.cols;
         var rows = this.state.rows;
-        // Use the same max-canvas dimensions as getCanvasSize.
+        var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
+        var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
+        var contentPad = isMobile ? 24 : 40;
+        var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
         var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
         var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
         var hFrac = isLandscape ? 0.75 : isMobileToolsOpen ? 0.36 : 0.82;
-        var effW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 1160) : 1160;
-        var effH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 900) : 900;
+        var effW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
+        var effH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
         // Apply the same aspect-ratio constraint as getCanvasSize.
         var fitAspect = cols / rows;
         if (effW / effH > fitAspect) {
@@ -1530,6 +1537,63 @@ document.addEventListener('DOMContentLoaded', function () {
           cellSize: newCS,
           viewX: 0,
           viewY: 0
+        }, function () {
+          self.drawBoard();
+        });
+      },
+      fitLiveCells: function () {
+        if (!this._canvas) {
+          return;
+        }
+        var liveCells = this.state.liveCells;
+        if (liveCells.size === 0) {
+          this.fitView();
+          return;
+        }
+        var minR = Infinity,
+          maxR = -Infinity,
+          minC = Infinity,
+          maxC = -Infinity;
+        liveCells.forEach(function (_, key) {
+          var parts = key.split(',');
+          var r = parseInt(parts[0], 10),
+            c = parseInt(parts[1], 10);
+          if (r < minR) {
+            minR = r;
+          }
+          if (r > maxR) {
+            maxR = r;
+          }
+          if (c < minC) {
+            minC = c;
+          }
+          if (c > maxC) {
+            maxC = c;
+          }
+        });
+        var spanR = maxR - minR + 1,
+          spanC = maxC - minC + 1;
+        var padR = Math.max(2, Math.round(spanR * 0.1));
+        var padC = Math.max(2, Math.round(spanC * 0.1));
+        var totalR = spanR + padR * 2,
+          totalC = spanC + padC * 2;
+        var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
+        var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
+        var contentPad = isMobile ? 24 : 40;
+        var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
+        var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
+        var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
+        var hFrac = isLandscape ? 0.75 : isMobileToolsOpen ? 0.36 : 0.82;
+        var effW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
+        var effH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
+        var newCS = Math.max(1, Math.floor(Math.min(effW / totalC, effH / totalR)));
+        var newVX = Math.max(0, minC - padC);
+        var newVY = Math.max(0, minR - padR);
+        var self = this;
+        this.setState({
+          cellSize: newCS,
+          viewX: newVX,
+          viewY: newVY
         }, function () {
           self.drawBoard();
         });
@@ -1647,6 +1711,15 @@ document.addEventListener('DOMContentLoaded', function () {
         var self = this;
         this.setState({
           drawMode: 'paint'
+        }, function () {
+          self.drawBoard();
+        });
+      },
+      togglePresetMode: function () {
+        var self = this;
+        var newMode = this.state.drawMode === 'preset' ? 'paint' : 'preset';
+        this.setState({
+          drawMode: newMode
         }, function () {
           self.drawBoard();
         });
@@ -2410,7 +2483,7 @@ document.addEventListener('DOMContentLoaded', function () {
       renderMobileContextPanel: function () {
         var self = this;
         var showRotation = this.state.drawMode === 'preset' && this.state.selectedPattern;
-        var showSelection = this.state.drawMode === 'select' && this.state.selection;
+        var showSelection = this.state.drawMode === 'select' || this.state.selection !== null;
         if (!showRotation && !showSelection) {
           return null;
         }
@@ -2420,8 +2493,8 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "rotation-row"
         }, /*#__PURE__*/React.createElement("canvas", {
           className: "rotation-preview",
-          width: "72",
-          height: "72",
+          width: "96",
+          height: "96",
           ref: function (c) {
             self._mobilePreviewCanvas = c;
           }
@@ -2443,14 +2516,16 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.copySelection
+          onClick: this.copySelection,
+          disabled: !this.state.selection
         }, "Copy"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.pasteAsPattern,
           disabled: !this.state.clipboard || this.state.clipboard.length === 0
         }, "Paste"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.deleteSelection
+          onClick: this.deleteSelection,
+          disabled: !this.state.selection
         }, "Delete")));
       },
       renderMobileStatsBar: function () {
@@ -2501,7 +2576,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }, "Undo"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.fitView
-        }, "Fit")), /*#__PURE__*/React.createElement("div", {
+        }, "Fit Grid"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.fitLiveCells,
+          style: {
+            gridColumn: '1 / -1'
+          }
+        }, "Fit Cells")), /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-secondary"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
@@ -2518,12 +2599,18 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : ""),
           onClick: this.toggleDrawMode
         }, "Draw"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : ""),
+          onClick: this.togglePresetMode
+        }, "Preset"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
           onClick: this.toggleSelectMode
         }, "Select"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.showMinimap ? " active" : ""),
+          className: "btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : ""),
           onClick: this.toggleMinimap,
-          title: "Show/hide minimap overview (M)"
+          title: "Show/hide minimap overview (M)",
+          style: {
+            gridColumn: '1 / -1'
+          }
         }, "Minimap")), this.state.drawMode === 'select' && this.state.selection && /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
@@ -2651,7 +2738,7 @@ document.addEventListener('DOMContentLoaded', function () {
           onChange: this.selectPattern
         }, /*#__PURE__*/React.createElement("option", {
           value: ""
-        }, "Draw mode"), patternOptions), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("div", {
+        }, "Choose preset..."), patternOptions), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("div", {
           className: "rotation-row"
         }, /*#__PURE__*/React.createElement("canvas", {
           className: "rotation-preview",
