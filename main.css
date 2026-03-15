@@ -142,9 +142,9 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px; }
-  /* Secondary button row: 2×2 grid for view/mode toggles. */
+  /* Secondary button row: 3-column grid for view/mode toggles. */
   #content .buttons-secondary {
-    grid-template-columns: 1fr 1fr; }
+    grid-template-columns: 1fr 1fr 1fr; }
   /* Visual separator between simulation buttons and view toggles. */
   #content .buttons-secondary {
     padding-top: 4px;
@@ -309,6 +309,6 @@ body {
   #content .buttons {
     grid-template-columns: repeat(3, 1fr); }
   #content .buttons-secondary {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     border-top: none;
     padding-top: 0; } }
