@@ -580,10 +580,22 @@ document.addEventListener('DOMContentLoaded', function () {
         this._onResize = function () {
           clearTimeout(self._resizeTimer);
           self._resizeTimer = setTimeout(function () {
-            self.forceUpdate();
+            self.forceUpdate(function () {
+              self.drawBoard();
+            });
           }, 120);
         };
         window.addEventListener('resize', this._onResize);
+        // orientationchange fires before dimensions settle on iOS; use a longer debounce.
+        this._onOrientationChange = function () {
+          clearTimeout(self._resizeTimer);
+          self._resizeTimer = setTimeout(function () {
+            self.forceUpdate(function () {
+              self.drawBoard();
+            });
+          }, 300);
+        };
+        window.addEventListener('orientationchange', this._onOrientationChange);
         // Initialise Web Worker for async simulation (falls back to sync).
         if (typeof Worker !== 'undefined') {
           try {
@@ -612,9 +624,10 @@ document.addEventListener('DOMContentLoaded', function () {
         var cellSize = this.state.cellSize;
         var pendingCols = this.state.pendingCols;
         var pendingRows = this.state.pendingRows;
-        // Leave 24px horizontal gutter; reserve ~55% of viewport height on mobile.
+        // Leave 24px horizontal gutter; reserve more height in landscape where the viewport is short.
         var maxW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 800) : 800;
-        var maxH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * 0.58), 600) : 600;
+        var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
+        var maxH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * (isLandscape ? 0.75 : 0.58)), 600) : 600;
         return {
           w: Math.min(pendingCols * cellSize, maxW),
           h: Math.min(pendingRows * cellSize, maxH)
@@ -624,6 +637,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this._canvas.removeEventListener('wheel', this.onWheel);
         document.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('resize', this._onResize);
+        window.removeEventListener('orientationchange', this._onOrientationChange);
         if (this._worker) {
           this._worker.terminate();
         }
@@ -753,8 +767,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       },
       drawMinimap: function (ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme) {
-        var mmW = 100,
-          mmH = 75;
+        // Compute minimap dimensions proportional to the grid's aspect ratio.
+        var aspect = cols / rows;
+        var mmW, mmH;
+        if (aspect >= 1) {
+          mmW = 100;
+          mmH = Math.max(20, Math.round(100 / aspect));
+        } else {
+          mmH = 100;
+          mmW = Math.max(20, Math.round(100 * aspect));
+        }
+        // Resize the off-screen canvas if dimensions changed.
+        if (this._minimapCanvas.width !== mmW || this._minimapCanvas.height !== mmH) {
+          this._minimapCanvas.width = mmW;
+          this._minimapCanvas.height = mmH;
+          this._minimapDirty = true;
+        }
         var mmX = canvasW - mmW - 6,
           mmY = canvasH - mmH - 6;
 
@@ -1419,12 +1447,14 @@ document.addEventListener('DOMContentLoaded', function () {
         var liveCells = this.state.liveCells;
         var cols = this.state.cols;
         var rows = this.state.rows;
-        var canvas = this._canvas;
-        if (!canvas) {
+        if (!this._canvas) {
           return;
         }
-        var canvasW = canvas.width;
-        var canvasH = canvas.height;
+        // Use the maximum available viewport dimensions rather than the current
+        // canvas size, which may be smaller due to a low cellSize setting.
+        var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
+        var canvasW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 800) : 800;
+        var canvasH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * (isLandscape ? 0.75 : 0.58)), 600) : 600;
         var self = this;
         if (liveCells.size === 0) {
           this.setState({
@@ -1670,6 +1700,18 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 2000);
           }, 420);
         }
+        // Pattern placement: show a preview at the initial tap position instead of
+        // placing immediately. The pattern is placed on touchend at the final position.
+        if (this.state.selectedPattern) {
+          if (pos.c >= 0 && pos.c < this.state.cols && pos.r >= 0 && pos.r < this.state.rows) {
+            this._previewPos = {
+              c: pos.c,
+              r: pos.r
+            };
+            this.drawBoard();
+          }
+          return;
+        }
         this.onMouseDown({
           preventDefault: function () {},
           button: 0,
@@ -1722,6 +1764,12 @@ document.addEventListener('DOMContentLoaded', function () {
           this._pinchStart = null;
         }
         if (event.touches.length === 0) {
+          // For pattern placement, place at the final preview position rather than
+          // the initial tap position (which onMouseUp would have used).
+          if (this.state.selectedPattern && this._previewPos) {
+            this.placePattern(this.state.selectedPattern, this._previewPos.c, this._previewPos.r);
+            return;
+          }
           this.onMouseUp();
         }
       },
