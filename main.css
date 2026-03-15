@@ -61,25 +61,23 @@ body {
   #content .stat-row {
     display: flex;
     justify-content: space-between;
-    align-items: baseline; }
+    align-items: center;
+    gap: 4px; }
   #content .board-dims {
-    font-size: 0.8em;
-    opacity: 0.75; }
+    font-size: 0.78em;
+    opacity: 0.65;
+    font-variant-numeric: tabular-nums; }
   #content .coord-display {
-    font-size: 0.78em;
+    font-size: 0.75em;
     font-variant-numeric: tabular-nums;
-    opacity: 0.6;
-    letter-spacing: 0.02em; }
-  #content .gps-display {
-    font-size: 0.78em;
-    font-variant-numeric: tabular-nums;
-    opacity: 0.7; }
+    opacity: 0.55;
+    letter-spacing: 0.02em;
+    white-space: nowrap; }
   #content .status-badges {
     display: flex;
-    justify-content: center;
-    gap: 5px;
+    gap: 4px;
     flex-wrap: wrap;
-    margin-top: 2px; }
+    align-items: center; }
   #content .status-indicator {
     display: inline-block;
     font-size: 0.72em;
@@ -120,8 +118,15 @@ body {
     display: flex;
     justify-content: space-between;
     font-size: 0.68em;
-    opacity: 0.5;
+    opacity: 0.55;
     margin-top: 1px; }
+  #content .sparkline-gps {
+    font-variant-numeric: tabular-nums; }
+  #content .sparkline-placeholder {
+    margin-top: 5px;
+    font-size: 0.85em;
+    opacity: 0.7;
+    text-align: center; }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
   #content .btn {
@@ -142,9 +147,15 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px; }
-  /* Secondary button row: 4-column grid for view/mode toggles. */
+  /* Secondary button row: 4-column grid for view/mode toggles (7 items = 4+3). */
   #content .buttons-secondary {
     grid-template-columns: repeat(4, 1fr); }
+  /* Minimum touch target height per platform HIG guidelines. */
+  #content .btn {
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center; }
   /* Visual separator between simulation buttons and view toggles. */
   #content .buttons-secondary {
     padding-top: 4px;
@@ -307,7 +318,48 @@ body {
   background-color: #c0392b !important;
   color: #fff !important; }
 
+/* ── Sidebar collapsible sections ─────────────────────────────────────────── */
+  #content .sidebar-section {
+    border-top: 1px solid rgba(0,0,0,0.12);
+    padding-top: 4px; }
+  #content .sidebar-section > summary {
+    font-size: 0.78em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.65;
+    cursor: pointer;
+    padding: 2px 0 4px;
+    user-select: none;
+    list-style: none; }
+  #content .sidebar-section > summary::-webkit-details-marker { display: none; }
+  #content .sidebar-section > summary::before {
+    content: '\25B8\00a0';
+    font-size: 0.85em; }
+  #content .sidebar-section[open] > summary::before {
+    content: '\25BE\00a0'; }
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
+
+/* Tablet landscape / narrow desktop: shrink sidebar slightly. */
+@media (min-width: 621px) and (max-width: 900px) {
+  #content .sidebar {
+    width: 162px; }
+  /* On desktop/tablet, section headers are decorative — disable toggle. */
+  #content .sidebar-section > summary {
+    pointer-events: none;
+    cursor: default; }
+  #content .sidebar-section > summary::before {
+    display: none; } }
+
+/* Desktop: force all sidebar sections open, hide toggle arrows. */
+@media (min-width: 621px) {
+  #content .sidebar-section > summary {
+    pointer-events: none;
+    cursor: default; }
+  #content .sidebar-section > summary::before {
+    display: none; } }
+
+/* Mobile portrait. */
 @media (max-width: 620px) {
   #content {
     padding-left: 12px;
@@ -322,3 +374,18 @@ body {
     grid-template-columns: repeat(7, 1fr);
     border-top: none;
     padding-top: 0; } }
+
+/* Very small phones: tighten padding, enlarge touch targets. */
+@media (max-width: 400px) {
+  #content {
+    padding-left: 8px;
+    padding-right: 8px; }
+  #content .sidebar {
+    gap: 6px; }
+  #content .btn {
+    min-height: 40px;
+    font-size: 0.82em; }
+  #content .buttons {
+    grid-template-columns: repeat(2, 1fr); }
+  #content .buttons-secondary {
+    grid-template-columns: repeat(4, 1fr); } }
