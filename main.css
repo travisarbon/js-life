@@ -495,3 +495,52 @@ body {
     grid-template-columns: repeat(2, 1fr); }
   #content .buttons-secondary {
     grid-template-columns: repeat(4, 1fr); } }
+/* ── Mobile sparkline strip ───────────────────────────────────────────────── */
+.mobile-sparkline {
+  display: none; }
+
+@media (max-width: 620px) {
+  .mobile-sparkline {
+    display: block;
+    padding: 2px 0 4px; }
+  .mobile-sparkline .sparkline-footer {
+    font-size: 0.65em; } }
+
+/* ── Mobile minimap area ──────────────────────────────────────────────────── */
+.mobile-minimap-area {
+  display: none; }
+
+@media (max-width: 620px) {
+  .mobile-minimap-area {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0 2px; }
+  .mobile-minimap-canvas {
+    border: 1px solid rgba(0,0,0,0.3);
+    border-radius: 2px;
+    cursor: crosshair;
+    touch-action: none; } }
+
+/* ── Sidebar overflow fixes ───────────────────────────────────────────────── */
+#content .rule-preset-select,
+#content .preset-select,
+#content .tool-subtype-row select,
+#content .rule-input,
+#content .pattern-filter-input {
+  max-width: 100%; }
+
+#content .sidebar-section {
+  min-width: 0; }
+
+#content .btn-section {
+  min-width: 0; }
+
+#content .rle-input {
+  max-width: 100%;
+  resize: vertical; }
+
+#content .slider-title {
+  min-width: 0; }
+
+#content .sliders {
+  min-width: 0; }

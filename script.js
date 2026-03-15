@@ -423,6 +423,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._lassoPath = [];
                 this._drawToolStart = null;
                 this._drawPreviewCells = [];
+                this._drawErasing = false;
                 this._panDragging = false;
                 this._panStart = null;
                 this._worker = null;
@@ -431,6 +432,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._minimapDragging = false;
                 this._minimapCanvas = document.createElement('canvas');
                 this._mobilePreviewCanvas = null;
+                this._mobileMinimap = null;
+                this._mmElemDragging = false;
                 this._minimapCanvas.width  = 100;
                 this._minimapCanvas.height = 75;
                 this._pinchStart = null;
@@ -665,7 +668,9 @@ document.addEventListener('DOMContentLoaded', function(){
 
                 // Draw tool preview overlay (rubber-band tools).
                 if(this._drawPreviewCells && this._drawPreviewCells.length > 0){
-                    ctx.fillStyle = 'rgba(' + aR + ',' + aG + ',' + aB + ',0.4)';
+                    ctx.fillStyle = this._drawErasing
+                        ? 'rgba(200,80,80,0.45)'
+                        : 'rgba(' + aR + ',' + aG + ',' + aB + ',0.4)';
                     var dpCells = this._drawPreviewCells;
                     for(var di = 0; di < dpCells.length; di++){
                         var dpr = dpCells[di][0], dpc = dpCells[di][1];
@@ -695,11 +700,16 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                 }
 
-                // Minimap overlay (bottom-right corner).
+                // Minimap overlay (bottom-right corner on desktop; separate element on mobile).
+                var isMobileView = typeof window !== 'undefined' && window.innerWidth <= 620;
                 if(this.state.showMinimap && cols > 0 && rows > 0){
-                    var cs2 = this.getCanvasSize();
-                    var mmDisplayScale = (cs2.w > 0) ? cs2.displayW / cs2.w : 1;
-                    this.drawMinimap(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, mmDisplayScale);
+                    if(isMobileView){
+                        this.drawMinimapMobile(liveCells, cols, rows, viewX, viewY, cellSize, theme);
+                    } else {
+                        var cs2 = this.getCanvasSize();
+                        var mmDisplayScale = (cs2.w > 0) ? cs2.displayW / cs2.w : 1;
+                        this.drawMinimap(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, mmDisplayScale);
+                    }
                 }
 
                 // GIF recording: capture frame.
@@ -728,7 +738,10 @@ document.addEventListener('DOMContentLoaded', function(){
                     this._minimapCanvas.height = mmH;
                     this._minimapDirty = true;
                 }
-                var mmX = canvasW - mmW - 6, mmY = canvasH - mmH - 6;
+                // Express the margin in CSS-space pixels by scaling by 1/ds,
+                // so the visual gap from the canvas corner stays ~6px at all zoom levels.
+                var marginBuf = Math.max(1, Math.round(6 / ds));
+                var mmX = canvasW - mmW - marginBuf, mmY = canvasH - mmH - marginBuf;
 
                 // Redraw minimap off-screen canvas only when marked dirty.
                 if(this._minimapDirty){
@@ -1126,11 +1139,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Paint mode — handle draw tool subtypes.
                 if(!this.state.livePaintMode){ this.setState({running : false}); }
                 var drawTool = this.state.drawTool || 'cell';
-                if(drawTool === 'fill' || drawTool === 'clear'){
-                    // Flood fill/clear: immediate on click, no drag.
+                if(drawTool === 'fill'){
+                    // Bidirectional flood fill: erase if starting on live cell, birth if dead.
                     var startAlive = this.state.liveCells.has(r + ',' + c);
-                    if(drawTool === 'fill' && startAlive){ return; }
-                    if(drawTool === 'clear' && !startAlive){ return; }
+                    this._drawErasing = startAlive;
                     this.pushUndo();
                     var fillCells = this.floodFillCells(c, r, this.state.liveCells, this.state.cols, this.state.rows, startAlive);
                     var self3 = this;
@@ -1138,15 +1150,16 @@ document.addEventListener('DOMContentLoaded', function(){
                     this.setState(function(prevState){
                         var newLiveCells = new Map(prevState.liveCells);
                         fillCells.forEach(function(rc){
-                            if(drawTool === 'fill'){ newLiveCells.set(rc[0]+','+rc[1], 1); }
-                            else { newLiveCells.delete(rc[0]+','+rc[1]); }
+                            if(startAlive){ newLiveCells.delete(rc[0]+','+rc[1]); }
+                            else { newLiveCells.set(rc[0]+','+rc[1], 1); }
                         });
                         return {liveCells: newLiveCells, stable: false};
                     }, function(){ self3.drawBoard(); });
                     return;
                 }
                 if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                    // Rubber-band tools: start drag.
+                    // Rubber-band tools: start drag. Bidirectional based on start cell state.
+                    this._drawErasing = this.state.liveCells.has(r + ',' + c);
                     this.pushUndo();
                     this._drawToolStart = {c: c, r: r};
                     this._drawPreviewCells = [[r, c]];
@@ -1329,9 +1342,13 @@ document.addEventListener('DOMContentLoaded', function(){
                         this._drawPreviewCells = [];
                         this._minimapDirty = true;
                         var self2 = this;
+                        var erasing = this._drawErasing;
                         this.setState(function(prevState){
                             var newLiveCells = new Map(prevState.liveCells);
-                            previewCells.forEach(function(rc){ newLiveCells.set(rc[0]+','+rc[1], 1); });
+                            previewCells.forEach(function(rc){
+                                if(erasing){ newLiveCells.delete(rc[0]+','+rc[1]); }
+                                else { newLiveCells.set(rc[0]+','+rc[1], 1); }
+                            });
                             return {liveCells: newLiveCells, stable: false};
                         }, function(){ self2.drawBoard(); });
                         return;
@@ -1644,7 +1661,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var self = this;
                 this.setState({selectedPattern: 'Clipboard', patternRotation: 0,
                                drawMode: 'preset', selection: null},
-                    function(){ self.drawBoard(); });
+                    function(){ self.drawBoard(); self.drawRotationPreview(); });
             },
 
             deleteSelection : function(){
@@ -1796,7 +1813,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     var newMidX = (t0.clientX + t1.clientX) / 2;
                     var newMidY = (t0.clientY + t1.clientY) / 2;
                     var scale = this._pinchStart.dist > 0 ? newDist / this._pinchStart.dist : 1;
-                    var newCS = Math.max(2, Math.min(32,
+                    var newCS = Math.max(1, Math.min(32,
                         Math.round(this._pinchStart.cellSize * scale)));
                     // Pan: shift view by finger-midpoint movement (in canvas cells).
                     var dmx  = newMidX - this._pinchStart.midX;
@@ -2208,16 +2225,14 @@ document.addEventListener('DOMContentLoaded', function(){
                 );
             },
 
-            renderStats : function(){
+            // Returns the sparkline SVG block (or null if insufficient data).
+            // Called from both renderStats (desktop) and renderMobileSparkline (mobile).
+            renderSparklineSVG : function(){
                 var population = this.state.liveCells.size;
-                var hc = this.state.hoverCell;
-                var coordText = hc ? ('Col\u00a0' + hc.c + '\u2002Row\u00a0' + hc.r) : '\u2014';
                 var now2 = Date.now();
                 var gpsText = (this._measuredGps > 0 &&
                     (this.state.running || now2 < (this._gpsDisplayUntil || 0)))
                     ? this._measuredGps.toFixed(1) + '\u00a0gen/s' : null;
-
-                // Population trend arrow from last 5 samples.
                 var hist0 = this.state.popHistory;
                 var trendArrow = '';
                 if(hist0.length >= 5){
@@ -2225,44 +2240,153 @@ document.addEventListener('DOMContentLoaded', function(){
                     var delta  = recent[recent.length - 1] - recent[0];
                     trendArrow = delta > 2 ? '\u2009\u25b2' : delta < -2 ? '\u2009\u25bc' : '\u2009\u223c';
                 }
-
-                // Sparkline SVG — shows only when history has ≥ 2 points.
                 var hist   = this.state.popHistory;
                 var maxPop = hist.length ? Math.max.apply(null, hist) : 0;
-                var sparkline = null;
-                if(hist.length > 1){
-                    var vbW = 200, vbH = 36, padT = 2, innerH = vbH - padT * 2;
-                    var spMax = maxPop || 1;
-                    var sparkPts = hist.map(function(p, idx){
-                        var x = hist.length === 1 ? vbW / 2 : (idx / (hist.length - 1)) * vbW;
-                        var y = padT + (1 - p / spMax) * innerH;
-                        return x.toFixed(1) + ',' + y.toFixed(1);
-                    }).join(' ');
-                    var spanLabel = hist.length >= 60 ? 'last 60 gen' : hist.length + ' gen';
-                    sparkline = (
-                        <div className="sparkline-wrap">
-                            <div className="sparkline-header">
-                                <span className="sparkline-title">{"Pop: " + population.toLocaleString() + trendArrow}</span>
-                                <span className="sparkline-peak">{"peak " + maxPop.toLocaleString() + (this.state.sessionPeakPop > maxPop ? " · all " + this.state.sessionPeakPop.toLocaleString() : "")}</span>
-                            </div>
-                            <svg className="sparkline" width="100%" height={vbH}
-                                 viewBox={"0 0 " + vbW + " " + vbH}
-                                 preserveAspectRatio="none">
-                                <line x1="0" y1={vbH - 0.5} x2={vbW} y2={vbH - 0.5}
-                                      stroke="rgba(244,233,225,0.25)" strokeWidth="1"/>
-                                <line x1="0" y1={padT + innerH / 2} x2={vbW} y2={padT + innerH / 2}
-                                      stroke="rgba(244,233,225,0.1)" strokeWidth="0.5"/>
-                                <polyline points={sparkPts} fill="none" stroke="#70959A"
-                                          strokeWidth="1.5" strokeLinejoin="round"
-                                          strokeLinecap="round"/>
-                            </svg>
-                            <div className="sparkline-footer">
-                                <span className="sparkline-gps">{gpsText || ''}</span>
-                                <span>{"← " + spanLabel + " →"}</span>
-                            </div>
+                if(hist.length <= 1){ return null; }
+                var vbW = 200, vbH = 36, padT = 2, innerH = vbH - padT * 2;
+                var spMax = maxPop || 1;
+                var sparkPts = hist.map(function(p, idx){
+                    var x = hist.length === 1 ? vbW / 2 : (idx / (hist.length - 1)) * vbW;
+                    var y = padT + (1 - p / spMax) * innerH;
+                    return x.toFixed(1) + ',' + y.toFixed(1);
+                }).join(' ');
+                var spanLabel = hist.length >= 60 ? 'last 60 gen' : hist.length + ' gen';
+                return (
+                    <div className="sparkline-wrap">
+                        <div className="sparkline-header">
+                            <span className="sparkline-title">{"Pop: " + population.toLocaleString() + trendArrow}</span>
+                            <span className="sparkline-peak">{"peak " + maxPop.toLocaleString() + (this.state.sessionPeakPop > maxPop ? " \xb7 all " + this.state.sessionPeakPop.toLocaleString() : "")}</span>
                         </div>
-                    );
+                        <svg className="sparkline" width="100%" height={vbH}
+                             viewBox={"0 0 " + vbW + " " + vbH}
+                             preserveAspectRatio="none">
+                            <line x1="0" y1={vbH - 0.5} x2={vbW} y2={vbH - 0.5}
+                                  stroke="rgba(244,233,225,0.25)" strokeWidth="1"/>
+                            <line x1="0" y1={padT + innerH / 2} x2={vbW} y2={padT + innerH / 2}
+                                  stroke="rgba(244,233,225,0.1)" strokeWidth="0.5"/>
+                            <polyline points={sparkPts} fill="none" stroke="#70959A"
+                                      strokeWidth="1.5" strokeLinejoin="round"
+                                      strokeLinecap="round"/>
+                        </svg>
+                        <div className="sparkline-footer">
+                            <span className="sparkline-gps">{gpsText || ''}</span>
+                            <span>{"← " + spanLabel + " →"}</span>
+                        </div>
+                    </div>
+                );
+            },
+
+            renderMobileSparkline : function(){
+                var svg = this.renderSparklineSVG();
+                if(!svg){ return null; }
+                return <div className="mobile-sparkline">{svg}</div>;
+            },
+
+            renderMobileMinimapArea : function(){
+                if(!this.state.showMinimap){ return null; }
+                var self = this;
+                return (
+                    <div className="mobile-minimap-area">
+                        <canvas className="mobile-minimap-canvas"
+                            ref={function(c){ self._mobileMinimap = c; }}
+                            onMouseDown={self.onMinimapElementDown}
+                            onMouseMove={self.onMinimapElementMove}
+                            onTouchStart={self.onMinimapElementDown}
+                            onTouchMove={self.onMinimapElementMove}
+                            onMouseUp={self.onMinimapElementUp}
+                            onTouchEnd={self.onMinimapElementUp} />
+                    </div>
+                );
+            },
+
+            onMinimapElementDown : function(e){
+                e.preventDefault();
+                this._mmElemDragging = true;
+                this.panMinimapElement(e);
+            },
+
+            onMinimapElementMove : function(e){
+                if(!this._mmElemDragging){ return; }
+                e.preventDefault();
+                this.panMinimapElement(e);
+            },
+
+            onMinimapElementUp : function(){
+                this._mmElemDragging = false;
+            },
+
+            panMinimapElement : function(e){
+                if(!this._mobileMinimap){ return; }
+                var rect = this._mobileMinimap.getBoundingClientRect();
+                var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                var frac_c = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                var frac_r = Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height));
+                var newVX = Math.round(frac_c * this.state.cols - (this._canvas.width  / this.state.cellSize) / 2);
+                var newVY = Math.round(frac_r * this.state.rows - (this._canvas.height / this.state.cellSize) / 2);
+                var clamped = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
+                var self = this;
+                this.setState({viewX: clamped.viewX, viewY: clamped.viewY}, function(){ self.drawBoard(); });
+            },
+
+            drawMinimapMobile : function(liveCells, cols, rows, viewX, viewY, cellSize, theme){
+                if(!this._mobileMinimap){ return; }
+                var MOBILE_MM_CSS_W = 160;
+                var mmAspect = cols / Math.max(1, rows);
+                var mmH_css = Math.round(MOBILE_MM_CSS_W / mmAspect);
+                var mmW_css = MOBILE_MM_CSS_W;
+
+                // Resize off-screen buffer if needed
+                if(this._minimapCanvas.width !== mmW_css || this._minimapCanvas.height !== mmH_css){
+                    this._minimapCanvas.width  = mmW_css;
+                    this._minimapCanvas.height = mmH_css;
                 }
+
+                // Render minimap cells to off-screen canvas
+                var mmCtx = this._minimapCanvas.getContext('2d');
+                var isDark = theme === 'dark' || theme === 'matrix';
+                mmCtx.fillStyle = isDark ? '#1a1a1a' : '#f0f0f0';
+                mmCtx.fillRect(0, 0, mmW_css, mmH_css);
+
+                var cellW = mmW_css / cols;
+                var cellH = mmH_css / rows;
+                var liveColor = isDark ? '#aaffaa' : '#228822';
+                mmCtx.fillStyle = liveColor;
+
+                liveCells.forEach(function(_, key){
+                    var parts = key.split(',');
+                    var cc = parseInt(parts[0], 10);
+                    var rr = parseInt(parts[1], 10);
+                    var px = Math.floor(cc * cellW);
+                    var py = Math.floor(rr * cellH);
+                    var pw = Math.max(1, Math.ceil(cellW));
+                    var ph = Math.max(1, Math.ceil(cellH));
+                    mmCtx.fillRect(px, py, pw, ph);
+                });
+
+                // Draw viewport rectangle
+                var vpW = (this._canvas.width  / cellSize) * cellW;
+                var vpH = (this._canvas.height / cellSize) * cellH;
+                var vpX = viewX * cellW;
+                var vpY = viewY * cellH;
+                mmCtx.strokeStyle = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)';
+                mmCtx.lineWidth = 1;
+                mmCtx.strokeRect(vpX + 0.5, vpY + 0.5, Math.min(vpW, mmW_css - vpX), Math.min(vpH, mmH_css - vpY));
+
+                // Resize HTML canvas if needed and blit
+                if(this._mobileMinimap.width !== mmW_css || this._mobileMinimap.height !== mmH_css){
+                    this._mobileMinimap.width  = mmW_css;
+                    this._mobileMinimap.height = mmH_css;
+                }
+                var mobileCtx = this._mobileMinimap.getContext('2d');
+                mobileCtx.drawImage(this._minimapCanvas, 0, 0);
+            },
+
+            renderStats : function(){
+                var population = this.state.liveCells.size;
+                var hc = this.state.hoverCell;
+                var coordText = hc ? ('Col\u00a0' + hc.c + '\u2002Row\u00a0' + hc.r) : '\u2014';
+                var sparkline = this.renderSparklineSVG();
 
                 return (
                     <div className="stats">
@@ -2385,7 +2509,6 @@ document.addEventListener('DOMContentLoaded', function(){
                                         <option value="cell">Cell paint</option>
                                         <option value="line">Line</option>
                                         <option value="fill">Flood fill</option>
-                                        <option value="clear">Flood clear</option>
                                         <option value="shape-rect">Rectangle</option>
                                         <option value="shape-circle">Circle</option>
                                     </select>
@@ -2626,6 +2749,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                     onTouchEnd    = {this.onTouchEnd}></canvas>
                                 {this.renderMobileContextPanel()}
                                 {this.renderMobileStatsBar()}
+                                {this.renderMobileSparkline()}
+                                {this.renderMobileMinimapArea()}
                                 <div className="mobile-quickbar">
                                     <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
                                     <button className="btn" onClick={this.stepGame}>Step</button>
