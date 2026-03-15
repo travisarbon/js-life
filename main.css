@@ -47,14 +47,19 @@ body {
     font-size: 0.9em;
     line-height: 1.7; }
   #content .status-indicator {
+    display: inline-block;
     font-size: 0.75em;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin-top: 2px; }
+    margin-top: 2px;
+    padding: 1px 7px;
+    border-radius: 3px; }
   #content .status-running {
-    color: #70959A; }
+    background: #70959A;
+    color: #F4E9E1; }
   #content .status-paused {
-    color: #c8b8b0; }
+    background: rgba(0,0,0,0.25);
+    color: #F4E9E1; }
   #content .btn {
     text-align: center;
     padding: 5px 6px;
@@ -89,19 +94,24 @@ body {
     outline-color: #70959A; }
   #content .rotation-row {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    gap: 6px; }
+  #content .rotation-preview {
+    width: 96px;
+    height: 96px;
+    display: block;
+    border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 3px;
+    background: #FFFFFF; }
+  #content .rotation-btns {
+    display: flex;
     gap: 6px; }
   #content .btn-rotate {
     padding: 3px 10px;
     font-size: 1.1em;
     color: #67635F;
     line-height: 1; }
-  #content .rotation-label {
-    font-size: 0.85em;
-    min-width: 28px;
-    text-align: center;
-    color: #F4E9E1; }
   #content .placement-hint {
     margin: 0;
     font-size: 0.8em;
