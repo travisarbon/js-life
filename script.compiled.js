@@ -541,6 +541,8 @@ document.addEventListener('DOMContentLoaded', function () {
           hoverCell: null,
           theme: 'Teal',
           drawMode: 'paint',
+          selectTool: 'rect',
+          drawTool: 'cell',
           selection: null,
           clipboard: null,
           showMinimap: true,
@@ -561,6 +563,9 @@ document.addEventListener('DOMContentLoaded', function () {
         this._genTimestamps = [];
         this._measuredGps = 0;
         this._selStart = null;
+        this._lassoPath = [];
+        this._drawToolStart = null;
+        this._drawPreviewCells = [];
         this._panDragging = false;
         this._panStart = null;
         this._worker = null;
@@ -649,7 +654,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var maxW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
         var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
         var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
-        var hFrac = isLandscape ? 0.75 : isMobileToolsOpen ? 0.36 : 0.82;
+        var hFrac = isMobile ? isMobileToolsOpen ? 0.36 : 0.82 : 0.90;
         var maxH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
         var w = Math.min(pendingCols * cellSize, maxW);
         var h = Math.min(pendingRows * cellSize, maxH);
@@ -750,20 +755,90 @@ document.addEventListener('DOMContentLoaded', function () {
           ctx.stroke();
         }
 
-        // Selection rectangle overlay.
+        // Selection overlay.
         var sel = this.state.selection;
         if (sel) {
-          var sx1 = (Math.min(sel.c1, sel.c2) - viewX) * cellSize;
-          var sy1 = (Math.min(sel.r1, sel.r2) - viewY) * cellSize;
-          var sx2 = (Math.max(sel.c1, sel.c2) - viewX + 1) * cellSize;
-          var sy2 = (Math.max(sel.r1, sel.r2) - viewY + 1) * cellSize;
-          ctx.fillStyle = theme.sel;
-          ctx.fillRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
-          ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([5, 3]);
-          ctx.strokeRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
-          ctx.setLineDash([]);
+          var selType = sel.type || 'rect';
+          if (selType === 'rect') {
+            var sx1 = (Math.min(sel.c1, sel.c2) - viewX) * cellSize;
+            var sy1 = (Math.min(sel.r1, sel.r2) - viewY) * cellSize;
+            var sx2 = (Math.max(sel.c1, sel.c2) - viewX + 1) * cellSize;
+            var sy2 = (Math.max(sel.r1, sel.r2) - viewY + 1) * cellSize;
+            ctx.fillStyle = theme.sel;
+            ctx.fillRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
+            ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 3]);
+            ctx.strokeRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
+            ctx.setLineDash([]);
+          } else if (selType === 'ellipse') {
+            // Draw bounding box outline + shade cells inside ellipse.
+            var sx1e = (Math.min(sel.c1, sel.c2) - viewX) * cellSize;
+            var sy1e = (Math.min(sel.r1, sel.r2) - viewY) * cellSize;
+            var sw = (Math.abs(sel.c2 - sel.c1) + 1) * cellSize;
+            var sh = (Math.abs(sel.r2 - sel.r1) + 1) * cellSize;
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(sx1e + sw / 2, sy1e + sh / 2, sw / 2, sh / 2, 0, 0, 2 * Math.PI);
+            ctx.fillStyle = theme.sel;
+            ctx.fill();
+            ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 3]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+          } else if (selType === 'freeform') {
+            // Shade finalized cells.
+            if (sel.cells && sel.cells.length > 0) {
+              ctx.fillStyle = theme.sel;
+              sel.cells.forEach(function (rc) {
+                ctx.fillRect((rc[1] - viewX) * cellSize, (rc[0] - viewY) * cellSize, cellSize, cellSize);
+              });
+            }
+            // Draw lasso path outline.
+            if (sel.path && sel.path.length > 1) {
+              ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
+              ctx.lineWidth = 1.5;
+              ctx.setLineDash([5, 3]);
+              ctx.beginPath();
+              ctx.moveTo((sel.path[0].c - viewX + 0.5) * cellSize, (sel.path[0].r - viewY + 0.5) * cellSize);
+              for (var fi = 1; fi < sel.path.length; fi++) ctx.lineTo((sel.path[fi].c - viewX + 0.5) * cellSize, (sel.path[fi].r - viewY + 0.5) * cellSize);
+              if (sel.cells && sel.cells.length > 0) {
+                ctx.closePath();
+              }
+              ctx.stroke();
+              ctx.setLineDash([]);
+            }
+          } else if (selType === 'all-visible') {
+            // Shade each selected cell.
+            if (sel.cells && sel.cells.length > 0) {
+              ctx.fillStyle = theme.sel;
+              sel.cells.forEach(function (rc) {
+                ctx.fillRect((rc[1] - viewX) * cellSize, (rc[0] - viewY) * cellSize, cellSize, cellSize);
+              });
+              ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
+              ctx.lineWidth = 1;
+              ctx.setLineDash([3, 2]);
+              var avMinC = Math.min(sel.c1, sel.c2) - viewX;
+              var avMinR = Math.min(sel.r1, sel.r2) - viewY;
+              ctx.strokeRect(avMinC * cellSize, avMinR * cellSize, (Math.abs(sel.c2 - sel.c1) + 1) * cellSize, (Math.abs(sel.r2 - sel.r1) + 1) * cellSize);
+              ctx.setLineDash([]);
+            }
+          }
+        }
+
+        // Draw tool preview overlay (rubber-band tools).
+        if (this._drawPreviewCells && this._drawPreviewCells.length > 0) {
+          ctx.fillStyle = 'rgba(' + aR + ',' + aG + ',' + aB + ',0.4)';
+          var dpCells = this._drawPreviewCells;
+          for (var di = 0; di < dpCells.length; di++) {
+            var dpr = dpCells[di][0],
+              dpc = dpCells[di][1];
+            if (dpr >= 0 && dpr < rows && dpc >= 0 && dpc < cols) {
+              ctx.fillRect((dpc - viewX) * cellSize, (dpr - viewY) * cellSize, cellSize, cellSize);
+            }
+          }
         }
 
         // Pattern placement preview.
@@ -793,7 +868,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Minimap overlay (bottom-right corner).
         if (this.state.showMinimap && cols > 0 && rows > 0) {
-          this.drawMinimap(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme);
+          var cs2 = this.getCanvasSize();
+          var mmDisplayScale = cs2.w > 0 ? cs2.displayW / cs2.w : 1;
+          this.drawMinimap(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, mmDisplayScale);
         }
 
         // GIF recording: capture frame.
@@ -804,16 +881,19 @@ document.addEventListener('DOMContentLoaded', function () {
           });
         }
       },
-      drawMinimap: function (ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme) {
-        // Compute minimap dimensions proportional to the grid's aspect ratio.
+      drawMinimap: function (ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, displayScale) {
+        // Target a fixed CSS display size of ~160px for the minimap.
+        // The buffer size is inversely proportional to displayScale so the CSS display size stays constant.
+        var TARGET_CSS_SIZE = 160;
+        var ds = displayScale && displayScale > 0 ? displayScale : 1;
         var aspect = cols / rows;
         var mmW, mmH;
         if (aspect >= 1) {
-          mmW = 100;
-          mmH = Math.max(20, Math.round(100 / aspect));
+          mmW = Math.max(40, Math.round(TARGET_CSS_SIZE / ds));
+          mmH = Math.max(20, Math.round(mmW / aspect));
         } else {
-          mmH = 100;
-          mmW = Math.max(20, Math.round(100 * aspect));
+          mmH = Math.max(40, Math.round(TARGET_CSS_SIZE / ds));
+          mmW = Math.max(20, Math.round(mmH * aspect));
         }
         // Resize the off-screen canvas if dimensions changed.
         if (this._minimapCanvas.width !== mmW || this._minimapCanvas.height !== mmH) {
@@ -1196,8 +1276,8 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       onMouseDown: function (event) {
         event.preventDefault();
-        // Click on minimap: pan viewport to that position.
-        if (event.button === 0 && this._minimapRect && this.state.showMinimap) {
+        // Click on minimap: pan viewport to that position (skip in select mode to allow selection to start there).
+        if (event.button === 0 && this._minimapRect && this.state.showMinimap && this.state.drawMode !== 'select') {
           var mouse = this.getMousePos(event);
           var mm = this._minimapRect;
           if (mouse.x >= mm.x && mouse.x <= mm.x + mm.w && mouse.y >= mm.y && mouse.y <= mm.y + mm.h) {
@@ -1253,17 +1333,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Selection mode: begin drag-select.
         if (this.state.drawMode === 'select') {
+          var selectTool = this.state.selectTool || 'rect';
+          if (selectTool === 'all-visible') {
+            this.selectAllVisible();
+            return;
+          }
           this._selStart = {
             c: c,
             r: r
           };
+          this._lassoPath = [];
+          var selType = selectTool === 'ellipse' ? 'ellipse' : selectTool === 'freeform' ? 'freeform' : 'rect';
           var self2 = this;
           this.setState({
             selection: {
+              type: selType,
               c1: c,
               r1: r,
               c2: c,
-              r2: r
+              r2: r,
+              path: [],
+              cells: []
             }
           }, function () {
             self2.drawBoard();
@@ -1282,12 +1372,56 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
 
-        // Paint mode.
+        // Paint mode — handle draw tool subtypes.
         if (!this.state.livePaintMode) {
           this.setState({
             running: false
           });
         }
+        var drawTool = this.state.drawTool || 'cell';
+        if (drawTool === 'fill' || drawTool === 'clear') {
+          // Flood fill/clear: immediate on click, no drag.
+          var startAlive = this.state.liveCells.has(r + ',' + c);
+          if (drawTool === 'fill' && startAlive) {
+            return;
+          }
+          if (drawTool === 'clear' && !startAlive) {
+            return;
+          }
+          this.pushUndo();
+          var fillCells = this.floodFillCells(c, r, this.state.liveCells, this.state.cols, this.state.rows, startAlive);
+          var self3 = this;
+          this._minimapDirty = true;
+          this.setState(function (prevState) {
+            var newLiveCells = new Map(prevState.liveCells);
+            fillCells.forEach(function (rc) {
+              if (drawTool === 'fill') {
+                newLiveCells.set(rc[0] + ',' + rc[1], 1);
+              } else {
+                newLiveCells.delete(rc[0] + ',' + rc[1]);
+              }
+            });
+            return {
+              liveCells: newLiveCells,
+              stable: false
+            };
+          }, function () {
+            self3.drawBoard();
+          });
+          return;
+        }
+        if (drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle') {
+          // Rubber-band tools: start drag.
+          this.pushUndo();
+          this._drawToolStart = {
+            c: c,
+            r: r
+          };
+          this._drawPreviewCells = [[r, c]];
+          this.drawBoard();
+          return;
+        }
+        // Default: single-cell paint.
         var key = r + ',' + c;
         this.pushUndo();
         this._dragging = true;
@@ -1297,25 +1431,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this.paintCellDirect(c, r);
       },
       onMouseMove: function (event) {
-        // Minimap drag: pan viewport continuously while dragging on minimap.
-        if (this._minimapDragging && this._minimapRect && this.state.showMinimap) {
-          var mm = this._minimapRect;
-          var mouse = this.getMousePos(event);
-          var frac_c = Math.max(0, Math.min(1, (mouse.x - mm.x) / mm.w));
-          var frac_r = Math.max(0, Math.min(1, (mouse.y - mm.y) / mm.h));
-          var newVX = Math.round(frac_c * this.state.cols - this._canvas.width / this.state.cellSize / 2);
-          var newVY = Math.round(frac_r * this.state.rows - this._canvas.height / this.state.cellSize / 2);
-          var clamped = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
-          var selfMm = this;
-          this.setState({
-            viewX: clamped.viewX,
-            viewY: clamped.viewY
-          }, function () {
-            selfMm.drawBoard();
-          });
-          return;
-        }
-        // Pan drag (middle mouse button).
+        // Pan drag (middle mouse button) — highest priority.
         if (this._panDragging && this._panStart) {
           var dx = event.clientX - this._panStart.x;
           var dy = event.clientY - this._panStart.y;
@@ -1353,17 +1469,42 @@ document.addEventListener('DOMContentLoaded', function () {
           });
         }
 
-        // Update selection rect while dragging in select mode.
+        // Update selection while dragging in select mode (takes priority over minimap).
         if (this.state.drawMode === 'select' && this._selStart) {
           var bc = Math.max(0, Math.min(this.state.cols - 1, c));
           var br = Math.max(0, Math.min(this.state.rows - 1, r));
+          var selectTool = this.state.selectTool || 'rect';
+          var self1 = this;
+          if (selectTool === 'freeform') {
+            // Accumulate lasso path, only add if position changed.
+            var path = this._lassoPath;
+            var last = path.length > 0 ? path[path.length - 1] : null;
+            if (!last || last.c !== bc || last.r !== br) {
+              path.push({
+                c: bc,
+                r: br
+              });
+              this.setState({
+                selection: {
+                  type: 'freeform',
+                  path: path.slice(),
+                  cells: []
+                }
+              }, function () {
+                self1.drawBoard();
+              });
+            }
+            return;
+          }
+          // rect / ellipse: update bounding box.
           var prev2 = this.state.selection;
           if (prev2 && prev2.c2 === bc && prev2.r2 === br) {
             return;
           }
-          var self1 = this;
+          var selType = selectTool === 'ellipse' ? 'ellipse' : 'rect';
           this.setState({
             selection: {
+              type: selType,
               c1: this._selStart.c,
               r1: this._selStart.r,
               c2: bc,
@@ -1371,6 +1512,50 @@ document.addEventListener('DOMContentLoaded', function () {
             }
           }, function () {
             self1.drawBoard();
+          });
+          return;
+        }
+
+        // Update draw tool preview while dragging (rubber-band tools).
+        if (this._drawToolStart && this.state.drawMode === 'paint') {
+          var drawTool = this.state.drawTool || 'cell';
+          if (drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle') {
+            var tc = Math.max(0, Math.min(this.state.cols - 1, c));
+            var tr = Math.max(0, Math.min(this.state.rows - 1, r));
+            var ds = this._drawToolStart;
+            if (drawTool === 'line') {
+              this._drawPreviewCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
+            } else if (drawTool === 'shape-rect') {
+              var prCells = [];
+              var rMin = Math.min(ds.r, tr),
+                rMax = Math.max(ds.r, tr);
+              var cMin = Math.min(ds.c, tc),
+                cMax = Math.max(ds.c, tc);
+              for (var pr = rMin; pr <= rMax; pr++) for (var pc = cMin; pc <= cMax; pc++) prCells.push([pr, pc]);
+              this._drawPreviewCells = prCells;
+            } else if (drawTool === 'shape-circle') {
+              this._drawPreviewCells = this.ellipseCells(ds.c, ds.r, tc, tr);
+            }
+            this.drawBoard();
+            return;
+          }
+        }
+
+        // Minimap drag: pan viewport continuously while dragging on minimap.
+        if (this._minimapDragging && this._minimapRect && this.state.showMinimap) {
+          var mm = this._minimapRect;
+          var mmMouse = this.getMousePos(event);
+          var frac_c = Math.max(0, Math.min(1, (mmMouse.x - mm.x) / mm.w));
+          var frac_r = Math.max(0, Math.min(1, (mmMouse.y - mm.y) / mm.h));
+          var newVX = Math.round(frac_c * this.state.cols - this._canvas.width / this.state.cellSize / 2);
+          var newVY = Math.round(frac_r * this.state.rows - this._canvas.height / this.state.cellSize / 2);
+          var clampedMm = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
+          var selfMm = this;
+          this.setState({
+            viewX: clampedMm.viewX,
+            viewY: clampedMm.viewY
+          }, function () {
+            selfMm.drawBoard();
           });
           return;
         }
@@ -1410,11 +1595,50 @@ document.addEventListener('DOMContentLoaded', function () {
           this._panStart = null;
         }
         if (this.state.drawMode === 'select' && this._selStart) {
-          // Normalise selection bounds (ensure r1≤r2, c1≤c2).
+          var selectTool = this.state.selectTool || 'rect';
+          if (selectTool === 'freeform') {
+            // Compute polygon cells from lasso path.
+            var path = this._lassoPath;
+            if (path.length >= 3) {
+              var minR = Infinity,
+                maxR = -Infinity,
+                minC = Infinity,
+                maxC = -Infinity;
+              path.forEach(function (p) {
+                if (p.r < minR) minR = p.r;
+                if (p.r > maxR) maxR = p.r;
+                if (p.c < minC) minC = p.c;
+                if (p.c > maxC) maxC = p.c;
+              });
+              var fcells = [];
+              var fcols = this.state.cols,
+                frows = this.state.rows;
+              var self = this;
+              for (var fr = minR; fr <= maxR; fr++) for (var fc = minC; fc <= maxC; fc++) if (fc >= 0 && fc < fcols && fr >= 0 && fr < frows && self.pointInPolygon(fc, fr, path)) fcells.push([fr, fc]);
+              this.setState({
+                selection: {
+                  type: 'freeform',
+                  path: path.slice(),
+                  cells: fcells
+                }
+              });
+            } else {
+              this.setState({
+                selection: null
+              });
+            }
+            this._selStart = null;
+            this._lassoPath = [];
+            this.drawBoard();
+            return;
+          }
+          // rect / ellipse: normalise bounds.
           var sel = this.state.selection;
           if (sel) {
+            var normType = sel.type || 'rect';
             this.setState({
               selection: {
+                type: normType,
                 r1: Math.min(sel.r1, sel.r2),
                 c1: Math.min(sel.c1, sel.c2),
                 r2: Math.max(sel.r1, sel.r2),
@@ -1424,6 +1648,30 @@ document.addEventListener('DOMContentLoaded', function () {
           }
           this._selStart = null;
           return;
+        }
+        // Apply rubber-band draw tools on mouse up.
+        if (this._drawToolStart && this.state.drawMode === 'paint') {
+          var drawTool = this.state.drawTool || 'cell';
+          if (drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle') {
+            var previewCells = this._drawPreviewCells;
+            this._drawToolStart = null;
+            this._drawPreviewCells = [];
+            this._minimapDirty = true;
+            var self2 = this;
+            this.setState(function (prevState) {
+              var newLiveCells = new Map(prevState.liveCells);
+              previewCells.forEach(function (rc) {
+                newLiveCells.set(rc[0] + ',' + rc[1], 1);
+              });
+              return {
+                liveCells: newLiveCells,
+                stable: false
+              };
+            }, function () {
+              self2.drawBoard();
+            });
+            return;
+          }
         }
         if (!this._dragging) {
           return;
@@ -1457,6 +1705,8 @@ document.addEventListener('DOMContentLoaded', function () {
         this._minimapDragging = false;
         this._panDragging = false;
         this._panStart = null;
+        this._drawToolStart = null;
+        this._drawPreviewCells = [];
         if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
           this._previewPos = null;
           this.drawBoard();
@@ -1517,6 +1767,172 @@ document.addEventListener('DOMContentLoaded', function () {
           self.drawBoard();
         });
       },
+      // ── Selection/draw helpers ────────────────────────────────────────
+
+      // Returns [[r,c],...] for every cell in the selection (any type).
+      getSelectionCells: function (sel) {
+        if (!sel) {
+          return [];
+        }
+        var type = sel.type || 'rect';
+        if (type === 'rect') {
+          var cells = [];
+          var r1 = Math.min(sel.r1, sel.r2),
+            r2 = Math.max(sel.r1, sel.r2);
+          var c1 = Math.min(sel.c1, sel.c2),
+            c2 = Math.max(sel.c1, sel.c2);
+          for (var r = r1; r <= r2; r++) for (var c = c1; c <= c2; c++) cells.push([r, c]);
+          return cells;
+        }
+        if (type === 'ellipse') {
+          var r1e = Math.min(sel.r1, sel.r2),
+            r2e = Math.max(sel.r1, sel.r2);
+          var c1e = Math.min(sel.c1, sel.c2),
+            c2e = Math.max(sel.c1, sel.c2);
+          var cx = (c1e + c2e) / 2,
+            cy = (r1e + r2e) / 2;
+          var rx = (c2e - c1e) / 2,
+            ry = (r2e - r1e) / 2;
+          var cells = [];
+          for (var re = r1e; re <= r2e; re++) for (var ce = c1e; ce <= c2e; ce++) {
+            var ddx = cx > 0 || rx > 0 ? (ce - cx) / (rx + 0.5) : 0;
+            var ddy = cy > 0 || ry > 0 ? (re - cy) / (ry + 0.5) : 0;
+            if (ddx * ddx + ddy * ddy <= 1) cells.push([re, ce]);
+          }
+          return cells;
+        }
+        if (type === 'freeform' || type === 'all-visible') {
+          return sel.cells || [];
+        }
+        return [];
+      },
+      // Ray-casting point-in-polygon test. polygon is array of {c,r} objects.
+      pointInPolygon: function (px, py, polygon) {
+        var inside = false;
+        var n = polygon.length;
+        for (var i = 0, j = n - 1; i < n; j = i++) {
+          var xi = polygon[i].c,
+            yi = polygon[i].r;
+          var xj = polygon[j].c,
+            yj = polygon[j].r;
+          if (yi > py !== yj > py && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+            inside = !inside;
+          }
+        }
+        return inside;
+      },
+      // Bresenham line — returns [[r,c],...] cells from (r0,c0) to (r1,c1).
+      bresenhamLine: function (r0, c0, r1, c1) {
+        var cells = [];
+        var dr = Math.abs(r1 - r0),
+          dc = Math.abs(c1 - c0);
+        var sr = r0 < r1 ? 1 : -1,
+          sc = c0 < c1 ? 1 : -1;
+        var err = dr - dc;
+        while (true) {
+          cells.push([r0, c0]);
+          if (r0 === r1 && c0 === c1) {
+            break;
+          }
+          var e2 = 2 * err;
+          if (e2 > -dc) {
+            err -= dc;
+            r0 += sr;
+          }
+          if (e2 < dr) {
+            err += dr;
+            c0 += sc;
+          }
+        }
+        return cells;
+      },
+      // BFS flood fill — returns [[r,c],...] of connected cells matching startAlive.
+      floodFillCells: function (startC, startR, liveCells, cols, rows, startAlive) {
+        var queue = [[startR, startC]];
+        var result = [];
+        var visited = new Set();
+        while (queue.length) {
+          var cur = queue.pop();
+          var key = cur[0] + ',' + cur[1];
+          if (visited.has(key)) {
+            continue;
+          }
+          visited.add(key);
+          var rr = cur[0],
+            cc = cur[1];
+          if (cc < 0 || cc >= cols || rr < 0 || rr >= rows) {
+            continue;
+          }
+          var isAlive = liveCells.has(key);
+          if (isAlive !== startAlive) {
+            continue;
+          }
+          result.push([rr, cc]);
+          queue.push([rr + 1, cc], [rr - 1, cc], [rr, cc + 1], [rr, cc - 1]);
+        }
+        return result;
+      },
+      // Compute cells inside ellipse from bounding rect.
+      ellipseCells: function (c1, r1, c2, r2) {
+        var cells = [];
+        var rr1 = Math.min(r1, r2),
+          rr2 = Math.max(r1, r2);
+        var cc1 = Math.min(c1, c2),
+          cc2 = Math.max(c1, c2);
+        var cx = (cc1 + cc2) / 2,
+          cy = (rr1 + rr2) / 2;
+        var rx = (cc2 - cc1) / 2,
+          ry = (rr2 - rr1) / 2;
+        for (var r = rr1; r <= rr2; r++) for (var c = cc1; c <= cc2; c++) {
+          var dx = cx > 0 || rx > 0 ? (c - cx) / (rx + 0.5) : 0;
+          var dy = cy > 0 || ry > 0 ? (r - cy) / (ry + 0.5) : 0;
+          if (dx * dx + dy * dy <= 1) cells.push([r, c]);
+        }
+        return cells;
+      },
+      // Select all visible live cells immediately.
+      selectAllVisible: function () {
+        var liveCells = this.state.liveCells;
+        var viewX = this.state.viewX,
+          viewY = this.state.viewY;
+        var cs = this.getCanvasSize();
+        var viewCols = Math.ceil(cs.w / this.state.cellSize);
+        var viewRows = Math.ceil(cs.h / this.state.cellSize);
+        var cells = [];
+        var minR = Infinity,
+          maxR = -Infinity,
+          minC = Infinity,
+          maxC = -Infinity;
+        liveCells.forEach(function (_, key) {
+          var parts = key.split(',');
+          var r = +parts[0],
+            c = +parts[1];
+          if (c >= viewX && c < viewX + viewCols && r >= viewY && r < viewY + viewRows) {
+            cells.push([r, c]);
+            if (r < minR) minR = r;
+            if (r > maxR) maxR = r;
+            if (c < minC) minC = c;
+            if (c > maxC) maxC = c;
+          }
+        });
+        if (cells.length === 0) {
+          return;
+        }
+        var self = this;
+        this.setState({
+          selection: {
+            type: 'all-visible',
+            cells: cells,
+            c1: minC,
+            r1: minR,
+            c2: maxC,
+            r2: maxR
+          },
+          drawMode: 'select'
+        }, function () {
+          self.drawBoard();
+        });
+      },
       fitView: function () {
         if (!this._canvas) {
           return;
@@ -1529,7 +1945,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
         var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
         var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
-        var hFrac = isLandscape ? 0.75 : isMobileToolsOpen ? 0.36 : 0.82;
+        var hFrac = isMobile ? isMobileToolsOpen ? 0.36 : 0.82 : 0.90;
         var effW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
         var effH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
         // Apply the same aspect-ratio constraint as getCanvasSize.
@@ -1592,7 +2008,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
         var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
         var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
-        var hFrac = isLandscape ? 0.75 : isMobileToolsOpen ? 0.36 : 0.82;
+        var hFrac = isMobile ? isMobileToolsOpen ? 0.36 : 0.82 : 0.90;
         var effW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
         var effH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
         var newCS = Math.max(1, Math.floor(Math.min(effW / totalC, effH / totalR)));
@@ -1635,18 +2051,22 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         var liveCells = this.state.liveCells;
-        var r1 = sel.r1,
-          c1 = sel.c1,
-          r2 = sel.r2,
-          c2 = sel.c2;
-        var cells = [];
-        for (var r = r1; r <= r2; r++) {
-          for (var c = c1; c <= c2; c++) {
-            if (liveCells.has(r + ',' + c)) {
-              cells.push([r - r1, c - c1]);
-            }
-          }
+        var selCells = this.getSelectionCells(sel);
+        if (selCells.length === 0) {
+          return;
         }
+        var minR = Infinity,
+          minC = Infinity;
+        selCells.forEach(function (rc) {
+          if (rc[0] < minR) minR = rc[0];
+          if (rc[1] < minC) minC = rc[1];
+        });
+        var cells = [];
+        selCells.forEach(function (rc) {
+          if (liveCells.has(rc[0] + ',' + rc[1])) {
+            cells.push([rc[0] - minR, rc[1] - minC]);
+          }
+        });
         this.setState({
           clipboard: cells
         });
@@ -1673,21 +2093,19 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         this.pushUndo();
-        var newLiveCells = new Map(this.state.liveCells);
-        var r1 = sel.r1,
-          c1 = sel.c1,
-          r2 = sel.r2,
-          c2 = sel.c2;
-        for (var r = r1; r <= r2; r++) {
-          for (var c = c1; c <= c2; c++) {
-            newLiveCells.delete(r + ',' + c);
-          }
-        }
+        // Snapshot selection cells before setState to avoid stale closure.
+        var selCells = this.getSelectionCells(sel);
         this._minimapDirty = true;
         var self = this;
-        this.setState({
-          liveCells: newLiveCells,
-          stable: false
+        this.setState(function (prevState) {
+          var newLiveCells = new Map(prevState.liveCells);
+          selCells.forEach(function (rc) {
+            newLiveCells.delete(rc[0] + ',' + rc[1]);
+          });
+          return {
+            liveCells: newLiveCells,
+            stable: false
+          };
         }, function () {
           self.drawBoard();
         });
@@ -2559,6 +2977,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }, contextLabel));
       },
       renderButtons: function () {
+        var self = this;
         return /*#__PURE__*/React.createElement("div", {
           className: "sidebar-section"
         }, /*#__PURE__*/React.createElement("div", {
@@ -2620,7 +3039,47 @@ document.addEventListener('DOMContentLoaded', function () {
           style: {
             gridColumn: '1 / -1'
           }
-        }, "Minimap")), this.state.drawMode === 'select' && this.state.selection && /*#__PURE__*/React.createElement("div", {
+        }, "Minimap")), this.state.drawMode === 'paint' && /*#__PURE__*/React.createElement("div", {
+          className: "tool-subtype-row"
+        }, /*#__PURE__*/React.createElement("select", {
+          value: this.state.drawTool,
+          onChange: function (e) {
+            self.setState({
+              drawTool: e.target.value,
+              selection: null
+            });
+          }
+        }, /*#__PURE__*/React.createElement("option", {
+          value: "cell"
+        }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
+          value: "line"
+        }, "Line"), /*#__PURE__*/React.createElement("option", {
+          value: "fill"
+        }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
+          value: "clear"
+        }, "Flood clear"), /*#__PURE__*/React.createElement("option", {
+          value: "shape-rect"
+        }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+          value: "shape-circle"
+        }, "Circle"))), this.state.drawMode === 'select' && /*#__PURE__*/React.createElement("div", {
+          className: "tool-subtype-row"
+        }, /*#__PURE__*/React.createElement("select", {
+          value: this.state.selectTool,
+          onChange: function (e) {
+            self.setState({
+              selectTool: e.target.value,
+              selection: null
+            });
+          }
+        }, /*#__PURE__*/React.createElement("option", {
+          value: "rect"
+        }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+          value: "ellipse"
+        }, "Ellipse"), /*#__PURE__*/React.createElement("option", {
+          value: "freeform"
+        }, "Freeform"), /*#__PURE__*/React.createElement("option", {
+          value: "all-visible"
+        }, "All visible"))), this.state.drawMode === 'select' && this.state.selection && /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
@@ -2893,7 +3352,9 @@ document.addEventListener('DOMContentLoaded', function () {
           height: cs.h,
           style: {
             width: cs.displayW + 'px',
-            height: cs.displayH + 'px'
+            height: cs.displayH + 'px',
+            display: 'block',
+            margin: 'auto'
           },
           id: "life-canvas",
           draggable: false,

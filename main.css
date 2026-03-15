@@ -132,15 +132,12 @@ body {
     padding: 5px 6px;
     color: #67635F;
     width: 100%;
-    min-width: 0;
     min-height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 1.2;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis; }
+    word-break: break-word; }
   /* .btn-block must come after .btn to correctly override display back to block. */
   #content .btn-block {
     display: block;
@@ -153,26 +150,36 @@ body {
   #content .buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    min-width: 0; }
+    gap: 4px; }
   /* Secondary button row: 3-column grid for view/mode toggles. */
   #content .buttons-secondary {
     grid-template-columns: repeat(3, 1fr);
     padding-top: 4px;
-    border-top: 1px solid rgba(0,0,0,0.15);
-    min-width: 0; }
+    border-top: 1px solid rgba(0,0,0,0.15); }
   /* Selection action row: 3-column grid (Copy, Paste, Delete). */
   #content .buttons-selection {
     grid-template-columns: repeat(3, 1fr);
     padding-top: 4px;
-    border-top: 1px solid rgba(0,0,0,0.1);
-    min-width: 0; }
+    border-top: 1px solid rgba(0,0,0,0.1); }
   /* Export row: 2-column grid (Export PNG, Copy RLE | Record, Help). */
   #content .buttons-export {
     grid-template-columns: repeat(2, 1fr);
     padding-top: 4px;
-    border-top: 1px solid rgba(0,0,0,0.15);
-    min-width: 0; }
+    border-top: 1px solid rgba(0,0,0,0.15); }
+  /* Tool subtype dropdown row (shown under Draw/Select mode buttons). */
+  #content .tool-subtype-row {
+    display: flex;
+    align-items: center;
+    padding-top: 4px; }
+  #content .tool-subtype-row select {
+    flex: 1;
+    font-size: 0.88em;
+    padding: 4px 6px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+    color: #67635F;
+    background: white;
+    box-sizing: border-box; }
   #content .btn-toggle.active {
     background-color: #70959A;
     color: #F4E9E1; }
