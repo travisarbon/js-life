@@ -492,6 +492,9 @@ var SimEngine = {
         break;
       }
     }
+    if (cells.length > 100000) {
+      cells.length = 100000;
+    }
     return {
       cells: cells
     };
@@ -514,6 +517,9 @@ var SimEngine = {
       }
       row++;
     }
+    if (cells.length > 100000) {
+      cells.length = 100000;
+    }
     return {
       cells: cells
     };
@@ -535,6 +541,9 @@ var SimEngine = {
           cells.push([y, x]); // Life 1.06 uses x,y; we store row,col
         }
       }
+    }
+    if (cells.length > 100000) {
+      cells.length = 100000;
     }
     return {
       cells: cells
@@ -588,6 +597,9 @@ var SimEngine = {
           cells[k2] = [cells[k2][0] - minR, cells[k2][1] - minC];
         }
       }
+    }
+    if (cells.length > 100000) {
+      cells.length = 100000;
     }
     return {
       cells: cells
@@ -878,12 +890,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var file = files[0];
         if (file.size > 500000) {
+          this.setState({
+            rleError: 'File too large (max 500 KB).'
+          });
           return;
         }
         var self = this;
         var reader = new FileReader();
         reader.onload = function (ev) {
           var text = ev.target.result;
+          // Strip non-printable control characters (keep tabs, newlines, CR).
+          text = text.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '');
           try {
             var result;
             if (/^#Life\s+1\.06/m.test(text)) {
@@ -896,6 +913,9 @@ document.addEventListener('DOMContentLoaded', function () {
               result = SimEngine.parsePlaintext(text);
             }
             if (result.cells.length === 0) {
+              self.setState({
+                rleError: 'No live cells found in file.'
+              });
               return;
             }
             PATTERNS['Custom'] = result.cells;
@@ -909,7 +929,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }, function () {
               self.drawBoard();
             });
-          } catch (ex) {}
+          } catch (ex) {
+            self.setState({
+              rleError: 'Could not parse file: ' + (ex.message || 'unknown error')
+            });
+          }
         };
         reader.readAsText(file);
       },
@@ -1151,11 +1175,11 @@ document.addEventListener('DOMContentLoaded', function () {
         var aspect = cols / rows;
         var mmW, mmH;
         if (aspect >= 1) {
-          mmW = Math.max(40, Math.round(TARGET_CSS_SIZE / ds));
-          mmH = Math.max(20, Math.round(mmW / aspect));
+          mmW = Math.max(100, Math.round(TARGET_CSS_SIZE / ds));
+          mmH = Math.max(40, Math.round(mmW / aspect));
         } else {
-          mmH = Math.max(40, Math.round(TARGET_CSS_SIZE / ds));
-          mmW = Math.max(20, Math.round(mmH * aspect));
+          mmH = Math.max(100, Math.round(TARGET_CSS_SIZE / ds));
+          mmW = Math.max(40, Math.round(mmH * aspect));
         }
         // Resize the off-screen canvas if dimensions changed.
         if (this._minimapCanvas.width !== mmW || this._minimapCanvas.height !== mmH) {
@@ -3167,6 +3191,8 @@ document.addEventListener('DOMContentLoaded', function () {
           });
           return;
         }
+        // Strip non-printable control characters.
+        text = text.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '');
         try {
           // Auto-detect format.
           var result;
@@ -3391,9 +3417,13 @@ document.addEventListener('DOMContentLoaded', function () {
           }, 3000);
           return;
         }
+        this._analysisCancelled = false;
+        var pop = liveCells.size;
+        // Scale generation limit based on population to keep analysis responsive.
+        var maxGens = pop > 1000 ? 200 : pop > 500 ? 500 : 2000;
         this.setState({
           analyzing: true,
-          analysisResult: 'Analyzing...'
+          analysisResult: 'Analyzing\u2026 gen 0/' + maxGens + ' (click to cancel)'
         });
         var self = this;
         var cols = this.state.cols;
@@ -3401,24 +3431,23 @@ document.addEventListener('DOMContentLoaded', function () {
         var birth = this.state.birth;
         var survive = this.state.survive;
         var boundary = this.state.boundary;
-        var maxGens = 2000;
         var chunkSize = 50;
 
-        // Hash function for board state.
+        // Order-independent O(n) hash using Szudzik pairing + XOR mixing.
         function hashBoard(lc) {
-          var keys = [];
+          var h1 = 0,
+            h2 = 0,
+            count = 0;
           lc.forEach(function (age, key) {
-            keys.push(key);
+            var comma = key.indexOf(',');
+            var r = parseInt(key.substring(0, comma));
+            var c = parseInt(key.substring(comma + 1));
+            var paired = r >= c ? r * r + r + c : c * c + r;
+            h1 = h1 + paired | 0;
+            h2 = h2 ^ paired * 2654435761 | 0;
+            count++;
           });
-          keys.sort();
-          // Simple FNV-1a-like hash.
-          var h = 2166136261;
-          var s = keys.join(';');
-          for (var i = 0; i < s.length; i++) {
-            h ^= s.charCodeAt(i);
-            h = h * 16777619 | 0;
-          }
-          return h;
+          return count + '|' + h1 + '|' + h2;
         }
 
         // Get bounding box center.
@@ -3441,7 +3470,7 @@ document.addEventListener('DOMContentLoaded', function () {
             cc: (minC + maxC) / 2
           };
         }
-        var hashes = new Map(); // hash → {gen, centerR, centerC}
+        var hashes = new Map();
         var current = liveCells;
         var initBBox = bbox(current);
         hashes.set(hashBoard(current), {
@@ -3450,7 +3479,21 @@ document.addEventListener('DOMContentLoaded', function () {
           cc: initBBox.cc
         });
         var gen = 0;
+        function finishAnalysis(msg, duration) {
+          self.setState({
+            analysisResult: msg,
+            analyzing: false
+          });
+          setTimeout(function () {
+            self.setState({
+              analysisResult: null
+            });
+          }, duration || 5000);
+        }
         function runChunk() {
+          if (self._analysisCancelled) {
+            return;
+          }
           var end = Math.min(gen + chunkSize, maxGens);
           while (gen < end) {
             current = SimEngine.computeNextGeneration(current, cols, rows, birth, survive, boundary);
@@ -3468,7 +3511,6 @@ document.addEventListener('DOMContentLoaded', function () {
               } else if (dr < 0.01 && dc < 0.01) {
                 msg = 'Oscillator \u2014 period ' + period;
               } else {
-                // Spaceship: compute velocity.
                 var speed = Math.max(dr, dc);
                 var gcd = function (a, b) {
                   return b === 0 ? a : gcd(b, a % b);
@@ -3480,15 +3522,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 var dir = dr > dc + 0.01 ? dc > 0.01 ? 'diagonal' : 'vertical' : dc > dr + 0.01 ? 'horizontal' : 'diagonal';
                 msg = 'Spaceship \u2014 ' + (num === 1 ? 'c' : num + 'c') + '/' + den + ' ' + dir + ', period ' + period;
               }
-              self.setState({
-                analysisResult: msg,
-                analyzing: false
-              });
-              setTimeout(function () {
-                self.setState({
-                  analysisResult: null
-                });
-              }, 6000);
+              finishAnalysis(msg, 6000);
               return;
             }
             hashes.set(h, {
@@ -3497,33 +3531,34 @@ document.addEventListener('DOMContentLoaded', function () {
               cc: bbox(current).cc
             });
             if (current.size === 0) {
-              self.setState({
-                analysisResult: 'Pattern dies at generation ' + gen + '.',
-                analyzing: false
-              });
-              setTimeout(function () {
-                self.setState({
-                  analysisResult: null
-                });
-              }, 5000);
+              finishAnalysis('Pattern dies at generation ' + gen + '.');
               return;
             }
           }
           if (gen >= maxGens) {
-            self.setState({
-              analysisResult: 'No periodicity detected (' + maxGens + ' gens).',
-              analyzing: false
-            });
-            setTimeout(function () {
-              self.setState({
-                analysisResult: null
-              });
-            }, 5000);
+            finishAnalysis('No periodicity detected (' + maxGens + ' gens).');
           } else {
+            // Update progress and yield to UI.
+            self.setState({
+              analysisResult: 'Analyzing\u2026 gen ' + gen + '/' + maxGens + ' (click to cancel)'
+            });
             setTimeout(runChunk, 0);
           }
         }
         setTimeout(runChunk, 0);
+      },
+      cancelAnalysis: function () {
+        this._analysisCancelled = true;
+        this.setState({
+          analysisResult: 'Analysis cancelled.',
+          analyzing: false
+        });
+        var self = this;
+        setTimeout(function () {
+          self.setState({
+            analysisResult: null
+          });
+        }, 2000);
       },
       renderPopGraph: function () {
         if (!this.state.showPopGraph) {
@@ -3927,13 +3962,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }, /*#__PURE__*/React.createElement("span", {
           className: "toolbar-title"
         }, "Conway's\nGame of Life"), /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-groups"
+        }, /*#__PURE__*/React.createElement("div", {
           className: "toolbar-group"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
-          onClick: this.toggleGame
+          onClick: this.toggleGame,
+          title: "Start or pause the simulation (Space)"
         }, this.state.running ? "Pause" : "Play"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.stepGame
+          onClick: this.stepGame,
+          title: "Advance one generation (Enter)"
         }, "Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepBack,
@@ -3959,56 +3998,73 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: function () {
             self.stepN(self.state.stepCount);
           },
-          title: "Advance multiple generations"
-        }, "Go"), /*#__PURE__*/React.createElement("button", {
+          title: "Advance multiple generations (Shift+.)"
+        }, "Go")), /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-group"
+        }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.resetGame
+          onClick: this.resetGame,
+          title: "Randomize the board (R)"
         }, "Reset"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.emptyBoard
+          onClick: this.emptyBoard,
+          title: "Clear all cells (E)"
         }, "Empty"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.undo
-        }, "Undo"), /*#__PURE__*/React.createElement("button", {
+          onClick: this.undo,
+          title: "Undo last edit (Ctrl+Z)"
+        }, "Undo")), /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-group"
+        }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.fitView
+          onClick: this.fitView,
+          title: "Zoom to fit entire grid"
         }, "Fit Grid"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.fitLiveCells
+          onClick: this.fitLiveCells,
+          title: "Zoom to fit live cells"
         }, "Fit Cells"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
-          onClick: this.toggleLivePaint,
-          title: "Paint cells while the simulation is running"
-        }, "Live Paint"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.gridLines ? " active" : ""),
-          onClick: this.toggleGridLines
+          onClick: this.toggleGridLines,
+          title: "Toggle grid lines (G)"
         }, "Grid"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.showTrails ? " active" : ""),
           onClick: this.toggleTrails,
           title: "Show ghost trails of recently-dead cells"
         }, "Trails"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : ""),
-          onClick: this.toggleBoundary,
-          title: "Toggle between toroidal (wrapping) and finite (hard-edge) boundaries"
-        }, this.state.boundary === 'toroidal' ? "Wrap" : "Hard"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : ""),
-          onClick: this.toggleDrawMode
-        }, "Draw"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : ""),
-          onClick: this.togglePresetMode
-        }, "Preset"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
-          onClick: this.toggleSelectMode
-        }, "Select"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.showMinimap ? " active" : ""),
           onClick: this.toggleMinimap,
           title: "Show/hide minimap overview (M)"
-        }, "Minimap"), /*#__PURE__*/React.createElement("button", {
+        }, "Minimap")), /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-group"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : ""),
+          onClick: this.toggleDrawMode,
+          title: "Freehand draw mode (D)"
+        }, "Draw"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : ""),
+          onClick: this.togglePresetMode,
+          title: "Place preset patterns (P)"
+        }, "Preset"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
+          onClick: this.toggleSelectMode,
+          title: "Select and move cells (S)"
+        }, "Select"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
+          onClick: this.toggleLivePaint,
+          title: "Paint cells while the simulation is running"
+        }, "Live Paint"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : ""),
+          onClick: this.toggleBoundary,
+          title: "Toggle between toroidal (wrapping) and finite (hard-edge) boundaries"
+        }, this.state.boundary === 'toroidal' ? "Wrap" : "Hard")), /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-group"
+        }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.analyzePattern,
           disabled: this.state.analyzing,
           title: "Detect oscillator period or spaceship velocity"
-        }, "Analyze")));
+        }, "Analyze"))));
       },
       renderButtons: function () {
         var self = this;
@@ -4069,30 +4125,30 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "buttons"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
-          onClick: this.toggleGame
+          onClick: this.toggleGame,
+          title: "Start or pause the simulation (Space)"
         }, this.state.running ? "Pause" : "Play"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.stepGame
+          onClick: this.stepGame,
+          title: "Advance one generation (Enter)"
         }, "Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepBack,
-          disabled: this._genHistory.length === 0
+          disabled: this._genHistory.length === 0,
+          title: "Step backward to a previous generation (,)"
         }, "Back"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.resetGame
+          onClick: this.resetGame,
+          title: "Randomize the board (R)"
         }, "Reset"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.emptyBoard
+          onClick: this.emptyBoard,
+          title: "Clear all cells (E)"
         }, "Empty"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.undo
-        }, "Undo"), /*#__PURE__*/React.createElement("button", {
-          className: "btn",
-          onClick: this.fitView
-        }, "Fit Grid"), /*#__PURE__*/React.createElement("button", {
-          className: "btn",
-          onClick: this.fitLiveCells
-        }, "Fit Cells")), /*#__PURE__*/React.createElement("div", {
+          onClick: this.undo,
+          title: "Undo last edit (Ctrl+Z)"
+        }, "Undo")), /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-secondary",
           style: {
             gridTemplateColumns: '1fr 1fr'
@@ -4101,7 +4157,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           value: this.state.stepCount,
           onChange: this.setStepCount,
-          title: "Multi-generation step count"
+          title: "Advance N generations at once (Shift+.)"
         }, /*#__PURE__*/React.createElement("option", {
           value: "1"
         }, "+1 gen"), /*#__PURE__*/React.createElement("option", {
@@ -4116,38 +4172,53 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: function () {
             self.stepN(self.state.stepCount);
-          }
-        }, "Advance")), /*#__PURE__*/React.createElement("div", {
+          },
+          title: "Advance multiple generations (Shift+.)"
+        }, "Go")), /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-secondary"
         }, /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
-          onClick: this.toggleLivePaint,
-          title: "Paint cells while the simulation is running"
-        }, "Live Paint"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.fitView,
+          title: "Zoom to fit entire grid"
+        }, "Fit Grid"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.fitLiveCells,
+          title: "Zoom to fit live cells"
+        }, "Fit Cells"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.gridLines ? " active" : ""),
-          onClick: this.toggleGridLines
+          onClick: this.toggleGridLines,
+          title: "Toggle grid lines (G)"
         }, "Grid"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.showTrails ? " active" : ""),
           onClick: this.toggleTrails,
           title: "Show ghost trails of recently-dead cells"
         }, "Trails"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : ""),
+          onClick: this.toggleMinimap,
+          title: "Show/hide minimap overview (M)"
+        }, "Minimap")), /*#__PURE__*/React.createElement("div", {
+          className: "buttons buttons-secondary"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : ""),
+          onClick: this.toggleDrawMode,
+          title: "Freehand draw mode (D)"
+        }, "Draw"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : ""),
+          onClick: this.togglePresetMode,
+          title: "Place preset patterns (P)"
+        }, "Preset"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
+          onClick: this.toggleSelectMode,
+          title: "Select and move cells (S)"
+        }, "Select"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
+          onClick: this.toggleLivePaint,
+          title: "Paint cells while the simulation is running"
+        }, "Live Paint"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : ""),
           onClick: this.toggleBoundary,
           title: "Toggle between toroidal (wrapping) and finite (hard-edge) boundaries"
         }, this.state.boundary === 'toroidal' ? "Wrap" : "Hard"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : ""),
-          onClick: this.toggleDrawMode
-        }, "Draw"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : ""),
-          onClick: this.togglePresetMode
-        }, "Preset"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
-          onClick: this.toggleSelectMode
-        }, "Select"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : ""),
-          onClick: this.toggleMinimap,
-          title: "Show/hide minimap overview (M)"
-        }, "Minimap"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.analyzePattern,
           disabled: this.state.analyzing,
@@ -4249,22 +4320,27 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.copySelection
+          onClick: this.copySelection,
+          title: "Copy selected cells"
         }, "Copy"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.pasteAsPattern,
-          disabled: !this.state.clipboard || this.state.clipboard.length === 0
+          disabled: !this.state.clipboard || this.state.clipboard.length === 0,
+          title: "Paste copied cells"
         }, "Paste"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.deleteSelection
+          onClick: this.deleteSelection,
+          title: "Delete selected cells (Delete)"
         }, "Delete")), /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-export"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.exportPNG
+          onClick: this.exportPNG,
+          title: "Save the current board as a PNG image"
         }, "Export PNG"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.copyRLE
+          onClick: this.copyRLE,
+          title: "Copy board state as RLE to clipboard"
         }, "Copy RLE"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.recording ? " active btn-record" : ""),
           onClick: this.toggleRecording,
@@ -4273,9 +4349,12 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.shareURL,
           title: "Copy a shareable URL to clipboard"
-        }, this.state.shareTooltip ? "Copied!" : "Share"), /*#__PURE__*/React.createElement("button", {
+        }, this.state.shareTooltip ? "Copied!" : "Share")), /*#__PURE__*/React.createElement("div", {
+          className: "buttons buttons-help"
+        }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.toggleHelp
+          onClick: this.toggleHelp,
+          title: "Show keyboard shortcuts and help (?)"
         }, "Help")))));
       },
       renderRulesSection: function () {
@@ -4500,7 +4579,8 @@ document.addEventListener('DOMContentLoaded', function () {
           onTouchMove: this.onTouchMove,
           onTouchEnd: this.onTouchEnd
         }), this.state.analysisResult ? /*#__PURE__*/React.createElement("div", {
-          className: "analysis-result"
+          className: "analysis-result" + (this.state.analyzing ? " analysis-cancellable" : ""),
+          onClick: this.state.analyzing ? this.cancelAnalysis : null
         }, this.state.analysisResult) : null, this.renderMobileContextPanel(), this.renderMobileStatsBar(), this.renderMobileSparkline(), this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
           className: "mobile-quickbar"
         }, /*#__PURE__*/React.createElement("button", {

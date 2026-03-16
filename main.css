@@ -205,11 +205,18 @@ body {
     grid-template-columns: repeat(3, 1fr);
     padding-top: 4px;
     border-top: 1px solid rgba(0,0,0,0.1); }
-  /* Export row: 2-column grid (Export PNG, Copy RLE | Record, Help). */
+  /* Export row: 2×2 grid (Export PNG, Copy RLE, Record, Share). */
   #content .buttons-export {
     grid-template-columns: repeat(2, 1fr);
     padding-top: 4px;
     border-top: 1px solid rgba(0,0,0,0.15); }
+  /* Help button: full-width standalone below export. */
+  #content .buttons-help {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    width: 100%;
+    margin-top: 4px; }
   /* Tool subtype dropdown row. */
   #content .tool-subtype-row {
     display: flex;
@@ -613,8 +620,8 @@ body {
 @media (min-width: 621px) {
   .toolbar-strip {
     display: grid;
-    /* Left column: compact title badge spanning both button rows.
-       Right column: two flex rows of buttons. */
+    /* Left column: compact title badge.
+       Right column: toolbar groups container. */
     grid-template-columns: max-content 1fr;
     grid-template-rows: auto;
     align-items: center;
@@ -635,11 +642,21 @@ body {
     border-right: 1px solid rgba(0,0,0,0.18);
     align-self: center; }
   .toolbar-group {
-    grid-column: 2;
     display: flex;
     flex-wrap: wrap;
     gap: 3px; }
-  #content .toolbar-strip .btn {
+  .toolbar-groups {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0; }
+  .toolbar-group + .toolbar-group {
+    margin-left: 2px;
+    padding-left: 5px;
+    border-left: 1px solid rgba(0,0,0,0.15); }
+  #content .toolbar-strip .btn,
+  #content .toolbar-groups .btn {
     padding: 2px 7px;
     min-height: 24px;
     min-width: 0;
@@ -648,7 +665,8 @@ body {
     flex-shrink: 0;
     width: auto; }
   /* Keep active-state colour consistent with sidebar buttons. */
-  #content .toolbar-strip .btn-toggle.active {
+  #content .toolbar-strip .btn-toggle.active,
+  #content .toolbar-groups .btn-toggle.active {
     background-color: #70959A;
     color: #F4E9E1; } }
 
@@ -714,6 +732,8 @@ body {
 
 .toolbar-title {
   border-right-color: var(--border-color); }
+.toolbar-group + .toolbar-group {
+  border-left-color: var(--border-color); }
 
 /* ── Drag-and-drop overlay ───────────────────────────────────────────── */
 #content .canvas-container.drop-active::after {
@@ -785,6 +805,11 @@ body {
   text-align: center;
   pointer-events: none;
   white-space: nowrap; }
+.analysis-result.analysis-cancellable {
+  pointer-events: auto;
+  cursor: pointer; }
+.analysis-result.analysis-cancellable:hover {
+  background: rgba(0,0,0,0.95); }
 
 /* ── Accessibility: screen-reader-only ───────────────────────────────── */
 .sr-only {
