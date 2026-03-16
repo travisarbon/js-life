@@ -378,8 +378,9 @@ var SimEngine = {
                 countStr = '';
             } else if(ch === '!'){ break; }
         }
-        if(cells.length > 100000){ cells.length = 100000; }
-        return {cells : cells};
+        var truncated = cells.length > 100000;
+        if(truncated){ cells.length = 100000; }
+        return {cells : cells, truncated: truncated};
     },
 
     // Parses LifeWiki plaintext (.cells) format into [[row, col], ...].
@@ -398,8 +399,9 @@ var SimEngine = {
             }
             row++;
         }
-        if(cells.length > 100000){ cells.length = 100000; }
-        return {cells : cells};
+        var truncated = cells.length > 100000;
+        if(truncated){ cells.length = 100000; }
+        return {cells : cells, truncated: truncated};
     },
 
     // Parses Life 1.06 format: header "#Life 1.06", then one "x y" per live cell.
@@ -418,8 +420,9 @@ var SimEngine = {
                 }
             }
         }
-        if(cells.length > 100000){ cells.length = 100000; }
-        return {cells : cells};
+        var truncated = cells.length > 100000;
+        if(truncated){ cells.length = 100000; }
+        return {cells : cells, truncated: truncated};
     },
 
     // Parses Life 1.05 format: header "#Life 1.05", #D descriptions, #P x y origin blocks.
@@ -460,8 +463,9 @@ var SimEngine = {
                 }
             }
         }
-        if(cells.length > 100000){ cells.length = 100000; }
-        return {cells : cells};
+        var truncated = cells.length > 100000;
+        if(truncated){ cells.length = 100000; }
+        return {cells : cells, truncated: truncated};
     },
 
     // Rotates a [[row,col],...] pattern 90° CW, `steps` times.
@@ -618,7 +622,9 @@ document.addEventListener('DOMContentLoaded', function(){
                     deviceClass :      'desktop',
                     // Bottom sheet (phone modes)
                     bottomSheetOpen :  false,
-                    bottomSheetTab :   'simulate'
+                    bottomSheetClosing: false,
+                    bottomSheetTab :   'simulate',
+                    panMode :          false
                 };
             },
 
@@ -627,7 +633,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 // before the first render() call.
                 this._genHistory = [];
                 this._genHistoryMax = 200;
-                this._genHistoryInterval = 5;
+                this._genHistoryInterval = 1;
                 this._genHistoryCounter = 0;
                 this._trailMap = new Map();
                 this._trailEnabled = false;
@@ -873,6 +879,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
                 var self = this;
                 var reader = new FileReader();
+                reader.onerror = function(){
+                    self.setState({rleError: 'Unable to read file.'});
+                };
                 reader.onload = function(ev){
                     var text = ev.target.result;
                     // Strip non-printable control characters (keep tabs, newlines, CR).
@@ -899,7 +908,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             patternRotation : 0,
                             drawMode :        'preset',
                             showRle :         false,
-                            rleError :        ''
+                            rleError :        result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
                         }, function(){ self.drawBoard(); });
                     } catch(ex){
                         self.setState({rleError: 'Could not parse file: ' + (ex.message || 'unknown error')});
@@ -936,6 +945,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
             drawBoard : function(){
                 var canvas = this._canvas;
+                if(!canvas){ return; }
                 var ctx = canvas.getContext("2d");
                 var cellSize = this.state.cellSize;
                 var cols = this.state.cols;
@@ -1126,7 +1136,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
 
                 // Pattern placement preview.
-                if(this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos){
+                if(this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos && PATTERNS[this.state.selectedPattern]){
                     var pattern = this.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
                     var maxPR = 0, maxPC = 0;
                     for(var pi = 0; pi < pattern.length; pi++){
@@ -1251,7 +1261,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             drawRotationPreview : function(){
-                if(!this.state.selectedPattern){ return; }
+                if(!this.state.selectedPattern || !PATTERNS[this.state.selectedPattern]){ return; }
                 var theme = THEMES[this.state.theme] || THEMES['Teal'];
                 var pattern = this.rotatePattern(
                     PATTERNS[this.state.selectedPattern], this.state.patternRotation);
@@ -1503,6 +1513,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
             stepGame : function(){
                 this.pushUndo();
+                this._pushGenHistory();
                 var liveCells = this.state.liveCells;
                 var cols      = this.state.cols;
                 var rows      = this.state.rows;
@@ -1997,11 +2008,12 @@ document.addEventListener('DOMContentLoaded', function(){
                     var sel = this.state.selection;
                     if(sel){
                         var normType = sel.type || 'rect';
+                        var self = this;
                         this.setState({selection: {
                             type: normType,
                             r1: Math.min(sel.r1, sel.r2), c1: Math.min(sel.c1, sel.c2),
                             r2: Math.max(sel.r1, sel.r2), c2: Math.max(sel.c1, sel.c2)
-                        }});
+                        }}, function(){ self.drawBoard(); });
                     }
                     this._selStart = null;
                     return;
@@ -2397,6 +2409,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 this.setState({showMinimap: !this.state.showMinimap}, function(){ self.drawBoard(); });
             },
 
+            togglePanMode : function(){
+                this.setState({panMode: !this.state.panMode});
+            },
+
             toggleMobileTools : function(){
                 var self = this;
                 this.setState({showMobileTools: !this.state.showMobileTools}, function(){ self.drawBoard(); });
@@ -2478,6 +2494,13 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                     return;
                 }
+                // Pan mode: single-finger pan instead of drawing
+                if(this.state.panMode){
+                    this._panDragging = true;
+                    this._panStart = {x: t.clientX, y: t.clientY,
+                                      vx: this.state.viewX, vy: this.state.viewY};
+                    return;
+                }
                 this.onMouseDown({preventDefault: function(){}, button: 0,
                     clientX: t.clientX, clientY: t.clientY});
             },
@@ -2510,6 +2533,20 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
                 if(event.touches.length !== 1){ return; }
                 var t = event.touches[0];
+                // Pan mode: move viewport by finger delta
+                if(this.state.panMode && this._panDragging && this._panStart){
+                    var dx = t.clientX - this._panStart.x;
+                    var dy = t.clientY - this._panStart.y;
+                    var cs2 = this.state.cellSize;
+                    var newVX = this._panStart.vx - Math.round(dx / cs2);
+                    var newVY = this._panStart.vy - Math.round(dy / cs2);
+                    var clamped = this.clampView(newVX, newVY,
+                        this.state.cols, this.state.rows, cs2);
+                    var self = this;
+                    this.setState({viewX: clamped.viewX, viewY: clamped.viewY},
+                        function(){ self.drawBoard(); });
+                    return;
+                }
                 this.onMouseMove({clientX: t.clientX, clientY: t.clientY});
             },
 
@@ -2519,6 +2556,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._longPressTimer = null;
                 if(event.touches.length < 2){ this._pinchStart = null; }
                 if(event.touches.length === 0){
+                    // End pan mode drag
+                    if(this.state.panMode && this._panDragging){
+                        this._panDragging = false;
+                        this._panStart = null;
+                        return;
+                    }
                     // For pattern placement, place at the final preview position rather than
                     // the initial tap position (which onMouseUp would have used).
                     if(this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos){
@@ -2533,7 +2576,7 @@ document.addEventListener('DOMContentLoaded', function(){
             // ── Keyboard ──────────────────────────────────────────────────────
 
             handleKeyDown : function(e){
-                if(['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].indexOf(e.target.tagName) !== -1){ return; }
+                if(e.key !== 'Escape' && ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].indexOf(e.target.tagName) !== -1){ return; }
                 var self = this;
                 switch(e.key){
                     case ' ':
@@ -2544,6 +2587,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         e.preventDefault();
                         if(e.shiftKey){ this.stepN(this.state.stepCount); }
                         else { this.stepGame(); }
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        if(!this.state.running){ this.stepGame(); }
                         break;
                     case ',':
                         e.preventDefault();
@@ -2606,6 +2653,10 @@ document.addEventListener('DOMContentLoaded', function(){
                             this._previewPos = null;
                             this.setState({selectedPattern : null, patternRotation : 0, drawMode : 'paint'},
                                 function(){ self.drawBoard(); });
+                            break;
+                        }
+                        if(this.state.showPopGraph){
+                            this.setState({showPopGraph: false});
                             break;
                         }
                         if(this.state.showHelp){
@@ -2722,12 +2773,14 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             openContextTray : function(content){
-                this.setState({contextTrayOpen: true, contextTrayContent: content});
+                var self = this;
+                this.setState({contextTrayOpen: true, contextTrayContent: content}, function(){ self.drawBoard(); });
             },
 
             closeContextTray : function(){
                 if(!this.state.contextTrayPinned){
-                    this.setState({contextTrayOpen: false, contextTrayContent: null});
+                    var self = this;
+                    this.setState({contextTrayOpen: false, contextTrayContent: null}, function(){ self.drawBoard(); });
                 }
             },
 
@@ -2741,17 +2794,79 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             toggleBottomSheet : function(){
-                var opening = !this.state.bottomSheetOpen;
-                if(opening){ this._saveFocus(); }
                 var self = this;
-                this.setState({bottomSheetOpen: opening}, function(){
-                    if(opening){ self._focusFirst('.bottom-sheet'); }
-                    else { self._restoreFocus(); }
-                });
+                if(this.state.bottomSheetOpen){
+                    // Closing: animate out, then unmount.
+                    this.setState({bottomSheetClosing: true}, function(){
+                        setTimeout(function(){
+                            self.setState({bottomSheetOpen: false, bottomSheetClosing: false}, function(){
+                                self._restoreFocus();
+                            });
+                        }, 200);
+                    });
+                } else {
+                    // Opening.
+                    this._saveFocus();
+                    this.setState({bottomSheetOpen: true, bottomSheetClosing: false}, function(){
+                        self._focusFirst('.bottom-sheet');
+                    });
+                }
             },
 
             setBottomSheetTab : function(tab){
                 this.setState({bottomSheetTab: tab, bottomSheetOpen: true});
+            },
+
+            // ── Bottom sheet swipe-to-dismiss ─────────────────────────────────
+
+            _onSheetTouchStart : function(e){
+                this._sheetTouchY = e.touches[0].clientY;
+                this._sheetEl = e.currentTarget;
+            },
+            _onSheetTouchMove : function(e){
+                if(this._sheetTouchY == null){ return; }
+                var dy = e.touches[0].clientY - this._sheetTouchY;
+                if(dy > 0){
+                    e.preventDefault();
+                    this._sheetEl.style.transform = 'translateY(' + dy + 'px)';
+                }
+            },
+            _onSheetTouchEnd : function(){
+                if(this._sheetTouchY == null){ return; }
+                var el = this._sheetEl;
+                var transform = el.style.transform;
+                var dy = 0;
+                if(transform){
+                    var match = transform.match(/translateY\((\d+)/);
+                    if(match){ dy = parseInt(match[1], 10); }
+                }
+                el.style.transform = '';
+                if(dy > 60){
+                    this.toggleBottomSheet();
+                }
+                this._sheetTouchY = null;
+            },
+
+            // ── Bottom sheet focus trap + keyboard ────────────────────────────
+
+            _onSheetKeyDown : function(e){
+                if(e.key === 'Escape'){
+                    this.toggleBottomSheet();
+                    e.preventDefault();
+                    return;
+                }
+                if(e.key !== 'Tab'){ return; }
+                var sheet = e.currentTarget.querySelector('.bottom-sheet');
+                if(!sheet){ return; }
+                var focusable = sheet.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                if(!focusable.length){ return; }
+                var first = focusable[0];
+                var last = focusable[focusable.length - 1];
+                if(e.shiftKey && document.activeElement === first){
+                    e.preventDefault(); last.focus();
+                } else if(!e.shiftKey && document.activeElement === last){
+                    e.preventDefault(); first.focus();
+                }
             },
 
             // ── Toggles ───────────────────────────────────────────────────────
@@ -2880,7 +2995,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cur = this.state.boundary;
                 var next = cur === 'toroidal' ? 'finite' : cur === 'finite' ? 'unbounded' : 'toroidal';
                 this._hlStale = true;
-                this.setState({boundary : next});
+                this._minimapDirty = true;
+                var self = this;
+                this.setState({boundary : next}, function(){ self.drawBoard(); });
             },
 
             toggleGame : function(){
@@ -3044,7 +3161,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         selectedPattern : 'Custom',
                         patternRotation : 0,
                         showRle :         false,
-                        rleError :        ''
+                        rleError :        result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
                     }, function(){ self.drawBoard(); });
                 } catch(ex){
                     this.setState({rleError : 'Could not parse pattern: ' + ex.message});
@@ -3080,6 +3197,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             placePattern : function(name, centerC, centerR){
+                if(!PATTERNS[name]){ return; }
                 this.pushUndo();
                 var pattern = this.rotatePattern(PATTERNS[name], this.state.patternRotation);
                 var cols = this.state.cols;
@@ -3425,9 +3543,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {/* X-axis label */}
                                 <text x={padL + plotW / 2} y={vbH - 2} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9">Generation</text>
                                 {/* Data line */}
-                                <polyline fill="none" stroke="#70959A" strokeWidth="1.5" points={points}/>
+                                <polyline fill="none" stroke={THEMES[this.state.theme] ? 'rgb(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ')' : '#70959A'} strokeWidth="1.5" points={points}/>
                                 {/* Area fill */}
-                                <polygon fill="rgba(112,149,154,0.2)" points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
+                                <polygon fill={THEMES[this.state.theme] ? 'rgba(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ',0.2)' : 'rgba(112,149,154,0.2)'} points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
                             </svg>
                             <button className="btn help-close" onClick={this.togglePopGraph}>Close</button>
                         </div>
@@ -3475,7 +3593,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                   stroke="rgba(244,233,225,0.25)" strokeWidth="1"/>
                             <line x1="0" y1={padT + innerH / 2} x2={vbW} y2={padT + innerH / 2}
                                   stroke="rgba(244,233,225,0.1)" strokeWidth="0.5"/>
-                            <polyline points={sparkPts} fill="none" stroke="#70959A"
+                            <polyline points={sparkPts} fill="none" stroke={THEMES[this.state.theme] ? 'rgb(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ')' : '#70959A'}
                                       strokeWidth="1.5" strokeLinejoin="round"
                                       strokeLinecap="round"/>
                         </svg>
@@ -4458,26 +4576,37 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this.state.running ? "\u23F8" : "\u25B6"}
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
+                                onClick={this.togglePanMode}
+                                aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
+                                aria-pressed={this.state.panMode}>
+                                <i className={"fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows")} aria-hidden="true"></i>
+                            </button>
                             <span className="mobile-transport-mode" aria-live="polite">
-                                {this.state.drawMode === 'preset' && this.state.selectedPattern
+                                {this.state.panMode ? 'Pan'
+                                    : (this.state.drawMode === 'preset' && this.state.selectedPattern
                                     ? this.state.selectedPattern
-                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw')}
+                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
                             </span>
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
-                            <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                            <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
                                 aria-label="Open controls panel">More</button>
                         </div>
                         {/* Bottom sheet */}
                         {this.state.bottomSheetOpen &&
-                            <div className="bottom-sheet-container">
+                            <div className="bottom-sheet-container"
+                                onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
                                 <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
                                     role="presentation" aria-hidden="true"></div>
-                                <div className="bottom-sheet" role="dialog" aria-modal="true"
-                                    aria-label="Controls panel">
+                                <div className={"bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : "")} role="dialog" aria-modal="true"
+                                    aria-label="Controls panel"
+                                    onTouchStart={function(e){ self._onSheetTouchStart(e); }}
+                                    onTouchMove={function(e){ self._onSheetTouchMove(e); }}
+                                    onTouchEnd={function(e){ self._onSheetTouchEnd(e); }}>
                                     <div className="bottom-sheet-handle"></div>
                                     <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
                                         {tabs.map(function(tab){
@@ -4486,14 +4615,18 @@ document.addEventListener('DOMContentLoaded', function(){
                                                 <button key={tab.id}
                                                     className={"rail-tab" + (isActive ? " active" : "")}
                                                     onClick={function(){ self.setBottomSheetTab(tab.id); }}
-                                                    role="tab" aria-selected={isActive} aria-label={tab.label}>
+                                                    role="tab" aria-selected={isActive} aria-label={tab.label}
+                                                    aria-controls={"sheet-panel-" + tab.id}>
                                                     <i className={"fa " + tab.icon} aria-hidden="true"></i>
                                                     <span className="rail-tab-label">{tab.label}</span>
                                                 </button>
                                             );
                                         })}
                                     </div>
-                                    <div className="bottom-sheet-content">
+                                    <div className="bottom-sheet-content"
+                                        id={"sheet-panel-" + this.state.bottomSheetTab}
+                                        role="tabpanel"
+                                        aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
                                     </div>
                                     <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
@@ -4637,29 +4770,48 @@ document.addEventListener('DOMContentLoaded', function(){
                     <div className="layout-specimen layout-mobile">
                         {this.renderCanvas(cs)}
                         {/* Compact top bar */}
-                        <div className="top-bar top-bar-mobile">
+                        <div className="top-bar top-bar-mobile" role="toolbar" aria-label="Simulation transport">
                             <span className="stats-chip-inline">
                                 {"Gen " + this.state.generations.toLocaleString() + "\u2002Pop " + this.state.liveCells.size.toLocaleString()}
                             </span>
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
+                                aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 {this.state.running ? "\u23F8" : "\u25B6"}
                             </button>
-                            <button className="btn" onClick={this.stepGame}>Step</button>
+                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
+                                onClick={this.togglePanMode}
+                                aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
+                                aria-pressed={this.state.panMode}>
+                                <i className={"fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows")} aria-hidden="true"></i>
+                            </button>
+                            <span className="mobile-transport-mode" aria-live="polite">
+                                {this.state.panMode ? 'Pan'
+                                    : (this.state.drawMode === 'preset' && this.state.selectedPattern
+                                    ? this.state.selectedPattern
+                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
+                            </span>
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
-                            <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
-                                onClick={this.toggleBottomSheet}>More</button>
+                            <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                                onClick={this.toggleBottomSheet}
+                                aria-expanded={this.state.bottomSheetOpen}
+                                aria-label="Open controls panel">More</button>
                         </div>
                         {this.renderMobileContextPanel()}
                         {this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
-                            <div className="bottom-sheet-container">
+                            <div className="bottom-sheet-container"
+                                onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
                                 <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
                                     role="presentation" aria-hidden="true"></div>
-                                <div className="bottom-sheet" role="dialog" aria-modal="true"
-                                    aria-label="Controls panel">
+                                <div className={"bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : "")} role="dialog" aria-modal="true"
+                                    aria-label="Controls panel"
+                                    onTouchStart={function(e){ self._onSheetTouchStart(e); }}
+                                    onTouchMove={function(e){ self._onSheetTouchMove(e); }}
+                                    onTouchEnd={function(e){ self._onSheetTouchEnd(e); }}>
                                     <div className="bottom-sheet-handle"></div>
                                     <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
                                         {tabs.map(function(tab){
@@ -4668,14 +4820,18 @@ document.addEventListener('DOMContentLoaded', function(){
                                                 <button key={tab.id}
                                                     className={"rail-tab" + (isActive ? " active" : "")}
                                                     onClick={function(){ self.setBottomSheetTab(tab.id); }}
-                                                    role="tab" aria-selected={isActive} aria-label={tab.label}>
+                                                    role="tab" aria-selected={isActive} aria-label={tab.label}
+                                                    aria-controls={"sheet-panel-" + tab.id}>
                                                     <i className={"fa " + tab.icon} aria-hidden="true"></i>
                                                     <span className="rail-tab-label">{tab.label}</span>
                                                 </button>
                                             );
                                         })}
                                     </div>
-                                    <div className="bottom-sheet-content">
+                                    <div className="bottom-sheet-content"
+                                        id={"sheet-panel-" + this.state.bottomSheetTab}
+                                        role="tabpanel"
+                                        aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
                                     </div>
                                     <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
@@ -4781,17 +4937,32 @@ document.addEventListener('DOMContentLoaded', function(){
                     <div className="layout-observatory layout-mobile">
                         {this.renderCanvas(cs)}
                         {/* Bottom transport bar */}
-                        <div className="mobile-transport-bar">
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>
+                        <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
+                                aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 {this.state.running ? "\u23F8" : "\u25B6"}
                             </button>
-                            <button className="btn" onClick={this.stepGame}>Step</button>
-                            <button className="btn" onClick={this.resetGame}>Reset</button>
+                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation">Reset</button>
+                            <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
+                                onClick={this.togglePanMode}
+                                aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
+                                aria-pressed={this.state.panMode}>
+                                <i className={"fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows")} aria-hidden="true"></i>
+                            </button>
+                            <span className="mobile-transport-mode" aria-live="polite">
+                                {this.state.panMode ? 'Pan'
+                                    : (this.state.drawMode === 'preset' && this.state.selectedPattern
+                                    ? this.state.selectedPattern
+                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
+                            </span>
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
-                            <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
-                                onClick={this.toggleBottomSheet}>Controls</button>
+                            <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                                onClick={this.toggleBottomSheet}
+                                aria-expanded={this.state.bottomSheetOpen}
+                                aria-label="Open controls panel">Controls</button>
                         </div>
                         {/* Stats chip */}
                         <div className="stats-chip" onClick={this.togglePopGraph}>
@@ -4805,11 +4976,15 @@ document.addEventListener('DOMContentLoaded', function(){
                         {this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
-                            <div className="bottom-sheet-container">
+                            <div className="bottom-sheet-container"
+                                onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
                                 <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
                                     role="presentation" aria-hidden="true"></div>
-                                <div className="bottom-sheet" role="dialog" aria-modal="true"
-                                    aria-label="Controls panel">
+                                <div className={"bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : "")} role="dialog" aria-modal="true"
+                                    aria-label="Controls panel"
+                                    onTouchStart={function(e){ self._onSheetTouchStart(e); }}
+                                    onTouchMove={function(e){ self._onSheetTouchMove(e); }}
+                                    onTouchEnd={function(e){ self._onSheetTouchEnd(e); }}>
                                     <div className="bottom-sheet-handle"></div>
                                     <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
                                         {tabs.map(function(tab){
@@ -4818,14 +4993,18 @@ document.addEventListener('DOMContentLoaded', function(){
                                                 <button key={tab.id}
                                                     className={"rail-tab" + (isActive ? " active" : "")}
                                                     onClick={function(){ self.setBottomSheetTab(tab.id); }}
-                                                    role="tab" aria-selected={isActive} aria-label={tab.label}>
+                                                    role="tab" aria-selected={isActive} aria-label={tab.label}
+                                                    aria-controls={"sheet-panel-" + tab.id}>
                                                     <i className={"fa " + tab.icon} aria-hidden="true"></i>
                                                     <span className="rail-tab-label">{tab.label}</span>
                                                 </button>
                                             );
                                         })}
                                     </div>
-                                    <div className="bottom-sheet-content">
+                                    <div className="bottom-sheet-content"
+                                        id={"sheet-panel-" + this.state.bottomSheetTab}
+                                        role="tabpanel"
+                                        aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
                                     </div>
                                     <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
