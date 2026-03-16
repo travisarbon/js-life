@@ -603,6 +603,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     contextTrayPinned: false,
                     // Observatory state
                     zenMode :          false,
+                    _panelMenuOpen :   false,
                     panelStates :      savedLayout.panelStates || {
                         transport: { open: true, x: -1, y: -1, collapsed: false },
                         view:      { open: true, x: -1, y: -1, collapsed: false },

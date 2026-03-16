@@ -804,6 +804,7 @@ document.addEventListener('DOMContentLoaded', function () {
           contextTrayPinned: false,
           // Observatory state
           zenMode: false,
+          _panelMenuOpen: false,
           panelStates: savedLayout.panelStates || {
             transport: {
               open: true,
