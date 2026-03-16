@@ -309,6 +309,18 @@ var THEMES = {
   }
 };
 
+// ── Age overlay for HashLife ──────────────────────────────────────────────────
+// Computes cell ages by diffing old Map (key→age) against new cell list [[r,c],...].
+function overlayAges(oldLiveCells, newCellList) {
+  var newMap = new Map();
+  for (var i = 0; i < newCellList.length; i++) {
+    var key = newCellList[i][0] + ',' + newCellList[i][1];
+    var oldAge = oldLiveCells.get(key);
+    newMap.set(key, oldAge !== undefined ? Math.min(oldAge + 1, 65535) : 1);
+  }
+  return newMap;
+}
+
 // ── SimEngine ─────────────────────────────────────────────────────────────────
 // Pure simulation functions isolated from React state for testability and reuse.
 var SimEngine = {
@@ -733,7 +745,11 @@ document.addEventListener('DOMContentLoaded', function () {
         this._drawErasing = false;
         this._panDragging = false;
         this._panStart = null;
-        this._worker = null;
+        this._hlRoot = null;
+        this._hlOffR = 0;
+        this._hlOffC = 0;
+        this._hlStale = true;
+        this._hlRuleKey = null;
         this._gif = null;
         this._minimapDirty = true;
         this._minimapDragging = false;
@@ -822,21 +838,9 @@ document.addEventListener('DOMContentLoaded', function () {
           }, 300);
         };
         window.addEventListener('orientationchange', this._onOrientationChange);
-        // Initialise Web Worker for async simulation (falls back to sync).
-        if (typeof Worker !== 'undefined') {
-          try {
-            this._worker = new Worker('life-worker.js');
-            var self = this;
-            this._worker.onmessage = function (e) {
-              self._handleWorkerMessage(e.data);
-            };
-            this._worker.onerror = function () {
-              self._worker = null;
-            };
-          } catch (ex) {
-            this._worker = null;
-          }
-        }
+        // Initialize HashLife engine with current rules.
+        HashLife.init(this.state.birthRule, this.state.surviveRule);
+        this._hlRuleKey = this.state.birthRule.join(',') + '/' + this.state.surviveRule.join(',');
         this.drawBoard();
         this._loadFromURLHash();
         this._startLoop();
@@ -899,9 +903,6 @@ document.addEventListener('DOMContentLoaded', function () {
           container.removeEventListener('dragover', this._onDragOver);
           container.removeEventListener('dragleave', this._onDragLeave);
           container.removeEventListener('drop', this._onDrop);
-        }
-        if (this._worker) {
-          this._worker.terminate();
         }
         if (this._gif) {
           this._gif.abort();
@@ -1376,6 +1377,58 @@ document.addEventListener('DOMContentLoaded', function () {
       computeNextGeneration: function (liveCells, cols, rows, birth, survive, boundary) {
         return SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
       },
+      // ── HashLife step ────────────────────────────────────────────────────
+      // Advances the HashLife quadtree by 1 generation and returns a new
+      // sparse Map<"r,c", age> with diff-based age tracking.
+
+      _hashLifeStep: function (liveCells, birth, survive) {
+        // 1. Init/re-init if rules changed
+        var ruleKey = birth.join(',') + '/' + survive.join(',');
+        if (ruleKey !== this._hlRuleKey) {
+          HashLife.init(birth, survive);
+          this._hlRuleKey = ruleKey;
+          this._hlStale = true;
+        }
+        // 2. Rebuild quadtree from Map if stale
+        if (this._hlStale || !this._hlRoot) {
+          var cells = [];
+          liveCells.forEach(function (age, key) {
+            var comma = key.indexOf(',');
+            cells.push([parseInt(key.substring(0, comma)), parseInt(key.substring(comma + 1))]);
+          });
+          var tree = HashLife.fromCellList(cells);
+          this._hlRoot = tree.root;
+          this._hlOffR = tree.offR;
+          this._hlOffC = tree.offC;
+          this._hlStale = false;
+        }
+        // 3. Expand, advance 1 gen, trim (with offset tracking)
+        var level = this._hlRoot.level;
+        this._hlRoot = HashLife.expandTree(this._hlRoot);
+        this._hlOffR += 1 << level - 1;
+        this._hlOffC += 1 << level - 1;
+        level = this._hlRoot.level;
+        this._hlRoot = HashLife.advance(this._hlRoot, 1);
+        this._hlOffR -= 1 << level - 2;
+        this._hlOffC -= 1 << level - 2;
+        var prevLevel = this._hlRoot.level;
+        this._hlRoot = HashLife.trimTree(this._hlRoot);
+        var newLevel = this._hlRoot.level;
+        for (var lvl = prevLevel; lvl > newLevel; lvl--) {
+          this._hlOffR -= 1 << lvl - 2;
+          this._hlOffC -= 1 << lvl - 2;
+        }
+
+        // 4. Extract cells and overlay ages
+        var newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
+        var result = overlayAges(liveCells, newCells);
+
+        // 5. GC check
+        if (HashLife.poolSize() > 2000000) {
+          HashLife.gc(this._hlRoot);
+        }
+        return result;
+      },
       // ── Animation loop ─────────────────────────────────────────────────
 
       _startLoop: function () {
@@ -1404,88 +1457,28 @@ document.addEventListener('DOMContentLoaded', function () {
         var birth = this.state.birthRule;
         var survive = this.state.surviveRule;
         var boundary = this.state.boundary;
-        var isUnbounded = boundary === 'unbounded';
-        if (this._worker) {
-          // Async path: serialise sparse Map as [[r, c, age], ...].
-          var payload = [];
-          var wCols = cols,
-            wRows = rows,
-            wBoundary = boundary;
-          var offsetR = 0,
-            offsetC = 0;
-          if (isUnbounded) {
-            // For unbounded mode: compute bbox, add padding, offset to non-negative,
-            // then send as finite boundary to the worker.
-            var bb = SimEngine.getBoundingBox(liveCells);
-            if (!bb) {
-              // No live cells — nothing to compute.
-              this._applyNewStates(new Map(), tickId);
-              return;
-            }
-            var pad = 2;
-            offsetR = bb.minR - pad;
-            offsetC = bb.minC - pad;
-            wRows = bb.maxR - bb.minR + 1 + pad * 2;
-            wCols = bb.maxC - bb.minC + 1 + pad * 2;
-            wBoundary = 'finite';
-            this._unboundedOffset = {
-              r: offsetR,
-              c: offsetC
-            };
-            liveCells.forEach(function (age, key) {
+        if (boundary !== 'toroidal') {
+          // HashLife path — compute on main thread.
+          var newLiveCells = this._hashLifeStep(liveCells, birth, survive);
+          if (boundary === 'finite') {
+            // Clip to grid bounds.
+            var clipped = new Map();
+            newLiveCells.forEach(function (age, key) {
               var comma = key.indexOf(',');
-              payload.push([parseInt(key.substring(0, comma)) - offsetR, parseInt(key.substring(comma + 1)) - offsetC, age]);
+              var r = parseInt(key.substring(0, comma));
+              var c = parseInt(key.substring(comma + 1));
+              if (r >= 0 && r < rows && c >= 0 && c < cols) {
+                clipped.set(key, age);
+              }
             });
-          } else {
-            this._unboundedOffset = null;
-            liveCells.forEach(function (age, key) {
-              var comma = key.indexOf(',');
-              payload.push([parseInt(key.substring(0, comma)), parseInt(key.substring(comma + 1)), age]);
-            });
+            newLiveCells = clipped;
+            this._hlStale = true; // tree must rebuild from clipped cells
           }
-          this._worker.postMessage({
-            liveCells: payload,
-            cols: wCols,
-            rows: wRows,
-            birth: birth,
-            survive: survive,
-            boundary: wBoundary,
-            tickId: tickId
-          });
+          this._applyNewStates(newLiveCells, tickId);
         } else {
-          if (isUnbounded) {
-            // Main-thread fallback for unbounded: same offset trick.
-            var bb2 = SimEngine.getBoundingBox(liveCells);
-            if (!bb2) {
-              this._applyNewStates(new Map(), tickId);
-              return;
-            }
-            var pad2 = 2;
-            var oR = bb2.minR - pad2,
-              oC = bb2.minC - pad2;
-            var fRows = bb2.maxR - bb2.minR + 1 + pad2 * 2;
-            var fCols = bb2.maxC - bb2.minC + 1 + pad2 * 2;
-            var offsetLive = new Map();
-            liveCells.forEach(function (age, key) {
-              var comma = key.indexOf(',');
-              var r = parseInt(key.substring(0, comma)) - oR;
-              var c = parseInt(key.substring(comma + 1)) - oC;
-              offsetLive.set(r + ',' + c, age);
-            });
-            var result = this.computeNextGeneration(offsetLive, fCols, fRows, birth, survive, 'finite');
-            // Un-offset results.
-            var unOffset = new Map();
-            result.forEach(function (age, key) {
-              var comma = key.indexOf(',');
-              var r = parseInt(key.substring(0, comma)) + oR;
-              var c = parseInt(key.substring(comma + 1)) + oC;
-              unOffset.set(r + ',' + c, age);
-            });
-            this._applyNewStates(unOffset, tickId);
-          } else {
-            var newLiveCells = this.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
-            this._applyNewStates(newLiveCells, tickId);
-          }
+          // Toroidal fallback: SimEngine on main thread.
+          var newLiveCells2 = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
+          this._applyNewStates(newLiveCells2, tickId);
         }
       },
       // Called by the worker response handler and the sync path.
@@ -1500,13 +1493,18 @@ document.addEventListener('DOMContentLoaded', function () {
         // generation (which was computed from the pre-stroke snapshot).
         if (this._dragging && this.state.livePaintMode) {
           var painted = this._paintedCells;
+          var hasPainted = false;
           Object.keys(painted).forEach(function (k) {
             if (painted[k] === 1) {
               newLiveCells.set(k, 1);
             } else {
               newLiveCells.delete(k);
             }
+            hasPainted = true;
           });
+          if (hasPainted) {
+            this._hlStale = true;
+          }
         }
 
         // Cell trail tracking: record recently-dead cells.
@@ -1616,25 +1614,6 @@ document.addEventListener('DOMContentLoaded', function () {
           }, delay);
         });
       },
-      // Receives computation results from the Web Worker.
-      _handleWorkerMessage: function (data) {
-        // Reconstruct sparse Map from [[r, c, age], ...] payload.
-        var newLiveCells = new Map();
-        var off = this._unboundedOffset;
-        if (off) {
-          // Un-offset coordinates from unbounded mode.
-          for (var i = 0; i < data.liveCells.length; i++) {
-            var cell = data.liveCells[i];
-            newLiveCells.set(cell[0] + off.r + ',' + (cell[1] + off.c), cell[2]);
-          }
-        } else {
-          for (var i = 0; i < data.liveCells.length; i++) {
-            var cell = data.liveCells[i];
-            newLiveCells.set(cell[0] + ',' + cell[1], cell[2]);
-          }
-        }
-        this._applyNewStates(newLiveCells, data.tickId);
-      },
       stepGame: function () {
         this.pushUndo();
         var liveCells = this.state.liveCells;
@@ -1644,30 +1623,23 @@ document.addEventListener('DOMContentLoaded', function () {
         var survive = this.state.surviveRule;
         var boundary = this.state.boundary;
         var newLiveCells;
-        if (boundary === 'unbounded') {
-          var bb = SimEngine.getBoundingBox(liveCells);
-          if (!bb) {
-            newLiveCells = new Map();
-          } else {
-            var pad = 2;
-            var oR = bb.minR - pad,
-              oC = bb.minC - pad;
-            var fRows = bb.maxR - bb.minR + 1 + pad * 2;
-            var fCols = bb.maxC - bb.minC + 1 + pad * 2;
-            var offsetLive = new Map();
-            liveCells.forEach(function (age, key) {
-              var comma = key.indexOf(',');
-              offsetLive.set(parseInt(key.substring(0, comma)) - oR + ',' + (parseInt(key.substring(comma + 1)) - oC), age);
-            });
-            var result = this.computeNextGeneration(offsetLive, fCols, fRows, birth, survive, 'finite');
-            newLiveCells = new Map();
-            result.forEach(function (age, key) {
-              var comma = key.indexOf(',');
-              newLiveCells.set(parseInt(key.substring(0, comma)) + oR + ',' + (parseInt(key.substring(comma + 1)) + oC), age);
-            });
-          }
+        if (boundary === 'toroidal') {
+          newLiveCells = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
         } else {
-          newLiveCells = this.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
+          newLiveCells = this._hashLifeStep(liveCells, birth, survive);
+          if (boundary === 'finite') {
+            var clipped = new Map();
+            newLiveCells.forEach(function (age, key) {
+              var comma = key.indexOf(',');
+              var r = parseInt(key.substring(0, comma));
+              var c = parseInt(key.substring(comma + 1));
+              if (r >= 0 && r < rows && c >= 0 && c < cols) {
+                clipped.set(key, age);
+              }
+            });
+            newLiveCells = clipped;
+            this._hlStale = true;
+          }
         }
         var newPop = newLiveCells.size;
         var newHistory = this.state.popHistory.concat([newPop]);
@@ -1724,6 +1696,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this._stableCount = 0;
         this._minimapDirty = true;
         var self = this;
+        this._hlStale = true;
         this.setState({
           liveCells: entry.liveCells,
           generations: entry.generations,
@@ -1835,6 +1808,7 @@ document.addEventListener('DOMContentLoaded', function () {
             updates.birthRule = parsed.birth;
             updates.surviveRule = parsed.survive;
             updates.rulePreset = rule.toUpperCase();
+            this._hlStale = true;
           }
           this.setState(updates, function () {
             self.drawBoard();
@@ -2021,6 +1995,7 @@ document.addEventListener('DOMContentLoaded', function () {
           var fillCells = this.floodFillCells(c, r, this.state.liveCells, this.state.cols, this.state.rows, startAlive);
           var self3 = this;
           this._minimapDirty = true;
+          this._hlStale = true;
           this.setState(function (prevState) {
             var newLiveCells = new Map(prevState.liveCells);
             fillCells.forEach(function (rc) {
@@ -2287,6 +2262,7 @@ document.addEventListener('DOMContentLoaded', function () {
             this._drawToolStart = null;
             this._drawPreviewCells = [];
             this._minimapDirty = true;
+            this._hlStale = true;
             var self2 = this;
             var erasing = this._drawErasing;
             this.setState(function (prevState) {
@@ -2323,6 +2299,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         this._paintedCells = {};
         this._minimapDirty = true;
+        this._hlStale = true;
         var self = this;
         this.setState({
           liveCells: newLiveCells,
@@ -2745,6 +2722,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Snapshot selection cells before setState to avoid stale closure.
         var selCells = this.getSelectionCells(sel);
         this._minimapDirty = true;
+        this._hlStale = true;
         var self = this;
         this.setState(function (prevState) {
           var newLiveCells = new Map(prevState.liveCells);
@@ -3153,36 +3131,27 @@ document.addEventListener('DOMContentLoaded', function () {
         var peak = this.state.sessionPeakPop || 0;
         var done = 0;
         var CHUNK = 50;
-        var isUnbounded = boundary === 'unbounded';
+        var isToroidal = boundary === 'toroidal';
         var doChunk = function () {
           var limit = Math.min(done + CHUNK, n);
           for (var i = done; i < limit; i++) {
-            if (isUnbounded) {
-              var bb = SimEngine.getBoundingBox(liveCells);
-              if (!bb) {
-                liveCells = new Map();
-                gen++;
-                done = n;
-                break;
-              }
-              var pad = 2,
-                oR = bb.minR - pad,
-                oC = bb.minC - pad;
-              var fR = bb.maxR - bb.minR + 1 + pad * 2,
-                fC = bb.maxC - bb.minC + 1 + pad * 2;
-              var ol = new Map();
-              liveCells.forEach(function (age, key) {
-                var comma = key.indexOf(',');
-                ol.set(parseInt(key.substring(0, comma)) - oR + ',' + (parseInt(key.substring(comma + 1)) - oC), age);
-              });
-              var res = SimEngine.computeNextGeneration(ol, fC, fR, birth, survive, 'finite');
-              liveCells = new Map();
-              res.forEach(function (age, key) {
-                var comma = key.indexOf(',');
-                liveCells.set(parseInt(key.substring(0, comma)) + oR + ',' + (parseInt(key.substring(comma + 1)) + oC), age);
-              });
-            } else {
+            if (isToroidal) {
               liveCells = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
+            } else {
+              liveCells = self._hashLifeStep(liveCells, birth, survive);
+              if (boundary === 'finite') {
+                var clipped = new Map();
+                liveCells.forEach(function (age, key) {
+                  var comma = key.indexOf(',');
+                  var r = parseInt(key.substring(0, comma));
+                  var c = parseInt(key.substring(comma + 1));
+                  if (r >= 0 && r < rows && c >= 0 && c < cols) {
+                    clipped.set(key, age);
+                  }
+                });
+                liveCells = clipped;
+                self._hlStale = true; // tree must rebuild from clipped cells
+              }
             }
             gen++;
             var pop = liveCells.size;
@@ -3234,6 +3203,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var snapshot = this._genHistory.pop();
         this._minimapDirty = true;
+        this._hlStale = true;
         var self = this;
         this.setState({
           liveCells: snapshot.liveCells,
@@ -3264,6 +3234,7 @@ document.addEventListener('DOMContentLoaded', function () {
       toggleBoundary: function () {
         var cur = this.state.boundary;
         var next = cur === 'toroidal' ? 'finite' : cur === 'finite' ? 'unbounded' : 'toroidal';
+        this._hlStale = true;
         this.setState({
           boundary: next
         });
@@ -3299,6 +3270,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         var clamped = this.clampView(this.state.viewX, this.state.viewY, newCols, newRows, this.state.cellSize);
         this._minimapDirty = true;
+        this._hlStale = true;
         var self = this;
         this.setState({
           cols: newCols,
@@ -3381,6 +3353,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var val = e.target.value;
         var parsed = this.parseRuleString(val);
         if (parsed) {
+          this._hlStale = true;
           this.setState({
             birthRule: parsed.birth,
             surviveRule: parsed.survive,
@@ -3401,6 +3374,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var parsed = this.parseRuleString(rule);
         if (parsed) {
+          this._hlStale = true;
           this.setState({
             birthRule: parsed.birth,
             surviveRule: parsed.survive,
@@ -3541,6 +3515,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         this._previewPos = null;
         this._minimapDirty = true;
+        this._hlStale = true;
         var self = this;
         this.setState({
           liveCells: newLiveCells,
@@ -3556,6 +3531,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this._prevBoardHash = null;
         this._stableCount = 0;
         this._minimapDirty = true;
+        this._hlStale = true;
         this._trailMap = new Map();
         this.clearGenHistory();
         var self = this;
@@ -3581,6 +3557,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this._prevBoardHash = null;
         this._stableCount = 0;
         this._minimapDirty = true;
+        this._hlStale = true;
         this._trailMap = new Map();
         this.clearGenHistory();
         var self = this;
@@ -3676,8 +3653,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var self = this;
         var cols = this.state.cols;
         var rows = this.state.rows;
-        var birth = this.state.birth;
-        var survive = this.state.survive;
+        var birth = this.state.birthRule;
+        var survive = this.state.surviveRule;
         var boundary = this.state.boundary;
         var chunkSize = 50;
 
@@ -3728,6 +3705,23 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         var gen = 0;
         var analysisStartTime = Date.now();
+
+        // Build a local HashLife tree for analysis (separate from main sim state).
+        var aRuleKey = birth.join(',') + '/' + survive.join(',');
+        if (aRuleKey !== self._hlRuleKey) {
+          HashLife.init(birth, survive);
+          self._hlRuleKey = aRuleKey;
+          self._hlStale = true;
+        }
+        var aCells = [];
+        current.forEach(function (age, key) {
+          var comma = key.indexOf(',');
+          aCells.push([parseInt(key.substring(0, comma)), parseInt(key.substring(comma + 1))]);
+        });
+        var aTree = HashLife.fromCellList(aCells);
+        var aRoot = aTree.root,
+          aOffR = aTree.offR,
+          aOffC = aTree.offC;
         function finishAnalysis(msg, duration) {
           self.setState({
             analysisResult: msg,
@@ -3739,6 +3733,41 @@ document.addEventListener('DOMContentLoaded', function () {
             });
           }, duration || 5000);
         }
+        function analyzeStep() {
+          // Advance the local HashLife tree by 1 gen.
+          if (boundary === 'toroidal') {
+            current = SimEngine.computeNextGeneration(current, cols, rows, birth, survive, boundary);
+            return;
+          }
+          var level = aRoot.level;
+          aRoot = HashLife.expandTree(aRoot);
+          aOffR += 1 << level - 1;
+          aOffC += 1 << level - 1;
+          level = aRoot.level;
+          aRoot = HashLife.advance(aRoot, 1);
+          aOffR -= 1 << level - 2;
+          aOffC -= 1 << level - 2;
+          var pLvl = aRoot.level;
+          aRoot = HashLife.trimTree(aRoot);
+          for (var l = pLvl; l > aRoot.level; l--) {
+            aOffR -= 1 << l - 2;
+            aOffC -= 1 << l - 2;
+          }
+          var newCells = HashLife.toCellList(aRoot, aOffR, aOffC);
+          current = overlayAges(current, newCells);
+          if (boundary === 'finite') {
+            var clipped = new Map();
+            current.forEach(function (age, key) {
+              var comma = key.indexOf(',');
+              var r = parseInt(key.substring(0, comma));
+              var c = parseInt(key.substring(comma + 1));
+              if (r >= 0 && r < rows && c >= 0 && c < cols) {
+                clipped.set(key, age);
+              }
+            });
+            current = clipped;
+          }
+        }
         function runChunk() {
           if (self._analysisCancelled) {
             return;
@@ -3749,33 +3778,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
           var end = Math.min(gen + chunkSize, maxGens);
           while (gen < end) {
-            if (boundary === 'unbounded') {
-              var abb = SimEngine.getBoundingBox(current);
-              if (!abb) {
-                current = new Map();
-                gen++;
-                finishAnalysis('Pattern dies at generation ' + gen + '.');
-                return;
-              }
-              var apad = 2,
-                aoR = abb.minR - apad,
-                aoC = abb.minC - apad;
-              var afR = abb.maxR - abb.minR + 1 + apad * 2,
-                afC = abb.maxC - abb.minC + 1 + apad * 2;
-              var aOff = new Map();
-              current.forEach(function (age, key) {
-                var comma = key.indexOf(',');
-                aOff.set(parseInt(key.substring(0, comma)) - aoR + ',' + (parseInt(key.substring(comma + 1)) - aoC), age);
-              });
-              var aRes = SimEngine.computeNextGeneration(aOff, afC, afR, birth, survive, 'finite');
-              current = new Map();
-              aRes.forEach(function (age, key) {
-                var comma = key.indexOf(',');
-                current.set(parseInt(key.substring(0, comma)) + aoR + ',' + (parseInt(key.substring(comma + 1)) + aoC), age);
-              });
-            } else {
-              current = SimEngine.computeNextGeneration(current, cols, rows, birth, survive, boundary);
-            }
+            analyzeStep();
             gen++;
             var h = hashBoard(current);
             if (hashes.has(h)) {
