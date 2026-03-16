@@ -336,6 +336,29 @@ var SimEngine = {
     }
     return map;
   },
+  // Async version of buildLiveCells for large boards (> 250K cells).
+  // Yields to the browser via setTimeout every ~50K cells to prevent UI freeze.
+  buildLiveCellsAsync: function (cols, rows, sparseness, callback) {
+    var map = new Map();
+    var r = 0;
+    var CHUNK = Math.max(1, Math.floor(50000 / cols));
+    function doChunk() {
+      var end = Math.min(r + CHUNK, rows);
+      for (; r < end; r++) {
+        for (var c = 0; c < cols; c++) {
+          if (Math.random() < 1 / sparseness) {
+            map.set(r + ',' + c, 1);
+          }
+        }
+      }
+      if (r < rows) {
+        setTimeout(doChunk, 0);
+      } else {
+        callback(map);
+      }
+    }
+    doChunk();
+  },
   // Returns bounding box {minR, maxR, minC, maxC} of live cells, or null if empty.
   getBoundingBox: function (liveCells) {
     if (liveCells.size === 0) return null;
@@ -667,6 +690,60 @@ document.addEventListener('DOMContentLoaded', function () {
         var cellSize = 5;
         var cols = 100;
         var rows = 100;
+        // Load persisted layout preferences from localStorage.
+        // Schema v1: {layoutMode, railCollapsed, railTab, railSide, panelStates}
+        var LAYOUT_SCHEMA_VERSION = 1;
+        var savedLayout = {};
+        try {
+          var raw = localStorage.getItem('life-layout-prefs');
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            // Validate schema version — if missing or mismatched, discard.
+            if (parsed && typeof parsed === 'object') {
+              // Validate layoutMode is a known value.
+              if (parsed.layoutMode && ['cartographer', 'specimen', 'observatory'].indexOf(parsed.layoutMode) !== -1) {
+                savedLayout.layoutMode = parsed.layoutMode;
+              }
+              if (typeof parsed.railCollapsed === 'boolean') {
+                savedLayout.railCollapsed = parsed.railCollapsed;
+              }
+              if (parsed.railTab && ['simulate', 'tools', 'board', 'rules', 'export'].indexOf(parsed.railTab) !== -1) {
+                savedLayout.railTab = parsed.railTab;
+              }
+              if (parsed.railSide && ['left', 'right'].indexOf(parsed.railSide) !== -1) {
+                savedLayout.railSide = parsed.railSide;
+              }
+              // Validate panelStates: must be an object with known panel keys.
+              if (parsed.panelStates && typeof parsed.panelStates === 'object') {
+                var validPanels = ['transport', 'view', 'tools', 'board', 'rules', 'stats', 'importExport'];
+                var ps = {};
+                var allValid = true;
+                for (var vi = 0; vi < validPanels.length; vi++) {
+                  var pid = validPanels[vi];
+                  if (parsed.panelStates[pid] && typeof parsed.panelStates[pid] === 'object') {
+                    ps[pid] = {
+                      open: typeof parsed.panelStates[pid].open === 'boolean' ? parsed.panelStates[pid].open : true,
+                      x: typeof parsed.panelStates[pid].x === 'number' ? parsed.panelStates[pid].x : -1,
+                      y: typeof parsed.panelStates[pid].y === 'number' ? parsed.panelStates[pid].y : -1,
+                      collapsed: typeof parsed.panelStates[pid].collapsed === 'boolean' ? parsed.panelStates[pid].collapsed : false
+                    };
+                  } else {
+                    allValid = false;
+                    break;
+                  }
+                }
+                if (allValid) {
+                  savedLayout.panelStates = ps;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // Corrupted localStorage — silently ignore, use defaults.
+          try {
+            localStorage.removeItem('life-layout-prefs');
+          } catch (e2) {}
+        }
         return {
           running: true,
           cellSize: cellSize,
@@ -713,7 +790,69 @@ document.addEventListener('DOMContentLoaded', function () {
           shareTooltip: false,
           showPopGraph: false,
           analysisResult: null,
-          analyzing: false
+          analyzing: false,
+          // ── Layout mode state ───────────────────────────
+          layoutMode: savedLayout.layoutMode || 'cartographer',
+          // Cartographer state
+          railCollapsed: savedLayout.railCollapsed || false,
+          railHidden: false,
+          railTab: savedLayout.railTab || 'simulate',
+          railSide: savedLayout.railSide || 'right',
+          // Specimen state
+          contextTrayOpen: false,
+          contextTrayContent: null,
+          contextTrayPinned: false,
+          // Observatory state
+          zenMode: false,
+          panelStates: savedLayout.panelStates || {
+            transport: {
+              open: true,
+              x: -1,
+              y: -1,
+              collapsed: false
+            },
+            view: {
+              open: true,
+              x: -1,
+              y: -1,
+              collapsed: false
+            },
+            tools: {
+              open: true,
+              x: -1,
+              y: -1,
+              collapsed: false
+            },
+            board: {
+              open: true,
+              x: -1,
+              y: -1,
+              collapsed: false
+            },
+            rules: {
+              open: true,
+              x: -1,
+              y: -1,
+              collapsed: false
+            },
+            stats: {
+              open: true,
+              x: -1,
+              y: -1,
+              collapsed: false
+            },
+            importExport: {
+              open: false,
+              x: -1,
+              y: -1,
+              collapsed: false
+            }
+          },
+          // Responsive device class
+          deviceClass: 'desktop',
+          // Bottom sheet (phone modes)
+          bottomSheetOpen: false,
+          bottomSheetTab: 'simulate'
         };
       },
       componentWillMount: function () {
@@ -838,6 +977,45 @@ document.addEventListener('DOMContentLoaded', function () {
           }, 300);
         };
         window.addEventListener('orientationchange', this._onOrientationChange);
+        // ── Device class detection via matchMedia ──────────────────
+        var self3 = this;
+        this._mqPhone = window.matchMedia('(max-width: 620px)');
+        this._mqTablet = window.matchMedia('(min-width: 621px) and (max-width: 900px)');
+        this._mqLandscape = window.matchMedia('(orientation: landscape)');
+        this._updateDeviceClass = function () {
+          var dc;
+          if (self3._mqPhone.matches) {
+            dc = self3._mqLandscape.matches ? 'phone-landscape' : 'phone-portrait';
+          } else if (self3._mqTablet.matches) {
+            dc = 'tablet';
+          } else {
+            dc = 'desktop';
+          }
+          if (dc !== self3.state.deviceClass) {
+            self3.setState({
+              deviceClass: dc
+            }, function () {
+              self3.drawBoard();
+            });
+          }
+        };
+        this._updateDeviceClass();
+        try {
+          this._mqPhone.addEventListener('change', this._updateDeviceClass);
+          this._mqTablet.addEventListener('change', this._updateDeviceClass);
+          this._mqLandscape.addEventListener('change', this._updateDeviceClass);
+        } catch (ex) {
+          try {
+            this._mqPhone.addListener(this._updateDeviceClass);
+            this._mqTablet.addListener(this._updateDeviceClass);
+            this._mqLandscape.addListener(this._updateDeviceClass);
+          } catch (ex2) {}
+        }
+
+        // ── Keyboard shortcut registry ──────────────────────────────
+        this._shortcuts = {};
+        this._registerCoreShortcuts();
+
         // Initialize HashLife engine with current rules.
         HashLife.init(this.state.birthRule, this.state.surviveRule);
         this._hlRuleKey = this.state.birthRule.join(',') + '/' + this.state.surviveRule.join(',');
@@ -855,26 +1033,54 @@ document.addEventListener('DOMContentLoaded', function () {
         var cellSize = this.state.cellSize;
         var pendingCols = this.state.pendingCols;
         var pendingRows = this.state.pendingRows;
-        // Compute available canvas width by subtracting sidebar + padding from viewport.
-        var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
-        var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
-        var contentPad = isMobile ? 24 : 40; // 12×2 mobile, 20×2 desktop
-        var sidebarW = isMobile ? 0 : (isTablet ? 160 : 180) + 14; // sidebar + gap
-        var maxW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
-        var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
-        var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
-        var hFrac = isMobile ? isMobileToolsOpen ? 0.36 : 0.82 : 0.90;
-        var maxH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
+        var dc = this.state.deviceClass;
+        var layout = this.state.layoutMode;
+        var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+        var maxW, maxH;
+        if (typeof window === 'undefined') {
+          maxW = 846;
+          maxH = 900;
+        } else {
+          // In new layout modes, canvas fills the viewport.
+          // Reserve space for UI overlays.
+          var winW = window.innerWidth;
+          var winH = window.innerHeight;
+          if (layout === 'cartographer') {
+            // Desktop/tablet: subtract rail width if not collapsed/hidden
+            var railW = 0;
+            if (!isMobile && !this.state.railHidden) {
+              railW = this.state.railCollapsed ? 40 : dc === 'tablet' ? 200 : 240;
+            }
+            maxW = Math.max(1, winW - railW);
+            // Reserve space for transport strip at bottom
+            var transportH = isMobile ? 48 : 50;
+            maxH = Math.max(1, winH - transportH);
+          } else if (layout === 'specimen') {
+            maxW = winW;
+            // Reserve top bar height
+            var topBarH = 40;
+            maxH = Math.max(1, winH - topBarH);
+          } else if (layout === 'observatory') {
+            maxW = winW;
+            maxH = winH;
+          } else {
+            // Fallback: legacy mode
+            var contentPad = isMobile ? 24 : 40;
+            var sidebarW = isMobile ? 0 : (dc === 'tablet' ? 160 : 180) + 14;
+            maxW = Math.max(1, Math.min(winW, 1100) - contentPad - sidebarW);
+            var isMobileToolsOpen = isMobile && this.state.showMobileTools;
+            var hFrac = isMobile ? isMobileToolsOpen ? 0.36 : 0.82 : 0.90;
+            maxH = Math.min(Math.round(winH * hFrac), 1400);
+          }
+        }
         var isUnbounded = this.state.boundary === 'unbounded';
         var w, h;
         if (isUnbounded) {
-          // Unbounded: fill available viewport, no grid aspect constraint.
           w = maxW;
           h = maxH;
         } else {
           w = Math.min(pendingCols * cellSize, maxW);
           h = Math.min(pendingRows * cellSize, maxH);
-          // Preserve the grid's aspect ratio so a square grid renders as a square canvas.
           var gridAspect = pendingCols / pendingRows;
           if (w / h > gridAspect) {
             w = Math.max(1, Math.round(h * gridAspect));
@@ -882,7 +1088,6 @@ document.addEventListener('DOMContentLoaded', function () {
             h = Math.max(1, Math.round(w / gridAspect));
           }
         }
-        // Scale up buffer to fill available space (displayScale is always ≥ 1).
         var displayScale = isUnbounded ? 1 : w > 0 && h > 0 ? Math.min(maxW / w, maxH / h) : 1;
         var displayW = Math.round(w * displayScale);
         var displayH = Math.round(h * displayScale);
@@ -1402,7 +1607,13 @@ document.addEventListener('DOMContentLoaded', function () {
           this._hlOffC = tree.offC;
           this._hlStale = false;
         }
-        // 3. Expand, advance 1 gen, trim (with offset tracking)
+        // 3. Pre-expand until pattern has margin for growth, then expand+advance+trim
+        while (HashLife.needsExpand(this._hlRoot)) {
+          var lvl = this._hlRoot.level;
+          this._hlRoot = HashLife.expandTree(this._hlRoot);
+          this._hlOffR += 1 << lvl - 1;
+          this._hlOffC += 1 << lvl - 1;
+        }
         var level = this._hlRoot.level;
         this._hlRoot = HashLife.expandTree(this._hlRoot);
         this._hlOffR += 1 << level - 1;
@@ -1822,8 +2033,19 @@ document.addEventListener('DOMContentLoaded', function () {
       // ── Help modal ─────────────────────────────────────────────────────
 
       toggleHelp: function () {
+        var opening = !this.state.showHelp;
+        if (opening) {
+          this._saveFocus();
+        }
+        var self = this;
         this.setState({
-          showHelp: !this.state.showHelp
+          showHelp: opening
+        }, function () {
+          if (opening) {
+            self._focusFirst('.help-modal');
+          } else {
+            self._restoreFocus();
+          }
         });
       },
       // ── Mouse / painting ───────────────────────────────────────────────
@@ -1935,7 +2157,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var pos = this.getCellPos(event);
         var c = pos.c,
           r = pos.r;
-        if (c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows) {
+        if (this.state.boundary !== 'unbounded' && (c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows)) {
           return;
         }
 
@@ -2992,6 +3214,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.ctrlKey || e.metaKey) {
               e.preventDefault();
               this.undo();
+            } else if (this.state.layoutMode === 'observatory') {
+              this.toggleZenMode();
             }
             break;
           case 'c':
@@ -3080,6 +3304,28 @@ document.addEventListener('DOMContentLoaded', function () {
               this.setState({
                 showHelp: false
               });
+              break;
+            }
+            // Close layout elements
+            if (this.state.bottomSheetOpen) {
+              this.setState({
+                bottomSheetOpen: false
+              });
+              break;
+            }
+            if (this.state.contextTrayOpen) {
+              this.setState({
+                contextTrayOpen: false,
+                contextTrayContent: null,
+                contextTrayPinned: false
+              });
+              break;
+            }
+            if (this.state.zenMode) {
+              this.setState({
+                zenMode: false
+              });
+              break;
             }
             break;
           case '?':
@@ -3090,6 +3336,172 @@ document.addEventListener('DOMContentLoaded', function () {
             this.toggleMinimap();
             break;
         }
+      },
+      // ── Keyboard shortcut registry ────────────────────────────────
+
+      _registerCoreShortcuts: function () {
+        var self = this;
+        // Register all existing shortcuts centrally.
+        this._registerShortcut('d', 'Switch to Draw mode', function () {
+          self.toggleDrawMode();
+        });
+        this._registerShortcut('p', 'Switch to Preset mode', function () {
+          self.togglePresetMode();
+        });
+        this._registerShortcut('g', 'Toggle grid lines', function () {
+          self.toggleGridLines();
+        });
+        this._registerShortcut('t', 'Toggle trails', function () {
+          self.toggleTrails();
+        });
+      },
+      _registerShortcut: function (key, description, handler) {
+        this._shortcuts[key.toLowerCase()] = {
+          key: key,
+          description: description,
+          handler: handler
+        };
+      },
+      _unregisterShortcut: function (key) {
+        delete this._shortcuts[key.toLowerCase()];
+      },
+      // ── Layout mode management ───────────────────────────────────────
+
+      _persistLayout: function () {
+        try {
+          localStorage.setItem('life-layout-prefs', JSON.stringify({
+            _schemaVersion: 1,
+            layoutMode: this.state.layoutMode,
+            railCollapsed: this.state.railCollapsed,
+            railTab: this.state.railTab,
+            railSide: this.state.railSide,
+            panelStates: this.state.panelStates
+          }));
+        } catch (e) {
+          // localStorage full or unavailable — silently ignore.
+        }
+      },
+      // ── Focus management ─────────────────────────────────────────
+
+      _saveFocus: function () {
+        this._prevFocusEl = document.activeElement;
+      },
+      _restoreFocus: function () {
+        if (this._prevFocusEl && this._prevFocusEl.focus) {
+          try {
+            this._prevFocusEl.focus();
+          } catch (e) {}
+        }
+        this._prevFocusEl = null;
+      },
+      _focusFirst: function (containerSelector) {
+        var self = this;
+        setTimeout(function () {
+          var el = document.querySelector(containerSelector);
+          if (!el) {
+            return;
+          }
+          var focusable = el.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+          if (focusable) {
+            focusable.focus();
+          }
+        }, 50);
+      },
+      setLayoutMode: function (mode) {
+        var self = this;
+        this.setState({
+          layoutMode: mode,
+          zenMode: false
+        }, function () {
+          self._persistLayout();
+          self.drawBoard();
+        });
+      },
+      setRailTab: function (tab) {
+        var self = this;
+        var updates = {
+          railTab: tab,
+          railCollapsed: false
+        };
+        this.setState(updates, function () {
+          self._persistLayout();
+        });
+      },
+      toggleRailCollapsed: function () {
+        var self = this;
+        this.setState({
+          railCollapsed: !this.state.railCollapsed
+        }, function () {
+          self._persistLayout();
+          self.drawBoard();
+        });
+      },
+      toggleRailHidden: function () {
+        var self = this;
+        this.setState({
+          railHidden: !this.state.railHidden
+        }, function () {
+          self.drawBoard();
+        });
+      },
+      toggleRailSide: function () {
+        var self = this;
+        var newSide = this.state.railSide === 'right' ? 'left' : 'right';
+        this.setState({
+          railSide: newSide
+        }, function () {
+          self._persistLayout();
+          self.drawBoard();
+        });
+      },
+      openContextTray: function (content) {
+        this.setState({
+          contextTrayOpen: true,
+          contextTrayContent: content
+        });
+      },
+      closeContextTray: function () {
+        if (!this.state.contextTrayPinned) {
+          this.setState({
+            contextTrayOpen: false,
+            contextTrayContent: null
+          });
+        }
+      },
+      toggleContextTrayPin: function () {
+        this.setState({
+          contextTrayPinned: !this.state.contextTrayPinned
+        });
+      },
+      toggleZenMode: function () {
+        var self = this;
+        this.setState({
+          zenMode: !this.state.zenMode
+        }, function () {
+          self.drawBoard();
+        });
+      },
+      toggleBottomSheet: function () {
+        var opening = !this.state.bottomSheetOpen;
+        if (opening) {
+          this._saveFocus();
+        }
+        var self = this;
+        this.setState({
+          bottomSheetOpen: opening
+        }, function () {
+          if (opening) {
+            self._focusFirst('.bottom-sheet');
+          } else {
+            self._restoreFocus();
+          }
+        });
+      },
+      setBottomSheetTab: function (tab) {
+        this.setState({
+          bottomSheetTab: tab,
+          bottomSheetOpen: true
+        });
       },
       // ── Toggles ───────────────────────────────────────────────────────
 
@@ -3550,7 +3962,12 @@ document.addEventListener('DOMContentLoaded', function () {
         this.pushUndo();
         var resetCols = this.state.boundary === 'unbounded' ? 100 : this.state.cols;
         var resetRows = this.state.boundary === 'unbounded' ? 100 : this.state.rows;
-        var newLiveCells = this.buildLiveCells(resetCols, resetRows, this.state.sparseness);
+        var totalCells = resetCols * resetRows;
+        var sparseness = this.state.sparseness;
+        // Cap density for very large boards to prevent browser crash.
+        if (totalCells > 1000000) {
+          sparseness = Math.max(sparseness, totalCells / 500000);
+        }
         var wasRunning = this.state.running;
         this._tickId++;
         this._loopRunning = false;
@@ -3561,23 +3978,34 @@ document.addEventListener('DOMContentLoaded', function () {
         this._trailMap = new Map();
         this.clearGenHistory();
         var self = this;
-        this.setState({
-          running: false,
-          generations: 0,
-          liveCells: newLiveCells,
-          popHistory: [],
-          sessionPeakPop: 0,
-          stable: false
-        }, function () {
-          self.drawBoard();
-          if (wasRunning) {
-            self.setState({
-              running: true
-            }, function () {
-              self._startLoop();
-            });
-          }
-        });
+        var applyReset = function (newLiveCells) {
+          self.setState({
+            running: false,
+            generations: 0,
+            liveCells: newLiveCells,
+            popHistory: [],
+            sessionPeakPop: 0,
+            stable: false
+          }, function () {
+            self.drawBoard();
+            if (wasRunning) {
+              self.setState({
+                running: true
+              }, function () {
+                self._startLoop();
+              });
+            }
+          });
+        };
+        if (totalCells > 250000) {
+          // Large board: generate cells asynchronously to avoid UI freeze.
+          this.setState({
+            running: false
+          });
+          SimEngine.buildLiveCellsAsync(resetCols, resetRows, sparseness, applyReset);
+        } else {
+          applyReset(this.buildLiveCells(resetCols, resetRows, sparseness));
+        }
       },
       // ── Render sub-methods ────────────────────────────────────────────
 
@@ -3587,14 +4015,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return /*#__PURE__*/React.createElement("div", {
           className: "help-overlay",
-          onClick: this.toggleHelp
+          onClick: this.toggleHelp,
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": "help-dialog-title"
         }, /*#__PURE__*/React.createElement("div", {
           className: "help-modal",
           onClick: function (e) {
             e.stopPropagation();
           }
         }, /*#__PURE__*/React.createElement("h3", {
-          className: "help-title"
+          className: "help-title",
+          id: "help-dialog-title"
         }, "Keyboard Shortcuts"), /*#__PURE__*/React.createElement("table", {
           className: "help-table"
         }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Space"), /*#__PURE__*/React.createElement("td", null, "Play / Pause")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "."), /*#__PURE__*/React.createElement("td", null, "Step one generation")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Shift+."), /*#__PURE__*/React.createElement("td", null, "Step N generations")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, ","), /*#__PURE__*/React.createElement("td", null, "Step backward")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
@@ -3888,14 +4320,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return /*#__PURE__*/React.createElement("div", {
           className: "help-overlay",
-          onClick: this.togglePopGraph
+          onClick: this.togglePopGraph,
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": "popgraph-dialog-title"
         }, /*#__PURE__*/React.createElement("div", {
           className: "pop-graph-modal",
           onClick: function (e) {
             e.stopPropagation();
           }
         }, /*#__PURE__*/React.createElement("h3", {
-          className: "help-title"
+          className: "help-title",
+          id: "popgraph-dialog-title"
         }, "Population History"), /*#__PURE__*/React.createElement("p", {
           style: {
             fontSize: '0.8em',
@@ -4870,20 +5306,11 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "rle-error"
         }, this.state.rleError))));
       },
-      // ── Main render ───────────────────────────────────────────────────
+      // ── Shared sub-components (used by all layout modes) ───────────
 
-      render: function () {
-        var cs = this.getCanvasSize();
-        return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-          className: "sr-only",
-          "aria-live": "polite",
-          "aria-atomic": "true"
-        }, "Generation " + this.state.generations + ", Population " + this.state.liveCells.size), this.renderHelpModal(), this.renderPopGraph(), /*#__PURE__*/React.createElement("h2", {
-          className: "top site-title"
-        }, "Conway's Game of Life"), this.renderToolbar(), /*#__PURE__*/React.createElement("div", {
-          className: "content-body"
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")
+      renderCanvas: function (cs) {
+        return /*#__PURE__*/React.createElement("div", {
+          className: "app-canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")
         }, /*#__PURE__*/React.createElement("canvas", {
           className: "display",
           width: cs.w,
@@ -4909,28 +5336,894 @@ document.addEventListener('DOMContentLoaded', function () {
         }), this.state.analysisResult ? /*#__PURE__*/React.createElement("div", {
           className: "analysis-result" + (this.state.analyzing ? " analysis-cancellable" : ""),
           onClick: this.state.analyzing ? this.cancelAnalysis : null
-        }, this.state.analysisResult) : null, this.renderMobileContextPanel(), this.renderMobileStatsBar(), this.renderMobileSparkline(), this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
-          className: "mobile-quickbar"
+        }, this.state.analysisResult) : null);
+      },
+      renderTransportControls: function (compact) {
+        var self = this;
+        if (compact) {
+          return /*#__PURE__*/React.createElement("div", {
+            className: "transport-controls transport-compact"
+          }, /*#__PURE__*/React.createElement("button", {
+            className: "btn btn-toggle" + (this.state.running ? " active" : ""),
+            onClick: this.toggleGame,
+            title: "Play/Pause (Space)"
+          }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
+            className: "btn",
+            onClick: this.stepGame,
+            title: "Step (.)"
+          }, "Step"), /*#__PURE__*/React.createElement("span", {
+            className: "transport-speed-label"
+          }, "Gen " + this.state.generations.toLocaleString()));
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "transport-controls"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.running ? " active" : ""),
+          onClick: this.toggleGame,
+          title: "Start or pause the simulation (Space)"
+        }, this.state.running ? "Pause" : "Play"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.stepGame,
+          title: "Advance one generation (Enter)"
+        }, "Step"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.stepBack,
+          title: "Step backward (,)",
+          disabled: this._genHistory && this._genHistory.length === 0
+        }, "Back"), /*#__PURE__*/React.createElement("select", {
+          className: "toolbar-step-select",
+          value: this.state.stepCount,
+          onChange: this.setStepCount,
+          title: "Advance N generations"
+        }, /*#__PURE__*/React.createElement("option", {
+          value: "1"
+        }, "+1"), /*#__PURE__*/React.createElement("option", {
+          value: "10"
+        }, "+10"), /*#__PURE__*/React.createElement("option", {
+          value: "50"
+        }, "+50"), /*#__PURE__*/React.createElement("option", {
+          value: "100"
+        }, "+100"), /*#__PURE__*/React.createElement("option", {
+          value: "500"
+        }, "+500")), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: function () {
+            self.stepN(self.state.stepCount);
+          },
+          title: "Advance multiple generations"
+        }, "Go"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.resetGame,
+          title: "Randomize the board (R)"
+        }, "Reset"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.emptyBoard,
+          title: "Clear all cells (E)"
+        }, "Empty"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.undo,
+          title: "Undo last edit (Ctrl+Z)"
+        }, "Undo"));
+      },
+      renderViewControls: function () {
+        return /*#__PURE__*/React.createElement("div", {
+          className: "view-controls"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.fitView,
+          title: "Zoom to fit entire grid"
+        }, "Fit Grid"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.fitLiveCells,
+          title: "Zoom to fit live cells"
+        }, "Fit Cells"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.gridLines ? " active" : ""),
+          onClick: this.toggleGridLines,
+          title: "Toggle grid lines (G)"
+        }, "Grid"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.showTrails ? " active" : ""),
+          onClick: this.toggleTrails,
+          title: "Show ghost trails"
+        }, "Trails"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.showMinimap ? " active" : ""),
+          onClick: this.toggleMinimap,
+          title: "Show/hide minimap (M)"
+        }, "Minimap"));
+      },
+      renderModeControls: function () {
+        return /*#__PURE__*/React.createElement("div", {
+          className: "mode-controls"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : ""),
+          onClick: this.toggleDrawMode,
+          title: "Freehand draw mode (D)"
+        }, "Draw"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : ""),
+          onClick: this.togglePresetMode,
+          title: "Place preset patterns (P)"
+        }, "Preset"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
+          onClick: this.toggleSelectMode,
+          title: "Select and move cells (S)"
+        }, "Select"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
+          onClick: this.toggleLivePaint,
+          title: "Paint while running"
+        }, "Live Paint"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : ""),
+          onClick: this.toggleBoundary,
+          title: "Cycle boundary"
+        }, this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.analyzePattern,
+          disabled: this.state.analyzing,
+          title: "Detect oscillator/spaceship"
+        }, "Analyze"));
+      },
+      renderToolsContent: function () {
+        var self = this;
+        var filterLc = this.state.patternFilter.toLowerCase();
+        var patternOptions = Object.keys(PATTERN_GROUPS).map(function (group) {
+          var names = Object.keys(PATTERN_GROUPS[group]).filter(function (name) {
+            return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
+          });
+          if (names.length === 0) {
+            return null;
+          }
+          var opts = names.map(function (name) {
+            var meta = PATTERN_META[name];
+            var title = '';
+            if (meta) {
+              if (meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');else if (meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+            }
+            return /*#__PURE__*/React.createElement("option", {
+              key: name,
+              value: name,
+              title: title
+            }, name);
+          });
+          return /*#__PURE__*/React.createElement("optgroup", {
+            key: group,
+            label: group
+          }, opts);
+        }).filter(function (x) {
+          return x !== null;
+        });
+        if (PATTERNS['Custom']) {
+          patternOptions = patternOptions.concat(/*#__PURE__*/React.createElement("optgroup", {
+            key: "custom",
+            label: "Custom"
+          }, /*#__PURE__*/React.createElement("option", {
+            value: "Custom"
+          }, "Custom")));
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "tools-content"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "sidebar-section-title"
+        }, "Tools"), /*#__PURE__*/React.createElement("div", {
+          className: "btn-section"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "tool-subtype-row"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "tool-label"
+        }, "Draw:"), /*#__PURE__*/React.createElement("select", {
+          value: this.state.drawTool,
+          onChange: function (e) {
+            self.setState({
+              drawTool: e.target.value,
+              drawMode: 'paint',
+              selection: null
+            });
+          }
+        }, /*#__PURE__*/React.createElement("option", {
+          value: "cell"
+        }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
+          value: "line"
+        }, "Line"), /*#__PURE__*/React.createElement("option", {
+          value: "fill"
+        }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
+          value: "shape-rect"
+        }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+          value: "shape-circle"
+        }, "Circle"))), /*#__PURE__*/React.createElement("div", {
+          className: "tool-subtype-row"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "tool-label"
+        }, "Select:"), /*#__PURE__*/React.createElement("select", {
+          value: this.state.selectTool,
+          onChange: function (e) {
+            self.setState({
+              selectTool: e.target.value,
+              drawMode: 'select',
+              selection: null
+            });
+          }
+        }, /*#__PURE__*/React.createElement("option", {
+          value: "rect"
+        }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+          value: "ellipse"
+        }, "Ellipse"), /*#__PURE__*/React.createElement("option", {
+          value: "freeform"
+        }, "Freeform"), /*#__PURE__*/React.createElement("option", {
+          value: "all-visible"
+        }, "All visible"))), /*#__PURE__*/React.createElement("div", {
+          className: "tool-subtype-row"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "tool-label"
+        }, "Preset:"), /*#__PURE__*/React.createElement("select", {
+          className: "preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : ""),
+          value: this.state.selectedPattern || "",
+          onChange: this.selectPattern
+        }, /*#__PURE__*/React.createElement("option", {
+          value: ""
+        }, "Choose preset..."), patternOptions)), /*#__PURE__*/React.createElement("input", {
+          className: "pattern-filter-input",
+          type: "text",
+          placeholder: "Filter patterns...",
+          value: this.state.patternFilter,
+          onChange: function (e) {
+            self.setState({
+              patternFilter: e.target.value
+            });
+          }
+        }), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("div", {
+          className: "rotation-row"
+        }, /*#__PURE__*/React.createElement("canvas", {
+          className: "rotation-preview",
+          width: "96",
+          height: "96",
+          ref: function (c) {
+            self._previewCanvas = c;
+          }
+        }), /*#__PURE__*/React.createElement("div", {
+          className: "rotation-btns"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-rotate",
+          onClick: this.rotateCCW,
+          title: "Rotate 90\xB0 CCW"
+        }, "\u21BA"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-rotate",
+          onClick: this.rotateCW,
+          title: "Rotate 90\xB0 CW"
+        }, "\u21BB"))), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("p", {
+          className: "placement-hint"
+        }, "Click canvas to place \xB7 " + this.state.selectedPattern, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+          className: "placement-hint-sub"
+        }, "Right-click or Esc to cancel")), this.state.selection && /*#__PURE__*/React.createElement("div", {
+          className: "buttons buttons-selection"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.copySelection
+        }, "Copy"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.pasteAsPattern,
+          disabled: !this.state.clipboard || this.state.clipboard.length === 0
+        }, "Paste"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.deleteSelection
+        }, "Delete"))));
+      },
+      renderExportContent: function () {
+        return /*#__PURE__*/React.createElement("div", {
+          className: "export-content"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "sidebar-section-title"
+        }, "Export & Import"), /*#__PURE__*/React.createElement("div", {
+          className: "btn-section"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "buttons buttons-export"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.exportPNG,
+          title: "Save as PNG"
+        }, "Export PNG"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.copyRLE,
+          title: "Copy board as RLE"
+        }, "Copy RLE"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.recording ? " active btn-record" : ""),
+          onClick: this.toggleRecording
+        }, this.state.recording ? "Stop" : "Record"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.shareURL
+        }, this.state.shareTooltip ? "Copied!" : "Share")), this.renderRLESection()));
+      },
+      renderLayoutSwitcher: function () {
+        var self = this;
+        var mode = this.state.layoutMode;
+        return /*#__PURE__*/React.createElement("div", {
+          className: "layout-switcher"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (mode === 'cartographer' ? " active" : ""),
+          onClick: function () {
+            self.setLayoutMode('cartographer');
+          },
+          title: "Cartographer: Edge rail with tabs"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-columns"
+        })), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (mode === 'specimen' ? " active" : ""),
+          onClick: function () {
+            self.setLayoutMode('specimen');
+          },
+          title: "Specimen: Contextual toolbar"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-window-maximize"
+        })), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (mode === 'observatory' ? " active" : ""),
+          onClick: function () {
+            self.setLayoutMode('observatory');
+          },
+          title: "Observatory: Floating panels"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-th-large"
+        })));
+      },
+      // ── Cartographer layout ─────────────────────────────────────────
+
+      renderCartographer: function (cs) {
+        var self = this;
+        var dc = this.state.deviceClass;
+        var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+        if (isMobile) {
+          return this.renderCartographerMobile(cs);
+        }
+        var railW = this.state.railHidden ? 0 : this.state.railCollapsed ? 40 : dc === 'tablet' ? 200 : 240;
+        var railSide = this.state.railSide;
+        var railClass = 'rail' + (this.state.railCollapsed ? ' rail-collapsed' : '') + (this.state.railHidden ? ' rail-hidden' : '') + (' rail-' + railSide);
+        var tabContent = null;
+        switch (this.state.railTab) {
+          case 'simulate':
+            tabContent = /*#__PURE__*/React.createElement("div", {
+              className: "rail-tab-content"
+            }, /*#__PURE__*/React.createElement("div", {
+              className: "sidebar-section-title"
+            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls());
+            break;
+          case 'tools':
+            tabContent = /*#__PURE__*/React.createElement("div", {
+              className: "rail-tab-content"
+            }, this.renderToolsContent());
+            break;
+          case 'board':
+            tabContent = /*#__PURE__*/React.createElement("div", {
+              className: "rail-tab-content"
+            }, this.renderSliders());
+            break;
+          case 'rules':
+            tabContent = /*#__PURE__*/React.createElement("div", {
+              className: "rail-tab-content"
+            }, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
+              style: {
+                marginTop: '8px'
+              }
+            }, this.renderLayoutSwitcher()));
+            break;
+          case 'export':
+            tabContent = /*#__PURE__*/React.createElement("div", {
+              className: "rail-tab-content"
+            }, this.renderExportContent());
+            break;
+        }
+        var tabs = [{
+          id: 'simulate',
+          icon: 'fa-play',
+          label: 'Simulate'
+        }, {
+          id: 'tools',
+          icon: 'fa-pencil',
+          label: 'Tools'
+        }, {
+          id: 'board',
+          icon: 'fa-th',
+          label: 'Board'
+        }, {
+          id: 'rules',
+          icon: 'fa-cog',
+          label: 'Rules'
+        }, {
+          id: 'export',
+          icon: 'fa-download',
+          label: 'Export'
+        }];
+        return /*#__PURE__*/React.createElement("div", {
+          className: "layout-cartographer"
+        }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
+          className: railClass,
+          style: {
+            width: railW + 'px'
+          },
+          role: "complementary",
+          "aria-label": "Controls panel"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "rail-header"
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "rail-title"
+        }, "Conway's Game of Life"), /*#__PURE__*/React.createElement("div", {
+          className: "rail-header-controls"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn rail-collapse-btn",
+          onClick: this.toggleRailCollapsed,
+          "aria-expanded": !this.state.railCollapsed,
+          "aria-label": this.state.railCollapsed ? "Expand controls panel" : "Collapse controls panel"
+        }, this.state.railCollapsed ? "\u25C0" : "\u25B6"))), !this.state.railCollapsed && /*#__PURE__*/React.createElement("div", {
+          className: "rail-stats"
+        }, this.renderStats()), /*#__PURE__*/React.createElement("div", {
+          className: "rail-tabs",
+          role: "tablist",
+          "aria-label": "Control categories"
+        }, tabs.map(function (tab) {
+          var isActive = self.state.railTab === tab.id;
+          return /*#__PURE__*/React.createElement("button", {
+            key: tab.id,
+            className: "rail-tab" + (isActive ? " active" : ""),
+            onClick: function () {
+              self.setRailTab(tab.id);
+            },
+            role: "tab",
+            "aria-selected": isActive,
+            "aria-controls": "rail-panel-" + tab.id,
+            "aria-label": tab.label
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fa " + tab.icon,
+            "aria-hidden": "true"
+          }), !self.state.railCollapsed && /*#__PURE__*/React.createElement("span", {
+            className: "rail-tab-label"
+          }, tab.label));
+        })), !this.state.railCollapsed && /*#__PURE__*/React.createElement("div", {
+          id: "rail-panel-" + this.state.railTab,
+          role: "tabpanel",
+          "aria-label": this.state.railTab + " controls"
+        }, tabContent)), /*#__PURE__*/React.createElement("div", {
+          className: "transport-strip",
+          role: "toolbar",
+          "aria-label": "Simulation transport"
+        }, this.renderTransportControls(true)), this.state.railHidden && /*#__PURE__*/React.createElement("div", {
+          className: "rail-reveal rail-reveal-" + railSide,
+          onMouseEnter: this.toggleRailHidden
+        }));
+      },
+      renderCartographerMobile: function (cs) {
+        var self = this;
+        var tabs = [{
+          id: 'simulate',
+          icon: 'fa-play',
+          label: 'Simulate'
+        }, {
+          id: 'tools',
+          icon: 'fa-pencil',
+          label: 'Tools'
+        }, {
+          id: 'board',
+          icon: 'fa-th',
+          label: 'Board'
+        }, {
+          id: 'rules',
+          icon: 'fa-cog',
+          label: 'Rules'
+        }, {
+          id: 'export',
+          icon: 'fa-download',
+          label: 'Export'
+        }];
+        var sheetContent = null;
+        switch (this.state.bottomSheetTab) {
+          case 'simulate':
+            sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+              className: "sidebar-section-title"
+            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls());
+            break;
+          case 'tools':
+            sheetContent = this.renderToolsContent();
+            break;
+          case 'board':
+            sheetContent = this.renderSliders();
+            break;
+          case 'rules':
+            sheetContent = /*#__PURE__*/React.createElement("div", null, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
+              style: {
+                marginTop: '8px'
+              }
+            }, this.renderLayoutSwitcher()));
+            break;
+          case 'export':
+            sheetContent = this.renderExportContent();
+            break;
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "layout-cartographer layout-mobile"
+        }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
+          className: "stats-chip",
+          onClick: this.togglePopGraph
+        }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
+          className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
+        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), /*#__PURE__*/React.createElement("div", {
+          className: "mobile-transport-bar",
+          role: "toolbar",
+          "aria-label": "Simulation transport"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.running ? " active" : ""),
+          onClick: this.toggleGame,
+          "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
+        }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.stepGame,
+          "aria-label": "Step one generation"
+        }, "Step"), /*#__PURE__*/React.createElement("span", {
+          className: "mobile-transport-mode",
+          "aria-live": "polite"
+        }, this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
+          onClick: this.toggleBottomSheet,
+          "aria-expanded": this.state.bottomSheetOpen,
+          "aria-label": "Open controls panel"
+        }, "More")), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-container"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-backdrop",
+          onClick: this.toggleBottomSheet,
+          role: "presentation",
+          "aria-hidden": "true"
+        }), /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-label": "Controls panel"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-tabs",
+          role: "tablist",
+          "aria-label": "Control categories"
+        }, tabs.map(function (tab) {
+          var isActive = self.state.bottomSheetTab === tab.id;
+          return /*#__PURE__*/React.createElement("button", {
+            key: tab.id,
+            className: "rail-tab" + (isActive ? " active" : ""),
+            onClick: function () {
+              self.setBottomSheetTab(tab.id);
+            },
+            role: "tab",
+            "aria-selected": isActive,
+            "aria-label": tab.label
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fa " + tab.icon,
+            "aria-hidden": "true"
+          }), /*#__PURE__*/React.createElement("span", {
+            className: "rail-tab-label"
+          }, tab.label));
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-content"
+        }, sheetContent))));
+      },
+      // ── Specimen layout ──────────────────────────────────────────────
+
+      renderSpecimen: function (cs) {
+        var self = this;
+        var dc = this.state.deviceClass;
+        var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+        if (isMobile) {
+          return this.renderSpecimenMobile(cs);
+        }
+        var trayContent = null;
+        switch (this.state.contextTrayContent) {
+          case 'tools':
+            trayContent = this.renderToolsContent();
+            break;
+          case 'board':
+            trayContent = this.renderSliders();
+            break;
+          case 'rules':
+            trayContent = /*#__PURE__*/React.createElement("div", null, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
+              style: {
+                marginTop: '8px'
+              }
+            }, this.renderLayoutSwitcher()));
+            break;
+          case 'export':
+            trayContent = this.renderExportContent();
+            break;
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "layout-specimen"
+        }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
+          className: "top-bar",
+          role: "toolbar",
+          "aria-label": "Main toolbar"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "top-bar-left"
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "top-bar-title"
+        }, "Conway's Game of Life")), /*#__PURE__*/React.createElement("div", {
+          className: "top-bar-center"
+        }, this.renderTransportControls(false)), /*#__PURE__*/React.createElement("div", {
+          className: "top-bar-right"
+        }, this.renderModeControls(), /*#__PURE__*/React.createElement("div", {
+          className: "top-bar-more",
+          role: "group",
+          "aria-label": "Settings panels"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : ""),
+          onClick: function () {
+            self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools');
+          },
+          "aria-expanded": this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen
+        }, "Tools"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.contextTrayContent === 'board' && this.state.contextTrayOpen ? " active" : ""),
+          onClick: function () {
+            self.state.contextTrayContent === 'board' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('board');
+          },
+          "aria-expanded": this.state.contextTrayContent === 'board' && this.state.contextTrayOpen
+        }, "Board"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen ? " active" : ""),
+          onClick: function () {
+            self.state.contextTrayContent === 'rules' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('rules');
+          },
+          "aria-expanded": this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen
+        }, "Rules"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.contextTrayContent === 'export' && this.state.contextTrayOpen ? " active" : ""),
+          onClick: function () {
+            self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export');
+          },
+          "aria-expanded": this.state.contextTrayContent === 'export' && this.state.contextTrayOpen
+        }, "Export")))), this.state.contextTrayOpen && /*#__PURE__*/React.createElement("div", {
+          className: "context-tray" + (this.state.contextTrayPinned ? " pinned" : ""),
+          role: "region",
+          "aria-label": this.state.contextTrayContent + " settings"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "context-tray-header"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.contextTrayPinned ? " active" : ""),
+          onClick: this.toggleContextTrayPin,
+          "aria-pressed": this.state.contextTrayPinned,
+          "aria-label": "Pin tray open"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-thumb-tack",
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: function () {
+            self.setState({
+              contextTrayOpen: false,
+              contextTrayContent: null,
+              contextTrayPinned: false
+            });
+          },
+          "aria-label": "Close settings tray"
+        }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+          className: "context-tray-body"
+        }, trayContent)), /*#__PURE__*/React.createElement("div", {
+          className: "hud-overlay",
+          onClick: this.togglePopGraph,
+          role: "status",
+          "aria-live": "polite",
+          "aria-label": "Simulation statistics",
+          tabIndex: "0"
+        }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
+          className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
+        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause"), this.state.hoverCell && /*#__PURE__*/React.createElement("span", {
+          className: "coord-display"
+        }, "Col\u00a0" + this.state.hoverCell.c + "\u2002Row\u00a0" + this.state.hoverCell.r)));
+      },
+      renderSpecimenMobile: function (cs) {
+        var self = this;
+        return /*#__PURE__*/React.createElement("div", {
+          className: "layout-specimen layout-mobile"
+        }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
+          className: "top-bar top-bar-mobile"
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "stats-chip-inline"
+        }, "Gen " + this.state.generations.toLocaleString() + "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.running ? " active" : ""),
+          onClick: this.toggleGame
+        }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.stepGame
+        }, "Step"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
+          onClick: this.toggleBottomSheet
+        }, "More")), this.renderMobileContextPanel(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-container"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-backdrop",
+          onClick: this.toggleBottomSheet
+        }), /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-content bottom-sheet-accordion"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "sidebar-section-title"
+        }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderToolsContent(), this.renderSliders(), this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
+          style: {
+            marginTop: '8px'
+          }
+        }, this.renderLayoutSwitcher()), this.renderExportContent()))));
+      },
+      // ── Observatory layout ───────────────────────────────────────────
+
+      renderObservatory: function (cs) {
+        var self = this;
+        var dc = this.state.deviceClass;
+        var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+        if (isMobile) {
+          return this.renderObservatoryMobile(cs);
+        }
+        var panels = this.state.panelStates;
+        var zenMode = this.state.zenMode;
+        return /*#__PURE__*/React.createElement("div", {
+          className: "layout-observatory" + (zenMode ? " zen-mode" : "")
+        }, this.renderCanvas(cs), !zenMode && /*#__PURE__*/React.createElement("div", {
+          className: "panel-overlay-container",
+          role: "group",
+          "aria-label": "Floating control panels"
+        }, this._renderFloatPanel('transport', 'Transport', this.renderTransportControls(false)), this._renderFloatPanel('view', 'View', this.renderViewControls()), this._renderFloatPanel('tools', 'Tools', /*#__PURE__*/React.createElement("div", null, this.renderModeControls(), this.renderToolsContent())), this._renderFloatPanel('board', 'Board', this.renderSliders()), this._renderFloatPanel('rules', 'Rules', /*#__PURE__*/React.createElement("div", null, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
+          style: {
+            marginTop: '8px'
+          }
+        }, this.renderLayoutSwitcher()))), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent()), /*#__PURE__*/React.createElement("div", {
+          className: "panel-menu",
+          role: "group",
+          "aria-label": "Panel visibility"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn panel-menu-toggle",
+          onClick: function () {
+            self.setState({
+              _panelMenuOpen: !self.state._panelMenuOpen
+            });
+          },
+          "aria-expanded": !!this.state._panelMenuOpen,
+          "aria-label": "Toggle panel visibility menu"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-th",
+          "aria-hidden": "true"
+        })), this.state._panelMenuOpen && /*#__PURE__*/React.createElement("div", {
+          className: "panel-menu-list",
+          role: "group",
+          "aria-label": "Panel toggles"
+        }, ['transport', 'view', 'tools', 'board', 'rules', 'stats', 'importExport'].map(function (id) {
+          var label = id === 'importExport' ? 'Import/Export' : id.charAt(0).toUpperCase() + id.slice(1);
+          return /*#__PURE__*/React.createElement("label", {
+            key: id,
+            className: "panel-menu-item"
+          }, /*#__PURE__*/React.createElement("input", {
+            type: "checkbox",
+            checked: panels[id].open,
+            onChange: function () {
+              self._togglePanelOpen(id);
+            },
+            "aria-label": "Show " + label + " panel"
+          }), /*#__PURE__*/React.createElement("span", null, label));
+        })))));
+      },
+      renderObservatoryMobile: function (cs) {
+        var self = this;
+        // Mobile: use drawer-based approach
+        return /*#__PURE__*/React.createElement("div", {
+          className: "layout-observatory layout-mobile"
+        }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
+          className: "mobile-transport-bar"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
           onClick: this.toggleGame
-        }, this.state.running ? "Pause" : "Play"), /*#__PURE__*/React.createElement("button", {
+        }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepGame
         }, "Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.resetGame
         }, "Reset"), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.showMobileTools ? " active" : ""),
-          onClick: this.toggleMobileTools
-        }, "Controls"))), /*#__PURE__*/React.createElement("div", {
-          className: "sidebar" + (this.state.showMobileTools ? " mobile-open" : "")
+          className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
+          onClick: this.toggleBottomSheet
+        }, "Controls")), /*#__PURE__*/React.createElement("div", {
+          className: "stats-chip",
+          onClick: this.togglePopGraph
+        }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
+          className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
+        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-container"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "sidebar-scroll-content"
-        }, this.renderStats(), this.renderButtons(), this.renderRulesSection(), this.renderSliders(), this.renderRLESection()))), this.state.showMobileTools && /*#__PURE__*/React.createElement("div", {
-          className: "mobile-sheet-backdrop",
-          onClick: this.toggleMobileTools
-        }));
+          className: "bottom-sheet-backdrop",
+          onClick: this.toggleBottomSheet
+        }), /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-content bottom-sheet-accordion"
+        }, this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderToolsContent(), this.renderSliders(), this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
+          style: {
+            marginTop: '8px'
+          }
+        }, this.renderLayoutSwitcher()), this.renderExportContent()))));
+      },
+      // ── Float panel helper (Observatory) ─────────────────────────────
+
+      _renderFloatPanel: function (panelId, label, content) {
+        var self = this;
+        var ps = this.state.panelStates[panelId];
+        if (!ps || !ps.open) {
+          return null;
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (ps.collapsed ? " float-panel-collapsed" : ""),
+          style: ps.x >= 0 ? {
+            left: ps.x,
+            top: ps.y
+          } : {},
+          role: "region",
+          "aria-label": label + " panel"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "float-panel-header"
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "float-panel-title",
+          id: "panel-title-" + panelId
+        }, label), /*#__PURE__*/React.createElement("button", {
+          className: "btn float-panel-collapse",
+          onClick: function () {
+            self._togglePanelCollapse(panelId);
+          },
+          "aria-expanded": !ps.collapsed,
+          "aria-label": ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"
+        }, ps.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
+          className: "btn float-panel-close",
+          onClick: function () {
+            self._togglePanelOpen(panelId);
+          },
+          "aria-label": "Close " + label + " panel"
+        }, "\xD7")), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+          className: "float-panel-body"
+        }, content));
+      },
+      // ── Panel state helpers (Observatory) ────────────────────────────
+
+      _togglePanelOpen: function (panelId) {
+        var panels = JSON.parse(JSON.stringify(this.state.panelStates));
+        panels[panelId].open = !panels[panelId].open;
+        var self = this;
+        this.setState({
+          panelStates: panels
+        }, function () {
+          self._persistLayout();
+        });
+      },
+      _togglePanelCollapse: function (panelId) {
+        var panels = JSON.parse(JSON.stringify(this.state.panelStates));
+        panels[panelId].collapsed = !panels[panelId].collapsed;
+        var self = this;
+        this.setState({
+          panelStates: panels
+        }, function () {
+          self._persistLayout();
+        });
+      },
+      // ── Main render ───────────────────────────────────────────────────
+
+      render: function () {
+        var cs = this.getCanvasSize();
+        var layout = this.state.layoutMode;
+        var layoutContent;
+        switch (layout) {
+          case 'cartographer':
+            layoutContent = this.renderCartographer(cs);
+            break;
+          case 'specimen':
+            layoutContent = this.renderSpecimen(cs);
+            break;
+          case 'observatory':
+            layoutContent = this.renderObservatory(cs);
+            break;
+          default:
+            layoutContent = this.renderCartographer(cs);
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "app-root layout-" + layout,
+          role: "application",
+          "aria-label": "Conway's Game of Life"
+        }, /*#__PURE__*/React.createElement("a", {
+          className: "skip-to-content",
+          href: "#life-canvas"
+        }, "Skip to canvas"), /*#__PURE__*/React.createElement("div", {
+          className: "sr-only",
+          "aria-live": "polite",
+          "aria-atomic": "true"
+        }, "Generation " + this.state.generations + ", Population " + this.state.liveCells.size), this.renderHelpModal(), this.renderPopGraph(), layoutContent);
       }
     });
     ReactDOM.render(/*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(LifeBoard, null)), document.getElementById("content"));
