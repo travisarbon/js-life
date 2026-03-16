@@ -1185,6 +1185,30 @@ document.addEventListener('DOMContentLoaded', function () {
           this._gif.abort();
           this._gif = null;
         }
+        // Remove media query listeners.
+        if (this._darkModeQuery && this._onDarkModeChange) {
+          try {
+            this._darkModeQuery.removeEventListener('change', this._onDarkModeChange);
+          } catch (ex) {
+            try {
+              this._darkModeQuery.removeListener(this._onDarkModeChange);
+            } catch (ex2) {}
+          }
+        }
+        if (this._updateDeviceClass) {
+          var mqList = [this._mqPhone, this._mqPhoneLandscape, this._mqTablet, this._mqLandscape];
+          for (var mi = 0; mi < mqList.length; mi++) {
+            if (mqList[mi]) {
+              try {
+                mqList[mi].removeEventListener('change', this._updateDeviceClass);
+              } catch (ex) {
+                try {
+                  mqList[mi].removeListener(this._updateDeviceClass);
+                } catch (ex2) {}
+              }
+            }
+          }
+        }
         // Cancel pending animation frame and timeout.
         this._mounted = false;
         if (this._rafId) {
@@ -1866,9 +1890,15 @@ document.addEventListener('DOMContentLoaded', function () {
           // Cap trail map size for performance.
           if (trailMap.size > 50000) {
             var excess = trailMap.size - 50000;
+            var delKeys = [];
             var iter = trailMap.keys();
             for (var ei = 0; ei < excess; ei++) {
-              trailMap.delete(iter.next().value);
+              var nk = iter.next();
+              if (nk.done) break;
+              delKeys.push(nk.value);
+            }
+            for (var di = 0; di < delKeys.length; di++) {
+              trailMap.delete(delKeys[di]);
             }
           }
         }
@@ -2118,8 +2148,8 @@ document.addEventListener('DOMContentLoaded', function () {
           if (!params.rle) {
             return;
           }
-          var cols = parseInt(params.cols) || 100;
-          var rows = parseInt(params.rows) || 100;
+          var cols = Math.min(10000, Math.max(1, parseInt(params.cols, 10) || 100));
+          var rows = Math.min(10000, Math.max(1, parseInt(params.rows, 10) || 100));
           var rule = params.rule || 'B3/S23';
           var parsed = this.parseRuleString(rule);
           var result = SimEngine.parseRLE(params.rle);
@@ -3222,7 +3252,7 @@ document.addEventListener('DOMContentLoaded', function () {
           var t0 = event.touches[0],
             t1 = event.touches[1];
           this._pinchStart = {
-            dist: Math.sqrt(Math.pow(t1.clientX - t0.clientX, 2) + Math.pow(t1.clientY - t0.clientY, 2)),
+            dist: Math.sqrt((t1.clientX - t0.clientX) * (t1.clientX - t0.clientX) + (t1.clientY - t0.clientY) * (t1.clientY - t0.clientY)),
             midX: (t0.clientX + t1.clientX) / 2,
             midY: (t0.clientY + t1.clientY) / 2,
             cellSize: this.state.cellSize,
@@ -3292,7 +3322,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (event.touches.length === 2 && this._pinchStart) {
           var t0 = event.touches[0],
             t1 = event.touches[1];
-          var newDist = Math.sqrt(Math.pow(t1.clientX - t0.clientX, 2) + Math.pow(t1.clientY - t0.clientY, 2));
+          var newDist = Math.sqrt((t1.clientX - t0.clientX) * (t1.clientX - t0.clientX) + (t1.clientY - t0.clientY) * (t1.clientY - t0.clientY));
           var newMidX = (t0.clientX + t1.clientX) / 2;
           var newMidY = (t0.clientY + t1.clientY) / 2;
           var scale = this._pinchStart.dist > 0 ? newDist / this._pinchStart.dist : 1;
