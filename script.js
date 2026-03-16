@@ -491,6 +491,13 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cellSize = 5;
                 var cols = 100;
                 var rows = 100;
+                // Load persisted layout preferences from localStorage.
+                var savedLayout = {};
+                try {
+                    var raw = localStorage.getItem('life-layout-prefs');
+                    if(raw){ savedLayout = JSON.parse(raw); }
+                } catch(e){}
+
                 return {
                     running :        true,
                     cellSize :       cellSize,
@@ -537,7 +544,35 @@ document.addEventListener('DOMContentLoaded', function(){
                     shareTooltip :    false,
                     showPopGraph :    false,
                     analysisResult :  null,
-                    analyzing :       false
+                    analyzing :       false,
+
+                    // ── Layout mode state ───────────────────────────
+                    layoutMode :       savedLayout.layoutMode || 'cartographer',
+                    // Cartographer state
+                    railCollapsed :    savedLayout.railCollapsed || false,
+                    railHidden :       false,
+                    railTab :          savedLayout.railTab || 'simulate',
+                    railSide :         savedLayout.railSide || 'right',
+                    // Specimen state
+                    contextTrayOpen :  false,
+                    contextTrayContent: null,
+                    contextTrayPinned: false,
+                    // Observatory state
+                    zenMode :          false,
+                    panelStates :      savedLayout.panelStates || {
+                        transport: { open: true, x: -1, y: -1, collapsed: false },
+                        view:      { open: true, x: -1, y: -1, collapsed: false },
+                        tools:     { open: true, x: -1, y: -1, collapsed: false },
+                        board:     { open: true, x: -1, y: -1, collapsed: false },
+                        rules:     { open: true, x: -1, y: -1, collapsed: false },
+                        stats:     { open: true, x: -1, y: -1, collapsed: false },
+                        importExport: { open: false, x: -1, y: -1, collapsed: false }
+                    },
+                    // Responsive device class
+                    deviceClass :      'desktop',
+                    // Bottom sheet (phone modes)
+                    bottomSheetOpen :  false,
+                    bottomSheetTab :   'simulate'
                 };
             },
 
@@ -639,6 +674,41 @@ document.addEventListener('DOMContentLoaded', function(){
                     self._resizeTimer = setTimeout(function(){ self.forceUpdate(function(){ self.drawBoard(); }); }, 300);
                 };
                 window.addEventListener('orientationchange', this._onOrientationChange);
+                // ── Device class detection via matchMedia ──────────────────
+                var self3 = this;
+                this._mqPhone = window.matchMedia('(max-width: 620px)');
+                this._mqTablet = window.matchMedia('(min-width: 621px) and (max-width: 900px)');
+                this._mqLandscape = window.matchMedia('(orientation: landscape)');
+                this._updateDeviceClass = function(){
+                    var dc;
+                    if(self3._mqPhone.matches){
+                        dc = self3._mqLandscape.matches ? 'phone-landscape' : 'phone-portrait';
+                    } else if(self3._mqTablet.matches){
+                        dc = 'tablet';
+                    } else {
+                        dc = 'desktop';
+                    }
+                    if(dc !== self3.state.deviceClass){
+                        self3.setState({deviceClass: dc}, function(){ self3.drawBoard(); });
+                    }
+                };
+                this._updateDeviceClass();
+                try {
+                    this._mqPhone.addEventListener('change', this._updateDeviceClass);
+                    this._mqTablet.addEventListener('change', this._updateDeviceClass);
+                    this._mqLandscape.addEventListener('change', this._updateDeviceClass);
+                } catch(ex){
+                    try {
+                        this._mqPhone.addListener(this._updateDeviceClass);
+                        this._mqTablet.addListener(this._updateDeviceClass);
+                        this._mqLandscape.addListener(this._updateDeviceClass);
+                    } catch(ex2){}
+                }
+
+                // ── Keyboard shortcut registry ──────────────────────────────
+                this._shortcuts = {};
+                this._registerCoreShortcuts();
+
                 // Initialize HashLife engine with current rules.
                 HashLife.init(this.state.birthRule, this.state.surviveRule);
                 this._hlRuleKey = this.state.birthRule.join(',') + '/' + this.state.surviveRule.join(',');
@@ -659,29 +729,56 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cellSize   = this.state.cellSize;
                 var pendingCols = this.state.pendingCols;
                 var pendingRows = this.state.pendingRows;
-                // Compute available canvas width by subtracting sidebar + padding from viewport.
-                var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
-                var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
-                var contentPad = isMobile ? 24 : 40;         // 12×2 mobile, 20×2 desktop
-                var sidebarW = isMobile ? 0 : (isTablet ? 160 : 180) + 14;  // sidebar + gap
-                var maxW = typeof window !== 'undefined'
-                    ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
-                var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
-                var isMobileToolsOpen = typeof window !== 'undefined'
-                    && window.innerWidth <= 620 && this.state.showMobileTools;
-                var hFrac = isMobile ? (isMobileToolsOpen ? 0.36 : 0.82) : 0.90;
-                var maxH = typeof window !== 'undefined'
-                    ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
+                var dc = this.state.deviceClass;
+                var layout = this.state.layoutMode;
+                var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+                var maxW, maxH;
+
+                if(typeof window === 'undefined'){
+                    maxW = 846; maxH = 900;
+                } else {
+                    // In new layout modes, canvas fills the viewport.
+                    // Reserve space for UI overlays.
+                    var winW = window.innerWidth;
+                    var winH = window.innerHeight;
+
+                    if(layout === 'cartographer'){
+                        // Desktop/tablet: subtract rail width if not collapsed/hidden
+                        var railW = 0;
+                        if(!isMobile && !this.state.railHidden){
+                            railW = this.state.railCollapsed ? 40 : (dc === 'tablet' ? 200 : 240);
+                        }
+                        maxW = Math.max(1, winW - railW);
+                        // Reserve space for transport strip at bottom
+                        var transportH = isMobile ? 48 : 50;
+                        maxH = Math.max(1, winH - transportH);
+                    } else if(layout === 'specimen'){
+                        maxW = winW;
+                        // Reserve top bar height
+                        var topBarH = 40;
+                        maxH = Math.max(1, winH - topBarH);
+                    } else if(layout === 'observatory'){
+                        maxW = winW;
+                        maxH = winH;
+                    } else {
+                        // Fallback: legacy mode
+                        var contentPad = isMobile ? 24 : 40;
+                        var sidebarW = isMobile ? 0 : (dc === 'tablet' ? 160 : 180) + 14;
+                        maxW = Math.max(1, Math.min(winW, 1100) - contentPad - sidebarW);
+                        var isMobileToolsOpen = isMobile && this.state.showMobileTools;
+                        var hFrac = isMobile ? (isMobileToolsOpen ? 0.36 : 0.82) : 0.90;
+                        maxH = Math.min(Math.round(winH * hFrac), 1400);
+                    }
+                }
+
                 var isUnbounded = this.state.boundary === 'unbounded';
                 var w, h;
                 if(isUnbounded){
-                    // Unbounded: fill available viewport, no grid aspect constraint.
                     w = maxW;
                     h = maxH;
                 } else {
                     w = Math.min(pendingCols * cellSize, maxW);
                     h = Math.min(pendingRows * cellSize, maxH);
-                    // Preserve the grid's aspect ratio so a square grid renders as a square canvas.
                     var gridAspect = pendingCols / pendingRows;
                     if(w / h > gridAspect){
                         w = Math.max(1, Math.round(h * gridAspect));
@@ -689,7 +786,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         h = Math.max(1, Math.round(w / gridAspect));
                     }
                 }
-                // Scale up buffer to fill available space (displayScale is always ≥ 1).
                 var displayScale = isUnbounded ? 1 : ((w > 0 && h > 0) ? Math.min(maxW / w, maxH / h) : 1);
                 var displayW = Math.round(w * displayScale);
                 var displayH = Math.round(h * displayScale);
@@ -2404,6 +2500,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         break;
                     case 'z': case 'Z':
                         if(e.ctrlKey || e.metaKey){ e.preventDefault(); this.undo(); }
+                        else if(this.state.layoutMode === 'observatory'){ this.toggleZenMode(); }
                         break;
                     case 'c': case 'C':
                         if((e.ctrlKey || e.metaKey) && this.state.selection){
@@ -2456,7 +2553,12 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                         if(this.state.showHelp){
                             this.setState({showHelp : false});
+                            break;
                         }
+                        // Close layout elements
+                        if(this.state.bottomSheetOpen){ this.setState({bottomSheetOpen: false}); break; }
+                        if(this.state.contextTrayOpen){ this.setState({contextTrayOpen: false, contextTrayContent: null, contextTrayPinned: false}); break; }
+                        if(this.state.zenMode){ this.setState({zenMode: false}); break; }
                         break;
                     case '?':
                         this.toggleHelp();
@@ -2465,6 +2567,102 @@ document.addEventListener('DOMContentLoaded', function(){
                         this.toggleMinimap();
                         break;
                 }
+            },
+
+            // ── Keyboard shortcut registry ────────────────────────────────
+
+            _registerCoreShortcuts : function(){
+                var self = this;
+                // Register all existing shortcuts centrally.
+                this._registerShortcut('d', 'Switch to Draw mode', function(){ self.toggleDrawMode(); });
+                this._registerShortcut('p', 'Switch to Preset mode', function(){ self.togglePresetMode(); });
+                this._registerShortcut('g', 'Toggle grid lines', function(){ self.toggleGridLines(); });
+                this._registerShortcut('t', 'Toggle trails', function(){ self.toggleTrails(); });
+            },
+
+            _registerShortcut : function(key, description, handler){
+                this._shortcuts[key.toLowerCase()] = {key: key, description: description, handler: handler};
+            },
+
+            _unregisterShortcut : function(key){
+                delete this._shortcuts[key.toLowerCase()];
+            },
+
+            // ── Layout mode management ───────────────────────────────────────
+
+            _persistLayout : function(){
+                try {
+                    localStorage.setItem('life-layout-prefs', JSON.stringify({
+                        layoutMode:    this.state.layoutMode,
+                        railCollapsed: this.state.railCollapsed,
+                        railTab:       this.state.railTab,
+                        railSide:      this.state.railSide,
+                        panelStates:   this.state.panelStates
+                    }));
+                } catch(e){}
+            },
+
+            setLayoutMode : function(mode){
+                var self = this;
+                this.setState({layoutMode: mode, zenMode: false}, function(){
+                    self._persistLayout();
+                    self.drawBoard();
+                });
+            },
+
+            setRailTab : function(tab){
+                var self = this;
+                var updates = {railTab: tab, railCollapsed: false};
+                this.setState(updates, function(){ self._persistLayout(); });
+            },
+
+            toggleRailCollapsed : function(){
+                var self = this;
+                this.setState({railCollapsed: !this.state.railCollapsed}, function(){
+                    self._persistLayout();
+                    self.drawBoard();
+                });
+            },
+
+            toggleRailHidden : function(){
+                var self = this;
+                this.setState({railHidden: !this.state.railHidden}, function(){ self.drawBoard(); });
+            },
+
+            toggleRailSide : function(){
+                var self = this;
+                var newSide = this.state.railSide === 'right' ? 'left' : 'right';
+                this.setState({railSide: newSide}, function(){
+                    self._persistLayout();
+                    self.drawBoard();
+                });
+            },
+
+            openContextTray : function(content){
+                this.setState({contextTrayOpen: true, contextTrayContent: content});
+            },
+
+            closeContextTray : function(){
+                if(!this.state.contextTrayPinned){
+                    this.setState({contextTrayOpen: false, contextTrayContent: null});
+                }
+            },
+
+            toggleContextTrayPin : function(){
+                this.setState({contextTrayPinned: !this.state.contextTrayPinned});
+            },
+
+            toggleZenMode : function(){
+                var self = this;
+                this.setState({zenMode: !this.state.zenMode}, function(){ self.drawBoard(); });
+            },
+
+            toggleBottomSheet : function(){
+                this.setState({bottomSheetOpen: !this.state.bottomSheetOpen});
+            },
+
+            setBottomSheetTab : function(tab){
+                this.setState({bottomSheetTab: tab, bottomSheetOpen: true});
             },
 
             // ── Toggles ───────────────────────────────────────────────────────
@@ -3774,64 +3972,791 @@ document.addEventListener('DOMContentLoaded', function(){
                 );
             },
 
+            // ── Shared sub-components (used by all layout modes) ───────────
+
+            renderCanvas : function(cs){
+                return (
+                    <div className={"app-canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")}>
+                        <canvas className="display"
+                            width  = {cs.w}
+                            height = {cs.h}
+                            style  = {{width: cs.displayW + 'px', height: cs.displayH + 'px', display: 'block', margin: 'auto'}}
+                            id = "life-canvas"
+                            role = "img"
+                            aria-label = {"Conway's Game of Life simulation canvas. Generation " + this.state.generations + ", population " + this.state.liveCells.size + ", " + (this.state.running ? "running" : "paused")}
+                            draggable     = {false}
+                            onMouseDown   = {this.onMouseDown}
+                            onMouseMove   = {this.onMouseMove}
+                            onMouseUp     = {this.onMouseUp}
+                            onMouseLeave  = {this.onMouseLeave}
+                            onContextMenu = {this.onContextMenu}
+                            onTouchStart  = {this.onTouchStart}
+                            onTouchMove   = {this.onTouchMove}
+                            onTouchEnd    = {this.onTouchEnd}></canvas>
+                        {this.state.analysisResult ? <div className={"analysis-result" + (this.state.analyzing ? " analysis-cancellable" : "")} onClick={this.state.analyzing ? this.cancelAnalysis : null}>{this.state.analysisResult}</div> : null}
+                    </div>
+                );
+            },
+
+            renderTransportControls : function(compact){
+                var self = this;
+                if(compact){
+                    return (
+                        <div className="transport-controls transport-compact">
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Play/Pause (Space)">{this.state.running ? "\u23F8" : "\u25B6"}</button>
+                            <button className="btn" onClick={this.stepGame} title="Step (.)">Step</button>
+                            <span className="transport-speed-label">{"Gen " + this.state.generations.toLocaleString()}</span>
+                        </div>
+                    );
+                }
+                return (
+                    <div className="transport-controls">
+                        <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Start or pause the simulation (Space)">{this.state.running ? "Pause" : "Play"}</button>
+                        <button className="btn" onClick={this.stepGame} title="Advance one generation (Enter)">Step</button>
+                        <button className="btn" onClick={this.stepBack} title="Step backward (,)" disabled={this._genHistory && this._genHistory.length === 0}>Back</button>
+                        <select className="toolbar-step-select" value={this.state.stepCount} onChange={this.setStepCount} title="Advance N generations">
+                            <option value="1">+1</option>
+                            <option value="10">+10</option>
+                            <option value="50">+50</option>
+                            <option value="100">+100</option>
+                            <option value="500">+500</option>
+                        </select>
+                        <button className="btn" onClick={function(){ self.stepN(self.state.stepCount); }} title="Advance multiple generations">Go</button>
+                        <button className="btn" onClick={this.resetGame} title="Randomize the board (R)">Reset</button>
+                        <button className="btn" onClick={this.emptyBoard} title="Clear all cells (E)">Empty</button>
+                        <button className="btn" onClick={this.undo} title="Undo last edit (Ctrl+Z)">Undo</button>
+                    </div>
+                );
+            },
+
+            renderViewControls : function(){
+                return (
+                    <div className="view-controls">
+                        <button className="btn" onClick={this.fitView} title="Zoom to fit entire grid">Fit Grid</button>
+                        <button className="btn" onClick={this.fitLiveCells} title="Zoom to fit live cells">Fit Cells</button>
+                        <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines} title="Toggle grid lines (G)">Grid</button>
+                        <button className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails">Trails</button>
+                        <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap (M)">Minimap</button>
+                    </div>
+                );
+            },
+
+            renderModeControls : function(){
+                return (
+                    <div className="mode-controls">
+                        <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode} title="Freehand draw mode (D)">Draw</button>
+                        <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode} title="Place preset patterns (P)">Preset</button>
+                        <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode} title="Select and move cells (S)">Select</button>
+                        <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint while running">Live Paint</button>
+                        <button className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary">{this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
+                        <button className="btn" onClick={this.analyzePattern} disabled={this.state.analyzing} title="Detect oscillator/spaceship">Analyze</button>
+                    </div>
+                );
+            },
+
+            renderToolsContent : function(){
+                var self = this;
+                var filterLc = this.state.patternFilter.toLowerCase();
+                var patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
+                    var names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
+                        return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
+                    });
+                    if(names.length === 0){ return null; }
+                    var opts = names.map(function(name){
+                        var meta = PATTERN_META[name];
+                        var title = '';
+                        if(meta){
+                            if(meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';
+                            else if(meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+                            else if(meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');
+                            else if(meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';
+                            else if(meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+                        }
+                        return <option key={name} value={name} title={title}>{name}</option>;
+                    });
+                    return <optgroup key={group} label={group}>{opts}</optgroup>;
+                }).filter(function(x){ return x !== null; });
+                if(PATTERNS['Custom']){
+                    patternOptions = patternOptions.concat(
+                        <optgroup key="custom" label="Custom"><option value="Custom">Custom</option></optgroup>
+                    );
+                }
+                return (
+                    <div className="tools-content">
+                        <div className="sidebar-section-title">Tools</div>
+                        <div className="btn-section">
+                            <div className="tool-subtype-row">
+                                <label className="tool-label">Draw:</label>
+                                <select value={this.state.drawTool}
+                                        onChange={function(e){ self.setState({drawTool: e.target.value, drawMode: 'paint', selection: null}); }}>
+                                    <option value="cell">Cell paint</option>
+                                    <option value="line">Line</option>
+                                    <option value="fill">Flood fill</option>
+                                    <option value="shape-rect">Rectangle</option>
+                                    <option value="shape-circle">Circle</option>
+                                </select>
+                            </div>
+                            <div className="tool-subtype-row">
+                                <label className="tool-label">Select:</label>
+                                <select value={this.state.selectTool}
+                                        onChange={function(e){ self.setState({selectTool: e.target.value, drawMode: 'select', selection: null}); }}>
+                                    <option value="rect">Rectangle</option>
+                                    <option value="ellipse">Ellipse</option>
+                                    <option value="freeform">Freeform</option>
+                                    <option value="all-visible">All visible</option>
+                                </select>
+                            </div>
+                            <div className="tool-subtype-row">
+                                <label className="tool-label">Preset:</label>
+                                <select className={"preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : "")}
+                                    value={this.state.selectedPattern || ""}
+                                    onChange={this.selectPattern}>
+                                    <option value="">Choose preset...</option>
+                                    {patternOptions}
+                                </select>
+                            </div>
+                            <input className="pattern-filter-input"
+                                type="text" placeholder="Filter patterns..."
+                                value={this.state.patternFilter}
+                                onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
+                            {this.state.drawMode === 'preset' && this.state.selectedPattern &&
+                                <div className="rotation-row">
+                                    <canvas className="rotation-preview" width="96" height="96"
+                                        ref={function(c){ self._previewCanvas = c; }} />
+                                    <div className="rotation-btns">
+                                        <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° CCW">&#8634;</button>
+                                        <button className="btn btn-rotate" onClick={this.rotateCW} title="Rotate 90° CW">&#8635;</button>
+                                    </div>
+                                </div>
+                            }
+                            {this.state.drawMode === 'preset' && this.state.selectedPattern &&
+                                <p className="placement-hint">
+                                    {"Click canvas to place \xB7 " + this.state.selectedPattern}
+                                    <br/><span className="placement-hint-sub">Right-click or Esc to cancel</span>
+                                </p>
+                            }
+                            {this.state.selection &&
+                                <div className="buttons buttons-selection">
+                                    <button className="btn" onClick={this.copySelection}>Copy</button>
+                                    <button className="btn" onClick={this.pasteAsPattern}
+                                        disabled={!this.state.clipboard || this.state.clipboard.length === 0}>Paste</button>
+                                    <button className="btn" onClick={this.deleteSelection}>Delete</button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                );
+            },
+
+            renderExportContent : function(){
+                return (
+                    <div className="export-content">
+                        <div className="sidebar-section-title">Export &amp; Import</div>
+                        <div className="btn-section">
+                            <div className="buttons buttons-export">
+                                <button className="btn" onClick={this.exportPNG} title="Save as PNG">Export PNG</button>
+                                <button className="btn" onClick={this.copyRLE} title="Copy board as RLE">Copy RLE</button>
+                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording}>{this.state.recording ? "Stop" : "Record"}</button>
+                                <button className="btn" onClick={this.shareURL}>{this.state.shareTooltip ? "Copied!" : "Share"}</button>
+                            </div>
+                            {this.renderRLESection()}
+                        </div>
+                    </div>
+                );
+            },
+
+            renderLayoutSwitcher : function(){
+                var self = this;
+                var mode = this.state.layoutMode;
+                return (
+                    <div className="layout-switcher">
+                        <button className={"btn btn-toggle" + (mode === 'cartographer' ? " active" : "")}
+                            onClick={function(){ self.setLayoutMode('cartographer'); }}
+                            title="Cartographer: Edge rail with tabs">
+                            <i className="fa fa-columns"></i>
+                        </button>
+                        <button className={"btn btn-toggle" + (mode === 'specimen' ? " active" : "")}
+                            onClick={function(){ self.setLayoutMode('specimen'); }}
+                            title="Specimen: Contextual toolbar">
+                            <i className="fa fa-window-maximize"></i>
+                        </button>
+                        <button className={"btn btn-toggle" + (mode === 'observatory' ? " active" : "")}
+                            onClick={function(){ self.setLayoutMode('observatory'); }}
+                            title="Observatory: Floating panels">
+                            <i className="fa fa-th-large"></i>
+                        </button>
+                    </div>
+                );
+            },
+
+            // ── Cartographer layout ─────────────────────────────────────────
+
+            renderCartographer : function(cs){
+                var self = this;
+                var dc = this.state.deviceClass;
+                var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+
+                if(isMobile){
+                    return this.renderCartographerMobile(cs);
+                }
+
+                var railW = this.state.railHidden ? 0 : (this.state.railCollapsed ? 40 : (dc === 'tablet' ? 200 : 240));
+                var railSide = this.state.railSide;
+                var railClass = 'rail' +
+                    (this.state.railCollapsed ? ' rail-collapsed' : '') +
+                    (this.state.railHidden ? ' rail-hidden' : '') +
+                    (' rail-' + railSide);
+
+                var tabContent = null;
+                switch(this.state.railTab){
+                    case 'simulate':
+                        tabContent = (
+                            <div className="rail-tab-content">
+                                <div className="sidebar-section-title">Simulation</div>
+                                {this.renderTransportControls(false)}
+                                {this.renderViewControls()}
+                                {this.renderModeControls()}
+                            </div>
+                        );
+                        break;
+                    case 'tools':
+                        tabContent = <div className="rail-tab-content">{this.renderToolsContent()}</div>;
+                        break;
+                    case 'board':
+                        tabContent = <div className="rail-tab-content">{this.renderSliders()}</div>;
+                        break;
+                    case 'rules':
+                        tabContent = (
+                            <div className="rail-tab-content">
+                                {this.renderRulesSection()}
+                                <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
+                            </div>
+                        );
+                        break;
+                    case 'export':
+                        tabContent = <div className="rail-tab-content">{this.renderExportContent()}</div>;
+                        break;
+                }
+
+                var tabs = [
+                    {id: 'simulate', icon: 'fa-play',     label: 'Simulate'},
+                    {id: 'tools',    icon: 'fa-pencil',   label: 'Tools'},
+                    {id: 'board',    icon: 'fa-th',       label: 'Board'},
+                    {id: 'rules',    icon: 'fa-cog',      label: 'Rules'},
+                    {id: 'export',   icon: 'fa-download', label: 'Export'}
+                ];
+
+                return (
+                    <div className="layout-cartographer">
+                        {this.renderCanvas(cs)}
+                        {/* Rail */}
+                        <div className={railClass} style={{width: railW + 'px'}}>
+                            <div className="rail-header">
+                                <span className="rail-title">{"Conway's Game of Life"}</span>
+                                <div className="rail-header-controls">
+                                    <button className="btn rail-collapse-btn" onClick={this.toggleRailCollapsed}
+                                        title={this.state.railCollapsed ? "Expand rail" : "Collapse rail"}>
+                                        {this.state.railCollapsed ? "\u25C0" : "\u25B6"}
+                                    </button>
+                                </div>
+                            </div>
+                            {!this.state.railCollapsed && <div className="rail-stats">{this.renderStats()}</div>}
+                            <div className="rail-tabs">
+                                {tabs.map(function(tab){
+                                    return (
+                                        <button key={tab.id}
+                                            className={"rail-tab" + (self.state.railTab === tab.id ? " active" : "")}
+                                            onClick={function(){ self.setRailTab(tab.id); }}
+                                            title={tab.label}>
+                                            <i className={"fa " + tab.icon}></i>
+                                            {!self.state.railCollapsed && <span className="rail-tab-label">{tab.label}</span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {!this.state.railCollapsed && tabContent}
+                        </div>
+                        {/* Floating transport strip */}
+                        <div className="transport-strip">
+                            {this.renderTransportControls(true)}
+                        </div>
+                        {/* Rail show button when hidden */}
+                        {this.state.railHidden &&
+                            <div className={"rail-reveal rail-reveal-" + railSide}
+                                onMouseEnter={this.toggleRailHidden}></div>
+                        }
+                    </div>
+                );
+            },
+
+            renderCartographerMobile : function(cs){
+                var self = this;
+                var tabs = [
+                    {id: 'simulate', icon: 'fa-play',     label: 'Simulate'},
+                    {id: 'tools',    icon: 'fa-pencil',   label: 'Tools'},
+                    {id: 'board',    icon: 'fa-th',       label: 'Board'},
+                    {id: 'rules',    icon: 'fa-cog',      label: 'Rules'},
+                    {id: 'export',   icon: 'fa-download', label: 'Export'}
+                ];
+
+                var sheetContent = null;
+                switch(this.state.bottomSheetTab){
+                    case 'simulate':
+                        sheetContent = (
+                            <div>
+                                <div className="sidebar-section-title">Simulation</div>
+                                {this.renderTransportControls(false)}
+                                {this.renderViewControls()}
+                                {this.renderModeControls()}
+                            </div>
+                        );
+                        break;
+                    case 'tools':
+                        sheetContent = this.renderToolsContent();
+                        break;
+                    case 'board':
+                        sheetContent = this.renderSliders();
+                        break;
+                    case 'rules':
+                        sheetContent = (
+                            <div>
+                                {this.renderRulesSection()}
+                                <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
+                            </div>
+                        );
+                        break;
+                    case 'export':
+                        sheetContent = this.renderExportContent();
+                        break;
+                }
+
+                return (
+                    <div className="layout-cartographer layout-mobile">
+                        {this.renderCanvas(cs)}
+                        {/* Stats overlay chip */}
+                        <div className="stats-chip" onClick={this.togglePopGraph}>
+                            <span>{"Gen " + this.state.generations.toLocaleString()}</span>
+                            <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
+                            <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
+                                {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
+                            </span>
+                        </div>
+                        {/* Mobile context: rotation preview + selection when active */}
+                        {this.renderMobileContextPanel()}
+                        {/* Bottom transport bar */}
+                        <div className="mobile-transport-bar">
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>
+                                {this.state.running ? "\u23F8" : "\u25B6"}
+                            </button>
+                            <button className="btn" onClick={this.stepGame}>Step</button>
+                            <span className="mobile-transport-mode">
+                                {this.state.drawMode === 'preset' && this.state.selectedPattern
+                                    ? this.state.selectedPattern
+                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw')}
+                            </span>
+                            <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                                onClick={this.toggleBottomSheet}>More</button>
+                        </div>
+                        {/* Bottom sheet */}
+                        {this.state.bottomSheetOpen &&
+                            <div className="bottom-sheet-container">
+                                <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}></div>
+                                <div className="bottom-sheet">
+                                    <div className="bottom-sheet-tabs">
+                                        {tabs.map(function(tab){
+                                            return (
+                                                <button key={tab.id}
+                                                    className={"rail-tab" + (self.state.bottomSheetTab === tab.id ? " active" : "")}
+                                                    onClick={function(){ self.setBottomSheetTab(tab.id); }}>
+                                                    <i className={"fa " + tab.icon}></i>
+                                                    <span className="rail-tab-label">{tab.label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="bottom-sheet-content">
+                                        {sheetContent}
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                );
+            },
+
+            // ── Specimen layout ──────────────────────────────────────────────
+
+            renderSpecimen : function(cs){
+                var self = this;
+                var dc = this.state.deviceClass;
+                var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+
+                if(isMobile){
+                    return this.renderSpecimenMobile(cs);
+                }
+
+                var trayContent = null;
+                switch(this.state.contextTrayContent){
+                    case 'tools': trayContent = this.renderToolsContent(); break;
+                    case 'board': trayContent = this.renderSliders(); break;
+                    case 'rules':
+                        trayContent = (
+                            <div>
+                                {this.renderRulesSection()}
+                                <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
+                            </div>
+                        );
+                        break;
+                    case 'export': trayContent = this.renderExportContent(); break;
+                }
+
+                return (
+                    <div className="layout-specimen">
+                        {this.renderCanvas(cs)}
+                        {/* Top bar */}
+                        <div className="top-bar">
+                            <div className="top-bar-left">
+                                <span className="top-bar-title">{"Conway's Game of Life"}</span>
+                            </div>
+                            <div className="top-bar-center">
+                                {this.renderTransportControls(false)}
+                            </div>
+                            <div className="top-bar-right">
+                                {this.renderModeControls()}
+                                <div className="top-bar-more">
+                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : "")}
+                                        onClick={function(){ self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools'); }}>Tools</button>
+                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'board' && this.state.contextTrayOpen ? " active" : "")}
+                                        onClick={function(){ self.state.contextTrayContent === 'board' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('board'); }}>Board</button>
+                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen ? " active" : "")}
+                                        onClick={function(){ self.state.contextTrayContent === 'rules' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('rules'); }}>Rules</button>
+                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'export' && this.state.contextTrayOpen ? " active" : "")}
+                                        onClick={function(){ self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export'); }}>Export</button>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Context tray */}
+                        {this.state.contextTrayOpen &&
+                            <div className={"context-tray" + (this.state.contextTrayPinned ? " pinned" : "")}>
+                                <div className="context-tray-header">
+                                    <button className={"btn btn-toggle" + (this.state.contextTrayPinned ? " active" : "")}
+                                        onClick={this.toggleContextTrayPin} title="Pin tray open">
+                                        <i className="fa fa-thumb-tack"></i>
+                                    </button>
+                                    <button className="btn" onClick={function(){ self.setState({contextTrayOpen: false, contextTrayContent: null, contextTrayPinned: false}); }}
+                                        title="Close tray">&times;</button>
+                                </div>
+                                <div className="context-tray-body">
+                                    {trayContent}
+                                </div>
+                            </div>
+                        }
+                        {/* HUD overlay */}
+                        <div className="hud-overlay" onClick={this.togglePopGraph}>
+                            <span>{"Gen " + this.state.generations.toLocaleString()}</span>
+                            <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
+                            <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
+                                {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
+                            </span>
+                            {this.state.hoverCell &&
+                                <span className="coord-display">{"Col\u00a0" + this.state.hoverCell.c + "\u2002Row\u00a0" + this.state.hoverCell.r}</span>
+                            }
+                        </div>
+                    </div>
+                );
+            },
+
+            renderSpecimenMobile : function(cs){
+                var self = this;
+                return (
+                    <div className="layout-specimen layout-mobile">
+                        {this.renderCanvas(cs)}
+                        {/* Compact top bar */}
+                        <div className="top-bar top-bar-mobile">
+                            <span className="stats-chip-inline">
+                                {"Gen " + this.state.generations.toLocaleString() + "\u2002Pop " + this.state.liveCells.size.toLocaleString()}
+                            </span>
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>
+                                {this.state.running ? "\u23F8" : "\u25B6"}
+                            </button>
+                            <button className="btn" onClick={this.stepGame}>Step</button>
+                            <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                                onClick={this.toggleBottomSheet}>More</button>
+                        </div>
+                        {this.renderMobileContextPanel()}
+                        {/* Bottom sheet for all controls */}
+                        {this.state.bottomSheetOpen &&
+                            <div className="bottom-sheet-container">
+                                <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}></div>
+                                <div className="bottom-sheet">
+                                    <div className="bottom-sheet-content bottom-sheet-accordion">
+                                        <div className="sidebar-section-title">Simulation</div>
+                                        {this.renderTransportControls(false)}
+                                        {this.renderViewControls()}
+                                        {this.renderModeControls()}
+                                        {this.renderToolsContent()}
+                                        {this.renderSliders()}
+                                        {this.renderRulesSection()}
+                                        <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
+                                        {this.renderExportContent()}
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                );
+            },
+
+            // ── Observatory layout ───────────────────────────────────────────
+
+            renderObservatory : function(cs){
+                var self = this;
+                var dc = this.state.deviceClass;
+                var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+
+                if(isMobile){
+                    return this.renderObservatoryMobile(cs);
+                }
+
+                var panels = this.state.panelStates;
+                var zenMode = this.state.zenMode;
+
+                return (
+                    <div className={"layout-observatory" + (zenMode ? " zen-mode" : "")}>
+                        {this.renderCanvas(cs)}
+                        {!zenMode &&
+                            <div className="panel-overlay-container">
+                                {/* Transport panel */}
+                                {panels.transport.open &&
+                                    <div className={"float-panel float-panel-transport" + (panels.transport.collapsed ? " float-panel-collapsed" : "")}
+                                        style={panels.transport.x >= 0 ? {left: panels.transport.x, top: panels.transport.y} : {}}>
+                                        <div className="float-panel-header">
+                                            <span className="float-panel-title">Transport</span>
+                                            <button className="btn float-panel-collapse"
+                                                onClick={function(){ self._togglePanelCollapse('transport'); }}>{panels.transport.collapsed ? "+" : "\u2013"}</button>
+                                            <button className="btn float-panel-close"
+                                                onClick={function(){ self._togglePanelOpen('transport'); }}>&times;</button>
+                                        </div>
+                                        {!panels.transport.collapsed && <div className="float-panel-body">
+                                            {this.renderTransportControls(false)}
+                                        </div>}
+                                    </div>
+                                }
+                                {/* View panel */}
+                                {panels.view.open &&
+                                    <div className={"float-panel float-panel-view" + (panels.view.collapsed ? " float-panel-collapsed" : "")}
+                                        style={panels.view.x >= 0 ? {left: panels.view.x, top: panels.view.y} : {}}>
+                                        <div className="float-panel-header">
+                                            <span className="float-panel-title">View</span>
+                                            <button className="btn float-panel-collapse"
+                                                onClick={function(){ self._togglePanelCollapse('view'); }}>{panels.view.collapsed ? "+" : "\u2013"}</button>
+                                            <button className="btn float-panel-close"
+                                                onClick={function(){ self._togglePanelOpen('view'); }}>&times;</button>
+                                        </div>
+                                        {!panels.view.collapsed && <div className="float-panel-body">
+                                            {this.renderViewControls()}
+                                        </div>}
+                                    </div>
+                                }
+                                {/* Tools panel */}
+                                {panels.tools.open &&
+                                    <div className={"float-panel float-panel-tools" + (panels.tools.collapsed ? " float-panel-collapsed" : "")}
+                                        style={panels.tools.x >= 0 ? {left: panels.tools.x, top: panels.tools.y} : {}}>
+                                        <div className="float-panel-header">
+                                            <span className="float-panel-title">Tools</span>
+                                            <button className="btn float-panel-collapse"
+                                                onClick={function(){ self._togglePanelCollapse('tools'); }}>{panels.tools.collapsed ? "+" : "\u2013"}</button>
+                                            <button className="btn float-panel-close"
+                                                onClick={function(){ self._togglePanelOpen('tools'); }}>&times;</button>
+                                        </div>
+                                        {!panels.tools.collapsed && <div className="float-panel-body">
+                                            {this.renderModeControls()}
+                                            {this.renderToolsContent()}
+                                        </div>}
+                                    </div>
+                                }
+                                {/* Board panel */}
+                                {panels.board.open &&
+                                    <div className={"float-panel float-panel-board" + (panels.board.collapsed ? " float-panel-collapsed" : "")}
+                                        style={panels.board.x >= 0 ? {left: panels.board.x, top: panels.board.y} : {}}>
+                                        <div className="float-panel-header">
+                                            <span className="float-panel-title">Board</span>
+                                            <button className="btn float-panel-collapse"
+                                                onClick={function(){ self._togglePanelCollapse('board'); }}>{panels.board.collapsed ? "+" : "\u2013"}</button>
+                                            <button className="btn float-panel-close"
+                                                onClick={function(){ self._togglePanelOpen('board'); }}>&times;</button>
+                                        </div>
+                                        {!panels.board.collapsed && <div className="float-panel-body">
+                                            {this.renderSliders()}
+                                        </div>}
+                                    </div>
+                                }
+                                {/* Rules panel */}
+                                {panels.rules.open &&
+                                    <div className={"float-panel float-panel-rules" + (panels.rules.collapsed ? " float-panel-collapsed" : "")}
+                                        style={panels.rules.x >= 0 ? {left: panels.rules.x, top: panels.rules.y} : {}}>
+                                        <div className="float-panel-header">
+                                            <span className="float-panel-title">Rules</span>
+                                            <button className="btn float-panel-collapse"
+                                                onClick={function(){ self._togglePanelCollapse('rules'); }}>{panels.rules.collapsed ? "+" : "\u2013"}</button>
+                                            <button className="btn float-panel-close"
+                                                onClick={function(){ self._togglePanelOpen('rules'); }}>&times;</button>
+                                        </div>
+                                        {!panels.rules.collapsed && <div className="float-panel-body">
+                                            {this.renderRulesSection()}
+                                            <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
+                                        </div>}
+                                    </div>
+                                }
+                                {/* Stats panel */}
+                                {panels.stats.open &&
+                                    <div className={"float-panel float-panel-stats" + (panels.stats.collapsed ? " float-panel-collapsed" : "")}
+                                        style={panels.stats.x >= 0 ? {left: panels.stats.x, top: panels.stats.y} : {}}>
+                                        <div className="float-panel-header">
+                                            <span className="float-panel-title">Stats</span>
+                                            <button className="btn float-panel-collapse"
+                                                onClick={function(){ self._togglePanelCollapse('stats'); }}>{panels.stats.collapsed ? "+" : "\u2013"}</button>
+                                            <button className="btn float-panel-close"
+                                                onClick={function(){ self._togglePanelOpen('stats'); }}>&times;</button>
+                                        </div>
+                                        {!panels.stats.collapsed && <div className="float-panel-body">
+                                            {this.renderStats()}
+                                        </div>}
+                                    </div>
+                                }
+                                {/* Import/Export panel */}
+                                {panels.importExport.open &&
+                                    <div className={"float-panel float-panel-import-export" + (panels.importExport.collapsed ? " float-panel-collapsed" : "")}
+                                        style={panels.importExport.x >= 0 ? {left: panels.importExport.x, top: panels.importExport.y} : {}}>
+                                        <div className="float-panel-header">
+                                            <span className="float-panel-title">Import / Export</span>
+                                            <button className="btn float-panel-collapse"
+                                                onClick={function(){ self._togglePanelCollapse('importExport'); }}>{panels.importExport.collapsed ? "+" : "\u2013"}</button>
+                                            <button className="btn float-panel-close"
+                                                onClick={function(){ self._togglePanelOpen('importExport'); }}>&times;</button>
+                                        </div>
+                                        {!panels.importExport.collapsed && <div className="float-panel-body">
+                                            {this.renderExportContent()}
+                                        </div>}
+                                    </div>
+                                }
+                                {/* Panel menu */}
+                                <div className="panel-menu">
+                                    <button className="btn panel-menu-toggle" onClick={function(){ self.setState({_panelMenuOpen: !self.state._panelMenuOpen}); }}
+                                        title="Show/hide panels"><i className="fa fa-th"></i></button>
+                                    {this.state._panelMenuOpen &&
+                                        <div className="panel-menu-list">
+                                            {['transport','view','tools','board','rules','stats','importExport'].map(function(id){
+                                                var label = id === 'importExport' ? 'Import/Export' : id.charAt(0).toUpperCase() + id.slice(1);
+                                                return (
+                                                    <label key={id} className="panel-menu-item">
+                                                        <input type="checkbox" checked={panels[id].open}
+                                                            onChange={function(){ self._togglePanelOpen(id); }} />
+                                                        <span>{label}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                );
+            },
+
+            renderObservatoryMobile : function(cs){
+                var self = this;
+                // Mobile: use drawer-based approach
+                return (
+                    <div className="layout-observatory layout-mobile">
+                        {this.renderCanvas(cs)}
+                        {/* Bottom transport drawer (always peeking) */}
+                        <div className="mobile-transport-bar">
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>
+                                {this.state.running ? "\u23F8" : "\u25B6"}
+                            </button>
+                            <button className="btn" onClick={this.stepGame}>Step</button>
+                            <button className="btn" onClick={this.resetGame}>Reset</button>
+                            <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                                onClick={this.toggleBottomSheet}>Controls</button>
+                        </div>
+                        {/* Stats chip */}
+                        <div className="stats-chip" onClick={this.togglePopGraph}>
+                            <span>{"Gen " + this.state.generations.toLocaleString()}</span>
+                            <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
+                            <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
+                                {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
+                            </span>
+                        </div>
+                        {this.renderMobileContextPanel()}
+                        {/* Full bottom sheet with all controls */}
+                        {this.state.bottomSheetOpen &&
+                            <div className="bottom-sheet-container">
+                                <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}></div>
+                                <div className="bottom-sheet">
+                                    <div className="bottom-sheet-content bottom-sheet-accordion">
+                                        {this.renderTransportControls(false)}
+                                        {this.renderViewControls()}
+                                        {this.renderModeControls()}
+                                        {this.renderToolsContent()}
+                                        {this.renderSliders()}
+                                        {this.renderRulesSection()}
+                                        <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
+                                        {this.renderExportContent()}
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                );
+            },
+
+            // ── Panel state helpers (Observatory) ────────────────────────────
+
+            _togglePanelOpen : function(panelId){
+                var panels = JSON.parse(JSON.stringify(this.state.panelStates));
+                panels[panelId].open = !panels[panelId].open;
+                var self = this;
+                this.setState({panelStates: panels}, function(){ self._persistLayout(); });
+            },
+
+            _togglePanelCollapse : function(panelId){
+                var panels = JSON.parse(JSON.stringify(this.state.panelStates));
+                panels[panelId].collapsed = !panels[panelId].collapsed;
+                var self = this;
+                this.setState({panelStates: panels}, function(){ self._persistLayout(); });
+            },
+
             // ── Main render ───────────────────────────────────────────────────
 
             render : function(){
                 var cs = this.getCanvasSize();
+                var layout = this.state.layoutMode;
+                var layoutContent;
+
+                switch(layout){
+                    case 'cartographer':
+                        layoutContent = this.renderCartographer(cs);
+                        break;
+                    case 'specimen':
+                        layoutContent = this.renderSpecimen(cs);
+                        break;
+                    case 'observatory':
+                        layoutContent = this.renderObservatory(cs);
+                        break;
+                    default:
+                        layoutContent = this.renderCartographer(cs);
+                }
+
                 return (
-                    <div>
+                    <div className={"app-root layout-" + layout}>
                         <div className="sr-only" aria-live="polite" aria-atomic="true">
                             {"Generation " + this.state.generations + ", Population " + this.state.liveCells.size}
                         </div>
                         {this.renderHelpModal()}
                         {this.renderPopGraph()}
-                        {/* Title: full h2 on mobile; hidden on desktop (toolbar has compact version). */}
-                        <h2 className="top site-title">Conway's Game of Life</h2>
-                        {/* Toolbar: visible on desktop/tablet; hidden on mobile via CSS. */}
-                        {this.renderToolbar()}
-                        <div className="content-body">
-                            <div className={"canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")}>
-                                <canvas className="display"
-                                    width  = {cs.w}
-                                    height = {cs.h}
-                                    style  = {{width: cs.displayW + 'px', height: cs.displayH + 'px', display: 'block', margin: 'auto'}}
-                                    id = "life-canvas"
-                                    role = "img"
-                                    aria-label = {"Conway's Game of Life simulation canvas. Generation " + this.state.generations + ", population " + this.state.liveCells.size + ", " + (this.state.running ? "running" : "paused")}
-                                    draggable     = {false}
-                                    onMouseDown   = {this.onMouseDown}
-                                    onMouseMove   = {this.onMouseMove}
-                                    onMouseUp     = {this.onMouseUp}
-                                    onMouseLeave  = {this.onMouseLeave}
-                                    onContextMenu = {this.onContextMenu}
-                                    onTouchStart  = {this.onTouchStart}
-                                    onTouchMove   = {this.onTouchMove}
-                                    onTouchEnd    = {this.onTouchEnd}></canvas>
-                                {this.state.analysisResult ? <div className={"analysis-result" + (this.state.analyzing ? " analysis-cancellable" : "")} onClick={this.state.analyzing ? this.cancelAnalysis : null}>{this.state.analysisResult}</div> : null}
-                                {this.renderMobileContextPanel()}
-                                {this.renderMobileStatsBar()}
-                                {this.renderMobileSparkline()}
-                                {this.renderMobileMinimapArea()}
-                                <div className="mobile-quickbar">
-                                    <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
-                                    <button className="btn" onClick={this.stepGame}>Step</button>
-                                    <button className="btn" onClick={this.resetGame}>Reset</button>
-                                    <button className={"btn btn-toggle" + (this.state.showMobileTools ? " active" : "")} onClick={this.toggleMobileTools}>Controls</button>
-                                </div>
-                            </div>
-                            <div className={"sidebar" + (this.state.showMobileTools ? " mobile-open" : "")}>
-                                <div className="sidebar-scroll-content">
-                                    {this.renderStats()}
-                                    {this.renderButtons()}
-                                    {this.renderRulesSection()}
-                                    {this.renderSliders()}
-                                    {this.renderRLESection()}
-                                </div>
-                            </div>
-                        </div>
-                        {this.state.showMobileTools &&
-                            <div className="mobile-sheet-backdrop" onClick={this.toggleMobileTools}></div>
-                        }
+                        {layoutContent}
                     </div>
                 );
             }
