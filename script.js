@@ -4708,16 +4708,18 @@ document.addEventListener('DOMContentLoaded', function(){
                 return (
                     <div className="layout-cartographer layout-mobile">
                         {this.renderCanvas(cs)}
-                        {/* Stats overlay chip */}
-                        <div className="stats-chip" onClick={this.togglePopGraph}
-                            role="button" tabIndex="0" aria-atomic="true" aria-live="off"
-                            onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
-                            <span>{"Gen " + this.state.generations.toLocaleString()}</span>
-                            <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
-                            <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
-                                {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
-                            </span>
-                        </div>
+                        {/* Stats overlay chip — hide when bottom sheet is open to avoid overlap */}
+                        {!this.state.bottomSheetOpen &&
+                            <div className="stats-chip" onClick={this.togglePopGraph}
+                                role="button" tabIndex="0" aria-atomic="true" aria-live="off"
+                                onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
+                                <span>{"Gen " + this.state.generations.toLocaleString()}</span>
+                                <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
+                                <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
+                                    {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
+                                </span>
+                            </div>
+                        }
                         {/* Mobile context: rotation preview + selection when active */}
                         {this.renderMobileContextPanel()}
                         {this.renderMobileMinimapArea()}
@@ -5119,16 +5121,18 @@ document.addEventListener('DOMContentLoaded', function(){
                                 aria-expanded={this.state.bottomSheetOpen}
                                 aria-label="Open controls panel">Controls</button>
                         </div>
-                        {/* Stats chip */}
-                        <div className="stats-chip" onClick={this.togglePopGraph}
-                            role="button" tabIndex="0" aria-atomic="true" aria-live="off"
-                            onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
-                            <span>{"Gen " + this.state.generations.toLocaleString()}</span>
-                            <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
-                            <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
-                                {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
-                            </span>
-                        </div>
+                        {/* Stats chip — hide when bottom sheet is open to avoid overlap */}
+                        {!this.state.bottomSheetOpen &&
+                            <div className="stats-chip" onClick={this.togglePopGraph}
+                                role="button" tabIndex="0" aria-atomic="true" aria-live="off"
+                                onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
+                                <span>{"Gen " + this.state.generations.toLocaleString()}</span>
+                                <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
+                                <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
+                                    {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
+                                </span>
+                            </div>
+                        }
                         {this.renderMobileContextPanel()}
                         {this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}

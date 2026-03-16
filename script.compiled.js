@@ -6262,7 +6262,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return /*#__PURE__*/React.createElement("div", {
           className: "layout-cartographer layout-mobile"
-        }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
+        }, this.renderCanvas(cs), !this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "stats-chip",
           onClick: this.togglePopGraph,
           role: "button",
@@ -6789,7 +6789,7 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.toggleBottomSheet,
           "aria-expanded": this.state.bottomSheetOpen,
           "aria-label": "Open controls panel"
-        }, "Controls")), /*#__PURE__*/React.createElement("div", {
+        }, "Controls")), !this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "stats-chip",
           onClick: this.togglePopGraph,
           role: "button",

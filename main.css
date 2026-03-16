@@ -1120,7 +1120,7 @@ canvas.display {
   box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
   z-index: 110;
   overflow: hidden;
-  padding: var(--space-lg) var(--space-xl) calc(var(--space-xl) + env(safe-area-inset-bottom, 0px));
+  padding: var(--space-lg) var(--space-xl) calc(var(--space-xl) + 60px + env(safe-area-inset-bottom, 0px));
   animation: sheet-slide-up var(--transition-normal) ease-out; }
 
 .bottom-sheet.sheet-closing {
@@ -1637,7 +1637,12 @@ canvas.display {
   .mobile-minimap-area {
     display: flex;
     justify-content: center;
-    padding: var(--space-sm) 0 var(--space-xs); }
+    position: fixed;
+    bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+    left: auto;
+    right: var(--space-md);
+    z-index: 102;
+    padding: 0; }
   .mobile-minimap-canvas {
     border: 1px solid var(--separator-strong);
     border-radius: var(--radius-sm);
