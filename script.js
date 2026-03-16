@@ -378,8 +378,9 @@ var SimEngine = {
                 countStr = '';
             } else if(ch === '!'){ break; }
         }
-        if(cells.length > 100000){ cells.length = 100000; }
-        return {cells : cells};
+        var truncated = cells.length > 100000;
+        if(truncated){ cells.length = 100000; }
+        return {cells : cells, truncated: truncated};
     },
 
     // Parses LifeWiki plaintext (.cells) format into [[row, col], ...].
@@ -398,8 +399,9 @@ var SimEngine = {
             }
             row++;
         }
-        if(cells.length > 100000){ cells.length = 100000; }
-        return {cells : cells};
+        var truncated = cells.length > 100000;
+        if(truncated){ cells.length = 100000; }
+        return {cells : cells, truncated: truncated};
     },
 
     // Parses Life 1.06 format: header "#Life 1.06", then one "x y" per live cell.
@@ -418,8 +420,9 @@ var SimEngine = {
                 }
             }
         }
-        if(cells.length > 100000){ cells.length = 100000; }
-        return {cells : cells};
+        var truncated = cells.length > 100000;
+        if(truncated){ cells.length = 100000; }
+        return {cells : cells, truncated: truncated};
     },
 
     // Parses Life 1.05 format: header "#Life 1.05", #D descriptions, #P x y origin blocks.
@@ -460,8 +463,9 @@ var SimEngine = {
                 }
             }
         }
-        if(cells.length > 100000){ cells.length = 100000; }
-        return {cells : cells};
+        var truncated = cells.length > 100000;
+        if(truncated){ cells.length = 100000; }
+        return {cells : cells, truncated: truncated};
     },
 
     // Rotates a [[row,col],...] pattern 90° CW, `steps` times.
@@ -874,6 +878,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
                 var self = this;
                 var reader = new FileReader();
+                reader.onerror = function(){
+                    self.setState({rleError: 'Unable to read file.'});
+                };
                 reader.onload = function(ev){
                     var text = ev.target.result;
                     // Strip non-printable control characters (keep tabs, newlines, CR).
@@ -900,7 +907,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             patternRotation : 0,
                             drawMode :        'preset',
                             showRle :         false,
-                            rleError :        ''
+                            rleError :        result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
                         }, function(){ self.drawBoard(); });
                     } catch(ex){
                         self.setState({rleError: 'Could not parse file: ' + (ex.message || 'unknown error')});
@@ -937,6 +944,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
             drawBoard : function(){
                 var canvas = this._canvas;
+                if(!canvas){ return; }
                 var ctx = canvas.getContext("2d");
                 var cellSize = this.state.cellSize;
                 var cols = this.state.cols;
@@ -1127,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
 
                 // Pattern placement preview.
-                if(this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos){
+                if(this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos && PATTERNS[this.state.selectedPattern]){
                     var pattern = this.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
                     var maxPR = 0, maxPC = 0;
                     for(var pi = 0; pi < pattern.length; pi++){
@@ -1252,7 +1260,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             drawRotationPreview : function(){
-                if(!this.state.selectedPattern){ return; }
+                if(!this.state.selectedPattern || !PATTERNS[this.state.selectedPattern]){ return; }
                 var theme = THEMES[this.state.theme] || THEMES['Teal'];
                 var pattern = this.rotatePattern(
                     PATTERNS[this.state.selectedPattern], this.state.patternRotation);
@@ -1999,11 +2007,12 @@ document.addEventListener('DOMContentLoaded', function(){
                     var sel = this.state.selection;
                     if(sel){
                         var normType = sel.type || 'rect';
+                        var self = this;
                         this.setState({selection: {
                             type: normType,
                             r1: Math.min(sel.r1, sel.r2), c1: Math.min(sel.c1, sel.c2),
                             r2: Math.max(sel.r1, sel.r2), c2: Math.max(sel.c1, sel.c2)
-                        }});
+                        }}, function(){ self.drawBoard(); });
                     }
                     this._selStart = null;
                     return;
@@ -2578,6 +2587,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         if(e.shiftKey){ this.stepN(this.state.stepCount); }
                         else { this.stepGame(); }
                         break;
+                    case 'Enter':
+                        e.preventDefault();
+                        if(!this.state.running){ this.stepGame(); }
+                        break;
                     case ',':
                         e.preventDefault();
                         this.stepBack();
@@ -3137,7 +3150,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         selectedPattern : 'Custom',
                         patternRotation : 0,
                         showRle :         false,
-                        rleError :        ''
+                        rleError :        result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
                     }, function(){ self.drawBoard(); });
                 } catch(ex){
                     this.setState({rleError : 'Could not parse pattern: ' + ex.message});
@@ -3173,6 +3186,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             placePattern : function(name, centerC, centerR){
+                if(!PATTERNS[name]){ return; }
                 this.pushUndo();
                 var pattern = this.rotatePattern(PATTERNS[name], this.state.patternRotation);
                 var cols = this.state.cols;
@@ -3568,7 +3582,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                   stroke="rgba(244,233,225,0.25)" strokeWidth="1"/>
                             <line x1="0" y1={padT + innerH / 2} x2={vbW} y2={padT + innerH / 2}
                                   stroke="rgba(244,233,225,0.1)" strokeWidth="0.5"/>
-                            <polyline points={sparkPts} fill="none" stroke="#70959A"
+                            <polyline points={sparkPts} fill="none" stroke={THEMES[this.state.theme] ? 'rgb(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ')' : '#70959A'}
                                       strokeWidth="1.5" strokeLinejoin="round"
                                       strokeLinecap="round"/>
                         </svg>

@@ -550,11 +550,13 @@ var SimEngine = {
         break;
       }
     }
-    if (cells.length > 100000) {
+    var truncated = cells.length > 100000;
+    if (truncated) {
       cells.length = 100000;
     }
     return {
-      cells: cells
+      cells: cells,
+      truncated: truncated
     };
   },
   // Parses LifeWiki plaintext (.cells) format into [[row, col], ...].
@@ -575,11 +577,13 @@ var SimEngine = {
       }
       row++;
     }
-    if (cells.length > 100000) {
+    var truncated = cells.length > 100000;
+    if (truncated) {
       cells.length = 100000;
     }
     return {
-      cells: cells
+      cells: cells,
+      truncated: truncated
     };
   },
   // Parses Life 1.06 format: header "#Life 1.06", then one "x y" per live cell.
@@ -600,11 +604,13 @@ var SimEngine = {
         }
       }
     }
-    if (cells.length > 100000) {
+    var truncated = cells.length > 100000;
+    if (truncated) {
       cells.length = 100000;
     }
     return {
-      cells: cells
+      cells: cells,
+      truncated: truncated
     };
   },
   // Parses Life 1.05 format: header "#Life 1.05", #D descriptions, #P x y origin blocks.
@@ -656,11 +662,13 @@ var SimEngine = {
         }
       }
     }
-    if (cells.length > 100000) {
+    var truncated = cells.length > 100000;
+    if (truncated) {
       cells.length = 100000;
     }
     return {
-      cells: cells
+      cells: cells,
+      truncated: truncated
     };
   },
   // Rotates a [[row,col],...] pattern 90° CW, `steps` times.
@@ -1147,6 +1155,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var self = this;
         var reader = new FileReader();
+        reader.onerror = function () {
+          self.setState({
+            rleError: 'Unable to read file.'
+          });
+        };
         reader.onload = function (ev) {
           var text = ev.target.result;
           // Strip non-printable control characters (keep tabs, newlines, CR).
@@ -1175,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', function () {
               patternRotation: 0,
               drawMode: 'preset',
               showRle: false,
-              rleError: ''
+              rleError: result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
             }, function () {
               self.drawBoard();
             });
@@ -1221,6 +1234,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
       drawBoard: function () {
         var canvas = this._canvas;
+        if (!canvas) {
+          return;
+        }
         var ctx = canvas.getContext("2d");
         var cellSize = this.state.cellSize;
         var cols = this.state.cols;
@@ -1411,7 +1427,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Pattern placement preview.
-        if (this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos) {
+        if (this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos && PATTERNS[this.state.selectedPattern]) {
           var pattern = this.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
           var maxPR = 0,
             maxPC = 0;
@@ -1553,7 +1569,7 @@ document.addEventListener('DOMContentLoaded', function () {
         };
       },
       drawRotationPreview: function () {
-        if (!this.state.selectedPattern) {
+        if (!this.state.selectedPattern || !PATTERNS[this.state.selectedPattern]) {
           return;
         }
         var theme = THEMES[this.state.theme] || THEMES['Teal'];
@@ -2477,6 +2493,7 @@ document.addEventListener('DOMContentLoaded', function () {
           var sel = this.state.selection;
           if (sel) {
             var normType = sel.type || 'rect';
+            var self = this;
             this.setState({
               selection: {
                 type: normType,
@@ -2485,6 +2502,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 r2: Math.max(sel.r1, sel.r2),
                 c2: Math.max(sel.c1, sel.c2)
               }
+            }, function () {
+              self.drawBoard();
             });
           }
           this._selStart = null;
@@ -3250,6 +3269,12 @@ document.addEventListener('DOMContentLoaded', function () {
               this.stepGame();
             }
             break;
+          case 'Enter':
+            e.preventDefault();
+            if (!this.state.running) {
+              this.stepGame();
+            }
+            break;
           case ',':
             e.preventDefault();
             this.stepBack();
@@ -3983,7 +4008,7 @@ document.addEventListener('DOMContentLoaded', function () {
             selectedPattern: 'Custom',
             patternRotation: 0,
             showRle: false,
-            rleError: ''
+            rleError: result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
           }, function () {
             self.drawBoard();
           });
@@ -4034,6 +4059,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       },
       placePattern: function (name, centerC, centerR) {
+        if (!PATTERNS[name]) {
+          return;
+        }
         this.pushUndo();
         var pattern = this.rotatePattern(PATTERNS[name], this.state.patternRotation);
         var cols = this.state.cols;
@@ -4580,7 +4608,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }), /*#__PURE__*/React.createElement("polyline", {
           points: sparkPts,
           fill: "none",
-          stroke: "#70959A",
+          stroke: THEMES[this.state.theme] ? 'rgb(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ')' : '#70959A',
           strokeWidth: "1.5",
           strokeLinejoin: "round",
           strokeLinecap: "round"

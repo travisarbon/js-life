@@ -17,6 +17,7 @@
   --modal-bg: #6d6560;
   --accent: #70959A;
   --accent-text: #F4E9E1;
+  --error-color: #b04030;
 
   /* Panel chrome variables */
   --panel-bg: var(--content-bg);
@@ -46,6 +47,7 @@ html.dark-mode {
   --modal-bg: #333338;
   --accent: #70959A;
   --accent-text: #F4E9E1;
+  --error-color: #f0a090;
 
   /* Dark mode panel chrome overrides */
   --panel-bg-blur: rgba(42, 42, 46, 0.78);
@@ -359,7 +361,7 @@ canvas.display {
 #content .rle-error {
   margin: 0;
   font-size: 0.8em;
-  color: #f0a090;
+  color: var(--error-color);
   font-style: italic; }
 
 /* ── Help modal ───────────────────────────────────────────────────────────── */
@@ -588,7 +590,7 @@ canvas.display {
 
 /* ── Analysis overlay ─────────────────────────────────────────────────── */
 .analysis-result {
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -597,7 +599,7 @@ canvas.display {
   padding: 12px 20px;
   border-radius: 6px;
   font-size: 14px;
-  z-index: 20;
+  z-index: 150;
   text-align: center;
   pointer-events: none;
   white-space: nowrap; }
