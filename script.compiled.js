@@ -1111,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             maxW = Math.max(1, winW - railW);
             // Reserve space for transport strip at bottom
-            var transportH = isMobile ? 48 : 50;
+            var transportH = isMobile ? 56 : 50;
             maxH = Math.max(1, winH - transportH);
           } else if (layout === 'specimen') {
             maxW = winW;
@@ -6245,7 +6245,7 @@ document.addEventListener('DOMContentLoaded', function () {
           case 'simulate':
             sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
               className: "sidebar-section-title"
-            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls());
+            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderMobileSparkline());
             break;
           case 'tools':
             sheetContent = this.renderToolsContent();
@@ -6529,7 +6529,7 @@ document.addEventListener('DOMContentLoaded', function () {
           case 'simulate':
             sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
               className: "sidebar-section-title"
-            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls());
+            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderMobileSparkline());
             break;
           case 'tools':
             sheetContent = this.renderToolsContent();
@@ -6732,7 +6732,7 @@ document.addEventListener('DOMContentLoaded', function () {
           case 'simulate':
             sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
               className: "sidebar-section-title"
-            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls());
+            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderMobileSparkline());
             break;
           case 'tools':
             sheetContent = this.renderToolsContent();
