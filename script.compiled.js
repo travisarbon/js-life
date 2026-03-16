@@ -528,14 +528,18 @@ var SimEngine = {
     var row = 0,
       col = 0,
       countStr = '';
+    var MAX_COORD = 100000;
     for (var k = 0; k < data.length; k++) {
       var ch = data[k];
       if (ch >= '0' && ch <= '9') {
         countStr += ch;
       } else if (ch === 'b' || ch === 'o') {
         var n = countStr ? parseInt(countStr, 10) : 1;
+        if (n > MAX_COORD) {
+          n = MAX_COORD;
+        }
         if (ch === 'o') {
-          for (var j = 0; j < n; j++) {
+          for (var j = 0; j < n && cells.length < 200000; j++) {
             cells.push([row, col + j]);
           }
         }
@@ -543,10 +547,16 @@ var SimEngine = {
         countStr = '';
       } else if (ch === '$') {
         var n2 = countStr ? parseInt(countStr, 10) : 1;
+        if (n2 > MAX_COORD) {
+          n2 = MAX_COORD;
+        }
         row += n2;
         col = 0;
         countStr = '';
       } else if (ch === '!') {
+        break;
+      }
+      if (row > MAX_COORD || col > MAX_COORD) {
         break;
       }
     }
@@ -869,20 +879,39 @@ document.addEventListener('DOMContentLoaded', function () {
           bottomSheetOpen: false,
           bottomSheetClosing: false,
           bottomSheetTab: 'simulate',
-          panMode: false
+          panMode: false,
+          srAnnouncement: ''
         };
       },
-      componentWillMount: function () {
-        // Initialize instance properties accessed during render,
-        // before the first render() call.
+      shouldComponentUpdate: function (nextProps, nextState) {
+        // Skip render when only the generation counter or population changed
+        // (canvas is drawn imperatively via drawBoard, not via React render).
+        var dominated = this.state.running && nextState.running;
+        if (dominated) {
+          // During running simulation, only re-render if UI-relevant state changed.
+          var dominated_keys = ['generations', 'popHistory', 'srAnnouncement'];
+          var dominated_only = true;
+          var keys = Object.keys(nextState);
+          for (var i = 0; i < keys.length; i++) {
+            var k = keys[i];
+            if (this.state[k] !== nextState[k] && dominated_keys.indexOf(k) === -1) {
+              dominated_only = false;
+              break;
+            }
+          }
+          if (dominated_only) return false;
+        }
+        return true;
+      },
+      componentDidMount: function () {
+        this._mounted = true;
+        // Instance properties previously in componentWillMount.
         this._genHistory = [];
         this._genHistoryMax = 200;
         this._genHistoryInterval = 1;
         this._genHistoryCounter = 0;
         this._trailMap = new Map();
         this._trailEnabled = false;
-      },
-      componentDidMount: function () {
         this._dragging = false;
         this._dragStatus = null;
         this._paintedCells = {};
@@ -1055,6 +1084,13 @@ document.addEventListener('DOMContentLoaded', function () {
         var cellSize = this.state.cellSize;
         var pendingCols = this.state.pendingCols;
         var pendingRows = this.state.pendingRows;
+        // Memoization: return cached result if inputs haven't changed.
+        var winW = typeof window !== 'undefined' ? window.innerWidth : 846;
+        var winH = typeof window !== 'undefined' ? window.innerHeight : 900;
+        var cacheKey = cellSize + ',' + pendingCols + ',' + pendingRows + ',' + this.state.deviceClass + ',' + this.state.layoutMode + ',' + this.state.boundary + ',' + this.state.railCollapsed + ',' + this.state.railHidden + ',' + this.state.bottomSheetOpen + ',' + winW + ',' + winH;
+        if (this._canvasSizeCacheKey === cacheKey && this._canvasSizeCache) {
+          return this._canvasSizeCache;
+        }
         var dc = this.state.deviceClass;
         var layout = this.state.layoutMode;
         var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
@@ -1090,7 +1126,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var contentPad = isMobile ? 24 : 40;
             var sidebarW = isMobile ? 0 : (dc === 'tablet' ? 160 : 180) + 14;
             maxW = Math.max(1, Math.min(winW, 1100) - contentPad - sidebarW);
-            var isMobileToolsOpen = isMobile && this.state.showMobileTools;
+            var isMobileToolsOpen = isMobile && this.state.bottomSheetOpen;
             var hFrac = isMobile ? isMobileToolsOpen ? 0.36 : 0.82 : 0.90;
             maxH = Math.min(Math.round(winH * hFrac), 1400);
           }
@@ -1103,6 +1139,14 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
           w = Math.min(pendingCols * cellSize, maxW);
           h = Math.min(pendingRows * cellSize, maxH);
+          if (pendingRows <= 0 || pendingCols <= 0) {
+            return {
+              w: Math.max(1, w),
+              h: Math.max(1, h),
+              displayW: Math.max(1, w),
+              displayH: Math.max(1, h)
+            };
+          }
           var gridAspect = pendingCols / pendingRows;
           if (w / h > gridAspect) {
             w = Math.max(1, Math.round(h * gridAspect));
@@ -1113,14 +1157,20 @@ document.addEventListener('DOMContentLoaded', function () {
         var displayScale = isUnbounded ? 1 : w > 0 && h > 0 ? Math.min(maxW / w, maxH / h) : 1;
         var displayW = Math.round(w * displayScale);
         var displayH = Math.round(h * displayScale);
-        return {
+        var result = {
           w: w,
           h: h,
           displayW: displayW,
           displayH: displayH
         };
+        this._canvasSizeCacheKey = cacheKey;
+        this._canvasSizeCache = result;
+        return result;
       },
       componentWillUnmount: function () {
+        if (!this._canvas) {
+          return;
+        }
         this._canvas.removeEventListener('wheel', this.onWheel);
         document.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('resize', this._onResize);
@@ -1135,6 +1185,51 @@ document.addEventListener('DOMContentLoaded', function () {
           this._gif.abort();
           this._gif = null;
         }
+        // Remove media query listeners.
+        if (this._darkModeQuery && this._onDarkModeChange) {
+          try {
+            this._darkModeQuery.removeEventListener('change', this._onDarkModeChange);
+          } catch (ex) {
+            try {
+              this._darkModeQuery.removeListener(this._onDarkModeChange);
+            } catch (ex2) {}
+          }
+        }
+        if (this._updateDeviceClass) {
+          var mqList = [this._mqPhone, this._mqPhoneLandscape, this._mqTablet, this._mqLandscape];
+          for (var mi = 0; mi < mqList.length; mi++) {
+            if (mqList[mi]) {
+              try {
+                mqList[mi].removeEventListener('change', this._updateDeviceClass);
+              } catch (ex) {
+                try {
+                  mqList[mi].removeListener(this._updateDeviceClass);
+                } catch (ex2) {}
+              }
+            }
+          }
+        }
+        // Cancel pending animation frame and timeout.
+        this._mounted = false;
+        if (this._rafId) {
+          cancelAnimationFrame(this._rafId);
+          this._rafId = null;
+        }
+        if (this._loopTimeout) {
+          clearTimeout(this._loopTimeout);
+          this._loopTimeout = null;
+        }
+        if (this._longPressTimer) {
+          clearTimeout(this._longPressTimer);
+          this._longPressTimer = null;
+        }
+        // Release large objects.
+        this._minimapCanvas = null;
+        this._hlRoot = null;
+        this._genHistory = [];
+        this._trailMap = null;
+        this._paintedCells = {};
+        this._sheetEl = null;
       },
       // ── Drag-and-drop file import ──────────────────────────────────────
 
@@ -1239,6 +1334,9 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         var ctx = canvas.getContext("2d");
+        if (!ctx) {
+          return;
+        }
         var cellSize = this.state.cellSize;
         var cols = this.state.cols;
         var rows = this.state.rows;
@@ -1627,9 +1725,14 @@ document.addEventListener('DOMContentLoaded', function () {
         // 2. Rebuild quadtree from Map if stale
         if (this._hlStale || !this._hlRoot) {
           var cells = [];
+          var MAX_HL_COORD = 1000000;
           liveCells.forEach(function (age, key) {
             var comma = key.indexOf(',');
-            cells.push([parseInt(key.substring(0, comma)), parseInt(key.substring(comma + 1))]);
+            var r = parseInt(key.substring(0, comma), 10);
+            var c = parseInt(key.substring(comma + 1), 10);
+            if (r > -MAX_HL_COORD && r < MAX_HL_COORD && c > -MAX_HL_COORD && c < MAX_HL_COORD) {
+              cells.push([r, c]);
+            }
           });
           var tree = HashLife.fromCellList(cells);
           this._hlRoot = tree.root;
@@ -1679,11 +1782,15 @@ document.addEventListener('DOMContentLoaded', function () {
         this._loopRunning = true;
         var tickId = ++this._tickId;
         var self = this;
-        requestAnimationFrame(function () {
+        this._rafId = requestAnimationFrame(function () {
           self.findNewStates(tickId);
         });
       },
       findNewStates: function (tickId) {
+        if (!this._mounted) {
+          this._loopRunning = false;
+          return;
+        }
         if (tickId !== this._tickId) {
           this._loopRunning = false;
           return;
@@ -1724,6 +1831,10 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       // Called by the worker response handler and the sync path.
       _applyNewStates: function (newLiveCells, tickId) {
+        if (!this._mounted) {
+          this._loopRunning = false;
+          return;
+        }
         if (tickId !== this._tickId) {
           this._loopRunning = false;
           return;
@@ -1779,9 +1890,15 @@ document.addEventListener('DOMContentLoaded', function () {
           // Cap trail map size for performance.
           if (trailMap.size > 50000) {
             var excess = trailMap.size - 50000;
+            var delKeys = [];
             var iter = trailMap.keys();
             for (var ei = 0; ei < excess; ei++) {
-              trailMap.delete(iter.next().value);
+              var nk = iter.next();
+              if (nk.done) break;
+              delKeys.push(nk.value);
+            }
+            for (var di = 0; di < delKeys.length; di++) {
+              trailMap.delete(delKeys[di]);
             }
           }
         }
@@ -1834,22 +1951,27 @@ document.addEventListener('DOMContentLoaded', function () {
         this._minimapDirty = true;
         var self = this;
         var myTickId = tickId;
-        this.setState({
-          liveCells: newLiveCells,
-          generations: this.state.generations + 1,
-          popHistory: newHistory,
-          sessionPeakPop: newSessionPeak,
-          stable: hitStable,
-          running: hitStable ? false : this.state.running
+        this.setState(function (prev) {
+          return {
+            liveCells: newLiveCells,
+            generations: prev.generations + 1,
+            popHistory: newHistory,
+            sessionPeakPop: newSessionPeak,
+            stable: hitStable,
+            running: hitStable ? false : prev.running
+          };
         }, function () {
+          if (!self._mounted) {
+            return;
+          }
           self.drawBoard();
           if (hitStable) {
             self._loopRunning = false;
             return;
           }
           var delay = SPEED_DELAYS[self.state.speed - 1];
-          setTimeout(function () {
-            requestAnimationFrame(function () {
+          self._loopTimeout = setTimeout(function () {
+            self._rafId = requestAnimationFrame(function () {
               self.findNewStates(myTickId);
             });
           }, delay);
@@ -2026,8 +2148,8 @@ document.addEventListener('DOMContentLoaded', function () {
           if (!params.rle) {
             return;
           }
-          var cols = parseInt(params.cols) || 100;
-          var rows = parseInt(params.rows) || 100;
+          var cols = Math.min(10000, Math.max(1, parseInt(params.cols, 10) || 100));
+          var rows = Math.min(10000, Math.max(1, parseInt(params.rows, 10) || 100));
           var rule = params.rule || 'B3/S23';
           var parsed = this.parseRuleString(rule);
           var result = SimEngine.parseRLE(params.rle);
@@ -2093,7 +2215,13 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       paintCellDirect: function (c, r) {
         var canvas = this._canvas;
+        if (!canvas) {
+          return;
+        }
         var ctx = canvas.getContext("2d");
+        if (!ctx) {
+          return;
+        }
         var cellSize = this.state.cellSize;
         var viewX = this.state.viewX;
         var viewY = this.state.viewY;
@@ -2128,6 +2256,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var canvasW = this._canvas ? this._canvas.width : cols * cellSize;
         var canvasH = this._canvas ? this._canvas.height : rows * cellSize;
+        if (canvasW <= 0 || canvasH <= 0 || cellSize <= 0) {
+          return {
+            viewX: Math.round(viewX),
+            viewY: Math.round(viewY)
+          };
+        }
         var maxVX = Math.max(0, cols - Math.ceil(canvasW / cellSize));
         var maxVY = Math.max(0, rows - Math.ceil(canvasH / cellSize));
         return {
@@ -2141,7 +2275,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (event.button === 0 && this._minimapRect && this.state.showMinimap && this.state.drawMode !== 'select') {
           var mouse = this.getMousePos(event);
           var mm = this._minimapRect;
-          if (mouse.x >= mm.x && mouse.x <= mm.x + mm.w && mouse.y >= mm.y && mouse.y <= mm.y + mm.h) {
+          if (mm.w > 0 && mm.h > 0 && mouse.x >= mm.x && mouse.x <= mm.x + mm.w && mouse.y >= mm.y && mouse.y <= mm.y + mm.h) {
             var frac_c = (mouse.x - mm.x) / mm.w;
             var frac_r = (mouse.y - mm.y) / mm.h;
             var newVX = Math.round(frac_c * this.state.cols - this._canvas.width / this.state.cellSize / 2);
@@ -2448,6 +2582,7 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       onMouseUp: function () {
         this._minimapDragging = false;
+        this._paintedCells = {};
         if (this._panDragging) {
           this._panDragging = false;
           this._panStart = null;
@@ -2820,12 +2955,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var cols = this.state.cols;
         var rows = this.state.rows;
+        if (cols <= 0 || rows <= 0) {
+          return;
+        }
         var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
         var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
         var contentPad = isMobile ? 24 : 40;
         var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
         var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
-        var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
+        var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.bottomSheetOpen;
         var hFrac = isMobile ? isMobileToolsOpen ? 0.36 : 0.82 : 0.90;
         var effW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
         var effH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
@@ -2888,7 +3026,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var contentPad = isMobile ? 24 : 40;
         var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
         var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
-        var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
+        var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.bottomSheetOpen;
         var hFrac = isMobile ? isMobileToolsOpen ? 0.36 : 0.82 : 0.90;
         var effW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
         var effH = typeof window !== 'undefined' ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
@@ -2905,7 +3043,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       },
       setZoom: function (e) {
-        var newCS = parseInt(e.target.value);
+        var newCS = parseInt(e.target.value, 10);
+        if (isNaN(newCS) || newCS < 1) {
+          return;
+        }
+        newCS = Math.max(1, Math.min(128, newCS));
         var clamped = this.clampView(this.state.viewX, this.state.viewY, this.state.cols, this.state.rows, newCS);
         var self = this;
         this.setState({
@@ -2975,6 +3117,8 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         this.pushUndo();
+        this._stableCount = 0;
+        this._prevBoardHash = null;
         // Snapshot selection cells before setState to avoid stale closure.
         var selCells = this.getSelectionCells(sel);
         this._minimapDirty = true;
@@ -3050,7 +3194,7 @@ document.addEventListener('DOMContentLoaded', function () {
       toggleMobileTools: function () {
         var self = this;
         this.setState({
-          showMobileTools: !this.state.showMobileTools
+          showMobileTools: !this.state.bottomSheetOpen
         }, function () {
           self.drawBoard();
         });
@@ -3100,12 +3244,15 @@ document.addEventListener('DOMContentLoaded', function () {
       onTouchStart: function (event) {
         event.preventDefault();
         clearTimeout(this._longPressTimer);
+        if (!event.touches || event.touches.length === 0) {
+          return;
+        }
         if (event.touches.length === 2) {
           // Begin pinch-zoom + two-finger pan tracking.
           var t0 = event.touches[0],
             t1 = event.touches[1];
           this._pinchStart = {
-            dist: Math.sqrt(Math.pow(t1.clientX - t0.clientX, 2) + Math.pow(t1.clientY - t0.clientY, 2)),
+            dist: Math.sqrt((t1.clientX - t0.clientX) * (t1.clientX - t0.clientX) + (t1.clientY - t0.clientY) * (t1.clientY - t0.clientY)),
             midX: (t0.clientX + t1.clientX) / 2,
             midY: (t0.clientY + t1.clientY) / 2,
             cellSize: this.state.cellSize,
@@ -3175,11 +3322,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (event.touches.length === 2 && this._pinchStart) {
           var t0 = event.touches[0],
             t1 = event.touches[1];
-          var newDist = Math.sqrt(Math.pow(t1.clientX - t0.clientX, 2) + Math.pow(t1.clientY - t0.clientY, 2));
+          var newDist = Math.sqrt((t1.clientX - t0.clientX) * (t1.clientX - t0.clientX) + (t1.clientY - t0.clientY) * (t1.clientY - t0.clientY));
           var newMidX = (t0.clientX + t1.clientX) / 2;
           var newMidY = (t0.clientY + t1.clientY) / 2;
           var scale = this._pinchStart.dist > 0 ? newDist / this._pinchStart.dist : 1;
-          var newCS = Math.max(1, Math.min(32, Math.round(this._pinchStart.cellSize * scale)));
+          var newCS = Math.max(1, Math.min(128, Math.round(this._pinchStart.cellSize * scale)));
           // Pan: shift view by finger-midpoint movement (in canvas cells).
           var dmx = newMidX - this._pinchStart.midX;
           var dmy = newMidY - this._pinchStart.midY;
@@ -3253,7 +3400,8 @@ document.addEventListener('DOMContentLoaded', function () {
       // ── Keyboard ──────────────────────────────────────────────────────
 
       handleKeyDown: function (e) {
-        if (e.key !== 'Escape' && ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].indexOf(e.target.tagName) !== -1) {
+        var tag = e.target.tagName;
+        if (e.key !== 'Escape' && (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || e.target.isContentEditable)) {
           return;
         }
         var self = this;
@@ -3282,10 +3430,12 @@ document.addEventListener('DOMContentLoaded', function () {
             break;
           case 'r':
           case 'R':
+            e.preventDefault();
             this.resetGame();
             break;
           case 'e':
           case 'E':
+            e.preventDefault();
             this.emptyBoard();
             break;
           case 'z':
@@ -3320,12 +3470,14 @@ document.addEventListener('DOMContentLoaded', function () {
           case 's':
           case 'S':
             if (!e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
               this.exportPNG();
             }
             break;
           case 'x':
           case 'X':
             if (!e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
               this.copyRLE();
             }
             break;
@@ -3479,6 +3631,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         this._prevFocusEl = null;
       },
+      _announce: function (msg) {
+        this.setState({
+          srAnnouncement: msg
+        });
+        var self = this;
+        setTimeout(function () {
+          if (self._mounted) self.setState({
+            srAnnouncement: ''
+          });
+        }, 3000);
+      },
       _focusFirst: function (containerSelector) {
         var self = this;
         setTimeout(function () {
@@ -3612,7 +3775,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this._sheetEl = e.currentTarget;
       },
       _onSheetTouchMove: function (e) {
-        if (this._sheetTouchY == null) {
+        if (this._sheetTouchY === null || this._sheetTouchY === undefined) {
           return;
         }
         var dy = e.touches[0].clientY - this._sheetTouchY;
@@ -3622,14 +3785,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       },
       _onSheetTouchEnd: function () {
-        if (this._sheetTouchY == null) {
+        if (this._sheetTouchY === null || this._sheetTouchY === undefined) {
           return;
         }
         var el = this._sheetEl;
         var transform = el.style.transform;
         var dy = 0;
         if (transform) {
-          var match = transform.match(/translateY\((\d+)/);
+          var match = transform.match(/translateY\((-?\d+)/);
           if (match) {
             dy = parseInt(match[1], 10);
           }
@@ -3826,6 +3989,7 @@ document.addEventListener('DOMContentLoaded', function () {
           this.setState({
             running: false
           });
+          this._announce('Simulation paused');
         } else {
           this._prevBoardHash = null;
           this._stableCount = 0;
@@ -3834,11 +3998,14 @@ document.addEventListener('DOMContentLoaded', function () {
             stable: false
           });
           this._startLoop();
+          this._announce('Simulation started');
         }
       },
       // ── Sliders ───────────────────────────────────────────────────────
 
       resizeBoard: function (newCols, newRows) {
+        newCols = Math.max(1, Math.round(newCols || 1));
+        newRows = Math.max(1, Math.round(newRows || 1));
         // Keep only cells that still fall within the new bounds.
         var oldLiveCells = this.state.liveCells;
         var newLiveCells = new Map();
@@ -3870,9 +4037,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       },
       setWidth: function (e) {
+        var v = parseInt(e.target.value, 10);
+        if (isNaN(v) || v < 1) v = this.state.cols;
+        v = Math.max(1, Math.min(10000, v));
         var self = this;
         this.setState({
-          pendingCols: parseInt(e.target.value)
+          pendingCols: v
         }, function () {
           self.drawBoard();
         });
@@ -3886,9 +4056,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       },
       setHeight: function (e) {
+        var v = parseInt(e.target.value, 10);
+        if (isNaN(v) || v < 1) v = this.state.rows;
+        v = Math.max(1, Math.min(10000, v));
         var self = this;
         this.setState({
-          pendingRows: parseInt(e.target.value)
+          pendingRows: v
         }, function () {
           self.drawBoard();
         });
@@ -3915,8 +4088,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       },
       setSpeed: function (e) {
+        var v = Math.max(1, Math.min(10, parseInt(e.target.value, 10) || 1));
         this.setState({
-          speed: parseInt(e.target.value)
+          speed: v
         });
       },
       // ── Rules ─────────────────────────────────────────────────────────
@@ -3927,8 +4101,12 @@ document.addEventListener('DOMContentLoaded', function () {
           return null;
         }
         return {
-          birth: match[1].split('').filter(Boolean).map(Number),
-          survive: match[2].split('').filter(Boolean).map(Number)
+          birth: match[1].split('').filter(function (d, i, a) {
+            return a.indexOf(d) === i;
+          }).map(Number),
+          survive: match[2].split('').filter(function (d, i, a) {
+            return a.indexOf(d) === i;
+          }).map(Number)
         };
       },
       setRule: function (e) {
@@ -4075,6 +4253,8 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         this.pushUndo();
+        this._stableCount = 0;
+        this._prevBoardHash = null;
         var pattern = this.rotatePattern(PATTERNS[name], this.state.patternRotation);
         var cols = this.state.cols;
         var rows = this.state.rows;
@@ -4130,6 +4310,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }, function () {
           self.drawBoard();
         });
+        this._announce('Board cleared');
       },
       resetGame: function () {
         this.pushUndo();
@@ -4191,7 +4372,28 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.toggleHelp,
           role: "dialog",
           "aria-modal": "true",
-          "aria-labelledby": "help-dialog-title"
+          "aria-labelledby": "help-dialog-title",
+          onKeyDown: function (e) {
+            if (e.key === 'Tab') {
+              var modal = e.currentTarget.querySelector('.help-modal');
+              if (!modal) return;
+              var focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+              if (focusable.length === 0) return;
+              var first = focusable[0],
+                last = focusable[focusable.length - 1];
+              if (e.shiftKey) {
+                if (document.activeElement === first) {
+                  e.preventDefault();
+                  last.focus();
+                }
+              } else {
+                if (document.activeElement === last) {
+                  e.preventDefault();
+                  first.focus();
+                }
+              }
+            }
+          }
         }, /*#__PURE__*/React.createElement("div", {
           className: "help-modal",
           onClick: function (e) {
@@ -4226,8 +4428,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }, "Close")));
       },
       togglePopGraph: function () {
+        var opening = !this.state.showPopGraph;
+        if (opening) {
+          this._saveFocus();
+        }
+        var self = this;
         this.setState({
-          showPopGraph: !this.state.showPopGraph
+          showPopGraph: opening
+        }, function () {
+          if (opening) {
+            self._focusFirst('.pop-graph-modal');
+          } else {
+            self._restoreFocus();
+          }
         });
       },
       analyzePattern: function () {
@@ -4496,7 +4709,28 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.togglePopGraph,
           role: "dialog",
           "aria-modal": "true",
-          "aria-labelledby": "popgraph-dialog-title"
+          "aria-labelledby": "popgraph-dialog-title",
+          onKeyDown: function (e) {
+            if (e.key === 'Tab') {
+              var modal = e.currentTarget.querySelector('.pop-graph-modal');
+              if (!modal) return;
+              var focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+              if (focusable.length === 0) return;
+              var first = focusable[0],
+                last = focusable[focusable.length - 1];
+              if (e.shiftKey) {
+                if (document.activeElement === first) {
+                  e.preventDefault();
+                  last.focus();
+                }
+              } else {
+                if (document.activeElement === last) {
+                  e.preventDefault();
+                  first.focus();
+                }
+              }
+            }
+          }
         }, /*#__PURE__*/React.createElement("div", {
           className: "pop-graph-modal",
           onClick: function (e) {
@@ -4517,7 +4751,9 @@ document.addEventListener('DOMContentLoaded', function () {
           style: {
             background: 'rgba(0,0,0,0.15)',
             borderRadius: '4px'
-          }
+          },
+          role: "img",
+          "aria-label": "Population history graph"
         }, yLabels.map(function (yl, idx) {
           return /*#__PURE__*/React.createElement("g", {
             key: idx
@@ -4602,7 +4838,9 @@ document.addEventListener('DOMContentLoaded', function () {
           width: "100%",
           height: vbH,
           viewBox: "0 0 " + vbW + " " + vbH,
-          preserveAspectRatio: "none"
+          preserveAspectRatio: "none",
+          role: "img",
+          "aria-label": "Population sparkline"
         }, /*#__PURE__*/React.createElement("line", {
           x1: "0",
           y1: vbH - 0.5,
@@ -4651,6 +4889,8 @@ document.addEventListener('DOMContentLoaded', function () {
           ref: function (c) {
             self._mobileMinimap = c;
           },
+          role: "img",
+          "aria-label": "Minimap navigation",
           onMouseDown: self.onMinimapElementDown,
           onMouseMove: self.onMinimapElementMove,
           onTouchStart: self.onMinimapElementDown,
@@ -4827,6 +5067,8 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "rotation-preview",
           width: "96",
           height: "96",
+          role: "img",
+          "aria-label": "Pattern rotation preview",
           ref: function (c) {
             self._mobilePreviewCanvas = c;
           }
@@ -5228,6 +5470,8 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "rotation-preview",
           width: "96",
           height: "96",
+          role: "img",
+          "aria-label": "Pattern rotation preview",
           ref: function (c) {
             self._previewCanvas = c;
           }
@@ -5496,6 +5740,7 @@ document.addEventListener('DOMContentLoaded', function () {
           },
           id: "life-canvas",
           role: "img",
+          "aria-roledescription": "Game of Life grid",
           "aria-label": "Conway's Game of Life simulation canvas. Generation " + this.state.generations + ", population " + this.state.liveCells.size + ", " + (this.state.running ? "running" : "paused"),
           draggable: false,
           onMouseDown: this.onMouseDown,
@@ -5506,9 +5751,10 @@ document.addEventListener('DOMContentLoaded', function () {
           onTouchStart: this.onTouchStart,
           onTouchMove: this.onTouchMove,
           onTouchEnd: this.onTouchEnd
-        }), this.state.analysisResult ? /*#__PURE__*/React.createElement("div", {
+        }), this.state.analysisResult ? /*#__PURE__*/React.createElement("button", {
           className: "analysis-result" + (this.state.analyzing ? " analysis-cancellable" : ""),
-          onClick: this.state.analyzing ? this.cancelAnalysis : null
+          onClick: this.state.analyzing ? this.cancelAnalysis : null,
+          "aria-live": "assertive"
         }, this.state.analysisResult) : null);
       },
       renderTransportControls: function (compact) {
@@ -5746,6 +5992,8 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "rotation-preview",
           width: "96",
           height: "96",
+          role: "img",
+          "aria-label": "Pattern rotation preview",
           ref: function (c) {
             self._previewCanvas = c;
           }
@@ -6016,7 +6264,17 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "layout-cartographer layout-mobile"
         }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
           className: "stats-chip",
-          onClick: this.togglePopGraph
+          onClick: this.togglePopGraph,
+          role: "button",
+          tabIndex: "0",
+          "aria-atomic": "true",
+          "aria-live": "off",
+          onKeyDown: function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              self.togglePopGraph();
+            }
+          }
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
         }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
@@ -6230,7 +6488,13 @@ document.addEventListener('DOMContentLoaded', function () {
           role: "status",
           "aria-live": "polite",
           "aria-label": "Simulation statistics",
-          tabIndex: "0"
+          tabIndex: "0",
+          onKeyDown: function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              self.togglePopGraph();
+            }
+          }
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
         }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause"), this.state.hoverCell && /*#__PURE__*/React.createElement("span", {
@@ -6527,7 +6791,17 @@ document.addEventListener('DOMContentLoaded', function () {
           "aria-label": "Open controls panel"
         }, "Controls")), /*#__PURE__*/React.createElement("div", {
           className: "stats-chip",
-          onClick: this.togglePopGraph
+          onClick: this.togglePopGraph,
+          role: "button",
+          tabIndex: "0",
+          "aria-atomic": "true",
+          "aria-live": "off",
+          onKeyDown: function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              self.togglePopGraph();
+            }
+          }
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
         }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
@@ -6779,7 +7053,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "sr-only",
           "aria-live": "polite",
           "aria-atomic": "true"
-        }, "Generation " + this.state.generations + ", Population " + this.state.liveCells.size), this.renderHelpModal(), this.renderPopGraph(), layoutContent);
+        }, this.state.srAnnouncement), this.renderHelpModal(), this.renderPopGraph(), layoutContent);
       }
     });
     ReactDOM.render(/*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(LifeBoard, null)), document.getElementById("content"));
