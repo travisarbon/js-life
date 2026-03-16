@@ -2506,8 +2506,6 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button className="btn" onClick={this.undo}>Undo</button>
                             <button className="btn" onClick={this.fitView}>Fit Grid</button>
                             <button className="btn" onClick={this.fitLiveCells}>Fit Cells</button>
-                        </div>
-                        <div className="toolbar-group">
                             <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
                             <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
                             <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
