@@ -403,7 +403,12 @@ document.addEventListener('DOMContentLoaded', function(){
                     clipboard :      null,
                     showMinimap :     true,
                     recording :       false,
-                    showMobileTools : false
+                    showMobileTools : false,
+                    showTrails :      false,
+                    darkModePref :    'system',
+                    stepCount :       1,
+                    shareTooltip :    false,
+                    showPopGraph :    false
                 };
             },
 
@@ -438,10 +443,42 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._minimapCanvas.height = 75;
                 this._pinchStart = null;
                 this._longPressTimer = null;
+                // Trail map for heat-map visualization (instance property, not React state).
+                this._trailMap = new Map();
+                this._trailEnabled = false;
+                // Generation history ring buffer for step-backward.
+                this._genHistory = [];
+                this._genHistoryMax = 200;
+                this._genHistoryInterval = 5;
+                this._genHistoryCounter = 0;
                 this._canvas = document.getElementById("life-canvas");
                 // Attach wheel listener as non-passive so preventDefault works.
                 this._canvas.addEventListener('wheel', this.onWheel, {passive: false});
                 document.addEventListener('keydown', this.handleKeyDown);
+                // Drag-and-drop file import (desktop).
+                var canvasContainer = this._canvas.parentNode;
+                this._onDragOver = function(e){ e.preventDefault(); e.stopPropagation(); canvasContainer.classList.add('drop-active'); };
+                this._onDragLeave = function(e){ e.preventDefault(); e.stopPropagation(); canvasContainer.classList.remove('drop-active'); };
+                this._onDrop = this._handleFileDrop.bind(this);
+                canvasContainer.addEventListener('dragover', this._onDragOver);
+                canvasContainer.addEventListener('dragleave', this._onDragLeave);
+                canvasContainer.addEventListener('drop', this._onDrop);
+                // Dark mode: respect system preference.
+                this._darkModeQuery = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+                if(this._darkModeQuery){
+                    var self2 = this;
+                    this._onDarkModeChange = function(e){
+                        if(self2.state.darkModePref === 'system'){
+                            self2._applyDarkMode(e.matches);
+                        }
+                    };
+                    try { this._darkModeQuery.addEventListener('change', this._onDarkModeChange); }
+                    catch(ex){ try { this._darkModeQuery.addListener(this._onDarkModeChange); } catch(ex2){} }
+                    // Apply initial dark mode state.
+                    if(this.state.darkModePref === 'system'){
+                        this._applyDarkMode(this._darkModeQuery.matches);
+                    }
+                }
                 // Respond to viewport resize (throttled) to update canvas dimensions.
                 var self = this;
                 // Cache initial dimensions to filter out browser-chrome-only height changes on mobile.
@@ -476,6 +513,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     } catch(ex){ this._worker = null; }
                 }
                 this.drawBoard();
+                this._loadFromURLHash();
                 this._startLoop();
             },
 
@@ -525,8 +563,65 @@ document.addEventListener('DOMContentLoaded', function(){
                 document.removeEventListener('keydown', this.handleKeyDown);
                 window.removeEventListener('resize', this._onResize);
                 window.removeEventListener('orientationchange', this._onOrientationChange);
+                var container = this._canvas.parentNode;
+                if(container){
+                    container.removeEventListener('dragover', this._onDragOver);
+                    container.removeEventListener('dragleave', this._onDragLeave);
+                    container.removeEventListener('drop', this._onDrop);
+                }
                 if(this._worker){ this._worker.terminate(); }
                 if(this._gif){ this._gif.abort(); this._gif = null; }
+            },
+
+            // ── Drag-and-drop file import ──────────────────────────────────────
+
+            _handleFileDrop : function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                var container = this._canvas.parentNode;
+                container.classList.remove('drop-active');
+                var files = e.dataTransfer && e.dataTransfer.files;
+                if(!files || files.length === 0){ return; }
+                var file = files[0];
+                if(file.size > 500000){ return; }
+                var self = this;
+                var reader = new FileReader();
+                reader.onload = function(ev){
+                    var text = ev.target.result;
+                    try {
+                        var isRle = /[bo\$]/.test(text) && /!/.test(text);
+                        var result = isRle ? SimEngine.parseRLE(text) : SimEngine.parsePlaintext(text);
+                        if(result.cells.length === 0){ return; }
+                        PATTERNS['Custom'] = result.cells;
+                        self._previewPos = null;
+                        self.setState({
+                            selectedPattern : 'Custom',
+                            patternRotation : 0,
+                            drawMode :        'preset',
+                            showRle :         false,
+                            rleError :        ''
+                        }, function(){ self.drawBoard(); });
+                    } catch(ex){}
+                };
+                reader.readAsText(file);
+            },
+
+            // ── Dark mode ──────────────────────────────────────────────────────
+
+            _applyDarkMode : function(dark){
+                var el = document.documentElement;
+                if(dark){ el.classList.add('dark-mode'); }
+                else { el.classList.remove('dark-mode'); }
+            },
+
+            setDarkModePref : function(e){
+                var pref = e.target.value;
+                var dark;
+                if(pref === 'dark'){ dark = true; }
+                else if(pref === 'light'){ dark = false; }
+                else { dark = this._darkModeQuery && this._darkModeQuery.matches; }
+                this._applyDarkMode(dark);
+                this.setState({darkModePref: pref});
             },
 
             // ── Board construction ─────────────────────────────────────────────
@@ -575,6 +670,21 @@ document.addEventListener('DOMContentLoaded', function(){
                             ctx.fillRect((c - viewX) * cellSize, (r - viewY) * cellSize, cellSize, cellSize);
                         }
                     }
+                }
+
+                // Cell trails (heat map).
+                if(this._trailEnabled && this._trailMap.size > 0){
+                    var trailMap = this._trailMap;
+                    trailMap.forEach(function(val, key){
+                        var comma = key.indexOf(',');
+                        var tr = parseInt(key.substring(0, comma));
+                        var tc = parseInt(key.substring(comma + 1));
+                        if(tr >= startR && tr < endR && tc >= startC && tc < endC){
+                            var alpha = (val / 20) * 0.35;
+                            ctx.fillStyle = 'rgba(' + aR + ',' + aG + ',' + aB + ',' + alpha.toFixed(2) + ')';
+                            ctx.fillRect((tc - viewX) * cellSize, (tr - viewY) * cellSize, cellSize, cellSize);
+                        }
+                    });
                 }
 
                 // Grid lines.
@@ -871,6 +981,37 @@ document.addEventListener('DOMContentLoaded', function(){
                     });
                 }
 
+                // Cell trail tracking: record recently-dead cells.
+                if(this._trailEnabled){
+                    var trailMap = this._trailMap;
+                    var prevCells = this.state.liveCells;
+                    var TRAIL_MAX = 20;
+                    // Cells that were alive but are now dead → add to trail.
+                    prevCells.forEach(function(age, key){
+                        if(!newLiveCells.has(key)){ trailMap.set(key, TRAIL_MAX); }
+                    });
+                    // Decay existing trail values.
+                    var toDelete = [];
+                    trailMap.forEach(function(val, key){
+                        if(newLiveCells.has(key)){ toDelete.push(key); }
+                        else {
+                            var nv = val - 1;
+                            if(nv <= 0){ toDelete.push(key); }
+                            else { trailMap.set(key, nv); }
+                        }
+                    });
+                    for(var ti = 0; ti < toDelete.length; ti++){ trailMap.delete(toDelete[ti]); }
+                    // Cap trail map size for performance.
+                    if(trailMap.size > 50000){
+                        var excess = trailMap.size - 50000;
+                        var iter = trailMap.keys();
+                        for(var ei = 0; ei < excess; ei++){ trailMap.delete(iter.next().value); }
+                    }
+                }
+
+                // Generation history snapshot for step-backward.
+                this._pushGenHistory();
+
                 // Stability detection via sorted key set.
                 var keys = [];
                 newLiveCells.forEach(function(age, key){ keys.push(key); });
@@ -882,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
                 var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory.concat([newPop]);
-                if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
+                if(newHistory.length > 10000){ newHistory = newHistory.slice(newHistory.length - 10000); }
                 var newSessionPeak = Math.max(this.state.sessionPeakPop || 0, newPop);
                 // Store last measured GPS so it persists briefly after pausing.
                 this._gpsDisplayUntil = this._gpsDisplayUntil || 0;
@@ -941,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var newLiveCells = this.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
                 var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory.concat([newPop]);
-                if(newHistory.length > 60){ newHistory = newHistory.slice(newHistory.length - 60); }
+                if(newHistory.length > 10000){ newHistory = newHistory.slice(newHistory.length - 10000); }
                 var newSessionPeakStep = Math.max(this.state.sessionPeakPop || 0, newPop);
                 this._minimapDirty = true;
                 var self = this;
@@ -1020,6 +1161,68 @@ document.addEventListener('DOMContentLoaded', function(){
                         navigator.clipboard.writeText(rle);
                     }
                 });
+            },
+
+            // ── URL sharing ──────────────────────────────────────────────────
+
+            shareURL : function(){
+                var rle = this.boardToRLE();
+                if(!rle){ return; }
+                // Build URL hash with compact parameters.
+                var params = 'rle=' + encodeURIComponent(rle) +
+                    '&cols=' + this.state.cols +
+                    '&rows=' + this.state.rows;
+                if(this.state.ruleString !== 'B3/S23'){
+                    params += '&rule=' + encodeURIComponent(this.state.ruleString);
+                }
+                // Check total length — use compression for large patterns if available.
+                if(params.length > 4000){
+                    // Too large for URL; fall back to copying RLE.
+                    this.copyRLE();
+                    return;
+                }
+                var url = window.location.origin + window.location.pathname + '#' + params;
+                if(navigator.clipboard && navigator.clipboard.writeText){
+                    navigator.clipboard.writeText(url);
+                }
+                // Brief visual feedback.
+                var self = this;
+                this.setState({shareTooltip: true});
+                setTimeout(function(){ self.setState({shareTooltip: false}); }, 2000);
+            },
+
+            _loadFromURLHash : function(){
+                var hash = window.location.hash;
+                if(!hash || hash.length < 5){ return; }
+                try {
+                    var params = {};
+                    hash.substring(1).split('&').forEach(function(pair){
+                        var eq = pair.indexOf('=');
+                        if(eq > 0){ params[decodeURIComponent(pair.substring(0, eq))] = decodeURIComponent(pair.substring(eq + 1)); }
+                    });
+                    if(!params.rle){ return; }
+                    var cols = parseInt(params.cols) || 100;
+                    var rows = parseInt(params.rows) || 100;
+                    var rule = params.rule || 'B3/S23';
+                    var parsed = this.parseRuleString(rule);
+                    var result = SimEngine.parseRLE(params.rle);
+                    if(result.cells.length === 0){ return; }
+                    PATTERNS['Custom'] = result.cells;
+                    var self = this;
+                    var updates = {
+                        cols: cols, rows: rows, pendingCols: cols, pendingRows: rows,
+                        selectedPattern: 'Custom', patternRotation: 0, drawMode: 'preset',
+                        ruleString: rule
+                    };
+                    if(parsed){
+                        updates.birthRule = parsed.birth;
+                        updates.surviveRule = parsed.survive;
+                        updates.rulePreset = rule.toUpperCase();
+                    }
+                    this.setState(updates, function(){ self.drawBoard(); });
+                    // Clear hash so reloads don't re-import.
+                    if(history.replaceState){ history.replaceState(null, '', window.location.pathname); }
+                } catch(ex){}
             },
 
             // ── Help modal ─────────────────────────────────────────────────────
@@ -1870,7 +2073,12 @@ document.addEventListener('DOMContentLoaded', function(){
                         break;
                     case '.':
                         e.preventDefault();
-                        this.stepGame();
+                        if(e.shiftKey){ this.stepN(this.state.stepCount); }
+                        else { this.stepGame(); }
+                        break;
+                    case ',':
+                        e.preventDefault();
+                        this.stepBack();
                         break;
                     case 'r': case 'R':
                         this.resetGame();
@@ -1944,6 +2152,96 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             // ── Toggles ───────────────────────────────────────────────────────
+
+            toggleTrails : function(){
+                var newVal = !this.state.showTrails;
+                this._trailEnabled = newVal;
+                if(!newVal){ this._trailMap = new Map(); }
+                var self = this;
+                this.setState({showTrails: newVal}, function(){ self.drawBoard(); });
+            },
+
+            setStepCount : function(e){
+                this.setState({stepCount: parseInt(e.target.value) || 1});
+            },
+
+            // Advance N generations at once (synchronous, chunked for large N).
+            stepN : function(n){
+                if(!n || n < 1){ n = 1; }
+                this.pushUndo();
+                // Snapshot for gen history before batch.
+                this._pushGenHistory();
+                var liveCells = this.state.liveCells;
+                var cols      = this.state.cols;
+                var rows      = this.state.rows;
+                var birth     = this.state.birthRule;
+                var survive   = this.state.surviveRule;
+                var boundary  = this.state.boundary;
+                var self = this;
+                var gen = this.state.generations;
+                var popHistory = this.state.popHistory.slice();
+                var peak = this.state.sessionPeakPop || 0;
+                var done = 0;
+                var CHUNK = 50;
+                var doChunk = function(){
+                    var limit = Math.min(done + CHUNK, n);
+                    for(var i = done; i < limit; i++){
+                        liveCells = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
+                        gen++;
+                        var pop = liveCells.size;
+                        popHistory.push(pop);
+                        if(popHistory.length > 10000){ popHistory = popHistory.slice(popHistory.length - 10000); }
+                        if(pop > peak){ peak = pop; }
+                    }
+                    done = limit;
+                    if(done < n){
+                        setTimeout(doChunk, 0);
+                    } else {
+                        self._minimapDirty = true;
+                        self.setState({
+                            liveCells: liveCells,
+                            generations: gen,
+                            running: false,
+                            popHistory: popHistory,
+                            sessionPeakPop: peak,
+                            stable: false
+                        }, function(){ self.drawBoard(); });
+                    }
+                };
+                doChunk();
+            },
+
+            // ── Generation history (step backward) ─────────────────────────────
+
+            _pushGenHistory : function(){
+                this._genHistoryCounter++;
+                if(this._genHistoryCounter % this._genHistoryInterval !== 0){ return; }
+                this._genHistory.push({
+                    liveCells: new Map(this.state.liveCells),
+                    generations: this.state.generations
+                });
+                if(this._genHistory.length > this._genHistoryMax){
+                    this._genHistory.shift();
+                }
+            },
+
+            stepBack : function(){
+                if(this._genHistory.length === 0){ return; }
+                var snapshot = this._genHistory.pop();
+                this._minimapDirty = true;
+                var self = this;
+                this.setState({
+                    liveCells: snapshot.liveCells,
+                    generations: snapshot.generations,
+                    running: false,
+                    stable: false
+                }, function(){ self.drawBoard(); });
+            },
+
+            clearGenHistory : function(){
+                this._genHistory = [];
+                this._genHistoryCounter = 0;
+            },
 
             toggleLivePaint : function(){
                 this.setState({livePaintMode : !this.state.livePaintMode});
@@ -2169,6 +2467,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._prevBoardHash = null;
                 this._stableCount = 0;
                 this._minimapDirty = true;
+                this._trailMap = new Map();
+                this.clearGenHistory();
                 var self = this;
                 this.setState({running : false, generations : 0, liveCells : new Map(),
                     popHistory : [], sessionPeakPop : 0, stable : false}, function(){ self.drawBoard(); });
@@ -2184,6 +2484,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._prevBoardHash = null;
                 this._stableCount = 0;
                 this._minimapDirty = true;
+                this._trailMap = new Map();
+                this.clearGenHistory();
                 var self = this;
                 this.setState({running : false, generations : 0, liveCells : newLiveCells,
                     popHistory : [], sessionPeakPop : 0, stable : false}, function(){
@@ -2206,6 +2508,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <tbody>
                                     <tr><td>Space</td><td>Play / Pause</td></tr>
                                     <tr><td>.</td><td>Step one generation</td></tr>
+                                    <tr><td>Shift+.</td><td>Step N generations</td></tr>
+                                    <tr><td>,</td><td>Step backward</td></tr>
                                     <tr><td>R</td><td>Reset (random fill)</td></tr>
                                     <tr><td>E</td><td>Empty board</td></tr>
                                     <tr><td>Ctrl+Z</td><td>Undo</td></tr>
@@ -2227,9 +2531,66 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <tr><td>Pinch</td><td>Zoom in / out</td></tr>
                                     <tr><td>2-finger drag</td><td>Pan viewport</td></tr>
                                     <tr><td>Long press</td><td>Show cell coordinates</td></tr>
+                                    <tr><td colSpan="2" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em'}}>File import</td></tr>
+                                    <tr><td>Drag &amp; drop</td><td>Drop .rle/.cells file on canvas</td></tr>
                                 </tbody>
                             </table>
                             <button className="btn help-close" onClick={this.toggleHelp}>Close</button>
+                        </div>
+                    </div>
+                );
+            },
+
+            togglePopGraph : function(){
+                this.setState({showPopGraph: !this.state.showPopGraph});
+            },
+
+            renderPopGraph : function(){
+                if(!this.state.showPopGraph){ return null; }
+                var hist = this.state.popHistory;
+                if(hist.length < 2){ return null; }
+                var self = this;
+                var maxPop = 0;
+                for(var i = 0; i < hist.length; i++){ if(hist[i] > maxPop){ maxPop = hist[i]; } }
+                if(maxPop === 0){ maxPop = 1; }
+                var vbW = 600, vbH = 200, padT = 10, padB = 20, padL = 50, padR = 10;
+                var plotW = vbW - padL - padR;
+                var plotH = vbH - padT - padB;
+                // Draw data points as SVG polyline.
+                var points = hist.map(function(p, idx){
+                    var x = padL + (idx / (hist.length - 1)) * plotW;
+                    var y = padT + (1 - p / maxPop) * plotH;
+                    return x.toFixed(1) + ',' + y.toFixed(1);
+                }).join(' ');
+                // Y-axis labels.
+                var yLabels = [];
+                var ySteps = 4;
+                for(var yi = 0; yi <= ySteps; yi++){
+                    var val = Math.round(maxPop * (1 - yi / ySteps));
+                    var yy = padT + (yi / ySteps) * plotH;
+                    yLabels.push({val: val, y: yy});
+                }
+                return (
+                    <div className="help-overlay" onClick={this.togglePopGraph}>
+                        <div className="pop-graph-modal" onClick={function(e){ e.stopPropagation(); }}>
+                            <h3 className="help-title">Population History</h3>
+                            <p style={{fontSize:'0.8em',opacity:0.7,margin:'0 0 8px'}}>{hist.length + ' generations recorded \xB7 peak ' + maxPop.toLocaleString()}</p>
+                            <svg width="100%" viewBox={"0 0 " + vbW + " " + vbH} style={{background:'rgba(0,0,0,0.15)',borderRadius:'4px'}}>
+                                {/* Y-axis gridlines and labels */}
+                                {yLabels.map(function(yl, idx){
+                                    return <g key={idx}>
+                                        <line x1={padL} y1={yl.y} x2={vbW - padR} y2={yl.y} stroke="rgba(255,255,255,0.15)" strokeWidth="0.5"/>
+                                        <text x={padL - 5} y={yl.y + 4} textAnchor="end" fill="rgba(255,255,255,0.6)" fontSize="10">{yl.val.toLocaleString()}</text>
+                                    </g>;
+                                })}
+                                {/* X-axis label */}
+                                <text x={padL + plotW / 2} y={vbH - 2} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9">Generation</text>
+                                {/* Data line */}
+                                <polyline fill="none" stroke="#70959A" strokeWidth="1.5" points={points}/>
+                                {/* Area fill */}
+                                <polygon fill="rgba(112,149,154,0.2)" points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
+                            </svg>
+                            <button className="btn help-close" onClick={this.togglePopGraph}>Close</button>
                         </div>
                     </div>
                 );
@@ -2250,7 +2611,8 @@ document.addEventListener('DOMContentLoaded', function(){
                     var delta  = recent[recent.length - 1] - recent[0];
                     trendArrow = delta > 2 ? '\u2009\u25b2' : delta < -2 ? '\u2009\u25bc' : '\u2009\u223c';
                 }
-                var hist   = this.state.popHistory;
+                var fullHist = this.state.popHistory;
+                var hist   = fullHist.length > 60 ? fullHist.slice(fullHist.length - 60) : fullHist;
                 var maxPop = hist.length ? Math.max.apply(null, hist) : 0;
                 if(hist.length <= 1){ return null; }
                 var vbW = 200, vbH = 36, padT = 2, innerH = vbH - padT * 2;
@@ -2264,7 +2626,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 return (
                     <div className="sparkline-wrap">
                         <div className="sparkline-header">
-                            <span className="sparkline-title">{"Pop: " + population.toLocaleString() + trendArrow}</span>
+                            <span className="sparkline-title" onClick={this.togglePopGraph} style={{cursor:'pointer'}} title="Click for full population graph">{"Pop: " + population.toLocaleString() + trendArrow}</span>
                             <span className="sparkline-peak">{"peak " + maxPop.toLocaleString() + (this.state.sessionPeakPop > maxPop ? " \xb7 all " + this.state.sessionPeakPop.toLocaleString() : "")}</span>
                         </div>
                         <svg className="sparkline" width="100%" height={vbH}
@@ -2495,12 +2857,22 @@ document.addEventListener('DOMContentLoaded', function(){
 
             // ── Horizontal toolbar (desktop/tablet only — hidden on mobile via CSS) ──
             renderToolbar : function(){
+                var self = this;
                 return (
                     <div className="toolbar-strip">
                         <span className="toolbar-title">{"Conway's\nGame of Life"}</span>
                         <div className="toolbar-group">
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
                             <button className="btn" onClick={this.stepGame}>Step</button>
+                            <button className="btn" onClick={this.stepBack} title="Step backward to a previous generation (,)" disabled={this._genHistory.length === 0}>Back</button>
+                            <select className="toolbar-step-select" value={this.state.stepCount} onChange={this.setStepCount} title="Advance N generations at once (Shift+.)">
+                                <option value="1">+1</option>
+                                <option value="10">+10</option>
+                                <option value="50">+50</option>
+                                <option value="100">+100</option>
+                                <option value="500">+500</option>
+                            </select>
+                            <button className="btn" onClick={function(){ self.stepN(self.state.stepCount); }} title="Advance multiple generations">Go</button>
                             <button className="btn" onClick={this.resetGame}>Reset</button>
                             <button className="btn" onClick={this.emptyBoard}>Empty</button>
                             <button className="btn" onClick={this.undo}>Undo</button>
@@ -2508,6 +2880,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button className="btn" onClick={this.fitLiveCells}>Fit Cells</button>
                             <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
                             <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
+                            <button className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails of recently-dead cells">Trails</button>
                             <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
                             <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode}>Draw</button>
                             <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode}>Preset</button>
@@ -2564,15 +2937,27 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <div className="buttons">
                                     <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
                                     <button className="btn" onClick={this.stepGame}>Step</button>
+                                    <button className="btn" onClick={this.stepBack} disabled={this._genHistory.length === 0}>Back</button>
                                     <button className="btn" onClick={this.resetGame}>Reset</button>
                                     <button className="btn" onClick={this.emptyBoard}>Empty</button>
                                     <button className="btn" onClick={this.undo}>Undo</button>
                                     <button className="btn" onClick={this.fitView}>Fit Grid</button>
-                                    <button className="btn" onClick={this.fitLiveCells} style={{gridColumn:'1 / -1'}}>Fit Cells</button>
+                                    <button className="btn" onClick={this.fitLiveCells}>Fit Cells</button>
+                                </div>
+                                <div className="buttons buttons-secondary" style={{gridTemplateColumns:'1fr 1fr'}}>
+                                    <select className="btn" value={this.state.stepCount} onChange={this.setStepCount} title="Multi-generation step count">
+                                        <option value="1">+1 gen</option>
+                                        <option value="10">+10 gen</option>
+                                        <option value="50">+50 gen</option>
+                                        <option value="100">+100 gen</option>
+                                        <option value="500">+500 gen</option>
+                                    </select>
+                                    <button className="btn" onClick={function(){ self.stepN(self.state.stepCount); }}>Advance</button>
                                 </div>
                                 <div className="buttons buttons-secondary">
                                     <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
                                     <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
+                                    <button className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails of recently-dead cells">Trails</button>
                                     <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
                                     <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode}>Draw</button>
                                     <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode}>Preset</button>
@@ -2650,6 +3035,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <button className="btn" onClick={this.exportPNG}>Export PNG</button>
                                     <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
                                     <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF of the simulation">{this.state.recording ? "Stop" : "Record"}</button>
+                                    <button className="btn" onClick={this.shareURL} title="Copy a shareable URL to clipboard">{this.state.shareTooltip ? "Copied!" : "Share"}</button>
                                     <button className="btn" onClick={this.toggleHelp}>Help</button>
                                 </div>
                             </div>
@@ -2678,6 +3064,14 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {Object.keys(THEMES).map(function(t){
                                     return <option key={t} value={t}>{t}</option>;
                                 })}
+                            </select>
+                            <select className="rule-preset-select"
+                                value={this.state.darkModePref}
+                                onChange={this.setDarkModePref}
+                                title="UI dark mode preference">
+                                <option value="system">Mode: System</option>
+                                <option value="light">Mode: Light</option>
+                                <option value="dark">Mode: Dark</option>
                             </select>
                             <label className="slider-title rule-label">Rule (B/S notation)</label>
                             <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
@@ -2779,7 +3173,11 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cs = this.getCanvasSize();
                 return (
                     <div>
+                        <div className="sr-only" aria-live="polite" aria-atomic="true">
+                            {"Generation " + this.state.generations + ", Population " + this.state.liveCells.size}
+                        </div>
                         {this.renderHelpModal()}
+                        {this.renderPopGraph()}
                         {/* Title: full h2 on mobile; hidden on desktop (toolbar has compact version). */}
                         <h2 className="top site-title">Conway's Game of Life</h2>
                         {/* Toolbar: visible on desktop/tablet; hidden on mobile via CSS. */}
@@ -2791,6 +3189,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                     height = {cs.h}
                                     style  = {{width: cs.displayW + 'px', height: cs.displayH + 'px', display: 'block', margin: 'auto'}}
                                     id = "life-canvas"
+                                    role = "img"
+                                    aria-label = {"Conway's Game of Life simulation canvas. Generation " + this.state.generations + ", population " + this.state.liveCells.size + ", " + (this.state.running ? "running" : "paused")}
                                     draggable     = {false}
                                     onMouseDown   = {this.onMouseDown}
                                     onMouseMove   = {this.onMouseMove}
