@@ -326,13 +326,58 @@ var HashLife = (function () {
         var offR = Math.floor((size - rangeR) / 2) - minR;
         var offC = Math.floor((size - rangeC) / 2) - minC;
 
-        var root = emptyTree(level);
+        // Convert to internal coords and build tree recursively (bulk-build).
+        var internalized = new Array(cells.length);
         for (var i = 0; i < cells.length; i++) {
-            var iy = cells[i][0] + offR; // internal y = row + offR
-            var ix = cells[i][1] + offC; // internal x = col + offC
-            root = setCell(root, ix, iy, true);
+            internalized[i] = [cells[i][1] + offC, cells[i][0] + offR]; // [ix, iy]
         }
+        var root = _buildRecursive(internalized, 0, internalized.length, level, 0, 0);
         return { root: root, offR: offR, offC: offC };
+    }
+
+    // Recursively build a quadtree from a list of cells in internal coords.
+    // cells[lo..hi) are [ix, iy] pairs within the square [ox, ox+2^level) x [oy, oy+2^level).
+    function _buildRecursive(cells, lo, hi, level, ox, oy) {
+        if (lo >= hi) return emptyTree(level);
+        if (level === 0) return ALIVE; // exactly one cell at this position
+        var half = 1 << (level - 1);
+        var midX = ox + half;
+        var midY = oy + half;
+        // Partition cells into 4 quadrants in-place using a 4-way partition.
+        // NW: ix < midX && iy < midY  NE: ix >= midX && iy < midY
+        // SW: ix < midX && iy >= midY SE: ix >= midX && iy >= midY
+        // First split by Y (top vs bottom), then by X within each half.
+        var topEnd = lo;
+        for (var i = lo; i < hi; i++) {
+            if (cells[i][1] < midY) {
+                // Top row — swap to front
+                var tmp = cells[topEnd]; cells[topEnd] = cells[i]; cells[i] = tmp;
+                topEnd++;
+            }
+        }
+        // topEnd is the boundary: [lo, topEnd) = top (NW+NE), [topEnd, hi) = bottom (SW+SE)
+        var nwEnd = lo;
+        for (var i = lo; i < topEnd; i++) {
+            if (cells[i][0] < midX) {
+                var tmp = cells[nwEnd]; cells[nwEnd] = cells[i]; cells[i] = tmp;
+                nwEnd++;
+            }
+        }
+        // [lo, nwEnd) = NW, [nwEnd, topEnd) = NE
+        var swEnd = topEnd;
+        for (var i = topEnd; i < hi; i++) {
+            if (cells[i][0] < midX) {
+                var tmp = cells[swEnd]; cells[swEnd] = cells[i]; cells[i] = tmp;
+                swEnd++;
+            }
+        }
+        // [topEnd, swEnd) = SW, [swEnd, hi) = SE
+        return getNode(
+            _buildRecursive(cells, lo,     nwEnd,  level - 1, ox,   oy),
+            _buildRecursive(cells, nwEnd,  topEnd, level - 1, midX, oy),
+            _buildRecursive(cells, topEnd, swEnd,  level - 1, ox,   midY),
+            _buildRecursive(cells, swEnd,  hi,     level - 1, midX, midY)
+        );
     }
 
     // --- Extract all alive cells ---
@@ -395,6 +440,18 @@ var HashLife = (function () {
         return _poolSize;
     }
 
+    // Returns true if the tree needs expanding before advance.
+    // Checks that each quadrant's population is entirely in its inner corner
+    // (closest to center), ensuring cells have room to grow.
+    function needsExpand(node) {
+        if (node.level < 3) return true;
+        var nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
+        return (nw.population !== nw.se.population ||
+                ne.population !== ne.sw.population ||
+                sw.population !== sw.ne.population ||
+                se.population !== se.nw.population);
+    }
+
     return {
         DEAD: DEAD,
         ALIVE: ALIVE,
@@ -411,6 +468,7 @@ var HashLife = (function () {
         fromCellList: fromCellList,
         toCellList: toCellList,
         gc: gc,
-        poolSize: poolSize
+        poolSize: poolSize,
+        needsExpand: needsExpand
     };
 })();

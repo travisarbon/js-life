@@ -221,6 +221,27 @@ var SimEngine = {
         return map;
     },
 
+    // Async version of buildLiveCells for large boards (> 250K cells).
+    // Yields to the browser via setTimeout every ~50K cells to prevent UI freeze.
+    buildLiveCellsAsync : function(cols, rows, sparseness, callback){
+        var map = new Map();
+        var r = 0;
+        var CHUNK = Math.max(1, Math.floor(50000 / cols));
+        function doChunk(){
+            var end = Math.min(r + CHUNK, rows);
+            for(; r < end; r++){
+                for(var c = 0; c < cols; c++){
+                    if(Math.random() < (1 / sparseness)){
+                        map.set(r + ',' + c, 1);
+                    }
+                }
+            }
+            if(r < rows){ setTimeout(doChunk, 0); }
+            else { callback(map); }
+        }
+        doChunk();
+    },
+
     // Returns bounding box {minR, maxR, minC, maxC} of live cells, or null if empty.
     getBoundingBox : function(liveCells){
         if(liveCells.size === 0) return null;
@@ -1145,7 +1166,13 @@ document.addEventListener('DOMContentLoaded', function(){
                     this._hlOffC = tree.offC;
                     this._hlStale = false;
                 }
-                // 3. Expand, advance 1 gen, trim (with offset tracking)
+                // 3. Pre-expand until pattern has margin for growth, then expand+advance+trim
+                while(HashLife.needsExpand(this._hlRoot)){
+                    var lvl = this._hlRoot.level;
+                    this._hlRoot = HashLife.expandTree(this._hlRoot);
+                    this._hlOffR += (1 << (lvl - 1));
+                    this._hlOffC += (1 << (lvl - 1));
+                }
                 var level = this._hlRoot.level;
                 this._hlRoot = HashLife.expandTree(this._hlRoot);
                 this._hlOffR += (1 << (level - 1));
@@ -1603,7 +1630,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(event.button !== 0){ return; }
                 var pos = this.getCellPos(event);
                 var c = pos.c, r = pos.r;
-                if(c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows){ return; }
+                if(this.state.boundary !== 'unbounded' && (c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows)){ return; }
 
                 // Selection mode: begin drag-select.
                 if(this.state.drawMode === 'select'){
@@ -2811,7 +2838,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 this.pushUndo();
                 var resetCols = this.state.boundary === 'unbounded' ? 100 : this.state.cols;
                 var resetRows = this.state.boundary === 'unbounded' ? 100 : this.state.rows;
-                var newLiveCells = this.buildLiveCells(resetCols, resetRows, this.state.sparseness);
+                var totalCells = resetCols * resetRows;
+                var sparseness = this.state.sparseness;
+                // Cap density for very large boards to prevent browser crash.
+                if(totalCells > 1000000){
+                    sparseness = Math.max(sparseness, totalCells / 500000);
+                }
                 var wasRunning = this.state.running;
                 this._tickId++;
                 this._loopRunning = false;
@@ -2822,13 +2854,22 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._trailMap = new Map();
                 this.clearGenHistory();
                 var self = this;
-                this.setState({running : false, generations : 0, liveCells : newLiveCells,
-                    popHistory : [], sessionPeakPop : 0, stable : false}, function(){
-                    self.drawBoard();
-                    if(wasRunning){
-                        self.setState({running : true}, function(){ self._startLoop(); });
-                    }
-                });
+                var applyReset = function(newLiveCells){
+                    self.setState({running : false, generations : 0, liveCells : newLiveCells,
+                        popHistory : [], sessionPeakPop : 0, stable : false}, function(){
+                        self.drawBoard();
+                        if(wasRunning){
+                            self.setState({running : true}, function(){ self._startLoop(); });
+                        }
+                    });
+                };
+                if(totalCells > 250000){
+                    // Large board: generate cells asynchronously to avoid UI freeze.
+                    this.setState({running : false});
+                    SimEngine.buildLiveCellsAsync(resetCols, resetRows, sparseness, applyReset);
+                } else {
+                    applyReset(this.buildLiveCells(resetCols, resetRows, sparseness));
+                }
             },
 
             // ── Render sub-methods ────────────────────────────────────────────
