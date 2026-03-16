@@ -460,6 +460,16 @@ body {
   .mobile-stats-bar .msb-right {
     font-variant-numeric: tabular-nums;
     opacity: 0.85; }
+  .msb-title {
+    display: block;
+    font-size: 0.65em;
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; }
+  /* Hide h2 site-title on mobile since it appears in stats bar instead */
+  .site-title {
+    display: none; }
   /* Quick bar: always-visible row of key actions below the canvas. */
   .mobile-quickbar {
     display: grid;
@@ -594,7 +604,8 @@ body {
     min-width: 0;
     font-size: 0.79em;
     white-space: nowrap;
-    flex-shrink: 0; }
+    flex-shrink: 0;
+    width: auto; }
   /* Keep active-state colour consistent with sidebar buttons. */
   .toolbar-strip .btn-toggle.active {
     background-color: #70959A;
@@ -623,3 +634,20 @@ body {
 
 #content .sliders {
   min-width: 0; }
+
+#content .buttons-container {
+  min-width: 0;
+  width: 100%;
+  overflow: hidden; }
+
+#content .sidebar-tools-section {
+  min-width: 0; }
+
+#content .sidebar-tools-section .btn-section {
+  min-width: 0; }
+
+#content .pattern-filter-input {
+  box-sizing: border-box; }
+
+#content .sidebar-tools-section .btn {
+  box-sizing: border-box; }
