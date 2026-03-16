@@ -96,6 +96,7 @@ canvas.display {
   image-rendering: crisp-edges; }
 
 /* Toroidal boundary: teal border signals that edges connect. */
+.app-canvas-container.boundary-wrap canvas.display,
 .canvas-container.boundary-wrap canvas.display,
 #content .canvas-container.boundary-wrap canvas.display {
   border-color: var(--accent);
@@ -533,6 +534,7 @@ canvas.display {
   border-left-color: var(--border-color); }
 
 /* ── Drag-and-drop overlay ───────────────────────────────────────────── */
+.app-canvas-container.drop-active::after,
 #content .canvas-container.drop-active::after {
   content: 'Drop .rle or .cells file here';
   position: absolute;

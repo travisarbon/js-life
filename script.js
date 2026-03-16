@@ -618,7 +618,8 @@ document.addEventListener('DOMContentLoaded', function(){
                     deviceClass :      'desktop',
                     // Bottom sheet (phone modes)
                     bottomSheetOpen :  false,
-                    bottomSheetTab :   'simulate'
+                    bottomSheetTab :   'simulate',
+                    panMode :          false
                 };
             },
 
@@ -627,7 +628,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 // before the first render() call.
                 this._genHistory = [];
                 this._genHistoryMax = 200;
-                this._genHistoryInterval = 5;
+                this._genHistoryInterval = 1;
                 this._genHistoryCounter = 0;
                 this._trailMap = new Map();
                 this._trailEnabled = false;
@@ -1503,6 +1504,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
             stepGame : function(){
                 this.pushUndo();
+                this._pushGenHistory();
                 var liveCells = this.state.liveCells;
                 var cols      = this.state.cols;
                 var rows      = this.state.rows;
@@ -2397,6 +2399,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 this.setState({showMinimap: !this.state.showMinimap}, function(){ self.drawBoard(); });
             },
 
+            togglePanMode : function(){
+                this.setState({panMode: !this.state.panMode});
+            },
+
             toggleMobileTools : function(){
                 var self = this;
                 this.setState({showMobileTools: !this.state.showMobileTools}, function(){ self.drawBoard(); });
@@ -2478,6 +2484,13 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                     return;
                 }
+                // Pan mode: single-finger pan instead of drawing
+                if(this.state.panMode){
+                    this._panDragging = true;
+                    this._panStart = {x: t.clientX, y: t.clientY,
+                                      vx: this.state.viewX, vy: this.state.viewY};
+                    return;
+                }
                 this.onMouseDown({preventDefault: function(){}, button: 0,
                     clientX: t.clientX, clientY: t.clientY});
             },
@@ -2510,6 +2523,20 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
                 if(event.touches.length !== 1){ return; }
                 var t = event.touches[0];
+                // Pan mode: move viewport by finger delta
+                if(this.state.panMode && this._panDragging && this._panStart){
+                    var dx = t.clientX - this._panStart.x;
+                    var dy = t.clientY - this._panStart.y;
+                    var cs2 = this.state.cellSize;
+                    var newVX = this._panStart.vx - Math.round(dx / cs2);
+                    var newVY = this._panStart.vy - Math.round(dy / cs2);
+                    var clamped = this.clampView(newVX, newVY,
+                        this.state.cols, this.state.rows, cs2);
+                    var self = this;
+                    this.setState({viewX: clamped.viewX, viewY: clamped.viewY},
+                        function(){ self.drawBoard(); });
+                    return;
+                }
                 this.onMouseMove({clientX: t.clientX, clientY: t.clientY});
             },
 
@@ -2519,6 +2546,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._longPressTimer = null;
                 if(event.touches.length < 2){ this._pinchStart = null; }
                 if(event.touches.length === 0){
+                    // End pan mode drag
+                    if(this.state.panMode && this._panDragging){
+                        this._panDragging = false;
+                        this._panStart = null;
+                        return;
+                    }
                     // For pattern placement, place at the final preview position rather than
                     // the initial tap position (which onMouseUp would have used).
                     if(this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos){
@@ -2606,6 +2639,10 @@ document.addEventListener('DOMContentLoaded', function(){
                             this._previewPos = null;
                             this.setState({selectedPattern : null, patternRotation : 0, drawMode : 'paint'},
                                 function(){ self.drawBoard(); });
+                            break;
+                        }
+                        if(this.state.showPopGraph){
+                            this.setState({showPopGraph: false});
                             break;
                         }
                         if(this.state.showHelp){
@@ -2722,12 +2759,14 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             openContextTray : function(content){
-                this.setState({contextTrayOpen: true, contextTrayContent: content});
+                var self = this;
+                this.setState({contextTrayOpen: true, contextTrayContent: content}, function(){ self.drawBoard(); });
             },
 
             closeContextTray : function(){
                 if(!this.state.contextTrayPinned){
-                    this.setState({contextTrayOpen: false, contextTrayContent: null});
+                    var self = this;
+                    this.setState({contextTrayOpen: false, contextTrayContent: null}, function(){ self.drawBoard(); });
                 }
             },
 
@@ -2764,6 +2803,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(this._sheetTouchY == null){ return; }
                 var dy = e.touches[0].clientY - this._sheetTouchY;
                 if(dy > 0){
+                    e.preventDefault();
                     this._sheetEl.style.transform = 'translateY(' + dy + 'px)';
                 }
             },
@@ -2931,7 +2971,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cur = this.state.boundary;
                 var next = cur === 'toroidal' ? 'finite' : cur === 'finite' ? 'unbounded' : 'toroidal';
                 this._hlStale = true;
-                this.setState({boundary : next});
+                this._minimapDirty = true;
+                var self = this;
+                this.setState({boundary : next}, function(){ self.drawBoard(); });
             },
 
             toggleGame : function(){
@@ -3476,9 +3518,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {/* X-axis label */}
                                 <text x={padL + plotW / 2} y={vbH - 2} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9">Generation</text>
                                 {/* Data line */}
-                                <polyline fill="none" stroke="#70959A" strokeWidth="1.5" points={points}/>
+                                <polyline fill="none" stroke={THEMES[this.state.theme] ? 'rgb(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ')' : '#70959A'} strokeWidth="1.5" points={points}/>
                                 {/* Area fill */}
-                                <polygon fill="rgba(112,149,154,0.2)" points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
+                                <polygon fill={THEMES[this.state.theme] ? 'rgba(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ',0.2)' : 'rgba(112,149,154,0.2)'} points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
                             </svg>
                             <button className="btn help-close" onClick={this.togglePopGraph}>Close</button>
                         </div>
@@ -4509,10 +4551,17 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this.state.running ? "\u23F8" : "\u25B6"}
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
+                                onClick={this.togglePanMode}
+                                aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
+                                aria-pressed={this.state.panMode}>
+                                <i className={"fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows")} aria-hidden="true"></i>
+                            </button>
                             <span className="mobile-transport-mode" aria-live="polite">
-                                {this.state.drawMode === 'preset' && this.state.selectedPattern
+                                {this.state.panMode ? 'Pan'
+                                    : (this.state.drawMode === 'preset' && this.state.selectedPattern
                                     ? this.state.selectedPattern
-                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw')}
+                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
                             </span>
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
@@ -4705,10 +4754,17 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this.state.running ? "\u23F8" : "\u25B6"}
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
+                                onClick={this.togglePanMode}
+                                aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
+                                aria-pressed={this.state.panMode}>
+                                <i className={"fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows")} aria-hidden="true"></i>
+                            </button>
                             <span className="mobile-transport-mode" aria-live="polite">
-                                {this.state.drawMode === 'preset' && this.state.selectedPattern
+                                {this.state.panMode ? 'Pan'
+                                    : (this.state.drawMode === 'preset' && this.state.selectedPattern
                                     ? this.state.selectedPattern
-                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw')}
+                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
                             </span>
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
@@ -4863,10 +4919,17 @@ document.addEventListener('DOMContentLoaded', function(){
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
                             <button className="btn" onClick={this.resetGame} aria-label="Reset simulation">Reset</button>
+                            <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
+                                onClick={this.togglePanMode}
+                                aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
+                                aria-pressed={this.state.panMode}>
+                                <i className={"fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows")} aria-hidden="true"></i>
+                            </button>
                             <span className="mobile-transport-mode" aria-live="polite">
-                                {this.state.drawMode === 'preset' && this.state.selectedPattern
+                                {this.state.panMode ? 'Pan'
+                                    : (this.state.drawMode === 'preset' && this.state.selectedPattern
                                     ? this.state.selectedPattern
-                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw')}
+                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
                             </span>
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>

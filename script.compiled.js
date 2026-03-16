@@ -859,7 +859,8 @@ document.addEventListener('DOMContentLoaded', function () {
           deviceClass: 'desktop',
           // Bottom sheet (phone modes)
           bottomSheetOpen: false,
-          bottomSheetTab: 'simulate'
+          bottomSheetTab: 'simulate',
+          panMode: false
         };
       },
       componentWillMount: function () {
@@ -867,7 +868,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // before the first render() call.
         this._genHistory = [];
         this._genHistoryMax = 200;
-        this._genHistoryInterval = 5;
+        this._genHistoryInterval = 1;
         this._genHistoryCounter = 0;
         this._trailMap = new Map();
         this._trailEnabled = false;
@@ -1839,6 +1840,7 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       stepGame: function () {
         this.pushUndo();
+        this._pushGenHistory();
         var liveCells = this.state.liveCells;
         var cols = this.state.cols;
         var rows = this.state.rows;
@@ -3020,6 +3022,11 @@ document.addEventListener('DOMContentLoaded', function () {
           self.drawBoard();
         });
       },
+      togglePanMode: function () {
+        this.setState({
+          panMode: !this.state.panMode
+        });
+      },
       toggleMobileTools: function () {
         var self = this;
         this.setState({
@@ -3123,6 +3130,17 @@ document.addEventListener('DOMContentLoaded', function () {
           }
           return;
         }
+        // Pan mode: single-finger pan instead of drawing
+        if (this.state.panMode) {
+          this._panDragging = true;
+          this._panStart = {
+            x: t.clientX,
+            y: t.clientY,
+            vx: this.state.viewX,
+            vy: this.state.viewY
+          };
+          return;
+        }
         this.onMouseDown({
           preventDefault: function () {},
           button: 0,
@@ -3162,6 +3180,23 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         var t = event.touches[0];
+        // Pan mode: move viewport by finger delta
+        if (this.state.panMode && this._panDragging && this._panStart) {
+          var dx = t.clientX - this._panStart.x;
+          var dy = t.clientY - this._panStart.y;
+          var cs2 = this.state.cellSize;
+          var newVX = this._panStart.vx - Math.round(dx / cs2);
+          var newVY = this._panStart.vy - Math.round(dy / cs2);
+          var clamped = this.clampView(newVX, newVY, this.state.cols, this.state.rows, cs2);
+          var self = this;
+          this.setState({
+            viewX: clamped.viewX,
+            viewY: clamped.viewY
+          }, function () {
+            self.drawBoard();
+          });
+          return;
+        }
         this.onMouseMove({
           clientX: t.clientX,
           clientY: t.clientY
@@ -3175,6 +3210,12 @@ document.addEventListener('DOMContentLoaded', function () {
           this._pinchStart = null;
         }
         if (event.touches.length === 0) {
+          // End pan mode drag
+          if (this.state.panMode && this._panDragging) {
+            this._panDragging = false;
+            this._panStart = null;
+            return;
+          }
           // For pattern placement, place at the final preview position rather than
           // the initial tap position (which onMouseUp would have used).
           if (this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos) {
@@ -3309,6 +3350,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 drawMode: 'paint'
               }, function () {
                 self.drawBoard();
+              });
+              break;
+            }
+            if (this.state.showPopGraph) {
+              this.setState({
+                showPopGraph: false
               });
               break;
             }
@@ -3467,16 +3514,22 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       },
       openContextTray: function (content) {
+        var self = this;
         this.setState({
           contextTrayOpen: true,
           contextTrayContent: content
+        }, function () {
+          self.drawBoard();
         });
       },
       closeContextTray: function () {
         if (!this.state.contextTrayPinned) {
+          var self = this;
           this.setState({
             contextTrayOpen: false,
             contextTrayContent: null
+          }, function () {
+            self.drawBoard();
           });
         }
       },
@@ -3527,6 +3580,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var dy = e.touches[0].clientY - this._sheetTouchY;
         if (dy > 0) {
+          e.preventDefault();
           this._sheetEl.style.transform = 'translateY(' + dy + 'px)';
         }
       },
@@ -3722,8 +3776,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var cur = this.state.boundary;
         var next = cur === 'toroidal' ? 'finite' : cur === 'finite' ? 'unbounded' : 'toroidal';
         this._hlStale = true;
+        this._minimapDirty = true;
+        var self = this;
         this.setState({
           boundary: next
+        }, function () {
+          self.drawBoard();
         });
       },
       toggleGame: function () {
@@ -4445,11 +4503,11 @@ document.addEventListener('DOMContentLoaded', function () {
           fontSize: "9"
         }, "Generation"), /*#__PURE__*/React.createElement("polyline", {
           fill: "none",
-          stroke: "#70959A",
+          stroke: THEMES[this.state.theme] ? 'rgb(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ')' : '#70959A',
           strokeWidth: "1.5",
           points: points
         }), /*#__PURE__*/React.createElement("polygon", {
-          fill: "rgba(112,149,154,0.2)",
+          fill: THEMES[this.state.theme] ? 'rgba(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ',0.2)' : 'rgba(112,149,154,0.2)',
           points: padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)
         })), /*#__PURE__*/React.createElement("button", {
           className: "btn help-close",
@@ -5933,10 +5991,18 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.stepGame,
           "aria-label": "Step one generation"
-        }, "Step"), /*#__PURE__*/React.createElement("span", {
+        }, "Step"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
+          onClick: this.togglePanMode,
+          "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
+          "aria-pressed": this.state.panMode
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows"),
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("span", {
           className: "mobile-transport-mode",
           "aria-live": "polite"
-        }, this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
+        }, this.state.panMode ? 'Pan' : this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.toggleHelp,
           "aria-label": "Help",
@@ -6190,10 +6256,18 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.stepGame,
           "aria-label": "Step one generation"
-        }, "Step"), /*#__PURE__*/React.createElement("span", {
+        }, "Step"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
+          onClick: this.togglePanMode,
+          "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
+          "aria-pressed": this.state.panMode
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows"),
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("span", {
           className: "mobile-transport-mode",
           "aria-live": "polite"
-        }, this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
+        }, this.state.panMode ? 'Pan' : this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.toggleHelp,
           "aria-label": "Help",
@@ -6387,10 +6461,18 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.resetGame,
           "aria-label": "Reset simulation"
-        }, "Reset"), /*#__PURE__*/React.createElement("span", {
+        }, "Reset"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
+          onClick: this.togglePanMode,
+          "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
+          "aria-pressed": this.state.panMode
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows"),
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("span", {
           className: "mobile-transport-mode",
           "aria-live": "polite"
-        }, this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
+        }, this.state.panMode ? 'Pan' : this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.toggleHelp,
           "aria-label": "Help",
