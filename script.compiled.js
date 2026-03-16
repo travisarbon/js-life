@@ -792,24 +792,17 @@ document.addEventListener('DOMContentLoaded', function () {
             ctx.setLineDash([]);
             ctx.restore();
           } else if (selType === 'freeform') {
-            // Shade finalized cells.
-            if (sel.cells && sel.cells.length > 0) {
-              ctx.fillStyle = theme.sel;
-              sel.cells.forEach(function (rc) {
-                ctx.fillRect((rc[1] - viewX) * cellSize, (rc[0] - viewY) * cellSize, cellSize, cellSize);
-              });
-            }
-            // Draw lasso path outline.
+            // Draw lasso path as filled polygon (preview during drag and after).
             if (sel.path && sel.path.length > 1) {
-              ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
-              ctx.lineWidth = 1.5;
-              ctx.setLineDash([5, 3]);
               ctx.beginPath();
               ctx.moveTo((sel.path[0].c - viewX + 0.5) * cellSize, (sel.path[0].r - viewY + 0.5) * cellSize);
               for (var fi = 1; fi < sel.path.length; fi++) ctx.lineTo((sel.path[fi].c - viewX + 0.5) * cellSize, (sel.path[fi].r - viewY + 0.5) * cellSize);
-              if (sel.cells && sel.cells.length > 0) {
-                ctx.closePath();
-              }
+              ctx.closePath();
+              ctx.fillStyle = theme.sel;
+              ctx.fill();
+              ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
+              ctx.lineWidth = 1.5;
+              ctx.setLineDash([5, 3]);
               ctx.stroke();
               ctx.setLineDash([]);
             }
@@ -1179,6 +1172,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (this._undoStack.length > 30) {
           this._undoStack.shift();
         }
+      },
+      popUndo: function () {
+        if (this._undoStack && this._undoStack.length > 0) {
+          this._undoStack.pop();
+        }
+      },
+      cancelDrawTool: function () {
+        if (!this._drawToolStart) {
+          return;
+        }
+        this._drawToolStart = null;
+        this._drawPreviewCells = [];
+        this.popUndo();
+        this.drawBoard();
       },
       undo: function () {
         if (this._undoStack.length === 0) {
@@ -1717,8 +1724,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this._minimapDragging = false;
         this._panDragging = false;
         this._panStart = null;
-        this._drawToolStart = null;
-        this._drawPreviewCells = [];
+        this.cancelDrawTool();
         if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
           this._previewPos = null;
           this.drawBoard();
@@ -1728,6 +1734,10 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       onContextMenu: function (event) {
         event.preventDefault();
+        if (this._drawToolStart) {
+          this.cancelDrawTool();
+          return;
+        }
         if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
           this._previewPos = null;
           var self = this;
@@ -1752,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var cellC = viewX + Math.floor(mouse.x / cellSize);
         var cellR = viewY + Math.floor(mouse.y / cellSize);
         var step = Math.max(1, Math.round(cellSize / 8));
-        var newCS = event.deltaY < 0 ? Math.min(32, cellSize + step) : Math.max(2, cellSize - step);
+        var newCS = event.deltaY < 0 ? Math.min(32, cellSize + step) : Math.max(1, cellSize - step);
         if (newCS === cellSize) {
           return;
         }
@@ -2435,6 +2445,10 @@ document.addEventListener('DOMContentLoaded', function () {
             this.pan(0, 5);
             break;
           case 'Escape':
+            if (this._drawToolStart) {
+              this.cancelDrawTool();
+              break;
+            }
             if (this.state.selection) {
               this.clearSelection();
               break;
@@ -3105,7 +3119,9 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "mobile-stats-bar"
         }, /*#__PURE__*/React.createElement("span", {
           className: "msb-left"
-        }, 'Gen\u00a0' + this.state.generations.toLocaleString() + '\u2002Pop\u00a0' + population.toLocaleString() + trendArrow), /*#__PURE__*/React.createElement("span", {
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "msb-title"
+        }, "Conway's Game of Life"), 'Gen\u00a0' + this.state.generations.toLocaleString() + '\u2002Pop\u00a0' + population.toLocaleString() + trendArrow), /*#__PURE__*/React.createElement("span", {
           className: 'status-indicator ' + statusClass
         }, statusLabel), /*#__PURE__*/React.createElement("span", {
           className: "msb-right"
