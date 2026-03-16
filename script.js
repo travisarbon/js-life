@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
                 var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
                 var contentPad = isMobile ? 24 : 40;         // 12×2 mobile, 20×2 desktop
-                var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;  // sidebar + gap
+                var sidebarW = isMobile ? 0 : (isTablet ? 160 : 180) + 14;  // sidebar + gap
                 var maxW = typeof window !== 'undefined'
                     ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
                 var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
@@ -2354,10 +2354,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
                 liveCells.forEach(function(_, key){
                     var parts = key.split(',');
-                    var cc = parseInt(parts[0], 10);
-                    var rr = parseInt(parts[1], 10);
-                    var px = Math.floor(cc * cellW);
-                    var py = Math.floor(rr * cellH);
+                    var kr = parseInt(parts[0], 10);   // row   (before comma)
+                    var kc = parseInt(parts[1], 10);   // column (after comma)
+                    var px = Math.floor(kc * cellW);   // column → x
+                    var py = Math.floor(kr * cellH);   // row    → y
                     var pw = Math.max(1, Math.ceil(cellW));
                     var ph = Math.max(1, Math.ceil(cellH));
                     mmCtx.fillRect(px, py, pw, ph);
@@ -2482,6 +2482,33 @@ document.addEventListener('DOMContentLoaded', function(){
                 );
             },
 
+            // ── Horizontal toolbar (desktop/tablet only — hidden on mobile via CSS) ──
+            renderToolbar : function(){
+                return (
+                    <div className="toolbar-strip">
+                        <span className="toolbar-title">{"Conway's\nGame of Life"}</span>
+                        <div className="toolbar-group">
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
+                            <button className="btn" onClick={this.stepGame}>Step</button>
+                            <button className="btn" onClick={this.resetGame}>Reset</button>
+                            <button className="btn" onClick={this.emptyBoard}>Empty</button>
+                            <button className="btn" onClick={this.undo}>Undo</button>
+                            <button className="btn" onClick={this.fitView}>Fit Grid</button>
+                            <button className="btn" onClick={this.fitLiveCells}>Fit Cells</button>
+                        </div>
+                        <div className="toolbar-group">
+                            <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
+                            <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
+                            <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
+                            <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode}>Draw</button>
+                            <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode}>Preset</button>
+                            <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
+                            <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)">Minimap</button>
+                        </div>
+                    </div>
+                );
+            },
+
             renderButtons : function(){
                 var self = this;
                 var filterLc = this.state.patternFilter.toLowerCase();
@@ -2519,93 +2546,103 @@ document.addEventListener('DOMContentLoaded', function(){
                     );
                 }
                 return (
-                    <div className="sidebar-section">
-                        <div className="sidebar-section-title">Simulation</div>
-                        <div className="btn-section">
-                            <div className="buttons">
-                                <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
-                                <button className="btn" onClick={this.stepGame}>Step</button>
-                                <button className="btn" onClick={this.resetGame}>Reset</button>
-                                <button className="btn" onClick={this.emptyBoard}>Empty</button>
-                                <button className="btn" onClick={this.undo}>Undo</button>
-                                <button className="btn" onClick={this.fitView}>Fit Grid</button>
-                                <button className="btn" onClick={this.fitLiveCells} style={{gridColumn:'1 / -1'}}>Fit Cells</button>
+                    <div className="buttons-container">
+                        {/* Simulation buttons: shown in sidebar on mobile only.
+                            On desktop/tablet these live in the toolbar. */}
+                        <div className="sidebar-section sidebar-btn-groups">
+                            <div className="sidebar-section-title">Simulation</div>
+                            <div className="btn-section">
+                                <div className="buttons">
+                                    <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>{this.state.running ? "Pause" : "Play"}</button>
+                                    <button className="btn" onClick={this.stepGame}>Step</button>
+                                    <button className="btn" onClick={this.resetGame}>Reset</button>
+                                    <button className="btn" onClick={this.emptyBoard}>Empty</button>
+                                    <button className="btn" onClick={this.undo}>Undo</button>
+                                    <button className="btn" onClick={this.fitView}>Fit Grid</button>
+                                    <button className="btn" onClick={this.fitLiveCells} style={{gridColumn:'1 / -1'}}>Fit Cells</button>
+                                </div>
+                                <div className="buttons buttons-secondary">
+                                    <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
+                                    <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
+                                    <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
+                                    <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode}>Draw</button>
+                                    <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode}>Preset</button>
+                                    <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
+                                    <button className={"btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)">Minimap</button>
+                                </div>
                             </div>
-                            <div className="buttons buttons-secondary">
-                                <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
-                                <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines}>Grid</button>
-                                <button className={"btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : "")} onClick={this.toggleBoundary} title="Toggle between toroidal (wrapping) and finite (hard-edge) boundaries">{this.state.boundary === 'toroidal' ? "Wrap" : "Hard"}</button>
-                                <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode}>Draw</button>
-                                <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode}>Preset</button>
-                                <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode}>Select</button>
-                                <button className={"btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)">Minimap</button>
-                            </div>
-                            <div className="tool-subtype-row">
-                                <label className="tool-label">Draw:</label>
-                                <select value={this.state.drawTool}
-                                        onChange={function(e){ self.setState({drawTool: e.target.value, drawMode: 'paint', selection: null}); }}>
-                                    <option value="cell">Cell paint</option>
-                                    <option value="line">Line</option>
-                                    <option value="fill">Flood fill</option>
-                                    <option value="shape-rect">Rectangle</option>
-                                    <option value="shape-circle">Circle</option>
-                                </select>
-                            </div>
-                            <div className="tool-subtype-row">
-                                <label className="tool-label">Select:</label>
-                                <select value={this.state.selectTool}
-                                        onChange={function(e){ self.setState({selectTool: e.target.value, drawMode: 'select', selection: null}); }}>
-                                    <option value="rect">Rectangle</option>
-                                    <option value="ellipse">Ellipse</option>
-                                    <option value="freeform">Freeform</option>
-                                    <option value="all-visible">All visible</option>
-                                </select>
-                            </div>
-                            <div className="tool-subtype-row">
-                                <label className="tool-label">Preset:</label>
-                                <select className={"preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : "")}
-                                    value={this.state.selectedPattern || ""}
-                                    onChange={this.selectPattern}>
-                                    <option value="">Choose preset...</option>
-                                    {patternOptions}
-                                </select>
-                            </div>
-                            <input className="pattern-filter-input"
-                                type="text"
-                                placeholder="Filter patterns..."
-                                value={this.state.patternFilter}
-                                onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
-                            {this.state.drawMode === 'preset' && this.state.selectedPattern &&
-                                <div className="rotation-row">
-                                    <canvas className="rotation-preview"
-                                        width="96" height="96"
-                                        ref={function(c){ self._previewCanvas = c; }} />
-                                    <div className="rotation-btns">
-                                        <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise">&#8634;</button>
-                                        <button className="btn btn-rotate" onClick={this.rotateCW}  title="Rotate 90° clockwise">&#8635;</button>
+                        </div>
+                        {/* Tool controls: always in sidebar on all screen sizes. */}
+                        <div className="sidebar-section sidebar-tools-section">
+                            <div className="sidebar-section-title">Tools</div>
+                            <div className="btn-section">
+                                <div className="tool-subtype-row">
+                                    <label className="tool-label">Draw:</label>
+                                    <select value={this.state.drawTool}
+                                            onChange={function(e){ self.setState({drawTool: e.target.value, drawMode: 'paint', selection: null}); }}>
+                                        <option value="cell">Cell paint</option>
+                                        <option value="line">Line</option>
+                                        <option value="fill">Flood fill</option>
+                                        <option value="shape-rect">Rectangle</option>
+                                        <option value="shape-circle">Circle</option>
+                                    </select>
+                                </div>
+                                <div className="tool-subtype-row">
+                                    <label className="tool-label">Select:</label>
+                                    <select value={this.state.selectTool}
+                                            onChange={function(e){ self.setState({selectTool: e.target.value, drawMode: 'select', selection: null}); }}>
+                                        <option value="rect">Rectangle</option>
+                                        <option value="ellipse">Ellipse</option>
+                                        <option value="freeform">Freeform</option>
+                                        <option value="all-visible">All visible</option>
+                                    </select>
+                                </div>
+                                <div className="tool-subtype-row">
+                                    <label className="tool-label">Preset:</label>
+                                    <select className={"preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : "")}
+                                        value={this.state.selectedPattern || ""}
+                                        onChange={this.selectPattern}>
+                                        <option value="">Choose preset...</option>
+                                        {patternOptions}
+                                    </select>
+                                </div>
+                                <input className="pattern-filter-input"
+                                    type="text"
+                                    placeholder="Filter patterns..."
+                                    value={this.state.patternFilter}
+                                    onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
+                                {this.state.drawMode === 'preset' && this.state.selectedPattern &&
+                                    <div className="rotation-row">
+                                        <canvas className="rotation-preview"
+                                            width="96" height="96"
+                                            ref={function(c){ self._previewCanvas = c; }} />
+                                        <div className="rotation-btns">
+                                            <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise">&#8634;</button>
+                                            <button className="btn btn-rotate" onClick={this.rotateCW}  title="Rotate 90° clockwise">&#8635;</button>
+                                        </div>
                                     </div>
+                                }
+                                {this.state.drawMode === 'preset' && this.state.selectedPattern &&
+                                    <p className="placement-hint">
+                                        {"Click canvas to place \xB7 " + this.state.selectedPattern}
+                                        <br/>
+                                        <span className="placement-hint-sub">Right-click or Esc to cancel</span>
+                                    </p>
+                                }
+                                {this.state.selection &&
+                                    <div className="buttons buttons-selection">
+                                        <button className="btn" onClick={this.copySelection}>Copy</button>
+                                        <button className="btn" onClick={this.pasteAsPattern}
+                                            disabled={!this.state.clipboard || this.state.clipboard.length === 0}>Paste</button>
+                                        <button className="btn" onClick={this.deleteSelection}>Delete</button>
+                                    </div>
+                                }
+                                <div className="buttons buttons-export">
+                                    <button className="btn" onClick={this.exportPNG}>Export PNG</button>
+                                    <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
+                                    <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF of the simulation">{this.state.recording ? "Stop" : "Record"}</button>
+                                    <button className="btn" onClick={this.toggleHelp}>Help</button>
                                 </div>
-                            }
-                            {this.state.drawMode === 'preset' && this.state.selectedPattern &&
-                                <p className="placement-hint">
-                                    {"Click canvas to place \xB7 " + this.state.selectedPattern}
-                                    <br/>
-                                    <span className="placement-hint-sub">Right-click or Esc to cancel</span>
-                                </p>
-                            }
-                            {this.state.selection &&
-                                <div className="buttons buttons-selection">
-                                    <button className="btn" onClick={this.copySelection}>Copy</button>
-                                    <button className="btn" onClick={this.pasteAsPattern}
-                                        disabled={!this.state.clipboard || this.state.clipboard.length === 0}>Paste</button>
-                                    <button className="btn" onClick={this.deleteSelection}>Delete</button>
-                                </div>
-                            }
-                            <div className="buttons buttons-export">
-                                <button className="btn" onClick={this.exportPNG}>Export PNG</button>
-                                <button className="btn" onClick={this.copyRLE}>Copy RLE</button>
-                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF of the simulation">{this.state.recording ? "Stop" : "Record"}</button>
-                                <button className="btn" onClick={this.toggleHelp}>Help</button>
                             </div>
                         </div>
                     </div>
@@ -2734,7 +2771,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 return (
                     <div>
                         {this.renderHelpModal()}
-                        <h2 className="top">Conway's Game of Life</h2>
+                        {/* Title: full h2 on mobile; hidden on desktop (toolbar has compact version). */}
+                        <h2 className="top site-title">Conway's Game of Life</h2>
+                        {/* Toolbar: visible on desktop/tablet; hidden on mobile via CSS. */}
+                        {this.renderToolbar()}
                         <div className="content-body">
                             <div className={"canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")}>
                                 <canvas className="display"

@@ -44,7 +44,7 @@ body {
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
   #content .sidebar {
-    width: 200px;
+    width: 180px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -402,7 +402,8 @@ body {
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
-/* Desktop: make sidebar sticky so controls never require page scroll. */
+/* Desktop: make sidebar sticky so controls never require page scroll.
+   Title moves into toolbar; sidebar shows only tool/config controls. */
 @media (min-width: 621px) {
   #content .sidebar {
     position: sticky;
@@ -411,12 +412,25 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
-    padding-right: 18px; } }
+    padding-right: 18px; }
+  /* h2 title is rendered inline inside the toolbar on desktop. */
+  #content .site-title {
+    display: none; }
+  /* Primary/secondary button grids live in toolbar on desktop — hide from sidebar. */
+  #content .sidebar-btn-groups {
+    display: none; }
+  /* Toolbar is present above content-body; reduce top margin to keep layout tight. */
+  #content .content-body {
+    margin-top: 4px; }
+  /* Tools section is the first visible sidebar section on desktop — remove double border. */
+  #content .sidebar-tools-section {
+    border-top: none;
+    padding-top: 0; } }
 
 /* Tablet landscape / narrow desktop: shrink sidebar slightly. */
 @media (min-width: 621px) and (max-width: 900px) {
   #content .sidebar {
-    width: 178px; } }
+    width: 160px; } }
 
 /* Mobile portrait. */
 @media (max-width: 620px) {
@@ -492,7 +506,10 @@ body {
   #content .buttons-secondary {
     grid-template-columns: repeat(4, 1fr);
     border-top: none;
-    padding-top: 0; } }
+    padding-top: 0; }
+  /* Stats already shown in mobile-stats-bar/sparkline above canvas. */
+  #content .sidebar .stats {
+    display: none; } }
 
 /* Very small phones: tighten padding, enlarge touch targets. */
 @media (max-width: 400px) {
@@ -536,6 +553,52 @@ body {
     border-radius: 2px;
     cursor: crosshair;
     touch-action: none; } }
+
+/* ── Toolbar (desktop/tablet ≥621px) ─────────────────────────────────────── */
+/* Hidden on mobile — buttons remain inside the bottom-sheet sidebar instead. */
+.toolbar-strip {
+  display: none; }
+
+@media (min-width: 621px) {
+  .toolbar-strip {
+    display: grid;
+    /* Left column: compact title badge spanning both button rows.
+       Right column: two flex rows of buttons. */
+    grid-template-columns: max-content 1fr;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 3px;
+    padding: 3px 0 5px;
+    border-bottom: 1px solid rgba(0,0,0,0.18);
+    margin-bottom: 5px; }
+  .toolbar-title {
+    grid-row: 1 / 3;
+    grid-column: 1;
+    font-size: 0.78em;
+    font-weight: bold;
+    line-height: 1.25;
+    white-space: pre-line;   /* allows the \n inserted in JSX to break the title */
+    opacity: 0.88;
+    padding-right: 10px;
+    border-right: 1px solid rgba(0,0,0,0.18);
+    align-self: center; }
+  .toolbar-group {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px; }
+  .toolbar-strip .btn {
+    padding: 2px 7px;
+    min-height: 24px;
+    min-width: 0;
+    font-size: 0.79em;
+    white-space: nowrap;
+    flex-shrink: 0; }
+  /* Keep active-state colour consistent with sidebar buttons. */
+  .toolbar-strip .btn-toggle.active {
+    background-color: #70959A;
+    color: #F4E9E1; } }
 
 /* ── Sidebar overflow fixes ───────────────────────────────────────────────── */
 #content .rule-preset-select,

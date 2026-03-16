@@ -653,7 +653,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
         var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
         var contentPad = isMobile ? 24 : 40; // 12×2 mobile, 20×2 desktop
-        var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14; // sidebar + gap
+        var sidebarW = isMobile ? 0 : (isTablet ? 160 : 180) + 14; // sidebar + gap
         var maxW = typeof window !== 'undefined' ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
         var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
         var isMobileToolsOpen = typeof window !== 'undefined' && window.innerWidth <= 620 && this.state.showMobileTools;
@@ -2986,10 +2986,10 @@ document.addEventListener('DOMContentLoaded', function () {
         mmCtx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
         liveCells.forEach(function (_, key) {
           var parts = key.split(',');
-          var cc = parseInt(parts[0], 10);
-          var rr = parseInt(parts[1], 10);
-          var px = Math.floor(cc * cellW);
-          var py = Math.floor(rr * cellH);
+          var kr = parseInt(parts[0], 10); // row   (before comma)
+          var kc = parseInt(parts[1], 10); // column (after comma)
+          var px = Math.floor(kc * cellW); // column → x
+          var py = Math.floor(kr * cellH); // row    → y
           var pw = Math.max(1, Math.ceil(cellW));
           var ph = Math.max(1, Math.ceil(cellH));
           mmCtx.fillRect(px, py, pw, ph);
@@ -3111,6 +3111,63 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "msb-right"
         }, contextLabel));
       },
+      // ── Horizontal toolbar (desktop/tablet only — hidden on mobile via CSS) ──
+      renderToolbar: function () {
+        return /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-strip"
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "toolbar-title"
+        }, "Conway's\nGame of Life"), /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-group"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.running ? " active" : ""),
+          onClick: this.toggleGame
+        }, this.state.running ? "Pause" : "Play"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.stepGame
+        }, "Step"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.resetGame
+        }, "Reset"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.emptyBoard
+        }, "Empty"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.undo
+        }, "Undo"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.fitView
+        }, "Fit Grid"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.fitLiveCells
+        }, "Fit Cells")), /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-group"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
+          onClick: this.toggleLivePaint,
+          title: "Paint cells while the simulation is running"
+        }, "Live Paint"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.gridLines ? " active" : ""),
+          onClick: this.toggleGridLines
+        }, "Grid"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : ""),
+          onClick: this.toggleBoundary,
+          title: "Toggle between toroidal (wrapping) and finite (hard-edge) boundaries"
+        }, this.state.boundary === 'toroidal' ? "Wrap" : "Hard"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : ""),
+          onClick: this.toggleDrawMode
+        }, "Draw"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : ""),
+          onClick: this.togglePresetMode
+        }, "Preset"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
+          onClick: this.toggleSelectMode
+        }, "Select"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.showMinimap ? " active" : ""),
+          onClick: this.toggleMinimap,
+          title: "Show/hide minimap overview (M)"
+        }, "Minimap")));
+      },
       renderButtons: function () {
         var self = this;
         var filterLc = this.state.patternFilter.toLowerCase();
@@ -3159,7 +3216,9 @@ document.addEventListener('DOMContentLoaded', function () {
           }, "Custom")));
         }
         return /*#__PURE__*/React.createElement("div", {
-          className: "sidebar-section"
+          className: "buttons-container"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "sidebar-section sidebar-btn-groups"
         }, /*#__PURE__*/React.createElement("div", {
           className: "sidebar-section-title"
         }, "Simulation"), /*#__PURE__*/React.createElement("div", {
@@ -3216,7 +3275,13 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : ""),
           onClick: this.toggleMinimap,
           title: "Show/hide minimap overview (M)"
-        }, "Minimap")), /*#__PURE__*/React.createElement("div", {
+        }, "Minimap")))), /*#__PURE__*/React.createElement("div", {
+          className: "sidebar-section sidebar-tools-section"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "sidebar-section-title"
+        }, "Tools"), /*#__PURE__*/React.createElement("div", {
+          className: "btn-section"
+        }, /*#__PURE__*/React.createElement("div", {
           className: "tool-subtype-row"
         }, /*#__PURE__*/React.createElement("label", {
           className: "tool-label"
@@ -3330,7 +3395,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }, this.state.recording ? "Stop" : "Record"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.toggleHelp
-        }, "Help"))));
+        }, "Help")))));
       },
       renderRulesSection: function () {
         var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
@@ -3480,8 +3545,8 @@ document.addEventListener('DOMContentLoaded', function () {
       render: function () {
         var cs = this.getCanvasSize();
         return /*#__PURE__*/React.createElement("div", null, this.renderHelpModal(), /*#__PURE__*/React.createElement("h2", {
-          className: "top"
-        }, "Conway's Game of Life"), /*#__PURE__*/React.createElement("div", {
+          className: "top site-title"
+        }, "Conway's Game of Life"), this.renderToolbar(), /*#__PURE__*/React.createElement("div", {
           className: "content-body"
         }, /*#__PURE__*/React.createElement("div", {
           className: "canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")
