@@ -715,7 +715,7 @@ document.addEventListener('DOMContentLoaded', function () {
               }
               // Validate panelStates: must be an object with known panel keys.
               if (parsed.panelStates && typeof parsed.panelStates === 'object') {
-                var validPanels = ['transport', 'view', 'tools', 'board', 'rules', 'stats', 'importExport'];
+                var validPanels = ['transport', 'view', 'mode', 'tools', 'board', 'rules', 'stats', 'importExport'];
                 var ps = {};
                 var allValid = true;
                 for (var vi = 0; vi < validPanels.length; vi++) {
@@ -813,6 +813,12 @@ document.addEventListener('DOMContentLoaded', function () {
               collapsed: false
             },
             view: {
+              open: true,
+              x: -1,
+              y: -1,
+              collapsed: false
+            },
+            mode: {
               open: true,
               x: -1,
               y: -1,
@@ -2285,7 +2291,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var inBounds = c >= 0 && c < this.state.cols && r >= 0 && r < this.state.rows;
 
         // Always update hover cell for coordinate display.
-        var newHover = inBounds ? {
+        var newHover = inBounds || this.state.boundary === 'unbounded' ? {
           c: c,
           r: r
         } : null;
@@ -2299,8 +2305,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Update selection while dragging in select mode (takes priority over minimap).
         if (this.state.drawMode === 'select' && this._selStart) {
-          var bc = Math.max(0, Math.min(this.state.cols - 1, c));
-          var br = Math.max(0, Math.min(this.state.rows - 1, r));
+          var bc = this.state.boundary === 'unbounded' ? c : Math.max(0, Math.min(this.state.cols - 1, c));
+          var br = this.state.boundary === 'unbounded' ? r : Math.max(0, Math.min(this.state.rows - 1, r));
           var selectTool = this.state.selectTool || 'rect';
           var self1 = this;
           if (selectTool === 'freeform') {
@@ -2348,8 +2354,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (this._drawToolStart && this.state.drawMode === 'paint') {
           var drawTool = this.state.drawTool || 'cell';
           if (drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle') {
-            var tc = Math.max(0, Math.min(this.state.cols - 1, c));
-            var tr = Math.max(0, Math.min(this.state.rows - 1, r));
+            var tc = this.state.boundary === 'unbounded' ? c : Math.max(0, Math.min(this.state.cols - 1, c));
+            var tr = this.state.boundary === 'unbounded' ? r : Math.max(0, Math.min(this.state.rows - 1, r));
             var ds = this._drawToolStart;
             if (drawTool === 'line') {
               this._drawPreviewCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
@@ -2388,7 +2394,7 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
-          var newPos = inBounds ? {
+          var newPos = inBounds || this.state.boundary === 'unbounded' ? {
             c: c,
             r: r
           } : null;
@@ -5695,11 +5701,7 @@ document.addEventListener('DOMContentLoaded', function () {
           case 'rules':
             tabContent = /*#__PURE__*/React.createElement("div", {
               className: "rail-tab-content"
-            }, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
-              style: {
-                marginTop: '8px'
-              }
-            }, this.renderLayoutSwitcher()));
+            }, this.renderRulesSection());
             break;
           case 'export':
             tabContent = /*#__PURE__*/React.createElement("div", {
@@ -5784,7 +5786,12 @@ document.addEventListener('DOMContentLoaded', function () {
           id: "rail-panel-" + this.state.railTab,
           role: "tabpanel",
           "aria-label": this.state.railTab + " controls"
-        }, tabContent)), /*#__PURE__*/React.createElement("div", {
+        }, tabContent), !this.state.railCollapsed && /*#__PURE__*/React.createElement("div", {
+          style: {
+            padding: '8px 12px',
+            borderTop: '1px solid var(--panel-border)'
+          }
+        }, this.renderLayoutSwitcher())), /*#__PURE__*/React.createElement("div", {
           className: "transport-strip",
           role: "toolbar",
           "aria-label": "Simulation transport"
@@ -5830,11 +5837,7 @@ document.addEventListener('DOMContentLoaded', function () {
             sheetContent = this.renderSliders();
             break;
           case 'rules':
-            sheetContent = /*#__PURE__*/React.createElement("div", null, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
-              style: {
-                marginTop: '8px'
-              }
-            }, this.renderLayoutSwitcher()));
+            sheetContent = this.renderRulesSection();
             break;
           case 'export':
             sheetContent = this.renderExportContent();
@@ -5910,7 +5913,12 @@ document.addEventListener('DOMContentLoaded', function () {
           }, tab.label));
         })), /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-content"
-        }, sheetContent))));
+        }, sheetContent), /*#__PURE__*/React.createElement("div", {
+          style: {
+            padding: '8px 12px 0',
+            borderTop: '1px solid var(--panel-border)'
+          }
+        }, this.renderLayoutSwitcher()))));
       },
       // ── Specimen layout ──────────────────────────────────────────────
 
@@ -5923,6 +5931,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var trayContent = null;
         switch (this.state.contextTrayContent) {
+          case 'simulate':
+            trayContent = /*#__PURE__*/React.createElement("div", null, this.renderTransportControls(false), this.renderViewControls());
+            break;
           case 'tools':
             trayContent = this.renderToolsContent();
             break;
@@ -5930,11 +5941,7 @@ document.addEventListener('DOMContentLoaded', function () {
             trayContent = this.renderSliders();
             break;
           case 'rules':
-            trayContent = /*#__PURE__*/React.createElement("div", null, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
-              style: {
-                marginTop: '8px'
-              }
-            }, this.renderLayoutSwitcher()));
+            trayContent = this.renderRulesSection();
             break;
           case 'export':
             trayContent = this.renderExportContent();
@@ -5952,7 +5959,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "top-bar-title"
         }, "Conway's Game of Life")), /*#__PURE__*/React.createElement("div", {
           className: "top-bar-center"
-        }, this.renderTransportControls(false)), /*#__PURE__*/React.createElement("div", {
+        }, this.renderTransportControls(true)), /*#__PURE__*/React.createElement("div", {
           className: "top-bar-right"
         }, this.renderModeControls(), /*#__PURE__*/React.createElement("button", {
           className: "btn",
@@ -5967,6 +5974,12 @@ document.addEventListener('DOMContentLoaded', function () {
           role: "group",
           "aria-label": "Settings panels"
         }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen ? " active" : ""),
+          onClick: function () {
+            self.state.contextTrayContent === 'simulate' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('simulate');
+          },
+          "aria-expanded": this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen
+        }, "Sim"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : ""),
           onClick: function () {
             self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools');
@@ -5990,7 +6003,7 @@ document.addEventListener('DOMContentLoaded', function () {
             self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export');
           },
           "aria-expanded": this.state.contextTrayContent === 'export' && this.state.contextTrayOpen
-        }, "Export")))), this.state.contextTrayOpen && /*#__PURE__*/React.createElement("div", {
+        }, "Export")), this.renderLayoutSwitcher())), this.state.contextTrayOpen && /*#__PURE__*/React.createElement("div", {
           className: "context-tray" + (this.state.contextTrayPinned ? " pinned" : ""),
           role: "region",
           "aria-label": this.state.contextTrayContent + " settings"
@@ -6031,6 +6044,47 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       renderSpecimenMobile: function (cs) {
         var self = this;
+        var tabs = [{
+          id: 'simulate',
+          icon: 'fa-play',
+          label: 'Simulate'
+        }, {
+          id: 'tools',
+          icon: 'fa-pencil',
+          label: 'Tools'
+        }, {
+          id: 'board',
+          icon: 'fa-th',
+          label: 'Board'
+        }, {
+          id: 'rules',
+          icon: 'fa-cog',
+          label: 'Rules'
+        }, {
+          id: 'export',
+          icon: 'fa-download',
+          label: 'Export'
+        }];
+        var sheetContent = null;
+        switch (this.state.bottomSheetTab) {
+          case 'simulate':
+            sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+              className: "sidebar-section-title"
+            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls());
+            break;
+          case 'tools':
+            sheetContent = this.renderToolsContent();
+            break;
+          case 'board':
+            sheetContent = this.renderSliders();
+            break;
+          case 'rules':
+            sheetContent = this.renderRulesSection();
+            break;
+          case 'export':
+            sheetContent = this.renderExportContent();
+            break;
+        }
         return /*#__PURE__*/React.createElement("div", {
           className: "layout-specimen layout-mobile"
         }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
@@ -6058,18 +6112,43 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "bottom-sheet-container"
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-backdrop",
-          onClick: this.toggleBottomSheet
+          onClick: this.toggleBottomSheet,
+          role: "presentation",
+          "aria-hidden": "true"
         }), /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet"
+          className: "bottom-sheet",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-label": "Controls panel"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet-content bottom-sheet-accordion"
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "sidebar-section-title"
-        }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderToolsContent(), this.renderSliders(), this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-tabs",
+          role: "tablist",
+          "aria-label": "Control categories"
+        }, tabs.map(function (tab) {
+          var isActive = self.state.bottomSheetTab === tab.id;
+          return /*#__PURE__*/React.createElement("button", {
+            key: tab.id,
+            className: "rail-tab" + (isActive ? " active" : ""),
+            onClick: function () {
+              self.setBottomSheetTab(tab.id);
+            },
+            role: "tab",
+            "aria-selected": isActive,
+            "aria-label": tab.label
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fa " + tab.icon,
+            "aria-hidden": "true"
+          }), /*#__PURE__*/React.createElement("span", {
+            className: "rail-tab-label"
+          }, tab.label));
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-content"
+        }, sheetContent), /*#__PURE__*/React.createElement("div", {
           style: {
-            marginTop: '8px'
+            padding: '8px 12px 0',
+            borderTop: '1px solid var(--panel-border)'
           }
-        }, this.renderLayoutSwitcher()), this.renderExportContent()))));
+        }, this.renderLayoutSwitcher()))));
       },
       // ── Observatory layout ───────────────────────────────────────────
 
@@ -6088,11 +6167,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "panel-overlay-container",
           role: "group",
           "aria-label": "Floating control panels"
-        }, this._renderFloatPanel('transport', 'Transport', this.renderTransportControls(false)), this._renderFloatPanel('view', 'View', this.renderViewControls()), this._renderFloatPanel('tools', 'Tools', /*#__PURE__*/React.createElement("div", null, this.renderModeControls(), this.renderToolsContent())), this._renderFloatPanel('board', 'Board', this.renderSliders()), this._renderFloatPanel('rules', 'Rules', /*#__PURE__*/React.createElement("div", null, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
-          style: {
-            marginTop: '8px'
-          }
-        }, this.renderLayoutSwitcher()))), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent()), /*#__PURE__*/React.createElement("div", {
+        }, this._renderFloatPanel('transport', 'Transport', this.renderTransportControls(false)), this._renderFloatPanel('view', 'View', this.renderViewControls()), this._renderFloatPanel('mode', 'Mode', this.renderModeControls()), this._renderFloatPanel('tools', 'Tools', this.renderToolsContent()), this._renderFloatPanel('board', 'Board', this.renderSliders()), this._renderFloatPanel('rules', 'Rules', this.renderRulesSection()), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent()), /*#__PURE__*/React.createElement("div", {
           className: "panel-menu",
           role: "group",
           "aria-label": "Panel visibility"
@@ -6120,7 +6195,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "panel-menu-list",
           role: "group",
           "aria-label": "Panel toggles"
-        }, ['transport', 'view', 'tools', 'board', 'rules', 'stats', 'importExport'].map(function (id) {
+        }, ['transport', 'view', 'mode', 'tools', 'board', 'rules', 'stats', 'importExport'].map(function (id) {
           var label = id === 'importExport' ? 'Import/Export' : id.charAt(0).toUpperCase() + id.slice(1);
           return /*#__PURE__*/React.createElement("label", {
             key: id,
@@ -6133,11 +6208,51 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             "aria-label": "Show " + label + " panel"
           }), /*#__PURE__*/React.createElement("span", null, label));
-        })))));
+        })), this.renderLayoutSwitcher())));
       },
       renderObservatoryMobile: function (cs) {
         var self = this;
-        // Mobile: use drawer-based approach
+        var tabs = [{
+          id: 'simulate',
+          icon: 'fa-play',
+          label: 'Simulate'
+        }, {
+          id: 'tools',
+          icon: 'fa-pencil',
+          label: 'Tools'
+        }, {
+          id: 'board',
+          icon: 'fa-th',
+          label: 'Board'
+        }, {
+          id: 'rules',
+          icon: 'fa-cog',
+          label: 'Rules'
+        }, {
+          id: 'export',
+          icon: 'fa-download',
+          label: 'Export'
+        }];
+        var sheetContent = null;
+        switch (this.state.bottomSheetTab) {
+          case 'simulate':
+            sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+              className: "sidebar-section-title"
+            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls());
+            break;
+          case 'tools':
+            sheetContent = this.renderToolsContent();
+            break;
+          case 'board':
+            sheetContent = this.renderSliders();
+            break;
+          case 'rules':
+            sheetContent = this.renderRulesSection();
+            break;
+          case 'export':
+            sheetContent = this.renderExportContent();
+            break;
+        }
         return /*#__PURE__*/React.createElement("div", {
           className: "layout-observatory layout-mobile"
         }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
@@ -6171,16 +6286,43 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "bottom-sheet-container"
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-backdrop",
-          onClick: this.toggleBottomSheet
+          onClick: this.toggleBottomSheet,
+          role: "presentation",
+          "aria-hidden": "true"
         }), /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet"
+          className: "bottom-sheet",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-label": "Controls panel"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet-content bottom-sheet-accordion"
-        }, this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderToolsContent(), this.renderSliders(), this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-tabs",
+          role: "tablist",
+          "aria-label": "Control categories"
+        }, tabs.map(function (tab) {
+          var isActive = self.state.bottomSheetTab === tab.id;
+          return /*#__PURE__*/React.createElement("button", {
+            key: tab.id,
+            className: "rail-tab" + (isActive ? " active" : ""),
+            onClick: function () {
+              self.setBottomSheetTab(tab.id);
+            },
+            role: "tab",
+            "aria-selected": isActive,
+            "aria-label": tab.label
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fa " + tab.icon,
+            "aria-hidden": "true"
+          }), /*#__PURE__*/React.createElement("span", {
+            className: "rail-tab-label"
+          }, tab.label));
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-content"
+        }, sheetContent), /*#__PURE__*/React.createElement("div", {
           style: {
-            marginTop: '8px'
+            padding: '8px 12px 0',
+            borderTop: '1px solid var(--panel-border)'
           }
-        }, this.renderLayoutSwitcher()), this.renderExportContent()))));
+        }, this.renderLayoutSwitcher()))));
       },
       // ── Float panel helper (Observatory) ─────────────────────────────
 

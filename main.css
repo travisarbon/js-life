@@ -821,15 +821,20 @@ canvas.display {
   top: 0;
   left: 0;
   right: 0;
-  height: 40px;
+  min-height: 40px;
   background: var(--panel-bg-blur);
   border-bottom: 1px solid var(--panel-border);
   box-shadow: var(--panel-shadow);
   z-index: 101;
   display: flex;
   align-items: center;
-  padding: 0 12px;
-  gap: 8px; }
+  flex-wrap: wrap;
+  padding: 4px 12px;
+  gap: 6px; }
+
+.top-bar .mode-controls,
+.top-bar .view-controls {
+  margin-top: 0; }
 
 .top-bar-left {
   display: flex;
@@ -872,7 +877,8 @@ canvas.display {
   top: 40px;
   left: 0;
   right: 0;
-  height: 200px;
+  min-height: 160px;
+  max-height: 40vh;
   background: var(--panel-bg-blur);
   border-bottom: 1px solid var(--panel-border);
   box-shadow: var(--panel-shadow);
@@ -897,6 +903,7 @@ canvas.display {
   position: absolute;
   min-width: 180px;
   max-width: 400px;
+  max-height: calc(100vh - 40px);
   background: var(--panel-bg-blur);
   border: 1px solid var(--panel-border);
   border-radius: var(--panel-radius);
@@ -1043,7 +1050,7 @@ canvas.display {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 48px;
+  height: 52px;
   background: var(--panel-bg-blur);
   border-top: 1px solid var(--panel-border);
   z-index: 102;
@@ -1054,8 +1061,8 @@ canvas.display {
   padding: 0 12px; }
 
 .mobile-transport-bar .btn {
-  padding: 5px 10px;
-  min-height: 32px;
+  padding: 6px 12px;
+  min-height: 40px;
   font-size: 0.82em;
   width: auto; }
 
@@ -1118,8 +1125,8 @@ canvas.display {
 .transport-controls .btn {
   width: auto;
   min-width: 0;
-  padding: 3px 8px;
-  min-height: 28px;
+  padding: 4px 10px;
+  min-height: 32px;
   font-size: 0.82em;
   white-space: nowrap; }
 
@@ -1148,8 +1155,8 @@ canvas.display {
 .mode-controls .btn {
   width: auto;
   min-width: 0;
-  padding: 3px 8px;
-  min-height: 28px;
+  padding: 4px 10px;
+  min-height: 32px;
   font-size: 0.82em;
   white-space: nowrap; }
 
@@ -1199,7 +1206,7 @@ canvas.display {
 
 .context-tray-body {
   overflow-y: auto;
-  max-height: calc(200px - 40px); }
+  max-height: calc(40vh - 40px); }
 
 /* ── Tools/export content containers ─────────────────────────────────── */
 .tools-content,
@@ -1219,13 +1226,13 @@ canvas.display {
   margin-top: 6px;
   display: flex;
   flex-direction: column;
-  gap: 2px; }
+  gap: 4px; }
 
 .panel-menu-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 0;
+  padding: 6px 2px;
   cursor: pointer;
   font-size: 0.85em; }
 
@@ -1235,7 +1242,8 @@ canvas.display {
 /* ── Float panel default positions ───────────────────────────────────── */
 .float-panel-transport { top: 10px; left: 50%; transform: translateX(-50%); }
 .float-panel-view { top: 10px; right: 10px; left: auto; }
-.float-panel-tools { top: 60px; left: 10px; }
+.float-panel-mode { top: 60px; left: 10px; }
+.float-panel-tools { top: 200px; left: 10px; }
 .float-panel-board { bottom: 60px; right: 10px; left: auto; top: auto; }
 .float-panel-rules { bottom: 10px; right: 10px; left: auto; top: auto; }
 .float-panel-stats { top: 10px; left: 10px; }
@@ -1252,8 +1260,8 @@ canvas.display {
 .float-panel-close {
   width: auto !important;
   min-width: 0 !important;
-  min-height: 20px !important;
-  padding: 1px 6px !important;
+  min-height: 28px !important;
+  padding: 3px 8px !important;
   font-size: 0.82em !important;
   background: transparent !important;
   border: none !important; }
@@ -1340,7 +1348,7 @@ canvas.display {
 
   /* Specimen: full top bar */
   .layout-specimen .top-bar {
-    height: 40px; }
+    min-height: 40px; }
 
   /* Observatory: free-floating panels */
   .layout-observatory .float-panel {
@@ -1407,7 +1415,7 @@ canvas.display {
 
   /* Specimen: same as desktop */
   .layout-specimen .top-bar {
-    height: 40px; }
+    min-height: 40px; }
 
   /* Observatory: edge-snapped panels */
   .layout-observatory .float-panel {
@@ -1468,8 +1476,8 @@ canvas.display {
 @media (max-width: 620px) {
   /* -- Specimen phone: compressed top bar -- */
   .layout-specimen .top-bar {
-    height: 36px;
-    padding: 0 8px; }
+    min-height: 36px;
+    padding: 2px 8px; }
   .layout-specimen .top-bar-center {
     font-size: 0.82em; }
 
@@ -1551,9 +1559,9 @@ canvas.display {
 
   /* Specimen landscape: single thin row */
   .layout-specimen .top-bar {
-    height: 32px; }
+    min-height: 32px; }
   .layout-specimen .context-tray {
-    height: 150px; }
+    max-height: 150px; }
 
   /* Observatory landscape: horizontal toolbar + hamburger */
   .layout-observatory .float-panel {

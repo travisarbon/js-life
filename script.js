@@ -516,7 +516,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             }
                             // Validate panelStates: must be an object with known panel keys.
                             if(parsed.panelStates && typeof parsed.panelStates === 'object'){
-                                var validPanels = ['transport','view','tools','board','rules','stats','importExport'];
+                                var validPanels = ['transport','view','mode','tools','board','rules','stats','importExport'];
                                 var ps = {};
                                 var allValid = true;
                                 for(var vi = 0; vi < validPanels.length; vi++){
@@ -607,6 +607,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     panelStates :      savedLayout.panelStates || {
                         transport: { open: true, x: -1, y: -1, collapsed: false },
                         view:      { open: true, x: -1, y: -1, collapsed: false },
+                        mode:      { open: true, x: -1, y: -1, collapsed: false },
                         tools:     { open: true, x: -1, y: -1, collapsed: false },
                         board:     { open: true, x: -1, y: -1, collapsed: false },
                         rules:     { open: true, x: -1, y: -1, collapsed: false },
@@ -1869,7 +1870,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var inBounds = c >= 0 && c < this.state.cols && r >= 0 && r < this.state.rows;
 
                 // Always update hover cell for coordinate display.
-                var newHover = inBounds ? {c : c, r : r} : null;
+                var newHover = (inBounds || this.state.boundary === 'unbounded') ? {c : c, r : r} : null;
                 var ph = this.state.hoverCell;
                 var hoverChanged = (!!newHover !== !!ph) ||
                     (newHover && ph && (newHover.c !== ph.c || newHover.r !== ph.r));
@@ -1877,8 +1878,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
                 // Update selection while dragging in select mode (takes priority over minimap).
                 if(this.state.drawMode === 'select' && this._selStart){
-                    var bc = Math.max(0, Math.min(this.state.cols - 1, c));
-                    var br = Math.max(0, Math.min(this.state.rows - 1, r));
+                    var bc = this.state.boundary === 'unbounded' ? c : Math.max(0, Math.min(this.state.cols - 1, c));
+                    var br = this.state.boundary === 'unbounded' ? r : Math.max(0, Math.min(this.state.rows - 1, r));
                     var selectTool = this.state.selectTool || 'rect';
                     var self1 = this;
                     if(selectTool === 'freeform'){
@@ -1905,8 +1906,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(this._drawToolStart && this.state.drawMode === 'paint'){
                     var drawTool = this.state.drawTool || 'cell';
                     if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                        var tc = Math.max(0, Math.min(this.state.cols - 1, c));
-                        var tr = Math.max(0, Math.min(this.state.rows - 1, r));
+                        var tc = this.state.boundary === 'unbounded' ? c : Math.max(0, Math.min(this.state.cols - 1, c));
+                        var tr = this.state.boundary === 'unbounded' ? r : Math.max(0, Math.min(this.state.rows - 1, r));
                         var ds = this._drawToolStart;
                         if(drawTool === 'line'){
                             this._drawPreviewCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
@@ -1941,7 +1942,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
 
                 if(this.state.drawMode === 'preset' && this.state.selectedPattern){
-                    var newPos = inBounds ? {c : c, r : r} : null;
+                    var newPos = (inBounds || this.state.boundary === 'unbounded') ? {c : c, r : r} : null;
                     var prev = this._previewPos;
                     if(prev === newPos){ return; }
                     if(prev && newPos && prev.c === newPos.c && prev.r === newPos.r){ return; }
@@ -4314,7 +4315,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         tabContent = (
                             <div className="rail-tab-content">
                                 {this.renderRulesSection()}
-                                <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
                             </div>
                         );
                         break;
@@ -4374,6 +4374,11 @@ document.addEventListener('DOMContentLoaded', function(){
                                     {tabContent}
                                 </div>
                             }
+                            {!this.state.railCollapsed &&
+                                <div style={{padding:'8px 12px', borderTop:'1px solid var(--panel-border)'}}>
+                                    {this.renderLayoutSwitcher()}
+                                </div>
+                            }
                         </div>
                         {/* Floating transport strip */}
                         <div className="transport-strip" role="toolbar" aria-label="Simulation transport">
@@ -4417,12 +4422,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         sheetContent = this.renderSliders();
                         break;
                     case 'rules':
-                        sheetContent = (
-                            <div>
-                                {this.renderRulesSection()}
-                                <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
-                            </div>
-                        );
+                        sheetContent = this.renderRulesSection();
                         break;
                     case 'export':
                         sheetContent = this.renderExportContent();
@@ -4486,6 +4486,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <div className="bottom-sheet-content">
                                         {sheetContent}
                                     </div>
+                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                        {this.renderLayoutSwitcher()}
+                                    </div>
                                 </div>
                             </div>
                         }
@@ -4506,16 +4509,17 @@ document.addEventListener('DOMContentLoaded', function(){
 
                 var trayContent = null;
                 switch(this.state.contextTrayContent){
-                    case 'tools': trayContent = this.renderToolsContent(); break;
-                    case 'board': trayContent = this.renderSliders(); break;
-                    case 'rules':
+                    case 'simulate':
                         trayContent = (
                             <div>
-                                {this.renderRulesSection()}
-                                <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
+                                {this.renderTransportControls(false)}
+                                {this.renderViewControls()}
                             </div>
                         );
                         break;
+                    case 'tools': trayContent = this.renderToolsContent(); break;
+                    case 'board': trayContent = this.renderSliders(); break;
+                    case 'rules': trayContent = this.renderRulesSection(); break;
                     case 'export': trayContent = this.renderExportContent(); break;
                 }
 
@@ -4528,7 +4532,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <span className="top-bar-title">{"Conway's Game of Life"}</span>
                             </div>
                             <div className="top-bar-center">
-                                {this.renderTransportControls(false)}
+                                {this.renderTransportControls(true)}
                             </div>
                             <div className="top-bar-right">
                                 {this.renderModeControls()}
@@ -4536,6 +4540,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <i className="fa fa-question-circle" aria-hidden="true"></i>
                                 </button>
                                 <div className="top-bar-more" role="group" aria-label="Settings panels">
+                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen ? " active" : "")}
+                                        onClick={function(){ self.state.contextTrayContent === 'simulate' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('simulate'); }}
+                                        aria-expanded={this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen}>Sim</button>
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools'); }}
                                         aria-expanded={this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen}>Tools</button>
@@ -4549,6 +4556,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                         onClick={function(){ self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export'); }}
                                         aria-expanded={this.state.contextTrayContent === 'export' && this.state.contextTrayOpen}>Export</button>
                                 </div>
+                                {this.renderLayoutSwitcher()}
                             </div>
                         </div>
                         {/* Context tray */}
@@ -4589,6 +4597,32 @@ document.addEventListener('DOMContentLoaded', function(){
 
             renderSpecimenMobile : function(cs){
                 var self = this;
+                var tabs = [
+                    {id: 'simulate', icon: 'fa-play',     label: 'Simulate'},
+                    {id: 'tools',    icon: 'fa-pencil',   label: 'Tools'},
+                    {id: 'board',    icon: 'fa-th',       label: 'Board'},
+                    {id: 'rules',    icon: 'fa-cog',      label: 'Rules'},
+                    {id: 'export',   icon: 'fa-download', label: 'Export'}
+                ];
+
+                var sheetContent = null;
+                switch(this.state.bottomSheetTab){
+                    case 'simulate':
+                        sheetContent = (
+                            <div>
+                                <div className="sidebar-section-title">Simulation</div>
+                                {this.renderTransportControls(false)}
+                                {this.renderViewControls()}
+                                {this.renderModeControls()}
+                            </div>
+                        );
+                        break;
+                    case 'tools': sheetContent = this.renderToolsContent(); break;
+                    case 'board': sheetContent = this.renderSliders(); break;
+                    case 'rules': sheetContent = this.renderRulesSection(); break;
+                    case 'export': sheetContent = this.renderExportContent(); break;
+                }
+
                 return (
                     <div className="layout-specimen layout-mobile">
                         {this.renderCanvas(cs)}
@@ -4608,21 +4642,32 @@ document.addEventListener('DOMContentLoaded', function(){
                                 onClick={this.toggleBottomSheet}>More</button>
                         </div>
                         {this.renderMobileContextPanel()}
-                        {/* Bottom sheet for all controls */}
+                        {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
                             <div className="bottom-sheet-container">
-                                <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}></div>
-                                <div className="bottom-sheet">
-                                    <div className="bottom-sheet-content bottom-sheet-accordion">
-                                        <div className="sidebar-section-title">Simulation</div>
-                                        {this.renderTransportControls(false)}
-                                        {this.renderViewControls()}
-                                        {this.renderModeControls()}
-                                        {this.renderToolsContent()}
-                                        {this.renderSliders()}
-                                        {this.renderRulesSection()}
-                                        <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
-                                        {this.renderExportContent()}
+                                <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
+                                    role="presentation" aria-hidden="true"></div>
+                                <div className="bottom-sheet" role="dialog" aria-modal="true"
+                                    aria-label="Controls panel">
+                                    <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
+                                        {tabs.map(function(tab){
+                                            var isActive = self.state.bottomSheetTab === tab.id;
+                                            return (
+                                                <button key={tab.id}
+                                                    className={"rail-tab" + (isActive ? " active" : "")}
+                                                    onClick={function(){ self.setBottomSheetTab(tab.id); }}
+                                                    role="tab" aria-selected={isActive} aria-label={tab.label}>
+                                                    <i className={"fa " + tab.icon} aria-hidden="true"></i>
+                                                    <span className="rail-tab-label">{tab.label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="bottom-sheet-content">
+                                        {sheetContent}
+                                    </div>
+                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                        {this.renderLayoutSwitcher()}
                                     </div>
                                 </div>
                             </div>
@@ -4652,13 +4697,10 @@ document.addEventListener('DOMContentLoaded', function(){
                             <div className="panel-overlay-container" role="group" aria-label="Floating control panels">
                                 {this._renderFloatPanel('transport', 'Transport', this.renderTransportControls(false))}
                                 {this._renderFloatPanel('view', 'View', this.renderViewControls())}
-                                {this._renderFloatPanel('tools', 'Tools', (
-                                    <div>{this.renderModeControls()}{this.renderToolsContent()}</div>
-                                ))}
+                                {this._renderFloatPanel('mode', 'Mode', this.renderModeControls())}
+                                {this._renderFloatPanel('tools', 'Tools', this.renderToolsContent())}
                                 {this._renderFloatPanel('board', 'Board', this.renderSliders())}
-                                {this._renderFloatPanel('rules', 'Rules', (
-                                    <div>{this.renderRulesSection()}<div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div></div>
-                                ))}
+                                {this._renderFloatPanel('rules', 'Rules', this.renderRulesSection())}
                                 {this._renderFloatPanel('stats', 'Stats', this.renderStats())}
                                 {this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent())}
                                 {/* Panel menu */}
@@ -4674,7 +4716,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     </button>
                                     {this.state._panelMenuOpen &&
                                         <div className="panel-menu-list" role="group" aria-label="Panel toggles">
-                                            {['transport','view','tools','board','rules','stats','importExport'].map(function(id){
+                                            {['transport','view','mode','tools','board','rules','stats','importExport'].map(function(id){
                                                 var label = id === 'importExport' ? 'Import/Export' : id.charAt(0).toUpperCase() + id.slice(1);
                                                 return (
                                                     <label key={id} className="panel-menu-item">
@@ -4687,6 +4729,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                             })}
                                         </div>
                                     }
+                                    {this.renderLayoutSwitcher()}
                                 </div>
                             </div>
                         }
@@ -4696,11 +4739,36 @@ document.addEventListener('DOMContentLoaded', function(){
 
             renderObservatoryMobile : function(cs){
                 var self = this;
-                // Mobile: use drawer-based approach
+                var tabs = [
+                    {id: 'simulate', icon: 'fa-play',     label: 'Simulate'},
+                    {id: 'tools',    icon: 'fa-pencil',   label: 'Tools'},
+                    {id: 'board',    icon: 'fa-th',       label: 'Board'},
+                    {id: 'rules',    icon: 'fa-cog',      label: 'Rules'},
+                    {id: 'export',   icon: 'fa-download', label: 'Export'}
+                ];
+
+                var sheetContent = null;
+                switch(this.state.bottomSheetTab){
+                    case 'simulate':
+                        sheetContent = (
+                            <div>
+                                <div className="sidebar-section-title">Simulation</div>
+                                {this.renderTransportControls(false)}
+                                {this.renderViewControls()}
+                                {this.renderModeControls()}
+                            </div>
+                        );
+                        break;
+                    case 'tools': sheetContent = this.renderToolsContent(); break;
+                    case 'board': sheetContent = this.renderSliders(); break;
+                    case 'rules': sheetContent = this.renderRulesSection(); break;
+                    case 'export': sheetContent = this.renderExportContent(); break;
+                }
+
                 return (
                     <div className="layout-observatory layout-mobile">
                         {this.renderCanvas(cs)}
-                        {/* Bottom transport drawer (always peeking) */}
+                        {/* Bottom transport bar */}
                         <div className="mobile-transport-bar">
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>
                                 {this.state.running ? "\u23F8" : "\u25B6"}
@@ -4722,20 +4790,32 @@ document.addEventListener('DOMContentLoaded', function(){
                             </span>
                         </div>
                         {this.renderMobileContextPanel()}
-                        {/* Full bottom sheet with all controls */}
+                        {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
                             <div className="bottom-sheet-container">
-                                <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}></div>
-                                <div className="bottom-sheet">
-                                    <div className="bottom-sheet-content bottom-sheet-accordion">
-                                        {this.renderTransportControls(false)}
-                                        {this.renderViewControls()}
-                                        {this.renderModeControls()}
-                                        {this.renderToolsContent()}
-                                        {this.renderSliders()}
-                                        {this.renderRulesSection()}
-                                        <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
-                                        {this.renderExportContent()}
+                                <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
+                                    role="presentation" aria-hidden="true"></div>
+                                <div className="bottom-sheet" role="dialog" aria-modal="true"
+                                    aria-label="Controls panel">
+                                    <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
+                                        {tabs.map(function(tab){
+                                            var isActive = self.state.bottomSheetTab === tab.id;
+                                            return (
+                                                <button key={tab.id}
+                                                    className={"rail-tab" + (isActive ? " active" : "")}
+                                                    onClick={function(){ self.setBottomSheetTab(tab.id); }}
+                                                    role="tab" aria-selected={isActive} aria-label={tab.label}>
+                                                    <i className={"fa " + tab.icon} aria-hidden="true"></i>
+                                                    <span className="rail-tab-label">{tab.label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="bottom-sheet-content">
+                                        {sheetContent}
+                                    </div>
+                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                        {this.renderLayoutSwitcher()}
                                     </div>
                                 </div>
                             </div>
