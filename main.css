@@ -1113,7 +1113,7 @@ canvas.display {
   bottom: 0;
   left: 0;
   right: 0;
-  max-height: 55vh;
+  max-height: 45vh;
   background: var(--panel-bg-blur);
   border-top: 1px solid var(--panel-border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -1187,6 +1187,7 @@ canvas.display {
   padding: 0 var(--space-lg);
   padding-bottom: env(safe-area-inset-bottom, 0px); }
 
+#content .mobile-transport-bar .btn,
 .mobile-transport-bar .btn {
   color: var(--btn-color);
   background-color: var(--btn-bg);
@@ -1201,6 +1202,13 @@ canvas.display {
   transition: background-color var(--transition-fast),
               border-color var(--transition-fast),
               filter var(--transition-fast); }
+
+#content .top-bar-mobile .btn,
+.top-bar-mobile .btn {
+  width: auto; }
+
+.btn-sheet-toggle {
+  white-space: nowrap; }
 .mobile-transport-bar .btn:hover {
   filter: brightness(var(--hover-brightness)); }
 .mobile-transport-bar .btn:active {
@@ -1438,7 +1446,7 @@ canvas.display {
 
 .bottom-sheet-content {
   overflow-y: auto;
-  max-height: calc(55vh - 100px);
+  max-height: calc(45vh - 100px);
   -webkit-overflow-scrolling: touch;
   padding-bottom: var(--space-2xl); }
 
@@ -1696,7 +1704,7 @@ canvas.display {
 
   /* Bottom sheet: cap height in landscape */
   .bottom-sheet {
-    max-height: 45vh; }
+    max-height: 35vh; }
 }
 
 /* ── Very small phones ────────────────────────────────────────────────── */

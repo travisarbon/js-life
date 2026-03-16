@@ -841,7 +841,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                         maxW = Math.max(1, winW - railW);
                         // Reserve space for transport strip at bottom
-                        var transportH = isMobile ? 48 : 50;
+                        var transportH = isMobile ? 56 : 50;
                         maxH = Math.max(1, winH - transportH);
                     } else if(layout === 'specimen'){
                         maxW = winW;
@@ -4687,6 +4687,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this.renderTransportControls(false)}
                                 {this.renderViewControls()}
                                 {this.renderModeControls()}
+                                {this.renderMobileSparkline()}
                             </div>
                         );
                         break;
@@ -4909,6 +4910,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this.renderTransportControls(false)}
                                 {this.renderViewControls()}
                                 {this.renderModeControls()}
+                                {this.renderMobileSparkline()}
                             </div>
                         );
                         break;
@@ -5076,6 +5078,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this.renderTransportControls(false)}
                                 {this.renderViewControls()}
                                 {this.renderModeControls()}
+                                {this.renderMobileSparkline()}
                             </div>
                         );
                         break;
