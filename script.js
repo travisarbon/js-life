@@ -603,6 +603,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     contextTrayPinned: false,
                     // Observatory state
                     zenMode :          false,
+                    _panelMenuOpen :   false,
                     panelStates :      savedLayout.panelStates || {
                         transport: { open: true, x: -1, y: -1, collapsed: false },
                         view:      { open: true, x: -1, y: -1, collapsed: false },
@@ -4339,6 +4340,9 @@ document.addEventListener('DOMContentLoaded', function(){
                             <div className="rail-header">
                                 <span className="rail-title">{"Conway's Game of Life"}</span>
                                 <div className="rail-header-controls">
+                                    <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                        <i className="fa fa-question-circle" aria-hidden="true"></i>
+                                    </button>
                                     <button className="btn rail-collapse-btn" onClick={this.toggleRailCollapsed}
                                         aria-expanded={!this.state.railCollapsed}
                                         aria-label={this.state.railCollapsed ? "Expand controls panel" : "Collapse controls panel"}>
@@ -4450,6 +4454,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                     ? this.state.selectedPattern
                                     : (this.state.drawMode === 'select' ? 'Select' : 'Draw')}
                             </span>
+                            <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                <i className="fa fa-question-circle" aria-hidden="true"></i>
+                            </button>
                             <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
@@ -4525,6 +4532,9 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                             <div className="top-bar-right">
                                 {this.renderModeControls()}
+                                <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                    <i className="fa fa-question-circle" aria-hidden="true"></i>
+                                </button>
                                 <div className="top-bar-more" role="group" aria-label="Settings panels">
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools'); }}
@@ -4591,6 +4601,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this.state.running ? "\u23F8" : "\u25B6"}
                             </button>
                             <button className="btn" onClick={this.stepGame}>Step</button>
+                            <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                <i className="fa fa-question-circle" aria-hidden="true"></i>
+                            </button>
                             <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}>More</button>
                         </div>
@@ -4650,6 +4663,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent())}
                                 {/* Panel menu */}
                                 <div className="panel-menu" role="group" aria-label="Panel visibility">
+                                    <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                        <i className="fa fa-question-circle" aria-hidden="true"></i>
+                                    </button>
                                     <button className="btn panel-menu-toggle"
                                         onClick={function(){ self.setState({_panelMenuOpen: !self.state._panelMenuOpen}); }}
                                         aria-expanded={!!this.state._panelMenuOpen}
@@ -4691,6 +4707,9 @@ document.addEventListener('DOMContentLoaded', function(){
                             </button>
                             <button className="btn" onClick={this.stepGame}>Step</button>
                             <button className="btn" onClick={this.resetGame}>Reset</button>
+                            <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                <i className="fa fa-question-circle" aria-hidden="true"></i>
+                            </button>
                             <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}>Controls</button>
                         </div>

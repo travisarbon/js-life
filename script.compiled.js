@@ -804,6 +804,7 @@ document.addEventListener('DOMContentLoaded', function () {
           contextTrayPinned: false,
           // Observatory state
           zenMode: false,
+          _panelMenuOpen: false,
           panelStates: savedLayout.panelStates || {
             transport: {
               open: true,
@@ -5743,6 +5744,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }, "Conway's Game of Life"), /*#__PURE__*/React.createElement("div", {
           className: "rail-header-controls"
         }, /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.toggleHelp,
+          "aria-label": "Help",
+          title: "Keyboard shortcuts (?)"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-question-circle",
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn rail-collapse-btn",
           onClick: this.toggleRailCollapsed,
           "aria-expanded": !this.state.railCollapsed,
@@ -5854,6 +5863,14 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "mobile-transport-mode",
           "aria-live": "polite"
         }, this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.toggleHelp,
+          "aria-label": "Help",
+          title: "Keyboard shortcuts (?)"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-question-circle",
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
           onClick: this.toggleBottomSheet,
           "aria-expanded": this.state.bottomSheetOpen,
@@ -5937,7 +5954,15 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "top-bar-center"
         }, this.renderTransportControls(false)), /*#__PURE__*/React.createElement("div", {
           className: "top-bar-right"
-        }, this.renderModeControls(), /*#__PURE__*/React.createElement("div", {
+        }, this.renderModeControls(), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.toggleHelp,
+          "aria-label": "Help",
+          title: "Keyboard shortcuts (?)"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-question-circle",
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("div", {
           className: "top-bar-more",
           role: "group",
           "aria-label": "Settings panels"
@@ -6019,6 +6044,14 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.stepGame
         }, "Step"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.toggleHelp,
+          "aria-label": "Help",
+          title: "Keyboard shortcuts (?)"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-question-circle",
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
           onClick: this.toggleBottomSheet
         }, "More")), this.renderMobileContextPanel(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
@@ -6064,6 +6097,14 @@ document.addEventListener('DOMContentLoaded', function () {
           role: "group",
           "aria-label": "Panel visibility"
         }, /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.toggleHelp,
+          "aria-label": "Help",
+          title: "Keyboard shortcuts (?)"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-question-circle",
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn panel-menu-toggle",
           onClick: function () {
             self.setState({
@@ -6111,6 +6152,14 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.resetGame
         }, "Reset"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.toggleHelp,
+          "aria-label": "Help",
+          title: "Keyboard shortcuts (?)"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-question-circle",
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
           onClick: this.toggleBottomSheet
         }, "Controls")), /*#__PURE__*/React.createElement("div", {
