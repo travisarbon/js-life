@@ -987,12 +987,15 @@ document.addEventListener('DOMContentLoaded', function () {
         // ── Device class detection via matchMedia ──────────────────
         var self3 = this;
         this._mqPhone = window.matchMedia('(max-width: 620px)');
+        this._mqPhoneLandscape = window.matchMedia('(max-width: 900px) and (orientation: landscape) and (max-height: 500px)');
         this._mqTablet = window.matchMedia('(min-width: 621px) and (max-width: 900px)');
         this._mqLandscape = window.matchMedia('(orientation: landscape)');
         this._updateDeviceClass = function () {
           var dc;
           if (self3._mqPhone.matches) {
             dc = self3._mqLandscape.matches ? 'phone-landscape' : 'phone-portrait';
+          } else if (self3._mqPhoneLandscape.matches) {
+            dc = 'phone-landscape';
           } else if (self3._mqTablet.matches) {
             dc = 'tablet';
           } else {
@@ -1009,11 +1012,13 @@ document.addEventListener('DOMContentLoaded', function () {
         this._updateDeviceClass();
         try {
           this._mqPhone.addEventListener('change', this._updateDeviceClass);
+          this._mqPhoneLandscape.addEventListener('change', this._updateDeviceClass);
           this._mqTablet.addEventListener('change', this._updateDeviceClass);
           this._mqLandscape.addEventListener('change', this._updateDeviceClass);
         } catch (ex) {
           try {
             this._mqPhone.addListener(this._updateDeviceClass);
+            this._mqPhoneLandscape.addListener(this._updateDeviceClass);
             this._mqTablet.addListener(this._updateDeviceClass);
             this._mqLandscape.addListener(this._updateDeviceClass);
           } catch (ex2) {}
@@ -1430,7 +1435,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Minimap overlay (bottom-right corner on desktop; separate element on mobile).
-        var isMobileView = typeof window !== 'undefined' && window.innerWidth <= 620;
+        var isMobileView = this.state.deviceClass === 'phone-portrait' || this.state.deviceClass === 'phone-landscape';
         if (this.state.showMinimap && (isUnbounded || cols > 0 && rows > 0)) {
           if (isMobileView) {
             this.drawMinimapMobile(liveCells, cols, rows, viewX, viewY, cellSize, theme);
@@ -5646,7 +5651,8 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: function () {
             self.setLayoutMode('cartographer');
           },
-          title: "Cartographer: Edge rail with tabs"
+          title: "Cartographer: Edge rail with tabs",
+          "aria-label": "Cartographer layout: edge rail with tabs"
         }, /*#__PURE__*/React.createElement("i", {
           className: "fa fa-columns"
         })), /*#__PURE__*/React.createElement("button", {
@@ -5654,7 +5660,8 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: function () {
             self.setLayoutMode('specimen');
           },
-          title: "Specimen: Contextual toolbar"
+          title: "Specimen: Contextual toolbar",
+          "aria-label": "Specimen layout: contextual toolbar"
         }, /*#__PURE__*/React.createElement("i", {
           className: "fa fa-window-maximize"
         })), /*#__PURE__*/React.createElement("button", {
@@ -5662,7 +5669,8 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: function () {
             self.setLayoutMode('observatory');
           },
-          title: "Observatory: Floating panels"
+          title: "Observatory: Floating panels",
+          "aria-label": "Observatory layout: floating panels"
         }, /*#__PURE__*/React.createElement("i", {
           className: "fa fa-th-large"
         })));
@@ -5850,7 +5858,7 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.togglePopGraph
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
-        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), /*#__PURE__*/React.createElement("div", {
+        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
           className: "mobile-transport-bar",
           role: "toolbar",
           "aria-label": "Simulation transport"
@@ -5891,6 +5899,8 @@ document.addEventListener('DOMContentLoaded', function () {
           "aria-modal": "true",
           "aria-label": "Controls panel"
         }, /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-handle"
+        }), /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-tabs",
           role: "tablist",
           "aria-label": "Control categories"
@@ -6108,7 +6118,7 @@ document.addEventListener('DOMContentLoaded', function () {
         })), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
           onClick: this.toggleBottomSheet
-        }, "More")), this.renderMobileContextPanel(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+        }, "More")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-container"
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-backdrop",
@@ -6121,6 +6131,8 @@ document.addEventListener('DOMContentLoaded', function () {
           "aria-modal": "true",
           "aria-label": "Controls panel"
         }, /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-handle"
+        }), /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-tabs",
           role: "tablist",
           "aria-label": "Control categories"
@@ -6282,7 +6294,7 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.togglePopGraph
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
-        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-container"
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-backdrop",
@@ -6295,6 +6307,8 @@ document.addEventListener('DOMContentLoaded', function () {
           "aria-modal": "true",
           "aria-label": "Controls panel"
         }, /*#__PURE__*/React.createElement("div", {
+          className: "bottom-sheet-handle"
+        }), /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-tabs",
           role: "tablist",
           "aria-label": "Control categories"
@@ -6336,12 +6350,21 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (ps.collapsed ? " float-panel-collapsed" : ""),
           style: ps.x >= 0 ? {
             left: ps.x,
-            top: ps.y
+            top: ps.y,
+            right: 'auto',
+            bottom: 'auto',
+            transform: 'none'
           } : {},
           role: "region",
           "aria-label": label + " panel"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-header"
+          className: "float-panel-header",
+          onMouseDown: function (e) {
+            self._startPanelDrag(panelId, e);
+          },
+          onTouchStart: function (e) {
+            self._startPanelDrag(panelId, e);
+          }
         }, /*#__PURE__*/React.createElement("span", {
           className: "float-panel-title",
           id: "panel-title-" + panelId
@@ -6360,7 +6383,97 @@ document.addEventListener('DOMContentLoaded', function () {
           "aria-label": "Close " + label + " panel"
         }, "\xD7")), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
           className: "float-panel-body"
-        }, content));
+        }, content), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+          className: "float-panel-resize",
+          onMouseDown: function (e) {
+            self._startPanelResize(panelId, e);
+          },
+          onTouchStart: function (e) {
+            self._startPanelResize(panelId, e);
+          }
+        }));
+      },
+      // ── Panel drag (Observatory) ─────────────────────────────────────
+
+      _startPanelDrag: function (panelId, e) {
+        if (e.target.tagName === 'BUTTON' || e.target.closest && e.target.closest('button')) {
+          return;
+        }
+        e.preventDefault();
+        var panel = e.currentTarget.parentElement;
+        var rect = panel.getBoundingClientRect();
+        var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        this._fpDragId = panelId;
+        this._fpDragOffX = clientX - rect.left;
+        this._fpDragOffY = clientY - rect.top;
+        panel.classList.add('dragging');
+        var self = this;
+        this._fpDragMove = function (ev) {
+          ev.preventDefault();
+          var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+          var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+          var newX = Math.max(0, Math.min(window.innerWidth - 60, cx - self._fpDragOffX));
+          var newY = Math.max(0, Math.min(window.innerHeight - 40, cy - self._fpDragOffY));
+          panel.style.left = newX + 'px';
+          panel.style.top = newY + 'px';
+          panel.style.right = 'auto';
+          panel.style.bottom = 'auto';
+          panel.style.transform = 'none';
+        };
+        this._fpDragEnd = function () {
+          panel.classList.remove('dragging');
+          var finalRect = panel.getBoundingClientRect();
+          var panels = JSON.parse(JSON.stringify(self.state.panelStates));
+          panels[panelId].x = finalRect.left;
+          panels[panelId].y = finalRect.top;
+          self.setState({
+            panelStates: panels
+          }, function () {
+            self._persistLayout();
+          });
+          document.removeEventListener('mousemove', self._fpDragMove);
+          document.removeEventListener('mouseup', self._fpDragEnd);
+          document.removeEventListener('touchmove', self._fpDragMove);
+          document.removeEventListener('touchend', self._fpDragEnd);
+        };
+        document.addEventListener('mousemove', this._fpDragMove);
+        document.addEventListener('mouseup', this._fpDragEnd);
+        document.addEventListener('touchmove', this._fpDragMove, {
+          passive: false
+        });
+        document.addEventListener('touchend', this._fpDragEnd);
+      },
+      // ── Panel resize (Observatory) ───────────────────────────────────
+
+      _startPanelResize: function (panelId, e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var panel = e.currentTarget.parentElement;
+        var rect = panel.getBoundingClientRect();
+        var startW = rect.width;
+        var startH = rect.height;
+        var startX = e.touches ? e.touches[0].clientX : e.clientX;
+        var startY = e.touches ? e.touches[0].clientY : e.clientY;
+        var move = function (ev) {
+          ev.preventDefault();
+          var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+          var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+          panel.style.width = Math.max(180, startW + (cx - startX)) + 'px';
+          panel.style.maxHeight = Math.max(80, startH + (cy - startY)) + 'px';
+        };
+        var end = function () {
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', end);
+          document.removeEventListener('touchmove', move);
+          document.removeEventListener('touchend', end);
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', end);
+        document.addEventListener('touchmove', move, {
+          passive: false
+        });
+        document.addEventListener('touchend', end);
       },
       // ── Panel state helpers (Observatory) ────────────────────────────
 
