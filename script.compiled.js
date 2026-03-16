@@ -867,6 +867,7 @@ document.addEventListener('DOMContentLoaded', function () {
           deviceClass: 'desktop',
           // Bottom sheet (phone modes)
           bottomSheetOpen: false,
+          bottomSheetClosing: false,
           bottomSheetTab: 'simulate',
           panMode: false
         };
@@ -3572,20 +3573,31 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       },
       toggleBottomSheet: function () {
-        var opening = !this.state.bottomSheetOpen;
-        if (opening) {
-          this._saveFocus();
-        }
         var self = this;
-        this.setState({
-          bottomSheetOpen: opening
-        }, function () {
-          if (opening) {
+        if (this.state.bottomSheetOpen) {
+          // Closing: animate out, then unmount.
+          this.setState({
+            bottomSheetClosing: true
+          }, function () {
+            setTimeout(function () {
+              self.setState({
+                bottomSheetOpen: false,
+                bottomSheetClosing: false
+              }, function () {
+                self._restoreFocus();
+              });
+            }, 200);
+          });
+        } else {
+          // Opening.
+          this._saveFocus();
+          this.setState({
+            bottomSheetOpen: true,
+            bottomSheetClosing: false
+          }, function () {
             self._focusFirst('.bottom-sheet');
-          } else {
-            self._restoreFocus();
-          }
-        });
+          });
+        }
       },
       setBottomSheetTab: function (tab) {
         this.setState({
@@ -6039,7 +6051,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "fa fa-question-circle",
           "aria-hidden": "true"
         })), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
+          className: "btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
           onClick: this.toggleBottomSheet,
           "aria-expanded": this.state.bottomSheetOpen,
           "aria-label": "Open controls panel"
@@ -6054,7 +6066,7 @@ document.addEventListener('DOMContentLoaded', function () {
           role: "presentation",
           "aria-hidden": "true"
         }), /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet",
+          className: "bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : ""),
           role: "dialog",
           "aria-modal": "true",
           "aria-label": "Controls panel",
@@ -6304,7 +6316,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "fa fa-question-circle",
           "aria-hidden": "true"
         })), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
+          className: "btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
           onClick: this.toggleBottomSheet,
           "aria-expanded": this.state.bottomSheetOpen,
           "aria-label": "Open controls panel"
@@ -6319,7 +6331,7 @@ document.addEventListener('DOMContentLoaded', function () {
           role: "presentation",
           "aria-hidden": "true"
         }), /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet",
+          className: "bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : ""),
           role: "dialog",
           "aria-modal": "true",
           "aria-label": "Controls panel",
@@ -6509,7 +6521,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "fa fa-question-circle",
           "aria-hidden": "true"
         })), /*#__PURE__*/React.createElement("button", {
-          className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
+          className: "btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
           onClick: this.toggleBottomSheet,
           "aria-expanded": this.state.bottomSheetOpen,
           "aria-label": "Open controls panel"
@@ -6529,7 +6541,7 @@ document.addEventListener('DOMContentLoaded', function () {
           role: "presentation",
           "aria-hidden": "true"
         }), /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet",
+          className: "bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : ""),
           role: "dialog",
           "aria-modal": "true",
           "aria-label": "Controls panel",

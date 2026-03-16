@@ -622,6 +622,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     deviceClass :      'desktop',
                     // Bottom sheet (phone modes)
                     bottomSheetOpen :  false,
+                    bottomSheetClosing: false,
                     bottomSheetTab :   'simulate',
                     panMode :          false
                 };
@@ -2793,13 +2794,23 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             toggleBottomSheet : function(){
-                var opening = !this.state.bottomSheetOpen;
-                if(opening){ this._saveFocus(); }
                 var self = this;
-                this.setState({bottomSheetOpen: opening}, function(){
-                    if(opening){ self._focusFirst('.bottom-sheet'); }
-                    else { self._restoreFocus(); }
-                });
+                if(this.state.bottomSheetOpen){
+                    // Closing: animate out, then unmount.
+                    this.setState({bottomSheetClosing: true}, function(){
+                        setTimeout(function(){
+                            self.setState({bottomSheetOpen: false, bottomSheetClosing: false}, function(){
+                                self._restoreFocus();
+                            });
+                        }, 200);
+                    });
+                } else {
+                    // Opening.
+                    this._saveFocus();
+                    this.setState({bottomSheetOpen: true, bottomSheetClosing: false}, function(){
+                        self._focusFirst('.bottom-sheet');
+                    });
+                }
             },
 
             setBottomSheetTab : function(tab){
@@ -4580,7 +4591,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
-                            <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                            <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
                                 aria-label="Open controls panel">More</button>
@@ -4591,7 +4602,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
                                 <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
                                     role="presentation" aria-hidden="true"></div>
-                                <div className="bottom-sheet" role="dialog" aria-modal="true"
+                                <div className={"bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : "")} role="dialog" aria-modal="true"
                                     aria-label="Controls panel"
                                     onTouchStart={function(e){ self._onSheetTouchStart(e); }}
                                     onTouchMove={function(e){ self._onSheetTouchMove(e); }}
@@ -4783,7 +4794,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
-                            <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                            <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
                                 aria-label="Open controls panel">More</button>
@@ -4796,7 +4807,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
                                 <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
                                     role="presentation" aria-hidden="true"></div>
-                                <div className="bottom-sheet" role="dialog" aria-modal="true"
+                                <div className={"bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : "")} role="dialog" aria-modal="true"
                                     aria-label="Controls panel"
                                     onTouchStart={function(e){ self._onSheetTouchStart(e); }}
                                     onTouchMove={function(e){ self._onSheetTouchMove(e); }}
@@ -4948,7 +4959,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
-                            <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                            <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
                                 aria-label="Open controls panel">Controls</button>
@@ -4969,7 +4980,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
                                 <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
                                     role="presentation" aria-hidden="true"></div>
-                                <div className="bottom-sheet" role="dialog" aria-modal="true"
+                                <div className={"bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : "")} role="dialog" aria-modal="true"
                                     aria-label="Controls panel"
                                     onTouchStart={function(e){ self._onSheetTouchStart(e); }}
                                     onTouchMove={function(e){ self._onSheetTouchMove(e); }}
