@@ -3156,9 +3156,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }, "Fit Grid"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.fitLiveCells
-        }, "Fit Cells")), /*#__PURE__*/React.createElement("div", {
-          className: "toolbar-group"
-        }, /*#__PURE__*/React.createElement("button", {
+        }, "Fit Cells"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
           onClick: this.toggleLivePaint,
           title: "Paint cells while the simulation is running"
