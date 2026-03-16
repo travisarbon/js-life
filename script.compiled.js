@@ -26,7 +26,11 @@ var PATTERN_GROUPS = {
     // Period-4 oscillator.
     'Mold': [[0, 1], [0, 2], [0, 3], [1, 1], [1, 3], [2, 0], [2, 2], [3, 0], [3, 1], [3, 2]],
     // Period-14 oscillator.
-    'Tumbler': [[0, 1], [0, 2], [0, 4], [0, 5], [1, 1], [1, 3], [1, 5], [2, 0], [2, 2], [2, 4], [2, 6], [3, 0], [3, 1], [3, 5], [3, 6]]
+    'Tumbler': [[0, 1], [0, 2], [0, 4], [0, 5], [1, 1], [1, 3], [1, 5], [2, 0], [2, 2], [2, 4], [2, 6], [3, 0], [3, 1], [3, 5], [3, 6]],
+    // Period-8 oscillator — two interacting traffic lights.
+    'Figure eight': [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2], [3, 3], [3, 4], [3, 5], [4, 3], [4, 4], [4, 5], [5, 3], [5, 4], [5, 5]],
+    // Period-30 oscillator — two queen bees shuttling.
+    'Queen Bee Shuttle': [[0, 9], [1, 7], [1, 9], [2, 6], [2, 8], [3, 0], [3, 1], [3, 5], [3, 10], [3, 20], [3, 21], [4, 0], [4, 1], [4, 6], [4, 10], [4, 20], [4, 21], [5, 7], [5, 9], [6, 9]]
   },
   'Spaceships': {
     'Glider': [[0, 1], [1, 2], [2, 0], [2, 1], [2, 2]],
@@ -35,7 +39,11 @@ var PATTERN_GROUPS = {
     // Middleweight spaceship.
     'MWSS': [[0, 3], [1, 1], [1, 5], [2, 0], [3, 0], [3, 5], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4]],
     // Heavyweight spaceship.
-    'HWSS': [[0, 3], [0, 4], [1, 1], [1, 6], [2, 0], [3, 0], [3, 6], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5]]
+    'HWSS': [[0, 3], [0, 4], [1, 1], [1, 6], [2, 0], [3, 0], [3, 6], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5]],
+    // Loafer: c/7 orthogonal spaceship, discovered 2013.
+    'Loafer': [[0, 1], [0, 2], [0, 5], [0, 7], [0, 8], [1, 0], [1, 3], [1, 6], [1, 7], [2, 1], [2, 3], [3, 2], [4, 8], [5, 6], [5, 7], [5, 8], [6, 5], [7, 6], [8, 7], [8, 8]],
+    // Copperhead: c/10 orthogonal spaceship, discovered 2016.
+    'Copperhead': [[0, 1], [0, 2], [0, 5], [0, 6], [1, 3], [1, 4], [2, 3], [2, 4], [3, 0], [3, 2], [3, 5], [3, 7], [4, 0], [4, 7], [6, 0], [6, 7], [7, 1], [7, 2], [7, 5], [7, 6], [8, 2], [8, 3], [8, 4], [8, 5], [10, 3], [10, 4], [11, 3], [11, 4]]
   },
   'Methuselahs': {
     'R-pentomino': [[0, 1], [0, 2], [1, 0], [1, 1], [2, 1]],
@@ -47,7 +55,9 @@ var PATTERN_GROUPS = {
     // Thunderbird: lives 243 generations.
     'Thunderbird': [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1], [3, 1]],
     // Herschel: 7-cell signal used in conduit chains.
-    'Herschel': [[0, 0], [1, 0], [1, 1], [1, 2], [2, 0], [2, 2], [3, 2]]
+    'Herschel': [[0, 0], [1, 0], [1, 1], [1, 2], [2, 0], [2, 2], [3, 2]],
+    // Rabbits: stabilises after 17,331 generations with 1,744 cells.
+    'Rabbits': [[0, 0], [0, 4], [0, 5], [0, 6], [1, 0], [1, 1], [1, 2], [1, 5], [2, 1]]
   },
   'Guns': {
     'Gosper Glider Gun': [[0, 24], [1, 22], [1, 24], [2, 12], [2, 13], [2, 20], [2, 21], [2, 34], [2, 35], [3, 11], [3, 15], [3, 20], [3, 21], [3, 34], [3, 35], [4, 0], [4, 1], [4, 10], [4, 16], [4, 20], [4, 21], [5, 0], [5, 1], [5, 10], [5, 14], [5, 16], [5, 17], [5, 22], [5, 24], [6, 10], [6, 16], [6, 24], [7, 11], [7, 15], [8, 12], [8, 13]],
@@ -137,6 +147,16 @@ var PATTERN_META = {
     period: 14,
     cells: 15
   },
+  'Figure eight': {
+    type: 'Oscillator',
+    period: 8,
+    cells: 18
+  },
+  'Queen Bee Shuttle': {
+    type: 'Oscillator',
+    period: 30,
+    cells: 20
+  },
   'Glider': {
     type: 'Spaceship',
     period: 4,
@@ -160,6 +180,18 @@ var PATTERN_META = {
     period: 4,
     cells: 13,
     note: 'c/2 orthogonal'
+  },
+  'Loafer': {
+    type: 'Spaceship',
+    period: 7,
+    cells: 20,
+    note: 'c/7 orthogonal'
+  },
+  'Copperhead': {
+    type: 'Spaceship',
+    period: 10,
+    cells: 28,
+    note: 'c/10 orthogonal'
   },
   'R-pentomino': {
     type: 'Methuselah',
@@ -190,6 +222,11 @@ var PATTERN_META = {
     type: 'Methuselah',
     lifespan: 128,
     cells: 7
+  },
+  'Rabbits': {
+    type: 'Methuselah',
+    lifespan: 17331,
+    cells: 9
   },
   'Gosper Glider Gun': {
     type: 'Gun',
@@ -481,6 +518,81 @@ var SimEngine = {
       cells: cells
     };
   },
+  // Parses Life 1.06 format: header "#Life 1.06", then one "x y" per live cell.
+  parseLife106: function (text) {
+    var lines = text.split(/\r?\n/);
+    var cells = [];
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line === '' || line.charAt(0) === '#') {
+        continue;
+      }
+      var parts = line.split(/\s+/);
+      if (parts.length >= 2) {
+        var x = parseInt(parts[0], 10);
+        var y = parseInt(parts[1], 10);
+        if (!isNaN(x) && !isNaN(y)) {
+          cells.push([y, x]); // Life 1.06 uses x,y; we store row,col
+        }
+      }
+    }
+    return {
+      cells: cells
+    };
+  },
+  // Parses Life 1.05 format: header "#Life 1.05", #D descriptions, #P x y origin blocks.
+  parseLife105: function (text) {
+    var lines = text.split(/\r?\n/);
+    var cells = [];
+    var originX = 0,
+      originY = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (line.indexOf('#P') === 0) {
+        var parts = line.substring(2).trim().split(/\s+/);
+        originX = parseInt(parts[0], 10) || 0;
+        originY = parseInt(parts[1], 10) || 0;
+        var rowOffset = 0;
+        for (var j = i + 1; j < lines.length; j++) {
+          var bline = lines[j];
+          if (bline.charAt(0) === '#' || bline.trim() === '') {
+            i = j - 1;
+            break;
+          }
+          for (var col = 0; col < bline.length; col++) {
+            if (bline.charAt(col) === '*') {
+              cells.push([originY + rowOffset, originX + col]);
+            }
+          }
+          rowOffset++;
+          if (j === lines.length - 1) {
+            i = j;
+          }
+        }
+      }
+    }
+    // Normalize to non-negative coordinates.
+    if (cells.length > 0) {
+      var minR = cells[0][0],
+        minC = cells[0][1];
+      for (var k = 1; k < cells.length; k++) {
+        if (cells[k][0] < minR) {
+          minR = cells[k][0];
+        }
+        if (cells[k][1] < minC) {
+          minC = cells[k][1];
+        }
+      }
+      if (minR < 0 || minC < 0) {
+        for (var k2 = 0; k2 < cells.length; k2++) {
+          cells[k2] = [cells[k2][0] - minR, cells[k2][1] - minC];
+        }
+      }
+    }
+    return {
+      cells: cells
+    };
+  },
   // Rotates a [[row,col],...] pattern 90° CW, `steps` times.
   rotatePattern: function (cells, steps) {
     var result = cells.slice();
@@ -552,8 +664,20 @@ document.addEventListener('DOMContentLoaded', function () {
           darkModePref: 'system',
           stepCount: 1,
           shareTooltip: false,
-          showPopGraph: false
+          showPopGraph: false,
+          analysisResult: null,
+          analyzing: false
         };
+      },
+      componentWillMount: function () {
+        // Initialize instance properties accessed during render,
+        // before the first render() call.
+        this._genHistory = [];
+        this._genHistoryMax = 200;
+        this._genHistoryInterval = 5;
+        this._genHistoryCounter = 0;
+        this._trailMap = new Map();
+        this._trailEnabled = false;
       },
       componentDidMount: function () {
         this._dragging = false;
@@ -586,14 +710,6 @@ document.addEventListener('DOMContentLoaded', function () {
         this._minimapCanvas.height = 75;
         this._pinchStart = null;
         this._longPressTimer = null;
-        // Trail map for heat-map visualization (instance property, not React state).
-        this._trailMap = new Map();
-        this._trailEnabled = false;
-        // Generation history ring buffer for step-backward.
-        this._genHistory = [];
-        this._genHistoryMax = 200;
-        this._genHistoryInterval = 5;
-        this._genHistoryCounter = 0;
         this._canvas = document.getElementById("life-canvas");
         // Attach wheel listener as non-passive so preventDefault works.
         this._canvas.addEventListener('wheel', this.onWheel, {
@@ -769,8 +885,16 @@ document.addEventListener('DOMContentLoaded', function () {
         reader.onload = function (ev) {
           var text = ev.target.result;
           try {
-            var isRle = /[bo\$]/.test(text) && /!/.test(text);
-            var result = isRle ? SimEngine.parseRLE(text) : SimEngine.parsePlaintext(text);
+            var result;
+            if (/^#Life\s+1\.06/m.test(text)) {
+              result = SimEngine.parseLife106(text);
+            } else if (/^#Life\s+1\.05/m.test(text)) {
+              result = SimEngine.parseLife105(text);
+            } else if (/[bo\$]/.test(text) && /!/.test(text)) {
+              result = SimEngine.parseRLE(text);
+            } else {
+              result = SimEngine.parsePlaintext(text);
+            }
             if (result.cells.length === 0) {
               return;
             }
@@ -2953,6 +3077,14 @@ document.addEventListener('DOMContentLoaded', function () {
           this.applyHeight();
         }
       },
+      applyGridPreset: function (cols, rows) {
+        if (cols * rows > 500000) {
+          if (!confirm('A ' + cols + '\u00d7' + rows + ' grid uses significant memory and may run slowly. Continue?')) {
+            return;
+          }
+        }
+        this.resizeBoard(cols, rows);
+      },
       setDensity: function (e) {
         this.setState({
           sparseness: 9 - parseInt(e.target.value)
@@ -3036,9 +3168,17 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         try {
-          // Auto-detect format: use RLE if text contains b/o/$  with a !
-          var isRle = /[bo\$]/.test(text) && /!/.test(text);
-          var result = isRle ? this.parseRLE(text) : this.parsePlaintext(text);
+          // Auto-detect format.
+          var result;
+          if (/^#Life\s+1\.06/m.test(text)) {
+            result = SimEngine.parseLife106(text);
+          } else if (/^#Life\s+1\.05/m.test(text)) {
+            result = SimEngine.parseLife105(text);
+          } else if (/[bo\$]/.test(text) && /!/.test(text)) {
+            result = this.parseRLE(text);
+          } else {
+            result = this.parsePlaintext(text);
+          }
           if (result.cells.length === 0) {
             this.setState({
               rleError: 'No live cells found in pattern.'
@@ -3233,6 +3373,157 @@ document.addEventListener('DOMContentLoaded', function () {
         this.setState({
           showPopGraph: !this.state.showPopGraph
         });
+      },
+      analyzePattern: function () {
+        if (this.state.analyzing) {
+          return;
+        }
+        var liveCells = this.state.liveCells;
+        if (liveCells.size === 0) {
+          this.setState({
+            analysisResult: 'No live cells to analyze.'
+          });
+          var self0 = this;
+          setTimeout(function () {
+            self0.setState({
+              analysisResult: null
+            });
+          }, 3000);
+          return;
+        }
+        this.setState({
+          analyzing: true,
+          analysisResult: 'Analyzing...'
+        });
+        var self = this;
+        var cols = this.state.cols;
+        var rows = this.state.rows;
+        var birth = this.state.birth;
+        var survive = this.state.survive;
+        var boundary = this.state.boundary;
+        var maxGens = 2000;
+        var chunkSize = 50;
+
+        // Hash function for board state.
+        function hashBoard(lc) {
+          var keys = [];
+          lc.forEach(function (age, key) {
+            keys.push(key);
+          });
+          keys.sort();
+          // Simple FNV-1a-like hash.
+          var h = 2166136261;
+          var s = keys.join(';');
+          for (var i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = h * 16777619 | 0;
+          }
+          return h;
+        }
+
+        // Get bounding box center.
+        function bbox(lc) {
+          var minR = Infinity,
+            maxR = -Infinity,
+            minC = Infinity,
+            maxC = -Infinity;
+          lc.forEach(function (age, key) {
+            var comma = key.indexOf(',');
+            var r = parseInt(key.substring(0, comma));
+            var c = parseInt(key.substring(comma + 1));
+            if (r < minR) minR = r;
+            if (r > maxR) maxR = r;
+            if (c < minC) minC = c;
+            if (c > maxC) maxC = c;
+          });
+          return {
+            cr: (minR + maxR) / 2,
+            cc: (minC + maxC) / 2
+          };
+        }
+        var hashes = new Map(); // hash → {gen, centerR, centerC}
+        var current = liveCells;
+        var initBBox = bbox(current);
+        hashes.set(hashBoard(current), {
+          gen: 0,
+          cr: initBBox.cr,
+          cc: initBBox.cc
+        });
+        var gen = 0;
+        function runChunk() {
+          var end = Math.min(gen + chunkSize, maxGens);
+          while (gen < end) {
+            current = SimEngine.computeNextGeneration(current, cols, rows, birth, survive, boundary);
+            gen++;
+            var h = hashBoard(current);
+            if (hashes.has(h)) {
+              var prev = hashes.get(h);
+              var period = gen - prev.gen;
+              var bb = bbox(current);
+              var dr = Math.abs(bb.cr - prev.cr);
+              var dc = Math.abs(bb.cc - prev.cc);
+              var msg;
+              if (period === 1 && dr < 0.01 && dc < 0.01) {
+                msg = 'Still life (stable)';
+              } else if (dr < 0.01 && dc < 0.01) {
+                msg = 'Oscillator \u2014 period ' + period;
+              } else {
+                // Spaceship: compute velocity.
+                var speed = Math.max(dr, dc);
+                var gcd = function (a, b) {
+                  return b === 0 ? a : gcd(b, a % b);
+                };
+                var sn = Math.round(speed);
+                var g = gcd(sn, period);
+                var num = sn / g;
+                var den = period / g;
+                var dir = dr > dc + 0.01 ? dc > 0.01 ? 'diagonal' : 'vertical' : dc > dr + 0.01 ? 'horizontal' : 'diagonal';
+                msg = 'Spaceship \u2014 ' + (num === 1 ? 'c' : num + 'c') + '/' + den + ' ' + dir + ', period ' + period;
+              }
+              self.setState({
+                analysisResult: msg,
+                analyzing: false
+              });
+              setTimeout(function () {
+                self.setState({
+                  analysisResult: null
+                });
+              }, 6000);
+              return;
+            }
+            hashes.set(h, {
+              gen: gen,
+              cr: bbox(current).cr,
+              cc: bbox(current).cc
+            });
+            if (current.size === 0) {
+              self.setState({
+                analysisResult: 'Pattern dies at generation ' + gen + '.',
+                analyzing: false
+              });
+              setTimeout(function () {
+                self.setState({
+                  analysisResult: null
+                });
+              }, 5000);
+              return;
+            }
+          }
+          if (gen >= maxGens) {
+            self.setState({
+              analysisResult: 'No periodicity detected (' + maxGens + ' gens).',
+              analyzing: false
+            });
+            setTimeout(function () {
+              self.setState({
+                analysisResult: null
+              });
+            }, 5000);
+          } else {
+            setTimeout(runChunk, 0);
+          }
+        }
+        setTimeout(runChunk, 0);
       },
       renderPopGraph: function () {
         if (!this.state.showPopGraph) {
@@ -3712,7 +4003,12 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle" + (this.state.showMinimap ? " active" : ""),
           onClick: this.toggleMinimap,
           title: "Show/hide minimap overview (M)"
-        }, "Minimap")));
+        }, "Minimap"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.analyzePattern,
+          disabled: this.state.analyzing,
+          title: "Detect oscillator period or spaceship velocity"
+        }, "Analyze")));
       },
       renderButtons: function () {
         var self = this;
@@ -3851,7 +4147,12 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : ""),
           onClick: this.toggleMinimap,
           title: "Show/hide minimap overview (M)"
-        }, "Minimap")))), /*#__PURE__*/React.createElement("div", {
+        }, "Minimap"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.analyzePattern,
+          disabled: this.state.analyzing,
+          title: "Detect oscillator period or spaceship velocity"
+        }, "Analyze")))), /*#__PURE__*/React.createElement("div", {
           className: "sidebar-section sidebar-tools-section"
         }, /*#__PURE__*/React.createElement("div", {
           className: "sidebar-section-title"
@@ -4042,7 +4343,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }, /*#__PURE__*/React.createElement("input", {
           type: "range",
           min: "20",
-          max: "400",
+          max: "2000",
           step: "10",
           value: this.state.pendingCols,
           onChange: this.setWidth,
@@ -4058,7 +4359,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }, /*#__PURE__*/React.createElement("input", {
           type: "range",
           min: "20",
-          max: "400",
+          max: "2000",
           step: "10",
           value: this.state.pendingRows,
           onChange: this.setHeight,
@@ -4066,6 +4367,37 @@ document.addEventListener('DOMContentLoaded', function () {
           onKeyDown: this.onHeightKeyDown,
           onTouchEnd: this.applyHeight
         }))), /*#__PURE__*/React.createElement("div", {
+          className: "sliders"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "slider-title"
+        }, "Grid presets"), /*#__PURE__*/React.createElement("div", {
+          className: "grid-presets"
+        }, /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-xs",
+          onClick: function () {
+            this.applyGridPreset(100, 100);
+          }.bind(this)
+        }, "100\xB2"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-xs",
+          onClick: function () {
+            this.applyGridPreset(200, 200);
+          }.bind(this)
+        }, "200\xB2"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-xs",
+          onClick: function () {
+            this.applyGridPreset(400, 400);
+          }.bind(this)
+        }, "400\xB2"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-xs",
+          onClick: function () {
+            this.applyGridPreset(1000, 1000);
+          }.bind(this)
+        }, "1000\xB2"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-xs",
+          onClick: function () {
+            this.applyGridPreset(2000, 2000);
+          }.bind(this)
+        }, "2000\xB2"))), /*#__PURE__*/React.createElement("div", {
           className: "sliders"
         }, /*#__PURE__*/React.createElement("label", {
           className: "slider-title"
@@ -4167,7 +4499,9 @@ document.addEventListener('DOMContentLoaded', function () {
           onTouchStart: this.onTouchStart,
           onTouchMove: this.onTouchMove,
           onTouchEnd: this.onTouchEnd
-        }), this.renderMobileContextPanel(), this.renderMobileStatsBar(), this.renderMobileSparkline(), this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
+        }), this.state.analysisResult ? /*#__PURE__*/React.createElement("div", {
+          className: "analysis-result"
+        }, this.state.analysisResult) : null, this.renderMobileContextPanel(), this.renderMobileStatsBar(), this.renderMobileSparkline(), this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
           className: "mobile-quickbar"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),

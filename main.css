@@ -758,6 +758,34 @@ body {
   max-width: 700px;
   width: 90vw; }
 
+/* ── Grid presets ──────────────────────────────────────────────────────── */
+.grid-presets {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px; }
+.grid-presets .btn-xs {
+  font-size: 11px;
+  padding: 2px 6px;
+  min-width: auto;
+  width: auto; }
+
+/* ── Analysis overlay ─────────────────────────────────────────────────── */
+.analysis-result {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  z-index: 20;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap; }
+
 /* ── Accessibility: screen-reader-only ───────────────────────────────── */
 .sr-only {
   position: absolute;
