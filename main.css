@@ -836,7 +836,7 @@ canvas.display {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: var(--space-lg) var(--space-lg) var(--space-xl); }
+  padding: var(--space-lg) var(--space-lg) var(--space-2xl); }
 
 /* ── Rail collapsed state ─────────────────────────────────────────────── */
 .rail-collapsed {
@@ -1029,7 +1029,7 @@ canvas.display {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: var(--space-lg); }
+  padding: var(--space-lg) var(--space-lg) var(--space-2xl); }
 
 /* ── Float panel collapsed ────────────────────────────────────────────── */
 .float-panel-collapsed .float-panel-body {
@@ -1180,12 +1180,16 @@ canvas.display {
   padding: 0 var(--space-lg); }
 
 .mobile-transport-bar .btn {
+  color: var(--btn-color);
+  background-color: var(--btn-bg);
+  border: 1px solid var(--border-color);
   padding: var(--space-sm) var(--space-lg);
   min-height: var(--touch-min);
   min-width: var(--touch-min);
   font-size: var(--text-sm);
   width: auto;
   border-radius: var(--radius-sm);
+  cursor: pointer;
   transition: background-color var(--transition-fast),
               border-color var(--transition-fast),
               filter var(--transition-fast); }
@@ -1334,7 +1338,8 @@ canvas.display {
 
 .context-tray-body {
   overflow-y: auto;
-  max-height: calc(40vh - 44px); }
+  max-height: calc(40vh - 44px);
+  padding-bottom: var(--space-xl); }
 
 /* ── Tools/export content containers ─────────────────────────────────── */
 .tools-content,
@@ -1423,8 +1428,9 @@ canvas.display {
 
 .bottom-sheet-content {
   overflow-y: auto;
-  max-height: calc(55vh - 60px);
-  -webkit-overflow-scrolling: touch; }
+  max-height: calc(55vh - 100px);
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--space-2xl); }
 
 .bottom-sheet-accordion {
   display: flex;
