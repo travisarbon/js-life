@@ -15,8 +15,8 @@ self.onmessage = function (e) {
     var toroidal = boundary === 'toroidal';
     var totalCells = rows * cols;
 
-    // Use typed array for boards up to 160,000 cells; sparse Map otherwise.
-    if (totalCells <= 160000) {
+    // Use typed array for boards up to 1,000,000 cells (1000×1000); sparse Map otherwise.
+    if (totalCells <= 1000000) {
         computeTypedArray(d.liveCells, cols, rows, birth, survive, toroidal, tickId);
     } else {
         computeSparse(d.liveCells, cols, rows, birth, survive, toroidal, tickId);
