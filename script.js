@@ -2533,7 +2533,7 @@ document.addEventListener('DOMContentLoaded', function(){
             // ── Keyboard ──────────────────────────────────────────────────────
 
             handleKeyDown : function(e){
-                if(['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].indexOf(e.target.tagName) !== -1){ return; }
+                if(e.key !== 'Escape' && ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].indexOf(e.target.tagName) !== -1){ return; }
                 var self = this;
                 switch(e.key){
                     case ' ':
@@ -2752,6 +2752,57 @@ document.addEventListener('DOMContentLoaded', function(){
 
             setBottomSheetTab : function(tab){
                 this.setState({bottomSheetTab: tab, bottomSheetOpen: true});
+            },
+
+            // ── Bottom sheet swipe-to-dismiss ─────────────────────────────────
+
+            _onSheetTouchStart : function(e){
+                this._sheetTouchY = e.touches[0].clientY;
+                this._sheetEl = e.currentTarget;
+            },
+            _onSheetTouchMove : function(e){
+                if(this._sheetTouchY == null){ return; }
+                var dy = e.touches[0].clientY - this._sheetTouchY;
+                if(dy > 0){
+                    this._sheetEl.style.transform = 'translateY(' + dy + 'px)';
+                }
+            },
+            _onSheetTouchEnd : function(){
+                if(this._sheetTouchY == null){ return; }
+                var el = this._sheetEl;
+                var transform = el.style.transform;
+                var dy = 0;
+                if(transform){
+                    var match = transform.match(/translateY\((\d+)/);
+                    if(match){ dy = parseInt(match[1], 10); }
+                }
+                el.style.transform = '';
+                if(dy > 60){
+                    this.toggleBottomSheet();
+                }
+                this._sheetTouchY = null;
+            },
+
+            // ── Bottom sheet focus trap + keyboard ────────────────────────────
+
+            _onSheetKeyDown : function(e){
+                if(e.key === 'Escape'){
+                    this.toggleBottomSheet();
+                    e.preventDefault();
+                    return;
+                }
+                if(e.key !== 'Tab'){ return; }
+                var sheet = e.currentTarget.querySelector('.bottom-sheet');
+                if(!sheet){ return; }
+                var focusable = sheet.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                if(!focusable.length){ return; }
+                var first = focusable[0];
+                var last = focusable[focusable.length - 1];
+                if(e.shiftKey && document.activeElement === first){
+                    e.preventDefault(); last.focus();
+                } else if(!e.shiftKey && document.activeElement === last){
+                    e.preventDefault(); first.focus();
+                }
             },
 
             // ── Toggles ───────────────────────────────────────────────────────
@@ -4473,11 +4524,15 @@ document.addEventListener('DOMContentLoaded', function(){
                         </div>
                         {/* Bottom sheet */}
                         {this.state.bottomSheetOpen &&
-                            <div className="bottom-sheet-container">
+                            <div className="bottom-sheet-container"
+                                onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
                                 <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
                                     role="presentation" aria-hidden="true"></div>
                                 <div className="bottom-sheet" role="dialog" aria-modal="true"
-                                    aria-label="Controls panel">
+                                    aria-label="Controls panel"
+                                    onTouchStart={function(e){ self._onSheetTouchStart(e); }}
+                                    onTouchMove={function(e){ self._onSheetTouchMove(e); }}
+                                    onTouchEnd={function(e){ self._onSheetTouchEnd(e); }}>
                                     <div className="bottom-sheet-handle"></div>
                                     <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
                                         {tabs.map(function(tab){
@@ -4486,14 +4541,18 @@ document.addEventListener('DOMContentLoaded', function(){
                                                 <button key={tab.id}
                                                     className={"rail-tab" + (isActive ? " active" : "")}
                                                     onClick={function(){ self.setBottomSheetTab(tab.id); }}
-                                                    role="tab" aria-selected={isActive} aria-label={tab.label}>
+                                                    role="tab" aria-selected={isActive} aria-label={tab.label}
+                                                    aria-controls={"sheet-panel-" + tab.id}>
                                                     <i className={"fa " + tab.icon} aria-hidden="true"></i>
                                                     <span className="rail-tab-label">{tab.label}</span>
                                                 </button>
                                             );
                                         })}
                                     </div>
-                                    <div className="bottom-sheet-content">
+                                    <div className="bottom-sheet-content"
+                                        id={"sheet-panel-" + this.state.bottomSheetTab}
+                                        role="tabpanel"
+                                        aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
                                     </div>
                                     <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
@@ -4637,29 +4696,41 @@ document.addEventListener('DOMContentLoaded', function(){
                     <div className="layout-specimen layout-mobile">
                         {this.renderCanvas(cs)}
                         {/* Compact top bar */}
-                        <div className="top-bar top-bar-mobile">
+                        <div className="top-bar top-bar-mobile" role="toolbar" aria-label="Simulation transport">
                             <span className="stats-chip-inline">
                                 {"Gen " + this.state.generations.toLocaleString() + "\u2002Pop " + this.state.liveCells.size.toLocaleString()}
                             </span>
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
+                                aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 {this.state.running ? "\u23F8" : "\u25B6"}
                             </button>
-                            <button className="btn" onClick={this.stepGame}>Step</button>
+                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <span className="mobile-transport-mode" aria-live="polite">
+                                {this.state.drawMode === 'preset' && this.state.selectedPattern
+                                    ? this.state.selectedPattern
+                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw')}
+                            </span>
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
                             <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
-                                onClick={this.toggleBottomSheet}>More</button>
+                                onClick={this.toggleBottomSheet}
+                                aria-expanded={this.state.bottomSheetOpen}
+                                aria-label="Open controls panel">More</button>
                         </div>
                         {this.renderMobileContextPanel()}
                         {this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
-                            <div className="bottom-sheet-container">
+                            <div className="bottom-sheet-container"
+                                onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
                                 <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
                                     role="presentation" aria-hidden="true"></div>
                                 <div className="bottom-sheet" role="dialog" aria-modal="true"
-                                    aria-label="Controls panel">
+                                    aria-label="Controls panel"
+                                    onTouchStart={function(e){ self._onSheetTouchStart(e); }}
+                                    onTouchMove={function(e){ self._onSheetTouchMove(e); }}
+                                    onTouchEnd={function(e){ self._onSheetTouchEnd(e); }}>
                                     <div className="bottom-sheet-handle"></div>
                                     <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
                                         {tabs.map(function(tab){
@@ -4668,14 +4739,18 @@ document.addEventListener('DOMContentLoaded', function(){
                                                 <button key={tab.id}
                                                     className={"rail-tab" + (isActive ? " active" : "")}
                                                     onClick={function(){ self.setBottomSheetTab(tab.id); }}
-                                                    role="tab" aria-selected={isActive} aria-label={tab.label}>
+                                                    role="tab" aria-selected={isActive} aria-label={tab.label}
+                                                    aria-controls={"sheet-panel-" + tab.id}>
                                                     <i className={"fa " + tab.icon} aria-hidden="true"></i>
                                                     <span className="rail-tab-label">{tab.label}</span>
                                                 </button>
                                             );
                                         })}
                                     </div>
-                                    <div className="bottom-sheet-content">
+                                    <div className="bottom-sheet-content"
+                                        id={"sheet-panel-" + this.state.bottomSheetTab}
+                                        role="tabpanel"
+                                        aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
                                     </div>
                                     <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
@@ -4781,17 +4856,25 @@ document.addEventListener('DOMContentLoaded', function(){
                     <div className="layout-observatory layout-mobile">
                         {this.renderCanvas(cs)}
                         {/* Bottom transport bar */}
-                        <div className="mobile-transport-bar">
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>
+                        <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
+                                aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 {this.state.running ? "\u23F8" : "\u25B6"}
                             </button>
-                            <button className="btn" onClick={this.stepGame}>Step</button>
-                            <button className="btn" onClick={this.resetGame}>Reset</button>
+                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation">Reset</button>
+                            <span className="mobile-transport-mode" aria-live="polite">
+                                {this.state.drawMode === 'preset' && this.state.selectedPattern
+                                    ? this.state.selectedPattern
+                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw')}
+                            </span>
                             <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
                             <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
-                                onClick={this.toggleBottomSheet}>Controls</button>
+                                onClick={this.toggleBottomSheet}
+                                aria-expanded={this.state.bottomSheetOpen}
+                                aria-label="Open controls panel">Controls</button>
                         </div>
                         {/* Stats chip */}
                         <div className="stats-chip" onClick={this.togglePopGraph}>
@@ -4805,11 +4888,15 @@ document.addEventListener('DOMContentLoaded', function(){
                         {this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
-                            <div className="bottom-sheet-container">
+                            <div className="bottom-sheet-container"
+                                onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
                                 <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
                                     role="presentation" aria-hidden="true"></div>
                                 <div className="bottom-sheet" role="dialog" aria-modal="true"
-                                    aria-label="Controls panel">
+                                    aria-label="Controls panel"
+                                    onTouchStart={function(e){ self._onSheetTouchStart(e); }}
+                                    onTouchMove={function(e){ self._onSheetTouchMove(e); }}
+                                    onTouchEnd={function(e){ self._onSheetTouchEnd(e); }}>
                                     <div className="bottom-sheet-handle"></div>
                                     <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
                                         {tabs.map(function(tab){
@@ -4818,14 +4905,18 @@ document.addEventListener('DOMContentLoaded', function(){
                                                 <button key={tab.id}
                                                     className={"rail-tab" + (isActive ? " active" : "")}
                                                     onClick={function(){ self.setBottomSheetTab(tab.id); }}
-                                                    role="tab" aria-selected={isActive} aria-label={tab.label}>
+                                                    role="tab" aria-selected={isActive} aria-label={tab.label}
+                                                    aria-controls={"sheet-panel-" + tab.id}>
                                                     <i className={"fa " + tab.icon} aria-hidden="true"></i>
                                                     <span className="rail-tab-label">{tab.label}</span>
                                                 </button>
                                             );
                                         })}
                                     </div>
-                                    <div className="bottom-sheet-content">
+                                    <div className="bottom-sheet-content"
+                                        id={"sheet-panel-" + this.state.bottomSheetTab}
+                                        role="tabpanel"
+                                        aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
                                     </div>
                                     <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>

@@ -98,7 +98,7 @@ canvas.display {
 /* Toroidal boundary: teal border signals that edges connect. */
 .canvas-container.boundary-wrap canvas.display,
 #content .canvas-container.boundary-wrap canvas.display {
-  border-color: #70959A;
+  border-color: var(--accent);
   box-shadow: 0 0 6px rgba(112, 149, 154, 0.6); }
 
 /* ── Stats ────────────────────────────────────────────────────────────────── */
@@ -134,14 +134,14 @@ canvas.display {
   padding: 1px 7px;
   border-radius: 3px; }
 #content .status-running {
-  background: #70959A;
-  color: #F4E9E1; }
+  background: var(--accent);
+  color: var(--accent-text); }
 #content .status-paused {
   background: var(--status-paused-bg);
   color: var(--accent-text); }
 #content .status-stable {
-  background: #8B7D6B;
-  color: #F4E9E1; }
+  background: var(--btn-color);
+  color: var(--accent-text); }
 
 /* ── Population sparkline ─────────────────────────────────────────────────── */
 #content .sparkline-wrap {
@@ -239,9 +239,9 @@ canvas.display {
   font-size: 0.88em;
   padding: 4px 6px;
   border-radius: 3px;
-  border: 1px solid #ccc;
-  color: #67635F;
-  background: white;
+  border: 1px solid var(--border-color);
+  color: var(--input-color);
+  background: var(--input-bg);
   box-sizing: border-box; }
 #content .tool-label {
   font-size: 0.80em;
@@ -264,18 +264,19 @@ canvas.display {
   width: 100%;
   box-sizing: border-box;
   padding: 5px 8px;
-  color: #67635F;
-  background: white;
-  border: 1px solid #ccc;
+  color: var(--input-color);
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
   font-size: 0.9em; }
 #content .pattern-filter-input::placeholder {
-  color: #aaa; }
+  color: var(--btn-color);
+  opacity: 0.6; }
 #content .rule-input-invalid {
   border-color: #c0392b;
   outline-color: #c0392b; }
 #content .preset-select.active {
-  border-color: #70959A;
-  outline-color: #70959A; }
+  border-color: var(--accent);
+  outline-color: var(--accent); }
 
 /* ── Pattern rotation ─────────────────────────────────────────────────────── */
 #content .rotation-row {
@@ -289,14 +290,14 @@ canvas.display {
   display: block;
   border: 1px solid rgba(0,0,0,0.15);
   border-radius: 3px;
-  background: #FFFFFF; }
+  background: var(--input-bg); }
 #content .rotation-btns {
   display: flex;
   gap: 6px; }
 #content .btn-rotate {
   padding: 3px 10px;
   font-size: 1.1em;
-  color: #67635F;
+  color: var(--btn-color);
   line-height: 1; }
 /* Mobile context panel: larger touch targets for rotation buttons. */
 .mobile-context-panel .btn-rotate {
@@ -307,7 +308,7 @@ canvas.display {
   margin: 0;
   font-size: 0.8em;
   font-style: italic;
-  color: #F4E9E1;
+  color: var(--content-color);
   text-align: center;
   line-height: 1.5;
   overflow-wrap: break-word;
@@ -350,9 +351,9 @@ canvas.display {
   padding: 5px 7px;
   font-size: 0.78em;
   font-family: monospace;
-  color: #3a3632;
-  background: #f5f0eb;
-  border: 1px solid #ccc;
+  color: var(--input-color);
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
   resize: vertical; }
 #content .rle-error {
   margin: 0;
@@ -381,7 +382,7 @@ canvas.display {
   font-size: 1em;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #F4E9E1; }
+  color: var(--content-color); }
 .help-table {
   width: 100%;
   border-collapse: collapse;
@@ -394,7 +395,7 @@ canvas.display {
   font-family: monospace;
   font-size: 0.95em;
   white-space: nowrap;
-  color: #d4c8be;
+  color: var(--accent-text);
   width: 80px; }
 .help-close {
   display: block;
@@ -451,8 +452,8 @@ canvas.display {
   font-size: 0.88em;
   cursor: pointer; }
 .mobile-quickbar .btn.active {
-  background-color: #70959A;
-  color: #F4E9E1; }
+  background-color: var(--accent);
+  color: var(--accent-text); }
 
 /* ── Mobile bottom sheet backdrop ────────────────────────────────────────── */
 .mobile-sheet-backdrop {

@@ -3192,7 +3192,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // ── Keyboard ──────────────────────────────────────────────────────
 
       handleKeyDown: function (e) {
-        if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].indexOf(e.target.tagName) !== -1) {
+        if (e.key !== 'Escape' && ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].indexOf(e.target.tagName) !== -1) {
           return;
         }
         var self = this;
@@ -3514,6 +3514,69 @@ document.addEventListener('DOMContentLoaded', function () {
           bottomSheetTab: tab,
           bottomSheetOpen: true
         });
+      },
+      // ── Bottom sheet swipe-to-dismiss ─────────────────────────────────
+
+      _onSheetTouchStart: function (e) {
+        this._sheetTouchY = e.touches[0].clientY;
+        this._sheetEl = e.currentTarget;
+      },
+      _onSheetTouchMove: function (e) {
+        if (this._sheetTouchY == null) {
+          return;
+        }
+        var dy = e.touches[0].clientY - this._sheetTouchY;
+        if (dy > 0) {
+          this._sheetEl.style.transform = 'translateY(' + dy + 'px)';
+        }
+      },
+      _onSheetTouchEnd: function () {
+        if (this._sheetTouchY == null) {
+          return;
+        }
+        var el = this._sheetEl;
+        var transform = el.style.transform;
+        var dy = 0;
+        if (transform) {
+          var match = transform.match(/translateY\((\d+)/);
+          if (match) {
+            dy = parseInt(match[1], 10);
+          }
+        }
+        el.style.transform = '';
+        if (dy > 60) {
+          this.toggleBottomSheet();
+        }
+        this._sheetTouchY = null;
+      },
+      // ── Bottom sheet focus trap + keyboard ────────────────────────────
+
+      _onSheetKeyDown: function (e) {
+        if (e.key === 'Escape') {
+          this.toggleBottomSheet();
+          e.preventDefault();
+          return;
+        }
+        if (e.key !== 'Tab') {
+          return;
+        }
+        var sheet = e.currentTarget.querySelector('.bottom-sheet');
+        if (!sheet) {
+          return;
+        }
+        var focusable = sheet.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (!focusable.length) {
+          return;
+        }
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       },
       // ── Toggles ───────────────────────────────────────────────────────
 
@@ -5887,7 +5950,10 @@ document.addEventListener('DOMContentLoaded', function () {
           "aria-expanded": this.state.bottomSheetOpen,
           "aria-label": "Open controls panel"
         }, "More")), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet-container"
+          className: "bottom-sheet-container",
+          onKeyDown: function (e) {
+            self._onSheetKeyDown(e);
+          }
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-backdrop",
           onClick: this.toggleBottomSheet,
@@ -5897,7 +5963,16 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "bottom-sheet",
           role: "dialog",
           "aria-modal": "true",
-          "aria-label": "Controls panel"
+          "aria-label": "Controls panel",
+          onTouchStart: function (e) {
+            self._onSheetTouchStart(e);
+          },
+          onTouchMove: function (e) {
+            self._onSheetTouchMove(e);
+          },
+          onTouchEnd: function (e) {
+            self._onSheetTouchEnd(e);
+          }
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-handle"
         }), /*#__PURE__*/React.createElement("div", {
@@ -5914,7 +5989,8 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             role: "tab",
             "aria-selected": isActive,
-            "aria-label": tab.label
+            "aria-label": tab.label,
+            "aria-controls": "sheet-panel-" + tab.id
           }, /*#__PURE__*/React.createElement("i", {
             className: "fa " + tab.icon,
             "aria-hidden": "true"
@@ -5922,7 +5998,10 @@ document.addEventListener('DOMContentLoaded', function () {
             className: "rail-tab-label"
           }, tab.label));
         })), /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet-content"
+          className: "bottom-sheet-content",
+          id: "sheet-panel-" + this.state.bottomSheetTab,
+          role: "tabpanel",
+          "aria-label": this.state.bottomSheetTab + " controls"
         }, sheetContent), /*#__PURE__*/React.createElement("div", {
           style: {
             padding: '8px 12px 0',
@@ -6098,16 +6177,23 @@ document.addEventListener('DOMContentLoaded', function () {
         return /*#__PURE__*/React.createElement("div", {
           className: "layout-specimen layout-mobile"
         }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
-          className: "top-bar top-bar-mobile"
+          className: "top-bar top-bar-mobile",
+          role: "toolbar",
+          "aria-label": "Simulation transport"
         }, /*#__PURE__*/React.createElement("span", {
           className: "stats-chip-inline"
         }, "Gen " + this.state.generations.toLocaleString() + "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
-          onClick: this.toggleGame
+          onClick: this.toggleGame,
+          "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
         }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.stepGame
-        }, "Step"), /*#__PURE__*/React.createElement("button", {
+          onClick: this.stepGame,
+          "aria-label": "Step one generation"
+        }, "Step"), /*#__PURE__*/React.createElement("span", {
+          className: "mobile-transport-mode",
+          "aria-live": "polite"
+        }, this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.toggleHelp,
           "aria-label": "Help",
@@ -6117,9 +6203,14 @@ document.addEventListener('DOMContentLoaded', function () {
           "aria-hidden": "true"
         })), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
-          onClick: this.toggleBottomSheet
+          onClick: this.toggleBottomSheet,
+          "aria-expanded": this.state.bottomSheetOpen,
+          "aria-label": "Open controls panel"
         }, "More")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet-container"
+          className: "bottom-sheet-container",
+          onKeyDown: function (e) {
+            self._onSheetKeyDown(e);
+          }
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-backdrop",
           onClick: this.toggleBottomSheet,
@@ -6129,7 +6220,16 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "bottom-sheet",
           role: "dialog",
           "aria-modal": "true",
-          "aria-label": "Controls panel"
+          "aria-label": "Controls panel",
+          onTouchStart: function (e) {
+            self._onSheetTouchStart(e);
+          },
+          onTouchMove: function (e) {
+            self._onSheetTouchMove(e);
+          },
+          onTouchEnd: function (e) {
+            self._onSheetTouchEnd(e);
+          }
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-handle"
         }), /*#__PURE__*/React.createElement("div", {
@@ -6146,7 +6246,8 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             role: "tab",
             "aria-selected": isActive,
-            "aria-label": tab.label
+            "aria-label": tab.label,
+            "aria-controls": "sheet-panel-" + tab.id
           }, /*#__PURE__*/React.createElement("i", {
             className: "fa " + tab.icon,
             "aria-hidden": "true"
@@ -6154,7 +6255,10 @@ document.addEventListener('DOMContentLoaded', function () {
             className: "rail-tab-label"
           }, tab.label));
         })), /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet-content"
+          className: "bottom-sheet-content",
+          id: "sheet-panel-" + this.state.bottomSheetTab,
+          role: "tabpanel",
+          "aria-label": this.state.bottomSheetTab + " controls"
         }, sheetContent), /*#__PURE__*/React.createElement("div", {
           style: {
             padding: '8px 12px 0',
@@ -6268,17 +6372,25 @@ document.addEventListener('DOMContentLoaded', function () {
         return /*#__PURE__*/React.createElement("div", {
           className: "layout-observatory layout-mobile"
         }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
-          className: "mobile-transport-bar"
+          className: "mobile-transport-bar",
+          role: "toolbar",
+          "aria-label": "Simulation transport"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
-          onClick: this.toggleGame
+          onClick: this.toggleGame,
+          "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
         }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.stepGame
+          onClick: this.stepGame,
+          "aria-label": "Step one generation"
         }, "Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.resetGame
-        }, "Reset"), /*#__PURE__*/React.createElement("button", {
+          onClick: this.resetGame,
+          "aria-label": "Reset simulation"
+        }, "Reset"), /*#__PURE__*/React.createElement("span", {
+          className: "mobile-transport-mode",
+          "aria-live": "polite"
+        }, this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.toggleHelp,
           "aria-label": "Help",
@@ -6288,14 +6400,19 @@ document.addEventListener('DOMContentLoaded', function () {
           "aria-hidden": "true"
         })), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
-          onClick: this.toggleBottomSheet
+          onClick: this.toggleBottomSheet,
+          "aria-expanded": this.state.bottomSheetOpen,
+          "aria-label": "Open controls panel"
         }, "Controls")), /*#__PURE__*/React.createElement("div", {
           className: "stats-chip",
           onClick: this.togglePopGraph
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
         }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet-container"
+          className: "bottom-sheet-container",
+          onKeyDown: function (e) {
+            self._onSheetKeyDown(e);
+          }
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-backdrop",
           onClick: this.toggleBottomSheet,
@@ -6305,7 +6422,16 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "bottom-sheet",
           role: "dialog",
           "aria-modal": "true",
-          "aria-label": "Controls panel"
+          "aria-label": "Controls panel",
+          onTouchStart: function (e) {
+            self._onSheetTouchStart(e);
+          },
+          onTouchMove: function (e) {
+            self._onSheetTouchMove(e);
+          },
+          onTouchEnd: function (e) {
+            self._onSheetTouchEnd(e);
+          }
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-handle"
         }), /*#__PURE__*/React.createElement("div", {
@@ -6322,7 +6448,8 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             role: "tab",
             "aria-selected": isActive,
-            "aria-label": tab.label
+            "aria-label": tab.label,
+            "aria-controls": "sheet-panel-" + tab.id
           }, /*#__PURE__*/React.createElement("i", {
             className: "fa " + tab.icon,
             "aria-hidden": "true"
@@ -6330,7 +6457,10 @@ document.addEventListener('DOMContentLoaded', function () {
             className: "rail-tab-label"
           }, tab.label));
         })), /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet-content"
+          className: "bottom-sheet-content",
+          id: "sheet-panel-" + this.state.bottomSheetTab,
+          role: "tabpanel",
+          "aria-label": this.state.bottomSheetTab + " controls"
         }, sheetContent), /*#__PURE__*/React.createElement("div", {
           style: {
             padding: '8px 12px 0',
