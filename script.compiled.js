@@ -547,7 +547,12 @@ document.addEventListener('DOMContentLoaded', function () {
           clipboard: null,
           showMinimap: true,
           recording: false,
-          showMobileTools: false
+          showMobileTools: false,
+          showTrails: false,
+          darkModePref: 'system',
+          stepCount: 1,
+          shareTooltip: false,
+          showPopGraph: false
         };
       },
       componentDidMount: function () {
@@ -581,12 +586,57 @@ document.addEventListener('DOMContentLoaded', function () {
         this._minimapCanvas.height = 75;
         this._pinchStart = null;
         this._longPressTimer = null;
+        // Trail map for heat-map visualization (instance property, not React state).
+        this._trailMap = new Map();
+        this._trailEnabled = false;
+        // Generation history ring buffer for step-backward.
+        this._genHistory = [];
+        this._genHistoryMax = 200;
+        this._genHistoryInterval = 5;
+        this._genHistoryCounter = 0;
         this._canvas = document.getElementById("life-canvas");
         // Attach wheel listener as non-passive so preventDefault works.
         this._canvas.addEventListener('wheel', this.onWheel, {
           passive: false
         });
         document.addEventListener('keydown', this.handleKeyDown);
+        // Drag-and-drop file import (desktop).
+        var canvasContainer = this._canvas.parentNode;
+        this._onDragOver = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          canvasContainer.classList.add('drop-active');
+        };
+        this._onDragLeave = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          canvasContainer.classList.remove('drop-active');
+        };
+        this._onDrop = this._handleFileDrop.bind(this);
+        canvasContainer.addEventListener('dragover', this._onDragOver);
+        canvasContainer.addEventListener('dragleave', this._onDragLeave);
+        canvasContainer.addEventListener('drop', this._onDrop);
+        // Dark mode: respect system preference.
+        this._darkModeQuery = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+        if (this._darkModeQuery) {
+          var self2 = this;
+          this._onDarkModeChange = function (e) {
+            if (self2.state.darkModePref === 'system') {
+              self2._applyDarkMode(e.matches);
+            }
+          };
+          try {
+            this._darkModeQuery.addEventListener('change', this._onDarkModeChange);
+          } catch (ex) {
+            try {
+              this._darkModeQuery.addListener(this._onDarkModeChange);
+            } catch (ex2) {}
+          }
+          // Apply initial dark mode state.
+          if (this.state.darkModePref === 'system') {
+            this._applyDarkMode(this._darkModeQuery.matches);
+          }
+        }
         // Respond to viewport resize (throttled) to update canvas dimensions.
         var self = this;
         // Cache initial dimensions to filter out browser-chrome-only height changes on mobile.
@@ -637,6 +687,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }
         this.drawBoard();
+        this._loadFromURLHash();
         this._startLoop();
       },
       componentDidUpdate: function (prevProps, prevState) {
@@ -684,6 +735,12 @@ document.addEventListener('DOMContentLoaded', function () {
         document.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('resize', this._onResize);
         window.removeEventListener('orientationchange', this._onOrientationChange);
+        var container = this._canvas.parentNode;
+        if (container) {
+          container.removeEventListener('dragover', this._onDragOver);
+          container.removeEventListener('dragleave', this._onDragLeave);
+          container.removeEventListener('drop', this._onDrop);
+        }
         if (this._worker) {
           this._worker.terminate();
         }
@@ -691,6 +748,71 @@ document.addEventListener('DOMContentLoaded', function () {
           this._gif.abort();
           this._gif = null;
         }
+      },
+      // ── Drag-and-drop file import ──────────────────────────────────────
+
+      _handleFileDrop: function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var container = this._canvas.parentNode;
+        container.classList.remove('drop-active');
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (!files || files.length === 0) {
+          return;
+        }
+        var file = files[0];
+        if (file.size > 500000) {
+          return;
+        }
+        var self = this;
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          var text = ev.target.result;
+          try {
+            var isRle = /[bo\$]/.test(text) && /!/.test(text);
+            var result = isRle ? SimEngine.parseRLE(text) : SimEngine.parsePlaintext(text);
+            if (result.cells.length === 0) {
+              return;
+            }
+            PATTERNS['Custom'] = result.cells;
+            self._previewPos = null;
+            self.setState({
+              selectedPattern: 'Custom',
+              patternRotation: 0,
+              drawMode: 'preset',
+              showRle: false,
+              rleError: ''
+            }, function () {
+              self.drawBoard();
+            });
+          } catch (ex) {}
+        };
+        reader.readAsText(file);
+      },
+      // ── Dark mode ──────────────────────────────────────────────────────
+
+      _applyDarkMode: function (dark) {
+        var el = document.documentElement;
+        if (dark) {
+          el.classList.add('dark-mode');
+        } else {
+          el.classList.remove('dark-mode');
+        }
+      },
+      setDarkModePref: function (e) {
+        var pref = e.target.value;
+        var dark;
+        if (pref === 'dark') {
+          dark = true;
+        } else if (pref === 'light') {
+          dark = false;
+        } else {
+          dark = this._darkModeQuery && this._darkModeQuery.matches;
+        }
+        this._applyDarkMode(dark);
+        this.setState({
+          darkModePref: pref
+        });
       },
       // ── Board construction ─────────────────────────────────────────────
 
@@ -738,6 +860,21 @@ document.addEventListener('DOMContentLoaded', function () {
               ctx.fillRect((c - viewX) * cellSize, (r - viewY) * cellSize, cellSize, cellSize);
             }
           }
+        }
+
+        // Cell trails (heat map).
+        if (this._trailEnabled && this._trailMap.size > 0) {
+          var trailMap = this._trailMap;
+          trailMap.forEach(function (val, key) {
+            var comma = key.indexOf(',');
+            var tr = parseInt(key.substring(0, comma));
+            var tc = parseInt(key.substring(comma + 1));
+            if (tr >= startR && tr < endR && tc >= startC && tc < endC) {
+              var alpha = val / 20 * 0.35;
+              ctx.fillStyle = 'rgba(' + aR + ',' + aG + ',' + aB + ',' + alpha.toFixed(2) + ')';
+              ctx.fillRect((tc - viewX) * cellSize, (tr - viewY) * cellSize, cellSize, cellSize);
+            }
+          });
         }
 
         // Grid lines.
@@ -1066,6 +1203,47 @@ document.addEventListener('DOMContentLoaded', function () {
           });
         }
 
+        // Cell trail tracking: record recently-dead cells.
+        if (this._trailEnabled) {
+          var trailMap = this._trailMap;
+          var prevCells = this.state.liveCells;
+          var TRAIL_MAX = 20;
+          // Cells that were alive but are now dead → add to trail.
+          prevCells.forEach(function (age, key) {
+            if (!newLiveCells.has(key)) {
+              trailMap.set(key, TRAIL_MAX);
+            }
+          });
+          // Decay existing trail values.
+          var toDelete = [];
+          trailMap.forEach(function (val, key) {
+            if (newLiveCells.has(key)) {
+              toDelete.push(key);
+            } else {
+              var nv = val - 1;
+              if (nv <= 0) {
+                toDelete.push(key);
+              } else {
+                trailMap.set(key, nv);
+              }
+            }
+          });
+          for (var ti = 0; ti < toDelete.length; ti++) {
+            trailMap.delete(toDelete[ti]);
+          }
+          // Cap trail map size for performance.
+          if (trailMap.size > 50000) {
+            var excess = trailMap.size - 50000;
+            var iter = trailMap.keys();
+            for (var ei = 0; ei < excess; ei++) {
+              trailMap.delete(iter.next().value);
+            }
+          }
+        }
+
+        // Generation history snapshot for step-backward.
+        this._pushGenHistory();
+
         // Stability detection via sorted key set.
         var keys = [];
         newLiveCells.forEach(function (age, key) {
@@ -1078,8 +1256,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var hitStable = this._stableCount >= 2;
         var newPop = newLiveCells.size;
         var newHistory = this.state.popHistory.concat([newPop]);
-        if (newHistory.length > 60) {
-          newHistory = newHistory.slice(newHistory.length - 60);
+        if (newHistory.length > 10000) {
+          newHistory = newHistory.slice(newHistory.length - 10000);
         }
         var newSessionPeak = Math.max(this.state.sessionPeakPop || 0, newPop);
         // Store last measured GPS so it persists briefly after pausing.
@@ -1145,8 +1323,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var newLiveCells = this.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
         var newPop = newLiveCells.size;
         var newHistory = this.state.popHistory.concat([newPop]);
-        if (newHistory.length > 60) {
-          newHistory = newHistory.slice(newHistory.length - 60);
+        if (newHistory.length > 10000) {
+          newHistory = newHistory.slice(newHistory.length - 10000);
         }
         var newSessionPeakStep = Math.max(this.state.sessionPeakPop || 0, newPop);
         this._minimapDirty = true;
@@ -1235,6 +1413,89 @@ document.addEventListener('DOMContentLoaded', function () {
             navigator.clipboard.writeText(rle);
           }
         });
+      },
+      // ── URL sharing ──────────────────────────────────────────────────
+
+      shareURL: function () {
+        var rle = this.boardToRLE();
+        if (!rle) {
+          return;
+        }
+        // Build URL hash with compact parameters.
+        var params = 'rle=' + encodeURIComponent(rle) + '&cols=' + this.state.cols + '&rows=' + this.state.rows;
+        if (this.state.ruleString !== 'B3/S23') {
+          params += '&rule=' + encodeURIComponent(this.state.ruleString);
+        }
+        // Check total length — use compression for large patterns if available.
+        if (params.length > 4000) {
+          // Too large for URL; fall back to copying RLE.
+          this.copyRLE();
+          return;
+        }
+        var url = window.location.origin + window.location.pathname + '#' + params;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url);
+        }
+        // Brief visual feedback.
+        var self = this;
+        this.setState({
+          shareTooltip: true
+        });
+        setTimeout(function () {
+          self.setState({
+            shareTooltip: false
+          });
+        }, 2000);
+      },
+      _loadFromURLHash: function () {
+        var hash = window.location.hash;
+        if (!hash || hash.length < 5) {
+          return;
+        }
+        try {
+          var params = {};
+          hash.substring(1).split('&').forEach(function (pair) {
+            var eq = pair.indexOf('=');
+            if (eq > 0) {
+              params[decodeURIComponent(pair.substring(0, eq))] = decodeURIComponent(pair.substring(eq + 1));
+            }
+          });
+          if (!params.rle) {
+            return;
+          }
+          var cols = parseInt(params.cols) || 100;
+          var rows = parseInt(params.rows) || 100;
+          var rule = params.rule || 'B3/S23';
+          var parsed = this.parseRuleString(rule);
+          var result = SimEngine.parseRLE(params.rle);
+          if (result.cells.length === 0) {
+            return;
+          }
+          PATTERNS['Custom'] = result.cells;
+          var self = this;
+          var updates = {
+            cols: cols,
+            rows: rows,
+            pendingCols: cols,
+            pendingRows: rows,
+            selectedPattern: 'Custom',
+            patternRotation: 0,
+            drawMode: 'preset',
+            ruleString: rule
+          };
+          if (parsed) {
+            updates.birthRule = parsed.birth;
+            updates.surviveRule = parsed.survive;
+            updates.rulePreset = rule.toUpperCase();
+          }
+          this.setState(updates, function () {
+            self.drawBoard();
+          });
+          // Clear hash so reloads don't re-import.
+          if (history.replaceState) {
+            history.replaceState(null, '', window.location.pathname);
+          }
+        } catch (ex) {}
       },
       // ── Help modal ─────────────────────────────────────────────────────
 
@@ -2365,7 +2626,15 @@ document.addEventListener('DOMContentLoaded', function () {
             break;
           case '.':
             e.preventDefault();
-            this.stepGame();
+            if (e.shiftKey) {
+              this.stepN(this.state.stepCount);
+            } else {
+              this.stepGame();
+            }
+            break;
+          case ',':
+            e.preventDefault();
+            this.stepBack();
             break;
           case 'r':
           case 'R':
@@ -2481,6 +2750,112 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       // ── Toggles ───────────────────────────────────────────────────────
 
+      toggleTrails: function () {
+        var newVal = !this.state.showTrails;
+        this._trailEnabled = newVal;
+        if (!newVal) {
+          this._trailMap = new Map();
+        }
+        var self = this;
+        this.setState({
+          showTrails: newVal
+        }, function () {
+          self.drawBoard();
+        });
+      },
+      setStepCount: function (e) {
+        this.setState({
+          stepCount: parseInt(e.target.value) || 1
+        });
+      },
+      // Advance N generations at once (synchronous, chunked for large N).
+      stepN: function (n) {
+        if (!n || n < 1) {
+          n = 1;
+        }
+        this.pushUndo();
+        // Snapshot for gen history before batch.
+        this._pushGenHistory();
+        var liveCells = this.state.liveCells;
+        var cols = this.state.cols;
+        var rows = this.state.rows;
+        var birth = this.state.birthRule;
+        var survive = this.state.surviveRule;
+        var boundary = this.state.boundary;
+        var self = this;
+        var gen = this.state.generations;
+        var popHistory = this.state.popHistory.slice();
+        var peak = this.state.sessionPeakPop || 0;
+        var done = 0;
+        var CHUNK = 50;
+        var doChunk = function () {
+          var limit = Math.min(done + CHUNK, n);
+          for (var i = done; i < limit; i++) {
+            liveCells = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
+            gen++;
+            var pop = liveCells.size;
+            popHistory.push(pop);
+            if (popHistory.length > 10000) {
+              popHistory = popHistory.slice(popHistory.length - 10000);
+            }
+            if (pop > peak) {
+              peak = pop;
+            }
+          }
+          done = limit;
+          if (done < n) {
+            setTimeout(doChunk, 0);
+          } else {
+            self._minimapDirty = true;
+            self.setState({
+              liveCells: liveCells,
+              generations: gen,
+              running: false,
+              popHistory: popHistory,
+              sessionPeakPop: peak,
+              stable: false
+            }, function () {
+              self.drawBoard();
+            });
+          }
+        };
+        doChunk();
+      },
+      // ── Generation history (step backward) ─────────────────────────────
+
+      _pushGenHistory: function () {
+        this._genHistoryCounter++;
+        if (this._genHistoryCounter % this._genHistoryInterval !== 0) {
+          return;
+        }
+        this._genHistory.push({
+          liveCells: new Map(this.state.liveCells),
+          generations: this.state.generations
+        });
+        if (this._genHistory.length > this._genHistoryMax) {
+          this._genHistory.shift();
+        }
+      },
+      stepBack: function () {
+        if (this._genHistory.length === 0) {
+          return;
+        }
+        var snapshot = this._genHistory.pop();
+        this._minimapDirty = true;
+        var self = this;
+        this.setState({
+          liveCells: snapshot.liveCells,
+          generations: snapshot.generations,
+          running: false,
+          stable: false
+        }, function () {
+          self.drawBoard();
+        });
+      },
+      clearGenHistory: function () {
+        this._genHistory = [];
+        this._genHistoryCounter = 0;
+      },
       toggleLivePaint: function () {
         this.setState({
           livePaintMode: !this.state.livePaintMode
@@ -2769,6 +3144,8 @@ document.addEventListener('DOMContentLoaded', function () {
         this._prevBoardHash = null;
         this._stableCount = 0;
         this._minimapDirty = true;
+        this._trailMap = new Map();
+        this.clearGenHistory();
         var self = this;
         this.setState({
           running: false,
@@ -2790,6 +3167,8 @@ document.addEventListener('DOMContentLoaded', function () {
         this._prevBoardHash = null;
         this._stableCount = 0;
         this._minimapDirty = true;
+        this._trailMap = new Map();
+        this.clearGenHistory();
         var self = this;
         this.setState({
           running: false,
@@ -2827,7 +3206,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "help-title"
         }, "Keyboard Shortcuts"), /*#__PURE__*/React.createElement("table", {
           className: "help-table"
-        }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Space"), /*#__PURE__*/React.createElement("td", null, "Play / Pause")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "."), /*#__PURE__*/React.createElement("td", null, "Step one generation")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+        }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Space"), /*#__PURE__*/React.createElement("td", null, "Play / Pause")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "."), /*#__PURE__*/React.createElement("td", null, "Step one generation")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Shift+."), /*#__PURE__*/React.createElement("td", null, "Step N generations")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, ","), /*#__PURE__*/React.createElement("td", null, "Step backward")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
           colSpan: "2",
           style: {
             paddingTop: '10px',
@@ -2836,9 +3215,125 @@ document.addEventListener('DOMContentLoaded', function () {
             textTransform: 'uppercase',
             letterSpacing: '0.05em'
           }
-        }, "Touch gestures")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Tap"), /*#__PURE__*/React.createElement("td", null, "Paint / place cell")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Pinch"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "2-finger drag"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Long press"), /*#__PURE__*/React.createElement("td", null, "Show cell coordinates")))), /*#__PURE__*/React.createElement("button", {
+        }, "Touch gestures")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Tap"), /*#__PURE__*/React.createElement("td", null, "Paint / place cell")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Pinch"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "2-finger drag"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Long press"), /*#__PURE__*/React.createElement("td", null, "Show cell coordinates")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+          colSpan: "2",
+          style: {
+            paddingTop: '10px',
+            opacity: 0.55,
+            fontSize: '0.85em',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em'
+          }
+        }, "File import")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Drag & drop"), /*#__PURE__*/React.createElement("td", null, "Drop .rle/.cells file on canvas")))), /*#__PURE__*/React.createElement("button", {
           className: "btn help-close",
           onClick: this.toggleHelp
+        }, "Close")));
+      },
+      togglePopGraph: function () {
+        this.setState({
+          showPopGraph: !this.state.showPopGraph
+        });
+      },
+      renderPopGraph: function () {
+        if (!this.state.showPopGraph) {
+          return null;
+        }
+        var hist = this.state.popHistory;
+        if (hist.length < 2) {
+          return null;
+        }
+        var self = this;
+        var maxPop = 0;
+        for (var i = 0; i < hist.length; i++) {
+          if (hist[i] > maxPop) {
+            maxPop = hist[i];
+          }
+        }
+        if (maxPop === 0) {
+          maxPop = 1;
+        }
+        var vbW = 600,
+          vbH = 200,
+          padT = 10,
+          padB = 20,
+          padL = 50,
+          padR = 10;
+        var plotW = vbW - padL - padR;
+        var plotH = vbH - padT - padB;
+        // Draw data points as SVG polyline.
+        var points = hist.map(function (p, idx) {
+          var x = padL + idx / (hist.length - 1) * plotW;
+          var y = padT + (1 - p / maxPop) * plotH;
+          return x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+        // Y-axis labels.
+        var yLabels = [];
+        var ySteps = 4;
+        for (var yi = 0; yi <= ySteps; yi++) {
+          var val = Math.round(maxPop * (1 - yi / ySteps));
+          var yy = padT + yi / ySteps * plotH;
+          yLabels.push({
+            val: val,
+            y: yy
+          });
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "help-overlay",
+          onClick: this.togglePopGraph
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "pop-graph-modal",
+          onClick: function (e) {
+            e.stopPropagation();
+          }
+        }, /*#__PURE__*/React.createElement("h3", {
+          className: "help-title"
+        }, "Population History"), /*#__PURE__*/React.createElement("p", {
+          style: {
+            fontSize: '0.8em',
+            opacity: 0.7,
+            margin: '0 0 8px'
+          }
+        }, hist.length + ' generations recorded \xB7 peak ' + maxPop.toLocaleString()), /*#__PURE__*/React.createElement("svg", {
+          width: "100%",
+          viewBox: "0 0 " + vbW + " " + vbH,
+          style: {
+            background: 'rgba(0,0,0,0.15)',
+            borderRadius: '4px'
+          }
+        }, yLabels.map(function (yl, idx) {
+          return /*#__PURE__*/React.createElement("g", {
+            key: idx
+          }, /*#__PURE__*/React.createElement("line", {
+            x1: padL,
+            y1: yl.y,
+            x2: vbW - padR,
+            y2: yl.y,
+            stroke: "rgba(255,255,255,0.15)",
+            strokeWidth: "0.5"
+          }), /*#__PURE__*/React.createElement("text", {
+            x: padL - 5,
+            y: yl.y + 4,
+            textAnchor: "end",
+            fill: "rgba(255,255,255,0.6)",
+            fontSize: "10"
+          }, yl.val.toLocaleString()));
+        }), /*#__PURE__*/React.createElement("text", {
+          x: padL + plotW / 2,
+          y: vbH - 2,
+          textAnchor: "middle",
+          fill: "rgba(255,255,255,0.5)",
+          fontSize: "9"
+        }, "Generation"), /*#__PURE__*/React.createElement("polyline", {
+          fill: "none",
+          stroke: "#70959A",
+          strokeWidth: "1.5",
+          points: points
+        }), /*#__PURE__*/React.createElement("polygon", {
+          fill: "rgba(112,149,154,0.2)",
+          points: padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)
+        })), /*#__PURE__*/React.createElement("button", {
+          className: "btn help-close",
+          onClick: this.togglePopGraph
         }, "Close")));
       },
       // Returns the sparkline SVG block (or null if insufficient data).
@@ -2854,7 +3349,8 @@ document.addEventListener('DOMContentLoaded', function () {
           var delta = recent[recent.length - 1] - recent[0];
           trendArrow = delta > 2 ? '\u2009\u25b2' : delta < -2 ? '\u2009\u25bc' : '\u2009\u223c';
         }
-        var hist = this.state.popHistory;
+        var fullHist = this.state.popHistory;
+        var hist = fullHist.length > 60 ? fullHist.slice(fullHist.length - 60) : fullHist;
         var maxPop = hist.length ? Math.max.apply(null, hist) : 0;
         if (hist.length <= 1) {
           return null;
@@ -2875,7 +3371,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }, /*#__PURE__*/React.createElement("div", {
           className: "sparkline-header"
         }, /*#__PURE__*/React.createElement("span", {
-          className: "sparkline-title"
+          className: "sparkline-title",
+          onClick: this.togglePopGraph,
+          style: {
+            cursor: 'pointer'
+          },
+          title: "Click for full population graph"
         }, "Pop: " + population.toLocaleString() + trendArrow), /*#__PURE__*/React.createElement("span", {
           className: "sparkline-peak"
         }, "peak " + maxPop.toLocaleString() + (this.state.sessionPeakPop > maxPop ? " \xb7 all " + this.state.sessionPeakPop.toLocaleString() : ""))), /*#__PURE__*/React.createElement("svg", {
@@ -3129,6 +3630,7 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       // ── Horizontal toolbar (desktop/tablet only — hidden on mobile via CSS) ──
       renderToolbar: function () {
+        var self = this;
         return /*#__PURE__*/React.createElement("div", {
           className: "toolbar-strip"
         }, /*#__PURE__*/React.createElement("span", {
@@ -3142,6 +3644,32 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.stepGame
         }, "Step"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.stepBack,
+          title: "Step backward to a previous generation (,)",
+          disabled: this._genHistory.length === 0
+        }, "Back"), /*#__PURE__*/React.createElement("select", {
+          className: "toolbar-step-select",
+          value: this.state.stepCount,
+          onChange: this.setStepCount,
+          title: "Advance N generations at once (Shift+.)"
+        }, /*#__PURE__*/React.createElement("option", {
+          value: "1"
+        }, "+1"), /*#__PURE__*/React.createElement("option", {
+          value: "10"
+        }, "+10"), /*#__PURE__*/React.createElement("option", {
+          value: "50"
+        }, "+50"), /*#__PURE__*/React.createElement("option", {
+          value: "100"
+        }, "+100"), /*#__PURE__*/React.createElement("option", {
+          value: "500"
+        }, "+500")), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: function () {
+            self.stepN(self.state.stepCount);
+          },
+          title: "Advance multiple generations"
+        }, "Go"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.resetGame
         }, "Reset"), /*#__PURE__*/React.createElement("button", {
@@ -3164,6 +3692,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle" + (this.state.gridLines ? " active" : ""),
           onClick: this.toggleGridLines
         }, "Grid"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.showTrails ? " active" : ""),
+          onClick: this.toggleTrails,
+          title: "Show ghost trails of recently-dead cells"
+        }, "Trails"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : ""),
           onClick: this.toggleBoundary,
           title: "Toggle between toroidal (wrapping) and finite (hard-edge) boundaries"
@@ -3247,6 +3779,10 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.stepGame
         }, "Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
+          onClick: this.stepBack,
+          disabled: this._genHistory.length === 0
+        }, "Back"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
           onClick: this.resetGame
         }, "Reset"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
@@ -3259,11 +3795,33 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.fitView
         }, "Fit Grid"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.fitLiveCells,
-          style: {
-            gridColumn: '1 / -1'
-          }
+          onClick: this.fitLiveCells
         }, "Fit Cells")), /*#__PURE__*/React.createElement("div", {
+          className: "buttons buttons-secondary",
+          style: {
+            gridTemplateColumns: '1fr 1fr'
+          }
+        }, /*#__PURE__*/React.createElement("select", {
+          className: "btn",
+          value: this.state.stepCount,
+          onChange: this.setStepCount,
+          title: "Multi-generation step count"
+        }, /*#__PURE__*/React.createElement("option", {
+          value: "1"
+        }, "+1 gen"), /*#__PURE__*/React.createElement("option", {
+          value: "10"
+        }, "+10 gen"), /*#__PURE__*/React.createElement("option", {
+          value: "50"
+        }, "+50 gen"), /*#__PURE__*/React.createElement("option", {
+          value: "100"
+        }, "+100 gen"), /*#__PURE__*/React.createElement("option", {
+          value: "500"
+        }, "+500 gen")), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: function () {
+            self.stepN(self.state.stepCount);
+          }
+        }, "Advance")), /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-secondary"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
@@ -3273,6 +3831,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle" + (this.state.gridLines ? " active" : ""),
           onClick: this.toggleGridLines
         }, "Grid"), /*#__PURE__*/React.createElement("button", {
+          className: "btn btn-toggle" + (this.state.showTrails ? " active" : ""),
+          onClick: this.toggleTrails,
+          title: "Show ghost trails of recently-dead cells"
+        }, "Trails"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.boundary === 'finite' ? " active" : ""),
           onClick: this.toggleBoundary,
           title: "Toggle between toroidal (wrapping) and finite (hard-edge) boundaries"
@@ -3408,6 +3970,10 @@ document.addEventListener('DOMContentLoaded', function () {
           title: "Record an animated GIF of the simulation"
         }, this.state.recording ? "Stop" : "Record"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
+          onClick: this.shareURL,
+          title: "Copy a shareable URL to clipboard"
+        }, this.state.shareTooltip ? "Copied!" : "Share"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
           onClick: this.toggleHelp
         }, "Help")))));
       },
@@ -3439,7 +4005,18 @@ document.addEventListener('DOMContentLoaded', function () {
             key: t,
             value: t
           }, t);
-        })), /*#__PURE__*/React.createElement("label", {
+        })), /*#__PURE__*/React.createElement("select", {
+          className: "rule-preset-select",
+          value: this.state.darkModePref,
+          onChange: this.setDarkModePref,
+          title: "UI dark mode preference"
+        }, /*#__PURE__*/React.createElement("option", {
+          value: "system"
+        }, "Mode: System"), /*#__PURE__*/React.createElement("option", {
+          value: "light"
+        }, "Mode: Light"), /*#__PURE__*/React.createElement("option", {
+          value: "dark"
+        }, "Mode: Dark")), /*#__PURE__*/React.createElement("label", {
           className: "slider-title rule-label"
         }, "Rule (B/S notation)"), /*#__PURE__*/React.createElement("input", {
           className: "rule-input" + (ruleValid ? "" : " rule-input-invalid"),
@@ -3558,7 +4135,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
       render: function () {
         var cs = this.getCanvasSize();
-        return /*#__PURE__*/React.createElement("div", null, this.renderHelpModal(), /*#__PURE__*/React.createElement("h2", {
+        return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+          className: "sr-only",
+          "aria-live": "polite",
+          "aria-atomic": "true"
+        }, "Generation " + this.state.generations + ", Population " + this.state.liveCells.size), this.renderHelpModal(), this.renderPopGraph(), /*#__PURE__*/React.createElement("h2", {
           className: "top site-title"
         }, "Conway's Game of Life"), this.renderToolbar(), /*#__PURE__*/React.createElement("div", {
           className: "content-body"
@@ -3575,6 +4156,8 @@ document.addEventListener('DOMContentLoaded', function () {
             margin: 'auto'
           },
           id: "life-canvas",
+          role: "img",
+          "aria-label": "Conway's Game of Life simulation canvas. Generation " + this.state.generations + ", population " + this.state.liveCells.size + ", " + (this.state.running ? "running" : "paused"),
           draggable: false,
           onMouseDown: this.onMouseDown,
           onMouseMove: this.onMouseMove,
