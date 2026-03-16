@@ -1676,3 +1676,172 @@ canvas.display {
   .rail {
     width: 200px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PHASE 5: POLISH — Accessibility, Performance, Cross-browser
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── prefers-reduced-motion: disable all transitions and animations ───── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important; }
+}
+
+/* ── prefers-contrast: boost borders, remove transparency ────────────── */
+@media (prefers-contrast: more) {
+  .rail,
+  .top-bar,
+  .context-tray,
+  .float-panel,
+  .transport-strip,
+  .hud-overlay,
+  .bottom-sheet,
+  .stats-chip {
+    background: var(--content-bg) !important;
+    opacity: 1 !important;
+    border-width: 2px !important; }
+  .float-panel-header {
+    border-bottom-width: 2px !important; }
+  .rail-tab.active {
+    border-left-width: 4px !important; }
+}
+
+/* ── forced-colors: ensure visibility in Windows High Contrast mode ──── */
+@media (forced-colors: active) {
+  .btn,
+  .btn-toggle,
+  .rail-tab,
+  .transport-strip button {
+    border: 1px solid ButtonText; }
+  .btn-toggle.active {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none; }
+  .status-indicator {
+    border: 1px solid ButtonText; }
+  .float-panel,
+  .rail,
+  .top-bar,
+  .context-tray,
+  .bottom-sheet {
+    border: 2px solid ButtonText; }
+}
+
+/* ── Reduce transparency preference ──────────────────────────────────── */
+@media (prefers-reduced-transparency: reduce) {
+  .rail,
+  .top-bar,
+  .context-tray,
+  .float-panel,
+  .transport-strip,
+  .hud-overlay,
+  .bottom-sheet,
+  .stats-chip {
+    background: var(--content-bg) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important; }
+}
+
+/* ── Focus-visible ring on all interactive panel elements ────────────── */
+.rail-tab:focus-visible,
+.float-panel-header:focus-visible,
+.panel-menu-toggle:focus-visible,
+.transport-strip button:focus-visible,
+.mobile-transport-bar .btn:focus-visible,
+.layout-switcher .btn:focus-visible,
+.context-tray-header .btn:focus-visible,
+.top-bar .btn:focus-visible,
+.top-bar-more .btn:focus-visible,
+.hud-overlay:focus-visible,
+.stats-chip:focus-visible,
+.bottom-sheet-tabs .rail-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  z-index: 1; }
+
+/* ── Smooth open/close for context tray, rail, bottom sheet ──────────── */
+.rail {
+  transition: transform 200ms ease, width 200ms ease, opacity 150ms ease; }
+
+.context-tray {
+  transition: transform 200ms ease-out, opacity 150ms ease; }
+
+.bottom-sheet {
+  transition: transform 250ms ease, opacity 150ms ease; }
+
+/* ── Float panel appear animation (when not dragging) ────────────────── */
+.float-panel {
+  animation: panel-appear 200ms ease-out; }
+
+@keyframes panel-appear {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Stats chip subtle pulse on population change (visual feedback) ──── */
+.stats-chip {
+  transition: box-shadow 300ms ease; }
+
+/* ── Hover feedback on all interactive overlays ──────────────────────── */
+.hud-overlay:hover,
+.stats-chip:hover {
+  box-shadow: 0 2px 16px rgba(0,0,0,0.25);
+  cursor: pointer; }
+
+.rail-tab:hover {
+  background: var(--panel-header-bg); }
+
+.float-panel-collapse:hover,
+.float-panel-close:hover {
+  opacity: 0.7; }
+
+/* ── Skip-to-content link for keyboard users ─────────────────────────── */
+.skip-to-content {
+  position: fixed;
+  top: -100px;
+  left: 8px;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: 0 0 var(--panel-radius) var(--panel-radius);
+  font-size: 0.85em;
+  font-weight: bold;
+  z-index: 9999;
+  transition: top 150ms ease; }
+
+.skip-to-content:focus {
+  top: 0; }
+
+/* ── Cross-browser: scrollbar styling for rail/tray/sheet ────────────── */
+.rail-tab-content::-webkit-scrollbar,
+.context-tray-body::-webkit-scrollbar,
+.bottom-sheet-content::-webkit-scrollbar {
+  width: 6px; }
+
+.rail-tab-content::-webkit-scrollbar-track,
+.context-tray-body::-webkit-scrollbar-track,
+.bottom-sheet-content::-webkit-scrollbar-track {
+  background: transparent; }
+
+.rail-tab-content::-webkit-scrollbar-thumb,
+.context-tray-body::-webkit-scrollbar-thumb,
+.bottom-sheet-content::-webkit-scrollbar-thumb {
+  background: rgba(128,128,128,0.3);
+  border-radius: 3px; }
+
+.rail-tab-content::-webkit-scrollbar-thumb:hover,
+.context-tray-body::-webkit-scrollbar-thumb:hover,
+.bottom-sheet-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(128,128,128,0.5); }
+
+/* Firefox scrollbar */
+.rail-tab-content,
+.context-tray-body,
+.bottom-sheet-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128,128,128,0.3) transparent; }

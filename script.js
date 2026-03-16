@@ -492,11 +492,55 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cols = 100;
                 var rows = 100;
                 // Load persisted layout preferences from localStorage.
+                // Schema v1: {layoutMode, railCollapsed, railTab, railSide, panelStates}
+                var LAYOUT_SCHEMA_VERSION = 1;
                 var savedLayout = {};
                 try {
                     var raw = localStorage.getItem('life-layout-prefs');
-                    if(raw){ savedLayout = JSON.parse(raw); }
-                } catch(e){}
+                    if(raw){
+                        var parsed = JSON.parse(raw);
+                        // Validate schema version — if missing or mismatched, discard.
+                        if(parsed && typeof parsed === 'object'){
+                            // Validate layoutMode is a known value.
+                            if(parsed.layoutMode && ['cartographer','specimen','observatory'].indexOf(parsed.layoutMode) !== -1){
+                                savedLayout.layoutMode = parsed.layoutMode;
+                            }
+                            if(typeof parsed.railCollapsed === 'boolean'){
+                                savedLayout.railCollapsed = parsed.railCollapsed;
+                            }
+                            if(parsed.railTab && ['simulate','tools','board','rules','export'].indexOf(parsed.railTab) !== -1){
+                                savedLayout.railTab = parsed.railTab;
+                            }
+                            if(parsed.railSide && ['left','right'].indexOf(parsed.railSide) !== -1){
+                                savedLayout.railSide = parsed.railSide;
+                            }
+                            // Validate panelStates: must be an object with known panel keys.
+                            if(parsed.panelStates && typeof parsed.panelStates === 'object'){
+                                var validPanels = ['transport','view','tools','board','rules','stats','importExport'];
+                                var ps = {};
+                                var allValid = true;
+                                for(var vi = 0; vi < validPanels.length; vi++){
+                                    var pid = validPanels[vi];
+                                    if(parsed.panelStates[pid] && typeof parsed.panelStates[pid] === 'object'){
+                                        ps[pid] = {
+                                            open: typeof parsed.panelStates[pid].open === 'boolean' ? parsed.panelStates[pid].open : true,
+                                            x: typeof parsed.panelStates[pid].x === 'number' ? parsed.panelStates[pid].x : -1,
+                                            y: typeof parsed.panelStates[pid].y === 'number' ? parsed.panelStates[pid].y : -1,
+                                            collapsed: typeof parsed.panelStates[pid].collapsed === 'boolean' ? parsed.panelStates[pid].collapsed : false
+                                        };
+                                    } else {
+                                        allValid = false;
+                                        break;
+                                    }
+                                }
+                                if(allValid){ savedLayout.panelStates = ps; }
+                            }
+                        }
+                    }
+                } catch(e){
+                    // Corrupted localStorage — silently ignore, use defaults.
+                    try { localStorage.removeItem('life-layout-prefs'); } catch(e2){}
+                }
 
                 return {
                     running :        true,
@@ -1627,7 +1671,13 @@ document.addEventListener('DOMContentLoaded', function(){
             // ── Help modal ─────────────────────────────────────────────────────
 
             toggleHelp : function(){
-                this.setState({showHelp : !this.state.showHelp});
+                var opening = !this.state.showHelp;
+                if(opening){ this._saveFocus(); }
+                var self = this;
+                this.setState({showHelp : opening}, function(){
+                    if(opening){ self._focusFirst('.help-modal'); }
+                    else { self._restoreFocus(); }
+                });
             },
 
             // ── Mouse / painting ───────────────────────────────────────────────
@@ -2593,13 +2643,39 @@ document.addEventListener('DOMContentLoaded', function(){
             _persistLayout : function(){
                 try {
                     localStorage.setItem('life-layout-prefs', JSON.stringify({
+                        _schemaVersion: 1,
                         layoutMode:    this.state.layoutMode,
                         railCollapsed: this.state.railCollapsed,
                         railTab:       this.state.railTab,
                         railSide:      this.state.railSide,
                         panelStates:   this.state.panelStates
                     }));
-                } catch(e){}
+                } catch(e){
+                    // localStorage full or unavailable — silently ignore.
+                }
+            },
+
+            // ── Focus management ─────────────────────────────────────────
+
+            _saveFocus : function(){
+                this._prevFocusEl = document.activeElement;
+            },
+
+            _restoreFocus : function(){
+                if(this._prevFocusEl && this._prevFocusEl.focus){
+                    try { this._prevFocusEl.focus(); } catch(e){}
+                }
+                this._prevFocusEl = null;
+            },
+
+            _focusFirst : function(containerSelector){
+                var self = this;
+                setTimeout(function(){
+                    var el = document.querySelector(containerSelector);
+                    if(!el){ return; }
+                    var focusable = el.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                    if(focusable){ focusable.focus(); }
+                }, 50);
             },
 
             setLayoutMode : function(mode){
@@ -2658,7 +2734,13 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             toggleBottomSheet : function(){
-                this.setState({bottomSheetOpen: !this.state.bottomSheetOpen});
+                var opening = !this.state.bottomSheetOpen;
+                if(opening){ this._saveFocus(); }
+                var self = this;
+                this.setState({bottomSheetOpen: opening}, function(){
+                    if(opening){ self._focusFirst('.bottom-sheet'); }
+                    else { self._restoreFocus(); }
+                });
             },
 
             setBottomSheetTab : function(tab){
@@ -3075,9 +3157,10 @@ document.addEventListener('DOMContentLoaded', function(){
             renderHelpModal : function(){
                 if(!this.state.showHelp){ return null; }
                 return (
-                    <div className="help-overlay" onClick={this.toggleHelp}>
+                    <div className="help-overlay" onClick={this.toggleHelp}
+                        role="dialog" aria-modal="true" aria-labelledby="help-dialog-title">
                         <div className="help-modal" onClick={function(e){ e.stopPropagation(); }}>
-                            <h3 className="help-title">Keyboard Shortcuts</h3>
+                            <h3 className="help-title" id="help-dialog-title">Keyboard Shortcuts</h3>
                             <table className="help-table">
                                 <tbody>
                                     <tr><td>Space</td><td>Play / Pause</td></tr>
@@ -3319,9 +3402,10 @@ document.addEventListener('DOMContentLoaded', function(){
                     yLabels.push({val: val, y: yy});
                 }
                 return (
-                    <div className="help-overlay" onClick={this.togglePopGraph}>
+                    <div className="help-overlay" onClick={this.togglePopGraph}
+                        role="dialog" aria-modal="true" aria-labelledby="popgraph-dialog-title">
                         <div className="pop-graph-modal" onClick={function(e){ e.stopPropagation(); }}>
-                            <h3 className="help-title">Population History</h3>
+                            <h3 className="help-title" id="popgraph-dialog-title">Population History</h3>
                             <p style={{fontSize:'0.8em',opacity:0.7,margin:'0 0 8px'}}>{hist.length + ' generations recorded \xB7 peak ' + maxPop.toLocaleString()}</p>
                             <svg width="100%" viewBox={"0 0 " + vbW + " " + vbH} style={{background:'rgba(0,0,0,0.15)',borderRadius:'4px'}}>
                                 {/* Y-axis gridlines and labels */}
@@ -4250,34 +4334,45 @@ document.addEventListener('DOMContentLoaded', function(){
                     <div className="layout-cartographer">
                         {this.renderCanvas(cs)}
                         {/* Rail */}
-                        <div className={railClass} style={{width: railW + 'px'}}>
+                        <div className={railClass} style={{width: railW + 'px'}}
+                            role="complementary" aria-label="Controls panel">
                             <div className="rail-header">
                                 <span className="rail-title">{"Conway's Game of Life"}</span>
                                 <div className="rail-header-controls">
                                     <button className="btn rail-collapse-btn" onClick={this.toggleRailCollapsed}
-                                        title={this.state.railCollapsed ? "Expand rail" : "Collapse rail"}>
+                                        aria-expanded={!this.state.railCollapsed}
+                                        aria-label={this.state.railCollapsed ? "Expand controls panel" : "Collapse controls panel"}>
                                         {this.state.railCollapsed ? "\u25C0" : "\u25B6"}
                                     </button>
                                 </div>
                             </div>
                             {!this.state.railCollapsed && <div className="rail-stats">{this.renderStats()}</div>}
-                            <div className="rail-tabs">
+                            <div className="rail-tabs" role="tablist" aria-label="Control categories">
                                 {tabs.map(function(tab){
+                                    var isActive = self.state.railTab === tab.id;
                                     return (
                                         <button key={tab.id}
-                                            className={"rail-tab" + (self.state.railTab === tab.id ? " active" : "")}
+                                            className={"rail-tab" + (isActive ? " active" : "")}
                                             onClick={function(){ self.setRailTab(tab.id); }}
-                                            title={tab.label}>
-                                            <i className={"fa " + tab.icon}></i>
+                                            role="tab"
+                                            aria-selected={isActive}
+                                            aria-controls={"rail-panel-" + tab.id}
+                                            aria-label={tab.label}>
+                                            <i className={"fa " + tab.icon} aria-hidden="true"></i>
                                             {!self.state.railCollapsed && <span className="rail-tab-label">{tab.label}</span>}
                                         </button>
                                     );
                                 })}
                             </div>
-                            {!this.state.railCollapsed && tabContent}
+                            {!this.state.railCollapsed &&
+                                <div id={"rail-panel-" + this.state.railTab} role="tabpanel"
+                                    aria-label={this.state.railTab + " controls"}>
+                                    {tabContent}
+                                </div>
+                            }
                         </div>
                         {/* Floating transport strip */}
-                        <div className="transport-strip">
+                        <div className="transport-strip" role="toolbar" aria-label="Simulation transport">
                             {this.renderTransportControls(true)}
                         </div>
                         {/* Rail show button when hidden */}
@@ -4344,31 +4439,38 @@ document.addEventListener('DOMContentLoaded', function(){
                         {/* Mobile context: rotation preview + selection when active */}
                         {this.renderMobileContextPanel()}
                         {/* Bottom transport bar */}
-                        <div className="mobile-transport-bar">
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}>
+                        <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
+                                aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 {this.state.running ? "\u23F8" : "\u25B6"}
                             </button>
-                            <button className="btn" onClick={this.stepGame}>Step</button>
-                            <span className="mobile-transport-mode">
+                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <span className="mobile-transport-mode" aria-live="polite">
                                 {this.state.drawMode === 'preset' && this.state.selectedPattern
                                     ? this.state.selectedPattern
                                     : (this.state.drawMode === 'select' ? 'Select' : 'Draw')}
                             </span>
                             <button className={"btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
-                                onClick={this.toggleBottomSheet}>More</button>
+                                onClick={this.toggleBottomSheet}
+                                aria-expanded={this.state.bottomSheetOpen}
+                                aria-label="Open controls panel">More</button>
                         </div>
                         {/* Bottom sheet */}
                         {this.state.bottomSheetOpen &&
                             <div className="bottom-sheet-container">
-                                <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}></div>
-                                <div className="bottom-sheet">
-                                    <div className="bottom-sheet-tabs">
+                                <div className="bottom-sheet-backdrop" onClick={this.toggleBottomSheet}
+                                    role="presentation" aria-hidden="true"></div>
+                                <div className="bottom-sheet" role="dialog" aria-modal="true"
+                                    aria-label="Controls panel">
+                                    <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
                                         {tabs.map(function(tab){
+                                            var isActive = self.state.bottomSheetTab === tab.id;
                                             return (
                                                 <button key={tab.id}
-                                                    className={"rail-tab" + (self.state.bottomSheetTab === tab.id ? " active" : "")}
-                                                    onClick={function(){ self.setBottomSheetTab(tab.id); }}>
-                                                    <i className={"fa " + tab.icon}></i>
+                                                    className={"rail-tab" + (isActive ? " active" : "")}
+                                                    onClick={function(){ self.setBottomSheetTab(tab.id); }}
+                                                    role="tab" aria-selected={isActive} aria-label={tab.label}>
+                                                    <i className={"fa " + tab.icon} aria-hidden="true"></i>
                                                     <span className="rail-tab-label">{tab.label}</span>
                                                 </button>
                                             );
@@ -4414,7 +4516,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     <div className="layout-specimen">
                         {this.renderCanvas(cs)}
                         {/* Top bar */}
-                        <div className="top-bar">
+                        <div className="top-bar" role="toolbar" aria-label="Main toolbar">
                             <div className="top-bar-left">
                                 <span className="top-bar-title">{"Conway's Game of Life"}</span>
                             </div>
@@ -4423,28 +4525,35 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                             <div className="top-bar-right">
                                 {this.renderModeControls()}
-                                <div className="top-bar-more">
+                                <div className="top-bar-more" role="group" aria-label="Settings panels">
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : "")}
-                                        onClick={function(){ self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools'); }}>Tools</button>
+                                        onClick={function(){ self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools'); }}
+                                        aria-expanded={this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen}>Tools</button>
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'board' && this.state.contextTrayOpen ? " active" : "")}
-                                        onClick={function(){ self.state.contextTrayContent === 'board' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('board'); }}>Board</button>
+                                        onClick={function(){ self.state.contextTrayContent === 'board' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('board'); }}
+                                        aria-expanded={this.state.contextTrayContent === 'board' && this.state.contextTrayOpen}>Board</button>
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen ? " active" : "")}
-                                        onClick={function(){ self.state.contextTrayContent === 'rules' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('rules'); }}>Rules</button>
+                                        onClick={function(){ self.state.contextTrayContent === 'rules' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('rules'); }}
+                                        aria-expanded={this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen}>Rules</button>
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'export' && this.state.contextTrayOpen ? " active" : "")}
-                                        onClick={function(){ self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export'); }}>Export</button>
+                                        onClick={function(){ self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export'); }}
+                                        aria-expanded={this.state.contextTrayContent === 'export' && this.state.contextTrayOpen}>Export</button>
                                 </div>
                             </div>
                         </div>
                         {/* Context tray */}
                         {this.state.contextTrayOpen &&
-                            <div className={"context-tray" + (this.state.contextTrayPinned ? " pinned" : "")}>
+                            <div className={"context-tray" + (this.state.contextTrayPinned ? " pinned" : "")}
+                                role="region" aria-label={this.state.contextTrayContent + " settings"}>
                                 <div className="context-tray-header">
                                     <button className={"btn btn-toggle" + (this.state.contextTrayPinned ? " active" : "")}
-                                        onClick={this.toggleContextTrayPin} title="Pin tray open">
-                                        <i className="fa fa-thumb-tack"></i>
+                                        onClick={this.toggleContextTrayPin}
+                                        aria-pressed={this.state.contextTrayPinned}
+                                        aria-label="Pin tray open">
+                                        <i className="fa fa-thumb-tack" aria-hidden="true"></i>
                                     </button>
                                     <button className="btn" onClick={function(){ self.setState({contextTrayOpen: false, contextTrayContent: null, contextTrayPinned: false}); }}
-                                        title="Close tray">&times;</button>
+                                        aria-label="Close settings tray">&times;</button>
                                 </div>
                                 <div className="context-tray-body">
                                     {trayContent}
@@ -4452,7 +4561,9 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                         }
                         {/* HUD overlay */}
-                        <div className="hud-overlay" onClick={this.togglePopGraph}>
+                        <div className="hud-overlay" onClick={this.togglePopGraph}
+                            role="status" aria-live="polite" aria-label="Simulation statistics"
+                            tabIndex="0">
                             <span>{"Gen " + this.state.generations.toLocaleString()}</span>
                             <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
                             <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
@@ -4525,133 +4636,35 @@ document.addEventListener('DOMContentLoaded', function(){
                     <div className={"layout-observatory" + (zenMode ? " zen-mode" : "")}>
                         {this.renderCanvas(cs)}
                         {!zenMode &&
-                            <div className="panel-overlay-container">
-                                {/* Transport panel */}
-                                {panels.transport.open &&
-                                    <div className={"float-panel float-panel-transport" + (panels.transport.collapsed ? " float-panel-collapsed" : "")}
-                                        style={panels.transport.x >= 0 ? {left: panels.transport.x, top: panels.transport.y} : {}}>
-                                        <div className="float-panel-header">
-                                            <span className="float-panel-title">Transport</span>
-                                            <button className="btn float-panel-collapse"
-                                                onClick={function(){ self._togglePanelCollapse('transport'); }}>{panels.transport.collapsed ? "+" : "\u2013"}</button>
-                                            <button className="btn float-panel-close"
-                                                onClick={function(){ self._togglePanelOpen('transport'); }}>&times;</button>
-                                        </div>
-                                        {!panels.transport.collapsed && <div className="float-panel-body">
-                                            {this.renderTransportControls(false)}
-                                        </div>}
-                                    </div>
-                                }
-                                {/* View panel */}
-                                {panels.view.open &&
-                                    <div className={"float-panel float-panel-view" + (panels.view.collapsed ? " float-panel-collapsed" : "")}
-                                        style={panels.view.x >= 0 ? {left: panels.view.x, top: panels.view.y} : {}}>
-                                        <div className="float-panel-header">
-                                            <span className="float-panel-title">View</span>
-                                            <button className="btn float-panel-collapse"
-                                                onClick={function(){ self._togglePanelCollapse('view'); }}>{panels.view.collapsed ? "+" : "\u2013"}</button>
-                                            <button className="btn float-panel-close"
-                                                onClick={function(){ self._togglePanelOpen('view'); }}>&times;</button>
-                                        </div>
-                                        {!panels.view.collapsed && <div className="float-panel-body">
-                                            {this.renderViewControls()}
-                                        </div>}
-                                    </div>
-                                }
-                                {/* Tools panel */}
-                                {panels.tools.open &&
-                                    <div className={"float-panel float-panel-tools" + (panels.tools.collapsed ? " float-panel-collapsed" : "")}
-                                        style={panels.tools.x >= 0 ? {left: panels.tools.x, top: panels.tools.y} : {}}>
-                                        <div className="float-panel-header">
-                                            <span className="float-panel-title">Tools</span>
-                                            <button className="btn float-panel-collapse"
-                                                onClick={function(){ self._togglePanelCollapse('tools'); }}>{panels.tools.collapsed ? "+" : "\u2013"}</button>
-                                            <button className="btn float-panel-close"
-                                                onClick={function(){ self._togglePanelOpen('tools'); }}>&times;</button>
-                                        </div>
-                                        {!panels.tools.collapsed && <div className="float-panel-body">
-                                            {this.renderModeControls()}
-                                            {this.renderToolsContent()}
-                                        </div>}
-                                    </div>
-                                }
-                                {/* Board panel */}
-                                {panels.board.open &&
-                                    <div className={"float-panel float-panel-board" + (panels.board.collapsed ? " float-panel-collapsed" : "")}
-                                        style={panels.board.x >= 0 ? {left: panels.board.x, top: panels.board.y} : {}}>
-                                        <div className="float-panel-header">
-                                            <span className="float-panel-title">Board</span>
-                                            <button className="btn float-panel-collapse"
-                                                onClick={function(){ self._togglePanelCollapse('board'); }}>{panels.board.collapsed ? "+" : "\u2013"}</button>
-                                            <button className="btn float-panel-close"
-                                                onClick={function(){ self._togglePanelOpen('board'); }}>&times;</button>
-                                        </div>
-                                        {!panels.board.collapsed && <div className="float-panel-body">
-                                            {this.renderSliders()}
-                                        </div>}
-                                    </div>
-                                }
-                                {/* Rules panel */}
-                                {panels.rules.open &&
-                                    <div className={"float-panel float-panel-rules" + (panels.rules.collapsed ? " float-panel-collapsed" : "")}
-                                        style={panels.rules.x >= 0 ? {left: panels.rules.x, top: panels.rules.y} : {}}>
-                                        <div className="float-panel-header">
-                                            <span className="float-panel-title">Rules</span>
-                                            <button className="btn float-panel-collapse"
-                                                onClick={function(){ self._togglePanelCollapse('rules'); }}>{panels.rules.collapsed ? "+" : "\u2013"}</button>
-                                            <button className="btn float-panel-close"
-                                                onClick={function(){ self._togglePanelOpen('rules'); }}>&times;</button>
-                                        </div>
-                                        {!panels.rules.collapsed && <div className="float-panel-body">
-                                            {this.renderRulesSection()}
-                                            <div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div>
-                                        </div>}
-                                    </div>
-                                }
-                                {/* Stats panel */}
-                                {panels.stats.open &&
-                                    <div className={"float-panel float-panel-stats" + (panels.stats.collapsed ? " float-panel-collapsed" : "")}
-                                        style={panels.stats.x >= 0 ? {left: panels.stats.x, top: panels.stats.y} : {}}>
-                                        <div className="float-panel-header">
-                                            <span className="float-panel-title">Stats</span>
-                                            <button className="btn float-panel-collapse"
-                                                onClick={function(){ self._togglePanelCollapse('stats'); }}>{panels.stats.collapsed ? "+" : "\u2013"}</button>
-                                            <button className="btn float-panel-close"
-                                                onClick={function(){ self._togglePanelOpen('stats'); }}>&times;</button>
-                                        </div>
-                                        {!panels.stats.collapsed && <div className="float-panel-body">
-                                            {this.renderStats()}
-                                        </div>}
-                                    </div>
-                                }
-                                {/* Import/Export panel */}
-                                {panels.importExport.open &&
-                                    <div className={"float-panel float-panel-import-export" + (panels.importExport.collapsed ? " float-panel-collapsed" : "")}
-                                        style={panels.importExport.x >= 0 ? {left: panels.importExport.x, top: panels.importExport.y} : {}}>
-                                        <div className="float-panel-header">
-                                            <span className="float-panel-title">Import / Export</span>
-                                            <button className="btn float-panel-collapse"
-                                                onClick={function(){ self._togglePanelCollapse('importExport'); }}>{panels.importExport.collapsed ? "+" : "\u2013"}</button>
-                                            <button className="btn float-panel-close"
-                                                onClick={function(){ self._togglePanelOpen('importExport'); }}>&times;</button>
-                                        </div>
-                                        {!panels.importExport.collapsed && <div className="float-panel-body">
-                                            {this.renderExportContent()}
-                                        </div>}
-                                    </div>
-                                }
+                            <div className="panel-overlay-container" role="group" aria-label="Floating control panels">
+                                {this._renderFloatPanel('transport', 'Transport', this.renderTransportControls(false))}
+                                {this._renderFloatPanel('view', 'View', this.renderViewControls())}
+                                {this._renderFloatPanel('tools', 'Tools', (
+                                    <div>{this.renderModeControls()}{this.renderToolsContent()}</div>
+                                ))}
+                                {this._renderFloatPanel('board', 'Board', this.renderSliders())}
+                                {this._renderFloatPanel('rules', 'Rules', (
+                                    <div>{this.renderRulesSection()}<div style={{marginTop:'8px'}}>{this.renderLayoutSwitcher()}</div></div>
+                                ))}
+                                {this._renderFloatPanel('stats', 'Stats', this.renderStats())}
+                                {this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent())}
                                 {/* Panel menu */}
-                                <div className="panel-menu">
-                                    <button className="btn panel-menu-toggle" onClick={function(){ self.setState({_panelMenuOpen: !self.state._panelMenuOpen}); }}
-                                        title="Show/hide panels"><i className="fa fa-th"></i></button>
+                                <div className="panel-menu" role="group" aria-label="Panel visibility">
+                                    <button className="btn panel-menu-toggle"
+                                        onClick={function(){ self.setState({_panelMenuOpen: !self.state._panelMenuOpen}); }}
+                                        aria-expanded={!!this.state._panelMenuOpen}
+                                        aria-label="Toggle panel visibility menu">
+                                        <i className="fa fa-th" aria-hidden="true"></i>
+                                    </button>
                                     {this.state._panelMenuOpen &&
-                                        <div className="panel-menu-list">
+                                        <div className="panel-menu-list" role="group" aria-label="Panel toggles">
                                             {['transport','view','tools','board','rules','stats','importExport'].map(function(id){
                                                 var label = id === 'importExport' ? 'Import/Export' : id.charAt(0).toUpperCase() + id.slice(1);
                                                 return (
                                                     <label key={id} className="panel-menu-item">
                                                         <input type="checkbox" checked={panels[id].open}
-                                                            onChange={function(){ self._togglePanelOpen(id); }} />
+                                                            onChange={function(){ self._togglePanelOpen(id); }}
+                                                            aria-label={"Show " + label + " panel"} />
                                                         <span>{label}</span>
                                                     </label>
                                                 );
@@ -4712,6 +4725,33 @@ document.addEventListener('DOMContentLoaded', function(){
                 );
             },
 
+            // ── Float panel helper (Observatory) ─────────────────────────────
+
+            _renderFloatPanel : function(panelId, label, content){
+                var self = this;
+                var ps = this.state.panelStates[panelId];
+                if(!ps || !ps.open){ return null; }
+                return (
+                    <div className={"float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (ps.collapsed ? " float-panel-collapsed" : "")}
+                        style={ps.x >= 0 ? {left: ps.x, top: ps.y} : {}}
+                        role="region" aria-label={label + " panel"}>
+                        <div className="float-panel-header">
+                            <span className="float-panel-title" id={"panel-title-" + panelId}>{label}</span>
+                            <button className="btn float-panel-collapse"
+                                onClick={function(){ self._togglePanelCollapse(panelId); }}
+                                aria-expanded={!ps.collapsed}
+                                aria-label={ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"}>
+                                {ps.collapsed ? "+" : "\u2013"}
+                            </button>
+                            <button className="btn float-panel-close"
+                                onClick={function(){ self._togglePanelOpen(panelId); }}
+                                aria-label={"Close " + label + " panel"}>&times;</button>
+                        </div>
+                        {!ps.collapsed && <div className="float-panel-body">{content}</div>}
+                    </div>
+                );
+            },
+
             // ── Panel state helpers (Observatory) ────────────────────────────
 
             _togglePanelOpen : function(panelId){
@@ -4750,7 +4790,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
 
                 return (
-                    <div className={"app-root layout-" + layout}>
+                    <div className={"app-root layout-" + layout} role="application"
+                        aria-label="Conway's Game of Life">
+                        <a className="skip-to-content" href="#life-canvas">Skip to canvas</a>
                         <div className="sr-only" aria-live="polite" aria-atomic="true">
                             {"Generation " + this.state.generations + ", Population " + this.state.liveCells.size}
                         </div>

@@ -691,13 +691,59 @@ document.addEventListener('DOMContentLoaded', function () {
         var cols = 100;
         var rows = 100;
         // Load persisted layout preferences from localStorage.
+        // Schema v1: {layoutMode, railCollapsed, railTab, railSide, panelStates}
+        var LAYOUT_SCHEMA_VERSION = 1;
         var savedLayout = {};
         try {
           var raw = localStorage.getItem('life-layout-prefs');
           if (raw) {
-            savedLayout = JSON.parse(raw);
+            var parsed = JSON.parse(raw);
+            // Validate schema version — if missing or mismatched, discard.
+            if (parsed && typeof parsed === 'object') {
+              // Validate layoutMode is a known value.
+              if (parsed.layoutMode && ['cartographer', 'specimen', 'observatory'].indexOf(parsed.layoutMode) !== -1) {
+                savedLayout.layoutMode = parsed.layoutMode;
+              }
+              if (typeof parsed.railCollapsed === 'boolean') {
+                savedLayout.railCollapsed = parsed.railCollapsed;
+              }
+              if (parsed.railTab && ['simulate', 'tools', 'board', 'rules', 'export'].indexOf(parsed.railTab) !== -1) {
+                savedLayout.railTab = parsed.railTab;
+              }
+              if (parsed.railSide && ['left', 'right'].indexOf(parsed.railSide) !== -1) {
+                savedLayout.railSide = parsed.railSide;
+              }
+              // Validate panelStates: must be an object with known panel keys.
+              if (parsed.panelStates && typeof parsed.panelStates === 'object') {
+                var validPanels = ['transport', 'view', 'tools', 'board', 'rules', 'stats', 'importExport'];
+                var ps = {};
+                var allValid = true;
+                for (var vi = 0; vi < validPanels.length; vi++) {
+                  var pid = validPanels[vi];
+                  if (parsed.panelStates[pid] && typeof parsed.panelStates[pid] === 'object') {
+                    ps[pid] = {
+                      open: typeof parsed.panelStates[pid].open === 'boolean' ? parsed.panelStates[pid].open : true,
+                      x: typeof parsed.panelStates[pid].x === 'number' ? parsed.panelStates[pid].x : -1,
+                      y: typeof parsed.panelStates[pid].y === 'number' ? parsed.panelStates[pid].y : -1,
+                      collapsed: typeof parsed.panelStates[pid].collapsed === 'boolean' ? parsed.panelStates[pid].collapsed : false
+                    };
+                  } else {
+                    allValid = false;
+                    break;
+                  }
+                }
+                if (allValid) {
+                  savedLayout.panelStates = ps;
+                }
+              }
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          // Corrupted localStorage — silently ignore, use defaults.
+          try {
+            localStorage.removeItem('life-layout-prefs');
+          } catch (e2) {}
+        }
         return {
           running: true,
           cellSize: cellSize,
@@ -1987,8 +2033,19 @@ document.addEventListener('DOMContentLoaded', function () {
       // ── Help modal ─────────────────────────────────────────────────────
 
       toggleHelp: function () {
+        var opening = !this.state.showHelp;
+        if (opening) {
+          this._saveFocus();
+        }
+        var self = this;
         this.setState({
-          showHelp: !this.state.showHelp
+          showHelp: opening
+        }, function () {
+          if (opening) {
+            self._focusFirst('.help-modal');
+          } else {
+            self._restoreFocus();
+          }
         });
       },
       // ── Mouse / painting ───────────────────────────────────────────────
@@ -3313,13 +3370,42 @@ document.addEventListener('DOMContentLoaded', function () {
       _persistLayout: function () {
         try {
           localStorage.setItem('life-layout-prefs', JSON.stringify({
+            _schemaVersion: 1,
             layoutMode: this.state.layoutMode,
             railCollapsed: this.state.railCollapsed,
             railTab: this.state.railTab,
             railSide: this.state.railSide,
             panelStates: this.state.panelStates
           }));
-        } catch (e) {}
+        } catch (e) {
+          // localStorage full or unavailable — silently ignore.
+        }
+      },
+      // ── Focus management ─────────────────────────────────────────
+
+      _saveFocus: function () {
+        this._prevFocusEl = document.activeElement;
+      },
+      _restoreFocus: function () {
+        if (this._prevFocusEl && this._prevFocusEl.focus) {
+          try {
+            this._prevFocusEl.focus();
+          } catch (e) {}
+        }
+        this._prevFocusEl = null;
+      },
+      _focusFirst: function (containerSelector) {
+        var self = this;
+        setTimeout(function () {
+          var el = document.querySelector(containerSelector);
+          if (!el) {
+            return;
+          }
+          var focusable = el.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+          if (focusable) {
+            focusable.focus();
+          }
+        }, 50);
       },
       setLayoutMode: function (mode) {
         var self = this;
@@ -3396,8 +3482,19 @@ document.addEventListener('DOMContentLoaded', function () {
         });
       },
       toggleBottomSheet: function () {
+        var opening = !this.state.bottomSheetOpen;
+        if (opening) {
+          this._saveFocus();
+        }
+        var self = this;
         this.setState({
-          bottomSheetOpen: !this.state.bottomSheetOpen
+          bottomSheetOpen: opening
+        }, function () {
+          if (opening) {
+            self._focusFirst('.bottom-sheet');
+          } else {
+            self._restoreFocus();
+          }
         });
       },
       setBottomSheetTab: function (tab) {
@@ -3918,14 +4015,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return /*#__PURE__*/React.createElement("div", {
           className: "help-overlay",
-          onClick: this.toggleHelp
+          onClick: this.toggleHelp,
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": "help-dialog-title"
         }, /*#__PURE__*/React.createElement("div", {
           className: "help-modal",
           onClick: function (e) {
             e.stopPropagation();
           }
         }, /*#__PURE__*/React.createElement("h3", {
-          className: "help-title"
+          className: "help-title",
+          id: "help-dialog-title"
         }, "Keyboard Shortcuts"), /*#__PURE__*/React.createElement("table", {
           className: "help-table"
         }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Space"), /*#__PURE__*/React.createElement("td", null, "Play / Pause")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "."), /*#__PURE__*/React.createElement("td", null, "Step one generation")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Shift+."), /*#__PURE__*/React.createElement("td", null, "Step N generations")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, ","), /*#__PURE__*/React.createElement("td", null, "Step backward")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
@@ -4219,14 +4320,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return /*#__PURE__*/React.createElement("div", {
           className: "help-overlay",
-          onClick: this.togglePopGraph
+          onClick: this.togglePopGraph,
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-labelledby": "popgraph-dialog-title"
         }, /*#__PURE__*/React.createElement("div", {
           className: "pop-graph-modal",
           onClick: function (e) {
             e.stopPropagation();
           }
         }, /*#__PURE__*/React.createElement("h3", {
-          className: "help-title"
+          className: "help-title",
+          id: "popgraph-dialog-title"
         }, "Population History"), /*#__PURE__*/React.createElement("p", {
           style: {
             fontSize: '0.8em',
@@ -5628,7 +5733,9 @@ document.addEventListener('DOMContentLoaded', function () {
           className: railClass,
           style: {
             width: railW + 'px'
-          }
+          },
+          role: "complementary",
+          "aria-label": "Controls panel"
         }, /*#__PURE__*/React.createElement("div", {
           className: "rail-header"
         }, /*#__PURE__*/React.createElement("span", {
@@ -5638,26 +5745,40 @@ document.addEventListener('DOMContentLoaded', function () {
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn rail-collapse-btn",
           onClick: this.toggleRailCollapsed,
-          title: this.state.railCollapsed ? "Expand rail" : "Collapse rail"
+          "aria-expanded": !this.state.railCollapsed,
+          "aria-label": this.state.railCollapsed ? "Expand controls panel" : "Collapse controls panel"
         }, this.state.railCollapsed ? "\u25C0" : "\u25B6"))), !this.state.railCollapsed && /*#__PURE__*/React.createElement("div", {
           className: "rail-stats"
         }, this.renderStats()), /*#__PURE__*/React.createElement("div", {
-          className: "rail-tabs"
+          className: "rail-tabs",
+          role: "tablist",
+          "aria-label": "Control categories"
         }, tabs.map(function (tab) {
+          var isActive = self.state.railTab === tab.id;
           return /*#__PURE__*/React.createElement("button", {
             key: tab.id,
-            className: "rail-tab" + (self.state.railTab === tab.id ? " active" : ""),
+            className: "rail-tab" + (isActive ? " active" : ""),
             onClick: function () {
               self.setRailTab(tab.id);
             },
-            title: tab.label
+            role: "tab",
+            "aria-selected": isActive,
+            "aria-controls": "rail-panel-" + tab.id,
+            "aria-label": tab.label
           }, /*#__PURE__*/React.createElement("i", {
-            className: "fa " + tab.icon
+            className: "fa " + tab.icon,
+            "aria-hidden": "true"
           }), !self.state.railCollapsed && /*#__PURE__*/React.createElement("span", {
             className: "rail-tab-label"
           }, tab.label));
-        })), !this.state.railCollapsed && tabContent), /*#__PURE__*/React.createElement("div", {
-          className: "transport-strip"
+        })), !this.state.railCollapsed && /*#__PURE__*/React.createElement("div", {
+          id: "rail-panel-" + this.state.railTab,
+          role: "tabpanel",
+          "aria-label": this.state.railTab + " controls"
+        }, tabContent)), /*#__PURE__*/React.createElement("div", {
+          className: "transport-strip",
+          role: "toolbar",
+          "aria-label": "Simulation transport"
         }, this.renderTransportControls(true)), this.state.railHidden && /*#__PURE__*/React.createElement("div", {
           className: "rail-reveal rail-reveal-" + railSide,
           onMouseEnter: this.toggleRailHidden
@@ -5718,36 +5839,55 @@ document.addEventListener('DOMContentLoaded', function () {
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
         }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), /*#__PURE__*/React.createElement("div", {
-          className: "mobile-transport-bar"
+          className: "mobile-transport-bar",
+          role: "toolbar",
+          "aria-label": "Simulation transport"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
-          onClick: this.toggleGame
+          onClick: this.toggleGame,
+          "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
         }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
-          onClick: this.stepGame
+          onClick: this.stepGame,
+          "aria-label": "Step one generation"
         }, "Step"), /*#__PURE__*/React.createElement("span", {
-          className: "mobile-transport-mode"
+          className: "mobile-transport-mode",
+          "aria-live": "polite"
         }, this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
-          onClick: this.toggleBottomSheet
+          onClick: this.toggleBottomSheet,
+          "aria-expanded": this.state.bottomSheetOpen,
+          "aria-label": "Open controls panel"
         }, "More")), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-container"
         }, /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-backdrop",
-          onClick: this.toggleBottomSheet
+          onClick: this.toggleBottomSheet,
+          role: "presentation",
+          "aria-hidden": "true"
         }), /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet"
+          className: "bottom-sheet",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-label": "Controls panel"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "bottom-sheet-tabs"
+          className: "bottom-sheet-tabs",
+          role: "tablist",
+          "aria-label": "Control categories"
         }, tabs.map(function (tab) {
+          var isActive = self.state.bottomSheetTab === tab.id;
           return /*#__PURE__*/React.createElement("button", {
             key: tab.id,
-            className: "rail-tab" + (self.state.bottomSheetTab === tab.id ? " active" : ""),
+            className: "rail-tab" + (isActive ? " active" : ""),
             onClick: function () {
               self.setBottomSheetTab(tab.id);
-            }
+            },
+            role: "tab",
+            "aria-selected": isActive,
+            "aria-label": tab.label
           }, /*#__PURE__*/React.createElement("i", {
-            className: "fa " + tab.icon
+            className: "fa " + tab.icon,
+            "aria-hidden": "true"
           }), /*#__PURE__*/React.createElement("span", {
             className: "rail-tab-label"
           }, tab.label));
@@ -5786,7 +5926,9 @@ document.addEventListener('DOMContentLoaded', function () {
         return /*#__PURE__*/React.createElement("div", {
           className: "layout-specimen"
         }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
-          className: "top-bar"
+          className: "top-bar",
+          role: "toolbar",
+          "aria-label": "Main toolbar"
         }, /*#__PURE__*/React.createElement("div", {
           className: "top-bar-left"
         }, /*#__PURE__*/React.createElement("span", {
@@ -5796,37 +5938,47 @@ document.addEventListener('DOMContentLoaded', function () {
         }, this.renderTransportControls(false)), /*#__PURE__*/React.createElement("div", {
           className: "top-bar-right"
         }, this.renderModeControls(), /*#__PURE__*/React.createElement("div", {
-          className: "top-bar-more"
+          className: "top-bar-more",
+          role: "group",
+          "aria-label": "Settings panels"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : ""),
           onClick: function () {
             self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools');
-          }
+          },
+          "aria-expanded": this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen
         }, "Tools"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayContent === 'board' && this.state.contextTrayOpen ? " active" : ""),
           onClick: function () {
             self.state.contextTrayContent === 'board' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('board');
-          }
+          },
+          "aria-expanded": this.state.contextTrayContent === 'board' && this.state.contextTrayOpen
         }, "Board"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen ? " active" : ""),
           onClick: function () {
             self.state.contextTrayContent === 'rules' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('rules');
-          }
+          },
+          "aria-expanded": this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen
         }, "Rules"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayContent === 'export' && this.state.contextTrayOpen ? " active" : ""),
           onClick: function () {
             self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export');
-          }
+          },
+          "aria-expanded": this.state.contextTrayContent === 'export' && this.state.contextTrayOpen
         }, "Export")))), this.state.contextTrayOpen && /*#__PURE__*/React.createElement("div", {
-          className: "context-tray" + (this.state.contextTrayPinned ? " pinned" : "")
+          className: "context-tray" + (this.state.contextTrayPinned ? " pinned" : ""),
+          role: "region",
+          "aria-label": this.state.contextTrayContent + " settings"
         }, /*#__PURE__*/React.createElement("div", {
           className: "context-tray-header"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayPinned ? " active" : ""),
           onClick: this.toggleContextTrayPin,
-          title: "Pin tray open"
+          "aria-pressed": this.state.contextTrayPinned,
+          "aria-label": "Pin tray open"
         }, /*#__PURE__*/React.createElement("i", {
-          className: "fa fa-thumb-tack"
+          className: "fa fa-thumb-tack",
+          "aria-hidden": "true"
         })), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: function () {
@@ -5836,12 +5988,16 @@ document.addEventListener('DOMContentLoaded', function () {
               contextTrayPinned: false
             });
           },
-          title: "Close tray"
+          "aria-label": "Close settings tray"
         }, "\xD7")), /*#__PURE__*/React.createElement("div", {
           className: "context-tray-body"
         }, trayContent)), /*#__PURE__*/React.createElement("div", {
           className: "hud-overlay",
-          onClick: this.togglePopGraph
+          onClick: this.togglePopGraph,
+          role: "status",
+          "aria-live": "polite",
+          "aria-label": "Simulation statistics",
+          tabIndex: "0"
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
         }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause"), this.state.hoverCell && /*#__PURE__*/React.createElement("span", {
@@ -5896,167 +6052,17 @@ document.addEventListener('DOMContentLoaded', function () {
         return /*#__PURE__*/React.createElement("div", {
           className: "layout-observatory" + (zenMode ? " zen-mode" : "")
         }, this.renderCanvas(cs), !zenMode && /*#__PURE__*/React.createElement("div", {
-          className: "panel-overlay-container"
-        }, panels.transport.open && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel float-panel-transport" + (panels.transport.collapsed ? " float-panel-collapsed" : ""),
-          style: panels.transport.x >= 0 ? {
-            left: panels.transport.x,
-            top: panels.transport.y
-          } : {}
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-header"
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "float-panel-title"
-        }, "Transport"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-collapse",
-          onClick: function () {
-            self._togglePanelCollapse('transport');
-          }
-        }, panels.transport.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-close",
-          onClick: function () {
-            self._togglePanelOpen('transport');
-          }
-        }, "\xD7")), !panels.transport.collapsed && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-body"
-        }, this.renderTransportControls(false))), panels.view.open && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel float-panel-view" + (panels.view.collapsed ? " float-panel-collapsed" : ""),
-          style: panels.view.x >= 0 ? {
-            left: panels.view.x,
-            top: panels.view.y
-          } : {}
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-header"
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "float-panel-title"
-        }, "View"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-collapse",
-          onClick: function () {
-            self._togglePanelCollapse('view');
-          }
-        }, panels.view.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-close",
-          onClick: function () {
-            self._togglePanelOpen('view');
-          }
-        }, "\xD7")), !panels.view.collapsed && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-body"
-        }, this.renderViewControls())), panels.tools.open && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel float-panel-tools" + (panels.tools.collapsed ? " float-panel-collapsed" : ""),
-          style: panels.tools.x >= 0 ? {
-            left: panels.tools.x,
-            top: panels.tools.y
-          } : {}
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-header"
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "float-panel-title"
-        }, "Tools"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-collapse",
-          onClick: function () {
-            self._togglePanelCollapse('tools');
-          }
-        }, panels.tools.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-close",
-          onClick: function () {
-            self._togglePanelOpen('tools');
-          }
-        }, "\xD7")), !panels.tools.collapsed && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-body"
-        }, this.renderModeControls(), this.renderToolsContent())), panels.board.open && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel float-panel-board" + (panels.board.collapsed ? " float-panel-collapsed" : ""),
-          style: panels.board.x >= 0 ? {
-            left: panels.board.x,
-            top: panels.board.y
-          } : {}
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-header"
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "float-panel-title"
-        }, "Board"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-collapse",
-          onClick: function () {
-            self._togglePanelCollapse('board');
-          }
-        }, panels.board.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-close",
-          onClick: function () {
-            self._togglePanelOpen('board');
-          }
-        }, "\xD7")), !panels.board.collapsed && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-body"
-        }, this.renderSliders())), panels.rules.open && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel float-panel-rules" + (panels.rules.collapsed ? " float-panel-collapsed" : ""),
-          style: panels.rules.x >= 0 ? {
-            left: panels.rules.x,
-            top: panels.rules.y
-          } : {}
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-header"
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "float-panel-title"
-        }, "Rules"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-collapse",
-          onClick: function () {
-            self._togglePanelCollapse('rules');
-          }
-        }, panels.rules.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-close",
-          onClick: function () {
-            self._togglePanelOpen('rules');
-          }
-        }, "\xD7")), !panels.rules.collapsed && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-body"
-        }, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
+          className: "panel-overlay-container",
+          role: "group",
+          "aria-label": "Floating control panels"
+        }, this._renderFloatPanel('transport', 'Transport', this.renderTransportControls(false)), this._renderFloatPanel('view', 'View', this.renderViewControls()), this._renderFloatPanel('tools', 'Tools', /*#__PURE__*/React.createElement("div", null, this.renderModeControls(), this.renderToolsContent())), this._renderFloatPanel('board', 'Board', this.renderSliders()), this._renderFloatPanel('rules', 'Rules', /*#__PURE__*/React.createElement("div", null, this.renderRulesSection(), /*#__PURE__*/React.createElement("div", {
           style: {
             marginTop: '8px'
           }
-        }, this.renderLayoutSwitcher()))), panels.stats.open && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel float-panel-stats" + (panels.stats.collapsed ? " float-panel-collapsed" : ""),
-          style: panels.stats.x >= 0 ? {
-            left: panels.stats.x,
-            top: panels.stats.y
-          } : {}
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-header"
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "float-panel-title"
-        }, "Stats"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-collapse",
-          onClick: function () {
-            self._togglePanelCollapse('stats');
-          }
-        }, panels.stats.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-close",
-          onClick: function () {
-            self._togglePanelOpen('stats');
-          }
-        }, "\xD7")), !panels.stats.collapsed && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-body"
-        }, this.renderStats())), panels.importExport.open && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel float-panel-import-export" + (panels.importExport.collapsed ? " float-panel-collapsed" : ""),
-          style: panels.importExport.x >= 0 ? {
-            left: panels.importExport.x,
-            top: panels.importExport.y
-          } : {}
-        }, /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-header"
-        }, /*#__PURE__*/React.createElement("span", {
-          className: "float-panel-title"
-        }, "Import / Export"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-collapse",
-          onClick: function () {
-            self._togglePanelCollapse('importExport');
-          }
-        }, panels.importExport.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
-          className: "btn float-panel-close",
-          onClick: function () {
-            self._togglePanelOpen('importExport');
-          }
-        }, "\xD7")), !panels.importExport.collapsed && /*#__PURE__*/React.createElement("div", {
-          className: "float-panel-body"
-        }, this.renderExportContent())), /*#__PURE__*/React.createElement("div", {
-          className: "panel-menu"
+        }, this.renderLayoutSwitcher()))), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent()), /*#__PURE__*/React.createElement("div", {
+          className: "panel-menu",
+          role: "group",
+          "aria-label": "Panel visibility"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn panel-menu-toggle",
           onClick: function () {
@@ -6064,11 +6070,15 @@ document.addEventListener('DOMContentLoaded', function () {
               _panelMenuOpen: !self.state._panelMenuOpen
             });
           },
-          title: "Show/hide panels"
+          "aria-expanded": !!this.state._panelMenuOpen,
+          "aria-label": "Toggle panel visibility menu"
         }, /*#__PURE__*/React.createElement("i", {
-          className: "fa fa-th"
+          className: "fa fa-th",
+          "aria-hidden": "true"
         })), this.state._panelMenuOpen && /*#__PURE__*/React.createElement("div", {
-          className: "panel-menu-list"
+          className: "panel-menu-list",
+          role: "group",
+          "aria-label": "Panel toggles"
         }, ['transport', 'view', 'tools', 'board', 'rules', 'stats', 'importExport'].map(function (id) {
           var label = id === 'importExport' ? 'Import/Export' : id.charAt(0).toUpperCase() + id.slice(1);
           return /*#__PURE__*/React.createElement("label", {
@@ -6079,7 +6089,8 @@ document.addEventListener('DOMContentLoaded', function () {
             checked: panels[id].open,
             onChange: function () {
               self._togglePanelOpen(id);
-            }
+            },
+            "aria-label": "Show " + label + " panel"
           }), /*#__PURE__*/React.createElement("span", null, label));
         })))));
       },
@@ -6121,6 +6132,44 @@ document.addEventListener('DOMContentLoaded', function () {
             marginTop: '8px'
           }
         }, this.renderLayoutSwitcher()), this.renderExportContent()))));
+      },
+      // ── Float panel helper (Observatory) ─────────────────────────────
+
+      _renderFloatPanel: function (panelId, label, content) {
+        var self = this;
+        var ps = this.state.panelStates[panelId];
+        if (!ps || !ps.open) {
+          return null;
+        }
+        return /*#__PURE__*/React.createElement("div", {
+          className: "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (ps.collapsed ? " float-panel-collapsed" : ""),
+          style: ps.x >= 0 ? {
+            left: ps.x,
+            top: ps.y
+          } : {},
+          role: "region",
+          "aria-label": label + " panel"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "float-panel-header"
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "float-panel-title",
+          id: "panel-title-" + panelId
+        }, label), /*#__PURE__*/React.createElement("button", {
+          className: "btn float-panel-collapse",
+          onClick: function () {
+            self._togglePanelCollapse(panelId);
+          },
+          "aria-expanded": !ps.collapsed,
+          "aria-label": ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"
+        }, ps.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
+          className: "btn float-panel-close",
+          onClick: function () {
+            self._togglePanelOpen(panelId);
+          },
+          "aria-label": "Close " + label + " panel"
+        }, "\xD7")), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+          className: "float-panel-body"
+        }, content));
       },
       // ── Panel state helpers (Observatory) ────────────────────────────
 
@@ -6164,8 +6213,13 @@ document.addEventListener('DOMContentLoaded', function () {
             layoutContent = this.renderCartographer(cs);
         }
         return /*#__PURE__*/React.createElement("div", {
-          className: "app-root layout-" + layout
-        }, /*#__PURE__*/React.createElement("div", {
+          className: "app-root layout-" + layout,
+          role: "application",
+          "aria-label": "Conway's Game of Life"
+        }, /*#__PURE__*/React.createElement("a", {
+          className: "skip-to-content",
+          href: "#life-canvas"
+        }, "Skip to canvas"), /*#__PURE__*/React.createElement("div", {
           className: "sr-only",
           "aria-live": "polite",
           "aria-atomic": "true"
