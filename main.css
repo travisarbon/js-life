@@ -1710,12 +1710,32 @@ canvas.display {
   .transport-strip {
     display: none; }
 
-  /* Legacy mobile styles */
+  /* Mobile context panel: floats above transport bar when preset/selection active */
   .mobile-context-panel {
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-xs) var(--space-xs); }
+    padding: var(--space-sm) var(--space-xs) var(--space-xs);
+    position: fixed;
+    bottom: 52px;
+    left: 0;
+    right: 0;
+    z-index: 102;
+    pointer-events: none; }
+  .mobile-context-panel > * {
+    pointer-events: auto; }
+  .mobile-context-panel .rotation-row {
+    background: var(--panel-bg);
+    border-radius: var(--radius);
+    padding: var(--space-sm);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    align-self: center; }
+  .mobile-context-panel .buttons-selection {
+    background: var(--panel-bg);
+    border-radius: var(--radius);
+    padding: var(--space-sm);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    align-self: center; }
   .mobile-stats-bar {
     display: flex;
     justify-content: space-between;

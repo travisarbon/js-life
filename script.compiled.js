@@ -3621,6 +3621,11 @@ document.addEventListener('DOMContentLoaded', function () {
             this.placePattern(this.state.selectedPattern, this._previewPos.c, this._previewPos.r);
             return;
           }
+          // Clear stale preview if preset mode but no placement occurred.
+          if (this.state.drawMode === 'preset' && this._previewPos) {
+            this._previewPos = null;
+            this.drawBoard();
+          }
           this.onMouseUp();
         }
       },
@@ -5397,7 +5402,24 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-rotate",
           onClick: this.rotateCW,
           title: "Rotate 90\xB0 clockwise"
-        }, "\u21BB"))), showSelection && /*#__PURE__*/React.createElement("div", {
+        }, "\u21BB"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: function () {
+            self._previewPos = null;
+            self.setState({
+              selectedPattern: null,
+              patternRotation: 0,
+              drawMode: 'paint'
+            }, function () {
+              self.drawBoard();
+            });
+          },
+          "aria-label": "Cancel pattern placement",
+          title: "Cancel placement"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-times",
+          "aria-hidden": "true"
+        })))), showSelection && /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",

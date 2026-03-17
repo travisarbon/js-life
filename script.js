@@ -2865,6 +2865,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         this.placePattern(this.state.selectedPattern, this._previewPos.c, this._previewPos.r);
                         return;
                     }
+                    // Clear stale preview if preset mode but no placement occurred.
+                    if(this.state.drawMode === 'preset' && this._previewPos){
+                        this._previewPos = null;
+                        this.drawBoard();
+                    }
                     this.onMouseUp();
                 }
             },
@@ -4214,6 +4219,13 @@ document.addEventListener('DOMContentLoaded', function(){
                                         title="Rotate 90° counter-clockwise">&#8634;</button>
                                     <button className="btn btn-rotate" onClick={this.rotateCW}
                                         title="Rotate 90° clockwise">&#8635;</button>
+                                    <button className="btn" onClick={function(){
+                                        self._previewPos = null;
+                                        self.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
+                                            function(){ self.drawBoard(); });
+                                    }} aria-label="Cancel pattern placement" title="Cancel placement">
+                                        <i className="fa fa-times" aria-hidden="true"></i>
+                                    </button>
                                 </div>
                             </div>
                         }
