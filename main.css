@@ -1611,6 +1611,22 @@ canvas.display {
   .layout-observatory .float-panel-mode { top: 10px; left: auto; right: 10px; }
   .layout-observatory .float-panel-tools { top: 60px; left: auto; right: 10px; }
   .layout-observatory .float-panel-board { bottom: 60px; left: 10px; right: auto; top: auto; }
+
+  /* Show mobile minimap element on medium screens */
+  .mobile-minimap-area {
+    display: flex;
+    justify-content: center;
+    position: fixed;
+    bottom: 60px;
+    right: var(--space-md);
+    left: auto;
+    z-index: 102;
+    padding: 0; }
+  .mobile-minimap-canvas {
+    border: 1px solid var(--separator-strong);
+    border-radius: var(--radius-sm);
+    cursor: crosshair;
+    touch-action: none; }
 }
 
 /* ── Tablet (621px–900px) ─────────────────────────────────────────────── */
@@ -1642,6 +1658,22 @@ canvas.display {
   .view-controls .btn,
   .mode-controls .btn {
     min-height: 36px; }
+
+  /* Show mobile minimap element on tablets */
+  .mobile-minimap-area {
+    display: flex;
+    justify-content: center;
+    position: fixed;
+    bottom: 60px;
+    right: var(--space-md);
+    left: auto;
+    z-index: 102;
+    padding: 0; }
+  .mobile-minimap-canvas {
+    border: 1px solid var(--separator-strong);
+    border-radius: var(--radius-sm);
+    cursor: crosshair;
+    touch-action: none; }
 }
 
 /* ── Phone portrait (<=620px) ─────────────────────────────────────────── */
