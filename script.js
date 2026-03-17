@@ -1272,14 +1272,26 @@ document.addEventListener('DOMContentLoaded', function(){
                     var bb = SimEngine.getBoundingBox(liveCells);
                     if(bb){
                         var pad = Math.max(5, Math.round(Math.max(bb.maxR - bb.minR, bb.maxC - bb.minC) * 0.15));
-                        mmOriginR = bb.minR - pad;
-                        mmOriginC = bb.minC - pad;
-                        rows = bb.maxR - bb.minR + 1 + pad * 2;
-                        cols = bb.maxC - bb.minC + 1 + pad * 2;
+                        var newMinR = bb.minR - pad, newMinC = bb.minC - pad;
+                        var newMaxR = bb.maxR + pad, newMaxC = bb.maxC + pad;
+                        // Hysteresis: only expand, never shrink (prevents flashing).
+                        var prev = this._mmUnboundedRegion;
+                        if(prev){
+                            newMinR = Math.min(prev.minR, newMinR);
+                            newMinC = Math.min(prev.minC, newMinC);
+                            newMaxR = Math.max(prev.maxR, newMaxR);
+                            newMaxC = Math.max(prev.maxC, newMaxC);
+                        }
+                        this._mmUnboundedRegion = {minR: newMinR, minC: newMinC, maxR: newMaxR, maxC: newMaxC};
+                        mmOriginR = newMinR;
+                        mmOriginC = newMinC;
+                        rows = newMaxR - newMinR + 1;
+                        cols = newMaxC - newMinC + 1;
                     } else {
                         mmOriginR = viewY - 50;
                         mmOriginC = viewX - 50;
                         rows = 100; cols = 100;
+                        this._mmUnboundedRegion = null;
                     }
                 } else {
                     // Bounded modes: fixed world region = bounding box + live cells + static padding.
@@ -2682,6 +2694,12 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                     this._previewPos = null;
                     this._wasPinching = true;
+                    // Restore running state if the first touch paused the game.
+                    if(this._wasRunningBeforeTouch && !this.state.running){
+                        this.setState({running: true});
+                        this._startLoop();
+                    }
+                    this._wasRunningBeforeTouch = false;
                     var t0 = event.touches[0], t1 = event.touches[1];
                     var pMidX = (t0.clientX + t1.clientX) / 2;
                     var pMidY = (t0.clientY + t1.clientY) / 2;
@@ -2734,6 +2752,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                     return;
                 }
+                this._wasRunningBeforeTouch = this.state.running;
                 this.onMouseDown({preventDefault: function(){}, button: 0,
                     clientX: t.clientX, clientY: t.clientY});
             },
@@ -3283,6 +3302,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var next = cur === 'toroidal' ? 'finite' : cur === 'finite' ? 'unbounded' : 'toroidal';
                 this._hlStale = true;
                 this._minimapDirty = true;
+                this._mmUnboundedRegion = null;
                 var self = this;
                 this.setState({boundary : next}, function(){ self.drawBoard(); });
             },
@@ -3531,6 +3551,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._prevBoardHash = null;
                 this._stableCount = 0;
                 this._minimapDirty = true;
+                this._mmUnboundedRegion = null;
                 this._hlStale = true;
                 this._trailMap = new Map();
                 this.clearGenHistory();
@@ -3556,6 +3577,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._prevBoardHash = null;
                 this._stableCount = 0;
                 this._minimapDirty = true;
+                this._mmUnboundedRegion = null;
                 this._hlStale = true;
                 this._trailMap = new Map();
                 this.clearGenHistory();
@@ -4004,10 +4026,21 @@ document.addEventListener('DOMContentLoaded', function(){
                     var bb = SimEngine.getBoundingBox(liveCells);
                     if(bb){
                         var pad = Math.max(5, Math.round(Math.max(bb.maxR - bb.minR, bb.maxC - bb.minC) * 0.15));
-                        mmMobOriginR = bb.minR - pad;
-                        mmMobOriginC = bb.minC - pad;
-                        rows = bb.maxR - bb.minR + 1 + pad * 2;
-                        cols = bb.maxC - bb.minC + 1 + pad * 2;
+                        var newMinR = bb.minR - pad, newMinC = bb.minC - pad;
+                        var newMaxR = bb.maxR + pad, newMaxC = bb.maxC + pad;
+                        // Hysteresis: only expand, never shrink (prevents flashing).
+                        var prev = this._mmUnboundedRegion;
+                        if(prev){
+                            newMinR = Math.min(prev.minR, newMinR);
+                            newMinC = Math.min(prev.minC, newMinC);
+                            newMaxR = Math.max(prev.maxR, newMaxR);
+                            newMaxC = Math.max(prev.maxC, newMaxC);
+                        }
+                        this._mmUnboundedRegion = {minR: newMinR, minC: newMinC, maxR: newMaxR, maxC: newMaxC};
+                        mmMobOriginR = newMinR;
+                        mmMobOriginC = newMinC;
+                        rows = newMaxR - newMinR + 1;
+                        cols = newMaxC - newMinC + 1;
                     } else {
                         mmMobOriginR = viewY - 50; mmMobOriginC = viewX - 50;
                         rows = 100; cols = 100;
@@ -4966,8 +4999,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
-                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
-                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
+                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
+                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
                             <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                                 onClick={this.togglePanMode}
                                 aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
@@ -4986,7 +5019,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
-                                aria-label="Open controls panel">More</button>
+                                aria-label="Open controls panel"><i className="fa fa-ellipsis-h" aria-hidden="true"></i></button>
                         </div>
                         {/* Bottom sheet */}
                         {this.state.bottomSheetOpen &&
@@ -5184,8 +5217,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
-                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
-                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
+                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
+                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
                             <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                                 onClick={this.togglePanMode}
                                 aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
@@ -5204,7 +5237,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
-                                aria-label="Open controls panel">More</button>
+                                aria-label="Open controls panel"><i className="fa fa-ellipsis-h" aria-hidden="true"></i></button>
                         </div>
                         {this.renderMobileContextPanel()}
                         {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
@@ -5355,8 +5388,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
-                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
-                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
+                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
+                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
                             <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                                 onClick={this.togglePanMode}
                                 aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
@@ -5375,7 +5408,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
-                                aria-label="Open controls panel">More</button>
+                                aria-label="Open controls panel"><i className="fa fa-ellipsis-h" aria-hidden="true"></i></button>
                         </div>
                         {/* Stats chip — hide when bottom sheet is open to avoid overlap */}
                         {!this.state.bottomSheetOpen &&
