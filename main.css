@@ -111,7 +111,22 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 0; }
+  z-index: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center; }
+
+/* Unbounded: canvas fills viewport, centered */
+.app-canvas-container.boundary-unbounded {
+  align-items: center; }
+
+/* Specimen mobile bounded: push canvas below top bar */
+.layout-specimen.layout-mobile .app-canvas-container:not(.boundary-unbounded) {
+  top: 44px; }
+
+/* Specimen mobile unbounded: canvas fills viewport behind transparent top bar */
+.layout-specimen.layout-mobile .app-canvas-container.boundary-unbounded {
+  top: 0; }
 
 canvas.display {
   display: block;
@@ -1314,6 +1329,7 @@ canvas.display {
   font-size: var(--text-sm);
   white-space: nowrap; }
 /* Override #content .btn { width: 100% } for inline control groups */
+#content .transport-controls .btn,
 #content .mode-controls .btn,
 #content .view-controls .btn {
   width: auto;
@@ -1456,6 +1472,7 @@ canvas.display {
 .bottom-sheet-content {
   overflow-y: auto;
   max-height: calc(45vh - 100px);
+  min-height: calc(35vh - 60px);
   -webkit-overflow-scrolling: touch;
   padding-bottom: var(--space-md); }
 

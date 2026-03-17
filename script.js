@@ -846,7 +846,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     } else if(layout === 'specimen'){
                         maxW = winW;
                         // Reserve top bar height
-                        var topBarH = 40;
+                        var topBarH = 44;
                         maxH = Math.max(1, winH - topBarH);
                     } else if(layout === 'observatory'){
                         maxW = winW;
@@ -2960,6 +2960,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         setTimeout(function(){
                             self.setState({bottomSheetOpen: false, bottomSheetClosing: false}, function(){
                                 self._restoreFocus();
+                                self.drawBoard();
                             });
                         }, 200);
                     });
@@ -4390,11 +4391,11 @@ document.addEventListener('DOMContentLoaded', function(){
 
             renderCanvas : function(cs){
                 return (
-                    <div className={"app-canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")}>
+                    <div className={"app-canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "") + (this.state.boundary === 'unbounded' ? " boundary-unbounded" : "")}>
                         <canvas className="display"
                             width  = {cs.w}
                             height = {cs.h}
-                            style  = {{width: cs.displayW + 'px', height: cs.displayH + 'px', display: 'block', margin: 'auto'}}
+                            style  = {{width: cs.displayW + 'px', height: cs.displayH + 'px', display: 'block', margin: '0 auto'}}
                             id = "life-canvas"
                             role = "img"
                             aria-roledescription = "Game of Life grid"
