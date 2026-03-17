@@ -1026,7 +1026,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // ── Device class detection via matchMedia ──────────────────
         var self3 = this;
         this._mqPhone = window.matchMedia('(max-width: 620px)');
-        this._mqPhoneLandscape = window.matchMedia('(max-width: 900px) and (orientation: landscape) and (max-height: 500px)');
+        this._mqPhoneLandscape = window.matchMedia('(orientation: landscape) and (max-height: 550px)');
         this._mqTablet = window.matchMedia('(min-width: 621px) and (max-width: 900px)');
         this._mqLandscape = window.matchMedia('(orientation: landscape)');
         this._updateDeviceClass = function () {
@@ -5833,7 +5833,10 @@ document.addEventListener('DOMContentLoaded', function () {
             className: "btn btn-toggle" + (this.state.running ? " active" : ""),
             onClick: this.toggleGame,
             title: "Play/Pause (Space)"
-          }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fa " + (this.state.running ? "fa-pause" : "fa-play"),
+            "aria-hidden": "true"
+          })), /*#__PURE__*/React.createElement("button", {
             className: "btn",
             onClick: this.stepGame,
             title: "Step (.)"
