@@ -810,9 +810,11 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cellSize   = this.state.cellSize;
                 var pendingCols = this.state.pendingCols;
                 var pendingRows = this.state.pendingRows;
+                // Use stable viewport dimensions from resize handler to prevent
+                // minor iOS address-bar fluctuations from resizing the canvas.
+                var winW = typeof window !== 'undefined' ? (this._lastResizeW || window.innerWidth) : 846;
+                var winH = typeof window !== 'undefined' ? (this._lastResizeH || window.innerHeight) : 900;
                 // Memoization: return cached result if inputs haven't changed.
-                var winW = typeof window !== 'undefined' ? window.innerWidth : 846;
-                var winH = typeof window !== 'undefined' ? window.innerHeight : 900;
                 var cacheKey = cellSize + ',' + pendingCols + ',' + pendingRows + ',' +
                     this.state.deviceClass + ',' + this.state.layoutMode + ',' +
                     this.state.boundary + ',' + this.state.railCollapsed + ',' +
@@ -829,10 +831,6 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(typeof window === 'undefined'){
                     maxW = 846; maxH = 900;
                 } else {
-                    // In new layout modes, canvas fills the viewport.
-                    // Reserve space for UI overlays.
-                    var winW = window.innerWidth;
-                    var winH = window.innerHeight;
 
                     if(layout === 'cartographer'){
                         // Desktop/tablet: subtract rail width if not collapsed/hidden
@@ -1224,15 +1222,22 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                 }
 
-                // Minimap overlay (bottom-right corner on desktop; separate element on mobile).
-                var isMobileView = this.state.deviceClass === 'phone-portrait' || this.state.deviceClass === 'phone-landscape';
+                // Minimap overlay (bottom-right corner on large desktop; separate element elsewhere).
+                var useMobileMinimap = this.state.deviceClass === 'phone-portrait' ||
+                    this.state.deviceClass === 'phone-landscape' ||
+                    this.state.deviceClass === 'tablet' ||
+                    (typeof window !== 'undefined' && window.innerWidth <= 1200);
                 if(this.state.showMinimap && (isUnbounded || (cols > 0 && rows > 0))){
-                    if(isMobileView){
+                    if(useMobileMinimap){
                         this.drawMinimapMobile(liveCells, cols, rows, viewX, viewY, cellSize, theme);
                         this._minimapRect = null;
                     } else {
-                        var cs2 = this.getCanvasSize();
-                        var mmDisplayScale = (cs2.w > 0) ? cs2.displayW / cs2.w : 1;
+                        // Compute scale from actual canvas element for accuracy.
+                        var mmDisplayScale = 1;
+                        if(canvas.style.width){
+                            var cssW = parseFloat(canvas.style.width);
+                            if(cssW > 0 && canvasW > 0){ mmDisplayScale = cssW / canvasW; }
+                        }
                         this.drawMinimap(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, mmDisplayScale);
                     }
                 }
@@ -1267,13 +1272,16 @@ document.addEventListener('DOMContentLoaded', function(){
                 var TARGET_CSS_SIZE = 160;
                 var ds = (displayScale && displayScale > 0) ? displayScale : 1;
                 var aspect = cols / rows;
+                // Cap buffer dimensions so the minimap never exceeds 1/3 of the canvas.
+                var maxMmW = Math.floor(canvasW / 3);
+                var maxMmH = Math.floor(canvasH / 3);
                 var mmW, mmH;
                 if(aspect >= 1){
-                    mmW = Math.max(100, Math.round(TARGET_CSS_SIZE / ds));
-                    mmH = Math.max(40, Math.round(mmW / aspect));
+                    mmW = Math.min(Math.max(40, Math.round(TARGET_CSS_SIZE / ds)), maxMmW);
+                    mmH = Math.min(Math.max(40, Math.round(mmW / aspect)), maxMmH);
                 } else {
-                    mmH = Math.max(100, Math.round(TARGET_CSS_SIZE / ds));
-                    mmW = Math.max(40, Math.round(mmH * aspect));
+                    mmH = Math.min(Math.max(40, Math.round(TARGET_CSS_SIZE / ds)), maxMmH);
+                    mmW = Math.min(Math.max(40, Math.round(mmH * aspect)), maxMmW);
                 }
                 // Resize the off-screen canvas if dimensions changed.
                 if(this._minimapCanvas.width !== mmW || this._minimapCanvas.height !== mmH){
@@ -4764,6 +4772,8 @@ document.addEventListener('DOMContentLoaded', function(){
                             <div className={"rail-reveal rail-reveal-" + railSide}
                                 onMouseEnter={this.toggleRailHidden}></div>
                         }
+                        {/* Mobile minimap element for tablet/medium screens */}
+                        {this.renderMobileMinimapArea()}
                     </div>
                 );
             },
@@ -4989,6 +4999,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <span className="coord-display">{"Col\u00a0" + this.state.hoverCell.c + "\u2002Row\u00a0" + this.state.hoverCell.r}</span>
                             }
                         </div>
+                        {/* Mobile minimap element for tablet/medium screens */}
+                        {this.renderMobileMinimapArea()}
                     </div>
                 );
             },
@@ -5157,6 +5169,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                 </div>
                             </div>
                         }
+                        {/* Mobile minimap element for tablet/medium screens */}
+                        {this.renderMobileMinimapArea()}
                     </div>
                 );
             },
