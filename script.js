@@ -696,6 +696,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._minimapCanvas.width  = 100;
                 this._minimapCanvas.height = 75;
                 this._pinchStart = null;
+                this._wasPinching = false;
                 this._longPressTimer = null;
                 this._canvas = document.getElementById("life-canvas");
                 // Attach wheel listener as non-passive so preventDefault works.
@@ -1326,7 +1327,13 @@ document.addEventListener('DOMContentLoaded', function(){
                 var vh  = Math.max(2, Math.round(visRows / rows * mmH));
                 ctx.strokeStyle = 'rgba(255,255,255,0.75)';
                 ctx.lineWidth = 1;
-                ctx.strokeRect(vx1 + 0.5, vy1 + 0.5, vw, vh);
+                var clampX = Math.max(vx1, mmX);
+                var clampY = Math.max(vy1, mmY);
+                var clampR = Math.min(vx1 + vw, mmX + mmW);
+                var clampB = Math.min(vy1 + vh, mmY + mmH);
+                if(clampR > clampX && clampB > clampY){
+                    ctx.strokeRect(clampX + 0.5, clampY + 0.5, clampR - clampX, clampB - clampY);
+                }
 
                 // Store minimap rect for click detection.
                 this._minimapRect = {x: mmX, y: mmY, w: mmW, h: mmH};
@@ -2576,6 +2583,19 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(!event.touches || event.touches.length === 0){ return; }
                 if(event.touches.length === 2){
                     // Begin pinch-zoom + two-finger pan tracking.
+                    // Clear all mode-specific drag state to prevent conflicts.
+                    this._dragging = false;
+                    this._panDragging = false;
+                    this._panStart = null;
+                    this._panVelocity = null;
+                    this._selStart = null;
+                    this._lassoPath = [];
+                    if(this._drawToolStart){
+                        this._drawToolStart = null;
+                        this._drawPreviewCells = [];
+                    }
+                    this._previewPos = null;
+                    this._wasPinching = true;
                     var t0 = event.touches[0], t1 = event.touches[1];
                     var pMidX = (t0.clientX + t1.clientX) / 2;
                     var pMidY = (t0.clientY + t1.clientY) / 2;
@@ -2595,10 +2615,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         cellC:    this.state.viewX + (pMidX - pRect.left) * pScaleX / this.state.cellSize,
                         cellR:    this.state.viewY + (pMidY - pRect.top) * pScaleY / this.state.cellSize
                     };
-                    this._dragging = false;
                     return;
                 }
                 this._pinchStart = null;
+                this._wasPinching = false;
                 var t = event.touches[0];
                 // Long-press: show cell coordinates in the stat bar.
                 var self = this;
@@ -2662,14 +2682,20 @@ document.addEventListener('DOMContentLoaded', function(){
                     return;
                 }
                 if(event.touches.length !== 1){ return; }
+                // After a pinch ends (one finger lifted), ignore the remaining finger's movement.
+                if(this._wasPinching){ return; }
                 var t = event.touches[0];
                 // Pan mode: move viewport by finger delta
                 if(this.state.panMode && this._panDragging && this._panStart){
                     var dx = t.clientX - this._panStart.x;
                     var dy = t.clientY - this._panStart.y;
                     var cs2 = this.state.cellSize;
-                    var newVX = this._panStart.vx - Math.round(dx / cs2);
-                    var newVY = this._panStart.vy - Math.round(dy / cs2);
+                    // Account for CSS display scale so pan speed matches visual cell size.
+                    var panRect = this._canvas.getBoundingClientRect();
+                    var displayCS = (panRect.width > 0 && this._canvas.width > 0)
+                        ? cs2 * (panRect.width / this._canvas.width) : cs2;
+                    var newVX = this._panStart.vx - Math.round(dx / displayCS);
+                    var newVY = this._panStart.vy - Math.round(dy / displayCS);
                     var clamped = this.clampView(newVX, newVY,
                         this.state.cols, this.state.rows, cs2);
                     var self = this;
@@ -2694,7 +2720,22 @@ document.addEventListener('DOMContentLoaded', function(){
                 clearTimeout(this._longPressTimer);
                 this._longPressTimer = null;
                 if(event.touches.length < 2){ this._pinchStart = null; }
+                // When transitioning from 2 fingers to 1 (pinch ending but one finger remains),
+                // don't let the remaining finger start a new pan/draw/select action.
+                if(event.touches.length === 1 && this._wasPinching){
+                    return;
+                }
                 if(event.touches.length === 0){
+                    // If we were pinching, suppress all actions and just clean up.
+                    if(this._wasPinching){
+                        this._wasPinching = false;
+                        this._previewPos = null;
+                        this._panDragging = false;
+                        this._panStart = null;
+                        this._panVelocity = null;
+                        this.drawBoard();
+                        return;
+                    }
                     // End pan mode drag — apply momentum if flicked
                     if(this.state.panMode && this._panDragging){
                         this._panDragging = false;

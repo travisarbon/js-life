@@ -1585,6 +1585,34 @@ canvas.display {
     max-width: 400px; }
 }
 
+/* ── Medium screens / large tablets (901px–1200px) ───────────────────── */
+@media (min-width: 901px) and (max-width: 1200px) {
+  /* Prevent top bar wrapping and vertical text on tab buttons */
+  .layout-specimen .top-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; }
+  .layout-specimen .top-bar-more .btn {
+    min-width: 44px;
+    white-space: nowrap; }
+  .layout-specimen .mode-controls {
+    flex-wrap: nowrap; }
+
+  /* Reduce context tray canvas coverage */
+  .context-tray {
+    max-height: 30vh; }
+  .context-tray-body {
+    max-height: calc(30vh - 44px); }
+
+  /* Prevent observatory panel overlap */
+  .layout-observatory .float-panel {
+    max-width: 300px; }
+  .layout-observatory .float-panel-stats { top: 10px; left: 10px; }
+  .layout-observatory .float-panel-mode { top: 10px; left: auto; right: 10px; }
+  .layout-observatory .float-panel-tools { top: 60px; left: auto; right: 10px; }
+  .layout-observatory .float-panel-board { bottom: 60px; left: 10px; right: auto; top: auto; }
+}
+
 /* ── Tablet (621px–900px) ─────────────────────────────────────────────── */
 @media (min-width: 621px) and (max-width: 900px) {
   .layout-cartographer .rail {
