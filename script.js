@@ -1228,6 +1228,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(this.state.showMinimap && (isUnbounded || (cols > 0 && rows > 0))){
                     if(isMobileView){
                         this.drawMinimapMobile(liveCells, cols, rows, viewX, viewY, cellSize, theme);
+                        this._minimapRect = null;
                     } else {
                         var cs2 = this.getCanvasSize();
                         var mmDisplayScale = (cs2.w > 0) ? cs2.displayW / cs2.w : 1;
@@ -1282,7 +1283,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Express the margin in CSS-space pixels by scaling by 1/ds,
                 // so the visual gap from the canvas corner stays ~6px at all zoom levels.
                 var marginBuf = Math.max(1, Math.round(6 / ds));
-                var mmX = canvasW - mmW - marginBuf, mmY = canvasH - mmH - marginBuf;
+                // In Cartographer mode, offset minimap upward to clear the fixed transport strip.
+                var isMobileView2 = this.state.deviceClass === 'phone-portrait' || this.state.deviceClass === 'phone-landscape';
+                var transportPad = (this.state.layoutMode === 'cartographer' && !isMobileView2) ? Math.round(60 / ds) : 0;
+                var mmX = canvasW - mmW - marginBuf, mmY = canvasH - mmH - marginBuf - transportPad;
 
                 // Redraw minimap off-screen canvas only when marked dirty.
                 if(this._minimapDirty){
@@ -2061,7 +2065,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
             onMouseUp : function(){
                 this._minimapDragging = false;
-                this._paintedCells = {};
                 if(this._panDragging){
                     this._panDragging = false;
                     this._panStart = null;
@@ -2139,6 +2142,28 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._hlStale = true;
                 var self = this;
                 this.setState({liveCells: newLiveCells, stable: false}, function(){ self.drawBoard(); });
+            },
+
+            _startPanMomentum : function(vx, vy){
+                var self = this;
+                var friction = 0.92;
+                var cellSize = this.state.cellSize;
+                function tick(){
+                    vx *= friction;
+                    vy *= friction;
+                    if(Math.abs(vx) < 0.05 && Math.abs(vy) < 0.05){ return; }
+                    var dCols = -vx * 16 / cellSize;
+                    var dRows = -vy * 16 / cellSize;
+                    var newVX = self.state.viewX + Math.round(dCols);
+                    var newVY = self.state.viewY + Math.round(dRows);
+                    var clamped = self.clampView(newVX, newVY,
+                        self.state.cols, self.state.rows, cellSize);
+                    if(clamped.viewX === self.state.viewX && clamped.viewY === self.state.viewY){ return; }
+                    self.setState({viewX: clamped.viewX, viewY: clamped.viewY},
+                        function(){ self.drawBoard(); });
+                    self._panMomentumFrame = requestAnimationFrame(tick);
+                }
+                this._panMomentumFrame = requestAnimationFrame(tick);
             },
 
             onMouseLeave : function(){
@@ -2546,20 +2571,29 @@ document.addEventListener('DOMContentLoaded', function(){
 
             onTouchStart : function(event){
                 event.preventDefault();
+                if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
                 clearTimeout(this._longPressTimer);
                 if(!event.touches || event.touches.length === 0){ return; }
                 if(event.touches.length === 2){
                     // Begin pinch-zoom + two-finger pan tracking.
                     var t0 = event.touches[0], t1 = event.touches[1];
+                    var pMidX = (t0.clientX + t1.clientX) / 2;
+                    var pMidY = (t0.clientY + t1.clientY) / 2;
+                    // Compute the cell coordinate under the pinch center for stable anchoring.
+                    var pRect = this._canvas.getBoundingClientRect();
+                    var pScaleX = this._canvas.width / pRect.width;
+                    var pScaleY = this._canvas.height / pRect.height;
                     this._pinchStart = {
                         dist:     Math.sqrt(
                                     (t1.clientX - t0.clientX) * (t1.clientX - t0.clientX) +
                                     (t1.clientY - t0.clientY) * (t1.clientY - t0.clientY)),
-                        midX:     (t0.clientX + t1.clientX) / 2,
-                        midY:     (t0.clientY + t1.clientY) / 2,
+                        midX:     pMidX,
+                        midY:     pMidY,
                         cellSize: this.state.cellSize,
                         viewX:    this.state.viewX,
-                        viewY:    this.state.viewY
+                        viewY:    this.state.viewY,
+                        cellC:    this.state.viewX + (pMidX - pRect.left) * pScaleX / this.state.cellSize,
+                        cellR:    this.state.viewY + (pMidY - pRect.top) * pScaleY / this.state.cellSize
                     };
                     this._dragging = false;
                     return;
@@ -2569,7 +2603,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Long-press: show cell coordinates in the stat bar.
                 var self = this;
                 var pos = this.getCellPos({clientX: t.clientX, clientY: t.clientY});
-                if(pos.c >= 0 && pos.c < this.state.cols && pos.r >= 0 && pos.r < this.state.rows){
+                var touchInBounds = this.state.boundary === 'unbounded' || (pos.c >= 0 && pos.c < this.state.cols && pos.r >= 0 && pos.r < this.state.rows);
+                if(touchInBounds){
                     this._longPressTimer = setTimeout(function(){
                         self.setState({hoverCell: {c: pos.c, r: pos.r}});
                         self._longPressTimer = setTimeout(function(){
@@ -2580,7 +2615,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Pattern placement: show a preview at the initial tap position instead of
                 // placing immediately. The pattern is placed on touchend at the final position.
                 if(this.state.drawMode === 'preset' && this.state.selectedPattern){
-                    if(pos.c >= 0 && pos.c < this.state.cols && pos.r >= 0 && pos.r < this.state.rows){
+                    if(touchInBounds){
                         this._previewPos = {c: pos.c, r: pos.r};
                         this.drawBoard();
                     }
@@ -2611,11 +2646,14 @@ document.addEventListener('DOMContentLoaded', function(){
                     var scale = this._pinchStart.dist > 0 ? newDist / this._pinchStart.dist : 1;
                     var newCS = Math.max(1, Math.min(128,
                         Math.round(this._pinchStart.cellSize * scale)));
-                    // Pan: shift view by finger-midpoint movement (in canvas cells).
-                    var dmx  = newMidX - this._pinchStart.midX;
-                    var dmy  = newMidY - this._pinchStart.midY;
-                    var newVX = this._pinchStart.viewX - Math.round(dmx / newCS);
-                    var newVY = this._pinchStart.viewY - Math.round(dmy / newCS);
+                    // Anchor: keep the cell under the pinch center fixed on screen.
+                    var pzRect = this._canvas.getBoundingClientRect();
+                    var pzScaleX = this._canvas.width / pzRect.width;
+                    var pzScaleY = this._canvas.height / pzRect.height;
+                    var midCanvasX = (newMidX - pzRect.left) * pzScaleX;
+                    var midCanvasY = (newMidY - pzRect.top) * pzScaleY;
+                    var newVX = Math.round(this._pinchStart.cellC - midCanvasX / newCS);
+                    var newVY = Math.round(this._pinchStart.cellR - midCanvasY / newCS);
                     var clamped = this.clampView(newVX, newVY,
                         this.state.cols, this.state.rows, newCS);
                     var self = this;
@@ -2637,6 +2675,15 @@ document.addEventListener('DOMContentLoaded', function(){
                     var self = this;
                     this.setState({viewX: clamped.viewX, viewY: clamped.viewY},
                         function(){ self.drawBoard(); });
+                    // Track velocity for momentum on release
+                    var now = Date.now();
+                    this._panVelocity = {
+                        vx: (dx - (this._panLastDx || 0)) / Math.max(1, now - (this._panLastTime || now)),
+                        vy: (dy - (this._panLastDy || 0)) / Math.max(1, now - (this._panLastTime || now))
+                    };
+                    this._panLastDx = dx;
+                    this._panLastDy = dy;
+                    this._panLastTime = now;
                     return;
                 }
                 this.onMouseMove({clientX: t.clientX, clientY: t.clientY});
@@ -2648,10 +2695,21 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._longPressTimer = null;
                 if(event.touches.length < 2){ this._pinchStart = null; }
                 if(event.touches.length === 0){
-                    // End pan mode drag
+                    // End pan mode drag — apply momentum if flicked
                     if(this.state.panMode && this._panDragging){
                         this._panDragging = false;
                         this._panStart = null;
+                        if(this._panVelocity){
+                            var vel = this._panVelocity;
+                            var speed = Math.sqrt(vel.vx * vel.vx + vel.vy * vel.vy);
+                            if(speed > 0.15){
+                                this._startPanMomentum(vel.vx, vel.vy);
+                            }
+                        }
+                        this._panVelocity = null;
+                        this._panLastDx = 0;
+                        this._panLastDy = 0;
+                        this._panLastTime = 0;
                         return;
                     }
                     // For pattern placement, place at the final preview position rather than
@@ -4722,12 +4780,12 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                         {/* Mobile context: rotation preview + selection when active */}
                         {this.renderMobileContextPanel()}
-                        {this.renderMobileMinimapArea()}
+                        {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom transport bar */}
                         <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
-                                {this.state.running ? "\u23F8" : "\u25B6"}
+                                <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
                             <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
@@ -4782,9 +4840,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                         role="tabpanel"
                                         aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
-                                    </div>
-                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
-                                        {this.renderLayoutSwitcher()}
+                                        <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                            {this.renderLayoutSwitcher()}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -4932,7 +4990,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             </span>
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
-                                {this.state.running ? "\u23F8" : "\u25B6"}
+                                <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
                             <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
@@ -4956,7 +5014,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 aria-label="Open controls panel">More</button>
                         </div>
                         {this.renderMobileContextPanel()}
-                        {this.renderMobileMinimapArea()}
+                        {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
                             <div className="bottom-sheet-container"
@@ -4989,9 +5047,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                         role="tabpanel"
                                         aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
-                                    </div>
-                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
-                                        {this.renderLayoutSwitcher()}
+                                        <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                            {this.renderLayoutSwitcher()}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -5097,7 +5155,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
-                                {this.state.running ? "\u23F8" : "\u25B6"}
+                                <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
                             <button className="btn" onClick={this.resetGame} aria-label="Reset simulation">Reset</button>
@@ -5134,7 +5192,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                         }
                         {this.renderMobileContextPanel()}
-                        {this.renderMobileMinimapArea()}
+                        {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
                             <div className="bottom-sheet-container"
@@ -5167,9 +5225,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                         role="tabpanel"
                                         aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
-                                    </div>
-                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
-                                        {this.renderLayoutSwitcher()}
+                                        <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                            {this.renderLayoutSwitcher()}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
