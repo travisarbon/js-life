@@ -1610,19 +1610,12 @@ document.addEventListener('DOMContentLoaded', function () {
             cols = 100;
           }
         } else {
-          // Bounded modes: expand minimap to include bounding box + viewport + any live cells outside.
+          // Bounded modes: fixed world region = bounding box + live cells + static padding.
+          // Does NOT expand to follow viewport — arrow indicators show off-screen viewport.
           var mmMinR = 0,
             mmMinC = 0,
             mmMaxR = rows,
             mmMaxC = cols;
-          // Include viewport
-          var visCols0 = Math.ceil(canvasW / cellSize);
-          var visRows0 = Math.ceil(canvasH / cellSize);
-          mmMinR = Math.min(mmMinR, viewY);
-          mmMinC = Math.min(mmMinC, viewX);
-          mmMaxR = Math.max(mmMaxR, viewY + visRows0);
-          mmMaxC = Math.max(mmMaxC, viewX + visCols0);
-          // Include any cells outside bounding box
           var bbLive = SimEngine.getBoundingBox(liveCells);
           if (bbLive) {
             mmMinR = Math.min(mmMinR, bbLive.minR);
@@ -1726,6 +1719,32 @@ document.addEventListener('DOMContentLoaded', function () {
         var clampB = Math.min(vy1 + vh, mmY + mmH);
         if (clampR > clampX && clampB > clampY) {
           ctx.strokeRect(clampX + 0.5, clampY + 0.5, clampR - clampX, clampB - clampY);
+        }
+
+        // Off-screen viewport indicator arrow (when viewport is outside minimap world region).
+        var vpCenterC = viewX + visCols / 2;
+        var vpCenterR = viewY + visRows / 2;
+        var vpOutside = vpCenterC < mmOriginC || vpCenterC > mmOriginC + cols || vpCenterR < mmOriginR || vpCenterR > mmOriginR + rows;
+        if (vpOutside) {
+          var mmCenterC = mmOriginC + cols / 2;
+          var mmCenterR = mmOriginR + rows / 2;
+          var arrowAngle = Math.atan2(vpCenterR - mmCenterR, vpCenterC - mmCenterC);
+          // Position arrow on minimap border
+          var arrowPx = mmX + mmW / 2 + Math.cos(arrowAngle) * (mmW / 2 - 8);
+          var arrowPy = mmY + mmH / 2 + Math.sin(arrowAngle) * (mmH / 2 - 8);
+          arrowPx = Math.max(mmX + 6, Math.min(mmX + mmW - 6, arrowPx));
+          arrowPy = Math.max(mmY + 6, Math.min(mmY + mmH - 6, arrowPy));
+          ctx.save();
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.translate(arrowPx, arrowPy);
+          ctx.rotate(arrowAngle);
+          ctx.beginPath();
+          ctx.moveTo(6, 0);
+          ctx.lineTo(-3, -4);
+          ctx.lineTo(-3, 4);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
         }
 
         // Store minimap rect for click detection (include world origin/dims for coordinate mapping).
@@ -2384,6 +2403,18 @@ document.addEventListener('DOMContentLoaded', function () {
         var c = pos.c,
           r = pos.r;
         if (this.state.boundary !== 'unbounded' && (c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows)) {
+          return;
+        }
+
+        // Pan mode takes priority over all drawing modes.
+        if (this.state.panMode) {
+          this._panDragging = true;
+          this._panStart = {
+            x: event.clientX,
+            y: event.clientY,
+            vx: this.state.viewX,
+            vy: this.state.viewY
+          };
           return;
         }
 
@@ -3408,6 +3439,17 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 2000);
           }, 420);
         }
+        // Pan mode takes priority over all drawing modes.
+        if (this.state.panMode) {
+          this._panDragging = true;
+          this._panStart = {
+            x: t.clientX,
+            y: t.clientY,
+            vx: this.state.viewX,
+            vy: this.state.viewY
+          };
+          return;
+        }
         // Pattern placement: show a preview at the initial tap position instead of
         // placing immediately. The pattern is placed on touchend at the final position.
         if (this.state.drawMode === 'preset' && this.state.selectedPattern) {
@@ -3418,17 +3460,6 @@ document.addEventListener('DOMContentLoaded', function () {
             };
             this.drawBoard();
           }
-          return;
-        }
-        // Pan mode: single-finger pan instead of drawing
-        if (this.state.panMode) {
-          this._panDragging = true;
-          this._panStart = {
-            x: t.clientX,
-            y: t.clientY,
-            vx: this.state.viewX,
-            vy: this.state.viewY
-          };
           return;
         }
         this.onMouseDown({
@@ -5133,17 +5164,11 @@ document.addEventListener('DOMContentLoaded', function () {
             cols = 100;
           }
         } else {
-          // Bounded modes: expand to include bounding box + viewport + live cells outside.
+          // Bounded modes: fixed world region = bounding box + live cells + static padding.
           var mmMR = 0,
             mmMC = 0,
             mmMXR = rows,
             mmMXC = cols;
-          var visCols0m = Math.ceil((this._canvas ? this._canvas.width : 500) / cellSize);
-          var visRows0m = Math.ceil((this._canvas ? this._canvas.height : 500) / cellSize);
-          mmMR = Math.min(mmMR, viewY);
-          mmMC = Math.min(mmMC, viewX);
-          mmMXR = Math.max(mmMXR, viewY + visRows0m);
-          mmMXC = Math.max(mmMXC, viewX + visCols0m);
           var bbMob = SimEngine.getBoundingBox(liveCells);
           if (bbMob) {
             mmMR = Math.min(mmMR, bbMob.minR);
@@ -5211,13 +5236,47 @@ document.addEventListener('DOMContentLoaded', function () {
         mmCtx.strokeRect(0.5, 0.5, mmW_css - 1, mmH_css - 1);
 
         // Viewport rectangle.
-        var vpW = this._canvas.width / cellSize * cellW;
-        var vpH = this._canvas.height / cellSize * cellH;
+        var vpVisColsM = this._canvas ? this._canvas.width / cellSize : 100;
+        var vpVisRowsM = this._canvas ? this._canvas.height / cellSize : 100;
+        var vpW = vpVisColsM * cellW;
+        var vpH = vpVisRowsM * cellH;
         var vpX = (viewX - mmMobOriginC) * cellW;
         var vpY = (viewY - mmMobOriginR) * cellH;
-        mmCtx.strokeStyle = 'rgba(255,255,255,0.75)';
-        mmCtx.lineWidth = 1;
-        mmCtx.strokeRect(vpX + 0.5, vpY + 0.5, Math.min(vpW, mmW_css - vpX), Math.min(vpH, mmH_css - vpY));
+        // Only draw viewport rect if it overlaps the minimap area.
+        var vpClampX = Math.max(0, vpX),
+          vpClampY = Math.max(0, vpY);
+        var vpClampR = Math.min(mmW_css, vpX + vpW),
+          vpClampB = Math.min(mmH_css, vpY + vpH);
+        if (vpClampR > vpClampX && vpClampB > vpClampY) {
+          mmCtx.strokeStyle = 'rgba(255,255,255,0.75)';
+          mmCtx.lineWidth = 1;
+          mmCtx.strokeRect(vpClampX + 0.5, vpClampY + 0.5, vpClampR - vpClampX, vpClampB - vpClampY);
+        }
+
+        // Off-screen viewport indicator arrow.
+        var vpCenterCm = viewX + vpVisColsM / 2;
+        var vpCenterRm = viewY + vpVisRowsM / 2;
+        var vpOutsideM = vpCenterCm < mmMobOriginC || vpCenterCm > mmMobOriginC + cols || vpCenterRm < mmMobOriginR || vpCenterRm > mmMobOriginR + rows;
+        if (vpOutsideM) {
+          var mmCCm = mmMobOriginC + cols / 2,
+            mmCRm = mmMobOriginR + rows / 2;
+          var aaM = Math.atan2(vpCenterRm - mmCRm, vpCenterCm - mmCCm);
+          var apxM = mmW_css / 2 + Math.cos(aaM) * (mmW_css / 2 - 8);
+          var apyM = mmH_css / 2 + Math.sin(aaM) * (mmH_css / 2 - 8);
+          apxM = Math.max(6, Math.min(mmW_css - 6, apxM));
+          apyM = Math.max(6, Math.min(mmH_css - 6, apyM));
+          mmCtx.save();
+          mmCtx.fillStyle = 'rgba(255,255,255,0.85)';
+          mmCtx.translate(apxM, apyM);
+          mmCtx.rotate(aaM);
+          mmCtx.beginPath();
+          mmCtx.moveTo(6, 0);
+          mmCtx.lineTo(-3, -4);
+          mmCtx.lineTo(-3, 4);
+          mmCtx.closePath();
+          mmCtx.fill();
+          mmCtx.restore();
+        }
 
         // Resize HTML canvas if needed and blit
         if (this._mobileMinimap.width !== mmW_css || this._mobileMinimap.height !== mmH_css) {
@@ -5289,11 +5348,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-rotate",
           onClick: this.rotateCW,
           title: "Rotate 90\xB0 clockwise"
-        }, "\u21BB")), /*#__PURE__*/React.createElement("p", {
-          className: "placement-hint"
-        }, this.state.selectedPattern, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-          className: "placement-hint-sub"
-        }, "Tap canvas to place"))), showSelection && /*#__PURE__*/React.createElement("div", {
+        }, "\u21BB"))), showSelection && /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
@@ -5351,7 +5406,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.stepGame,
           title: "Advance one generation (Enter)"
-        }, "Step"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-step-forward",
+          "aria-hidden": "true"
+        }), " Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepBack,
           title: "Step backward to a previous generation (,)",
@@ -5383,7 +5441,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.resetGame,
           title: "Randomize the board (R)"
-        }, "Reset"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-refresh",
+          "aria-hidden": "true"
+        }), " Reset"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.emptyBoard,
           title: "Clear all cells (E)"
@@ -5509,7 +5570,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.stepGame,
           title: "Advance one generation (Enter)"
-        }, "Step"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-step-forward",
+          "aria-hidden": "true"
+        }), " Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepBack,
           disabled: this._genHistory.length === 0,
@@ -5518,7 +5582,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.resetGame,
           title: "Randomize the board (R)"
-        }, "Reset"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-refresh",
+          "aria-hidden": "true"
+        }), " Reset"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.emptyBoard,
           title: "Clear all cells (E)"
@@ -5692,11 +5759,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-rotate",
           onClick: this.rotateCW,
           title: "Rotate 90\xB0 clockwise"
-        }, "\u21BB"))), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("p", {
-          className: "placement-hint"
-        }, "Click canvas to place \xB7 " + this.state.selectedPattern, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-          className: "placement-hint-sub"
-        }, "Right-click or Esc to cancel")), this.state.selection && /*#__PURE__*/React.createElement("div", {
+        }, "\u21BB"))), this.state.selection && /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
@@ -5936,7 +5999,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       renderCanvas: function (cs) {
         return /*#__PURE__*/React.createElement("div", {
-          className: "app-canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "") + (this.state.boundary === 'unbounded' ? " boundary-unbounded" : "")
+          className: "app-canvas-container"
         }, /*#__PURE__*/React.createElement("canvas", {
           className: "display",
           width: cs.w,
@@ -6276,11 +6339,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-rotate",
           onClick: this.rotateCW,
           title: "Rotate 90\xB0 CW"
-        }, "\u21BB"))), this.state.drawMode === 'preset' && this.state.selectedPattern && /*#__PURE__*/React.createElement("p", {
-          className: "placement-hint"
-        }, "Click canvas to place \xB7 " + this.state.selectedPattern, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-          className: "placement-hint-sub"
-        }, "Right-click or Esc to cancel")), this.state.selection && /*#__PURE__*/React.createElement("div", {
+        }, "\u21BB"))), this.state.selection && /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
@@ -6585,14 +6644,17 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.stepGame,
           "aria-label": "Step one generation"
-        }, "Step"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-step-forward",
+          "aria-hidden": "true"
+        }), " Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.resetGame,
           "aria-label": "Reset simulation"
         }, /*#__PURE__*/React.createElement("i", {
           className: "fa fa-refresh",
           "aria-hidden": "true"
-        })), /*#__PURE__*/React.createElement("button", {
+        }), " Reset"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
           onClick: this.togglePanMode,
           "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
@@ -6899,14 +6961,17 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.stepGame,
           "aria-label": "Step one generation"
-        }, "Step"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-step-forward",
+          "aria-hidden": "true"
+        }), " Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.resetGame,
           "aria-label": "Reset simulation"
         }, /*#__PURE__*/React.createElement("i", {
           className: "fa fa-refresh",
           "aria-hidden": "true"
-        })), /*#__PURE__*/React.createElement("button", {
+        }), " Reset"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
           onClick: this.togglePanMode,
           "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
@@ -7116,11 +7181,17 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.stepGame,
           "aria-label": "Step one generation"
-        }, "Step"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-step-forward",
+          "aria-hidden": "true"
+        }), " Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.resetGame,
           "aria-label": "Reset simulation"
-        }, "Reset"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-refresh",
+          "aria-hidden": "true"
+        }), " Reset"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
           onClick: this.togglePanMode,
           "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
