@@ -1662,7 +1662,13 @@ document.addEventListener('DOMContentLoaded', function () {
         var vh = Math.max(2, Math.round(visRows / rows * mmH));
         ctx.strokeStyle = 'rgba(255,255,255,0.75)';
         ctx.lineWidth = 1;
-        ctx.strokeRect(vx1 + 0.5, vy1 + 0.5, vw, vh);
+        var clampX = Math.max(vx1, mmX);
+        var clampY = Math.max(vy1, mmY);
+        var clampR = Math.min(vx1 + vw, mmX + mmW);
+        var clampB = Math.min(vy1 + vh, mmY + mmH);
+        if (clampR > clampX && clampB > clampY) {
+          ctx.strokeRect(clampX + 0.5, clampY + 0.5, clampR - clampX, clampB - clampY);
+        }
 
         // Store minimap rect for click detection.
         this._minimapRect = {
