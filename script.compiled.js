@@ -1116,7 +1116,7 @@ document.addEventListener('DOMContentLoaded', function () {
           } else if (layout === 'specimen') {
             maxW = winW;
             // Reserve top bar height
-            var topBarH = 40;
+            var topBarH = 44;
             maxH = Math.max(1, winH - topBarH);
           } else if (layout === 'observatory') {
             maxW = winW;
@@ -3815,6 +3815,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 bottomSheetClosing: false
               }, function () {
                 self._restoreFocus();
+                self.drawBoard();
               });
             }, 200);
           });
@@ -5794,7 +5795,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       renderCanvas: function (cs) {
         return /*#__PURE__*/React.createElement("div", {
-          className: "app-canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "")
+          className: "app-canvas-container" + (this.state.boundary === 'toroidal' ? " boundary-wrap" : "") + (this.state.boundary === 'unbounded' ? " boundary-unbounded" : "")
         }, /*#__PURE__*/React.createElement("canvas", {
           className: "display",
           width: cs.w,
@@ -5803,7 +5804,7 @@ document.addEventListener('DOMContentLoaded', function () {
             width: cs.displayW + 'px',
             height: cs.displayH + 'px',
             display: 'block',
-            margin: 'auto'
+            margin: '0 auto'
           },
           id: "life-canvas",
           role: "img",
