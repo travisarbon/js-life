@@ -1717,7 +1717,7 @@ canvas.display {
     gap: var(--space-sm);
     padding: var(--space-sm) var(--space-xs) var(--space-xs);
     position: fixed;
-    bottom: 52px;
+    bottom: calc(220px + env(safe-area-inset-bottom, 0px));
     left: 0;
     right: 0;
     z-index: 102;
