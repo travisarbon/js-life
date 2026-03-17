@@ -800,7 +800,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
             componentDidUpdate : function(prevProps, prevState){
                 if(prevState.selectedPattern !== this.state.selectedPattern ||
-                   prevState.patternRotation !== this.state.patternRotation){
+                   prevState.patternRotation !== this.state.patternRotation ||
+                   prevState.bottomSheetOpen !== this.state.bottomSheetOpen){
                     this.drawRotationPreview();
                 }
             },
@@ -3112,6 +3113,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             self.setState({bottomSheetOpen: false, bottomSheetClosing: false}, function(){
                                 self._restoreFocus();
                                 self.drawBoard();
+                                self.drawRotationPreview();
                             });
                         }, 200);
                     });
@@ -3120,6 +3122,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     this._saveFocus();
                     this.setState({bottomSheetOpen: true, bottomSheetClosing: false}, function(){
                         self._focusFirst('.bottom-sheet');
+                        self.drawRotationPreview();
                     });
                 }
             },
@@ -4764,6 +4767,13 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <div className="rotation-btns">
                                         <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° CCW">&#8634;</button>
                                         <button className="btn btn-rotate" onClick={this.rotateCW} title="Rotate 90° CW">&#8635;</button>
+                                        <button className="btn" onClick={function(){
+                                            self._previewPos = null;
+                                            self.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
+                                                function(){ self.drawBoard(); });
+                                        }} aria-label="Cancel pattern placement" title="Cancel placement">
+                                            <i className="fa fa-times" aria-hidden="true"></i>
+                                        </button>
                                     </div>
                                 </div>
                             }
@@ -5003,7 +5013,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                         }
                         {/* Mobile context: rotation preview + selection when active */}
-                        {this.renderMobileContextPanel()}
+                        {!this.state.bottomSheetOpen && this.renderMobileContextPanel()}
                         {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom transport bar */}
                         <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
@@ -5251,7 +5261,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 aria-expanded={this.state.bottomSheetOpen}
                                 aria-label="Open controls panel"><i className="fa fa-ellipsis-h" aria-hidden="true"></i></button>
                         </div>
-                        {this.renderMobileContextPanel()}
+                        {!this.state.bottomSheetOpen && this.renderMobileContextPanel()}
                         {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
@@ -5434,7 +5444,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 </span>
                             </div>
                         }
-                        {this.renderMobileContextPanel()}
+                        {!this.state.bottomSheetOpen && this.renderMobileContextPanel()}
                         {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&

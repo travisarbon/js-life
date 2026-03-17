@@ -1076,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', function () {
         this._startLoop();
       },
       componentDidUpdate: function (prevProps, prevState) {
-        if (prevState.selectedPattern !== this.state.selectedPattern || prevState.patternRotation !== this.state.patternRotation) {
+        if (prevState.selectedPattern !== this.state.selectedPattern || prevState.patternRotation !== this.state.patternRotation || prevState.bottomSheetOpen !== this.state.bottomSheetOpen) {
           this.drawRotationPreview();
         }
       },
@@ -3981,6 +3981,7 @@ document.addEventListener('DOMContentLoaded', function () {
               }, function () {
                 self._restoreFocus();
                 self.drawBoard();
+                self.drawRotationPreview();
               });
             }, 200);
           });
@@ -3992,6 +3993,7 @@ document.addEventListener('DOMContentLoaded', function () {
             bottomSheetClosing: false
           }, function () {
             self._focusFirst('.bottom-sheet');
+            self.drawRotationPreview();
           });
         }
       },
@@ -6410,7 +6412,24 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-rotate",
           onClick: this.rotateCW,
           title: "Rotate 90\xB0 CW"
-        }, "\u21BB"))), this.state.selection && /*#__PURE__*/React.createElement("div", {
+        }, "\u21BB"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: function () {
+            self._previewPos = null;
+            self.setState({
+              selectedPattern: null,
+              patternRotation: 0,
+              drawMode: 'paint'
+            }, function () {
+              self.drawBoard();
+            });
+          },
+          "aria-label": "Cancel pattern placement",
+          title: "Cancel placement"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-times",
+          "aria-hidden": "true"
+        })))), this.state.selection && /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-selection"
         }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
@@ -6700,7 +6719,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
-        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
+        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), !this.state.bottomSheetOpen && this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
           className: "mobile-transport-bar",
           role: "toolbar",
           "aria-label": "Simulation transport"
@@ -7072,7 +7091,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }, /*#__PURE__*/React.createElement("i", {
           className: "fa fa-ellipsis-h",
           "aria-hidden": "true"
-        }))), this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+        }))), !this.state.bottomSheetOpen && this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-container",
           onKeyDown: function (e) {
             self._onSheetKeyDown(e);
@@ -7310,7 +7329,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
-        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), !this.state.bottomSheetOpen && this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-container",
           onKeyDown: function (e) {
             self._onSheetKeyDown(e);
