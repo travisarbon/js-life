@@ -4389,6 +4389,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     onChange={this.setDensity} />
                             </div>
                         </div>
+                        <label className="control-group-label">Playback &amp; Display</label>
                         <div className="sliders">
                             <label className="slider-title">{"Speed: " + speedLabel}</label>
                             <div className="slider-row">
@@ -4469,16 +4470,16 @@ document.addEventListener('DOMContentLoaded', function(){
                     return (
                         <div className="transport-controls transport-compact">
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Play/Pause (Space)"><i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i></button>
-                            <button className="btn" onClick={this.stepGame} title="Step (.)">Step</button>
+                            <button className="btn" onClick={this.stepGame} title="Step (.)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
                             <span className="transport-speed-label">{"Gen " + this.state.generations.toLocaleString()}</span>
                         </div>
                     );
                 }
                 return (
                     <div className="transport-controls">
-                        <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Start or pause the simulation (Space)">{this.state.running ? "Pause" : "Play"}</button>
-                        <button className="btn" onClick={this.stepGame} title="Advance one generation (Enter)">Step</button>
-                        <button className="btn" onClick={this.stepBack} title="Step backward (,)" disabled={this._genHistory && this._genHistory.length === 0}>Back</button>
+                        <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Start or pause the simulation (Space)"><i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i> {this.state.running ? "Pause" : "Play"}</button>
+                        <button className="btn" onClick={this.stepGame} title="Advance one generation (Enter)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
+                        <button className="btn" onClick={this.stepBack} title="Step backward (,)" disabled={this._genHistory && this._genHistory.length === 0}><i className="fa fa-step-backward" aria-hidden="true"></i> Back</button>
                         <select className="toolbar-step-select" value={this.state.stepCount} onChange={this.setStepCount} title="Advance N generations">
                             <option value="1">+1</option>
                             <option value="10">+10</option>
@@ -4486,10 +4487,10 @@ document.addEventListener('DOMContentLoaded', function(){
                             <option value="100">+100</option>
                             <option value="500">+500</option>
                         </select>
-                        <button className="btn" onClick={function(){ self.stepN(self.state.stepCount); }} title="Advance multiple generations">Go</button>
-                        <button className="btn" onClick={this.resetGame} title="Randomize the board (R)">Reset</button>
-                        <button className="btn" onClick={this.emptyBoard} title="Clear all cells (E)">Empty</button>
-                        <button className="btn" onClick={this.undo} title="Undo last edit (Ctrl+Z)">Undo</button>
+                        <button className="btn" onClick={function(){ self.stepN(self.state.stepCount); }} title="Advance multiple generations"><i className="fa fa-fast-forward" aria-hidden="true"></i> Go</button>
+                        <button className="btn" onClick={this.resetGame} title="Randomize the board (R)"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
+                        <button className="btn" onClick={this.emptyBoard} title="Clear all cells (E)"><i className="fa fa-eraser" aria-hidden="true"></i> Empty</button>
+                        <button className="btn" onClick={this.undo} title="Undo last edit (Ctrl+Z)"><i className="fa fa-undo" aria-hidden="true"></i> Undo</button>
                     </div>
                 );
             },
@@ -4497,11 +4498,11 @@ document.addEventListener('DOMContentLoaded', function(){
             renderViewControls : function(){
                 return (
                     <div className="view-controls">
-                        <button className="btn" onClick={this.fitView} title="Zoom to fit entire grid">Fit Grid</button>
-                        <button className="btn" onClick={this.fitLiveCells} title="Zoom to fit live cells">Fit Cells</button>
-                        <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines} title="Toggle grid lines (G)">Grid</button>
-                        <button className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails">Trails</button>
-                        <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap (M)">Minimap</button>
+                        <button className="btn" onClick={this.fitView} title="Zoom to fit entire grid"><i className="fa fa-arrows-alt" aria-hidden="true"></i> Fit Grid</button>
+                        <button className="btn" onClick={this.fitLiveCells} title="Zoom to fit live cells"><i className="fa fa-compress" aria-hidden="true"></i> Fit Cells</button>
+                        <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines} title="Toggle grid lines (G)"><i className="fa fa-th" aria-hidden="true"></i> Grid</button>
+                        <button className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails"><i className="fa fa-eye" aria-hidden="true"></i> Trails</button>
+                        <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap (M)"><i className="fa fa-map-o" aria-hidden="true"></i> Minimap</button>
                     </div>
                 );
             },
@@ -4509,12 +4510,12 @@ document.addEventListener('DOMContentLoaded', function(){
             renderModeControls : function(){
                 return (
                     <div className="mode-controls">
-                        <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode} title="Freehand draw mode (D)">Draw</button>
-                        <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode} title="Place preset patterns (P)">Preset</button>
-                        <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode} title="Select and move cells (S)">Select</button>
-                        <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint while running">Live Paint</button>
-                        <button className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary">{this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
-                        <button className="btn" onClick={this.analyzePattern} disabled={this.state.analyzing} title="Detect oscillator/spaceship">Analyze</button>
+                        <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode} title="Freehand draw mode (D)"><i className="fa fa-pencil" aria-hidden="true"></i> Draw</button>
+                        <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode} title="Place preset patterns (P)"><i className="fa fa-puzzle-piece" aria-hidden="true"></i> Preset</button>
+                        <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode} title="Select and move cells (S)"><i className="fa fa-mouse-pointer" aria-hidden="true"></i> Select</button>
+                        <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint while running"><i className="fa fa-paint-brush" aria-hidden="true"></i> Live Paint</button>
+                        <button className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary"><i className="fa fa-repeat" aria-hidden="true"></i> {this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
+                        <button className="btn" onClick={this.analyzePattern} disabled={this.state.analyzing} title="Detect oscillator/spaceship"><i className="fa fa-crosshairs" aria-hidden="true"></i> Analyze</button>
                     </div>
                 );
             },
@@ -4617,13 +4618,13 @@ document.addEventListener('DOMContentLoaded', function(){
             renderExportContent : function(){
                 return (
                     <div className="export-content">
-                        <div className="sidebar-section-title">Export &amp; Import</div>
+                        <div className="sidebar-section-title">Import / Export</div>
                         <div className="btn-section">
                             <div className="buttons buttons-export">
-                                <button className="btn" onClick={this.exportPNG} title="Save as PNG">Export PNG</button>
-                                <button className="btn" onClick={this.copyRLE} title="Copy board as RLE">Copy RLE</button>
-                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording}>{this.state.recording ? "Stop" : "Record"}</button>
-                                <button className="btn" onClick={this.shareURL}>{this.state.shareTooltip ? "Copied!" : "Share"}</button>
+                                <button className="btn" onClick={this.exportPNG} title="Save as PNG"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
+                                <button className="btn" onClick={this.copyRLE} title="Copy board as RLE"><i className="fa fa-clipboard" aria-hidden="true"></i> Copy RLE</button>
+                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording}><i className={"fa " + (this.state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {this.state.recording ? "Stop" : "Record"}</button>
+                                <button className="btn" onClick={this.shareURL}><i className="fa fa-share-alt" aria-hidden="true"></i> {this.state.shareTooltip ? "Copied!" : "Share"}</button>
                             </div>
                             {this.renderRLESection()}
                         </div>
@@ -4682,8 +4683,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         tabContent = (
                             <div className="rail-tab-content">
                                 <div className="sidebar-section-title">Simulation</div>
+                                <label className="control-group-label">Transport</label>
                                 {this.renderTransportControls(false)}
+                                <label className="control-group-label">View</label>
                                 {this.renderViewControls()}
+                                <label className="control-group-label">Mode</label>
                                 {this.renderModeControls()}
                             </div>
                         );
@@ -4794,8 +4798,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         sheetContent = (
                             <div>
                                 <div className="sidebar-section-title">Simulation</div>
+                                <label className="control-group-label">Transport</label>
                                 {this.renderTransportControls(false)}
+                                <label className="control-group-label">View</label>
                                 {this.renderViewControls()}
+                                <label className="control-group-label">Mode</label>
                                 {this.renderModeControls()}
                                 {this.renderMobileSparkline()}
                             </div>
@@ -4840,6 +4847,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
                             <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                                 onClick={this.togglePanMode}
                                 aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
@@ -4919,7 +4927,9 @@ document.addEventListener('DOMContentLoaded', function(){
                     case 'simulate':
                         trayContent = (
                             <div>
+                                <label className="control-group-label">Transport</label>
                                 {this.renderTransportControls(false)}
+                                <label className="control-group-label">View</label>
                                 {this.renderViewControls()}
                             </div>
                         );
@@ -4939,31 +4949,36 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <span className="top-bar-title">{"Conway's Game of Life"}</span>
                             </div>
                             <div className="top-bar-center">
-                                {this.renderTransportControls(true)}
+                                {!(this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen) &&
+                                    this.renderTransportControls(true)}
                             </div>
                             <div className="top-bar-right">
-                                {this.renderModeControls()}
-                                <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
-                                    <i className="fa fa-question-circle" aria-hidden="true"></i>
-                                </button>
-                                <div className="top-bar-more" role="group" aria-label="Settings panels">
+                                <div className="toolbar-group" role="group" aria-label="Interaction modes">
+                                    {this.renderModeControls()}
+                                </div>
+                                <div className="toolbar-group" role="group" aria-label="Settings and navigation">
+                                    <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                        <i className="fa fa-question-circle" aria-hidden="true"></i>
+                                    </button>
+                                    <div className="top-bar-more" role="group" aria-label="Settings panels">
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'simulate' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('simulate'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen}>Sim</button>
+                                        aria-expanded={this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen}><i className="fa fa-play" aria-hidden="true"></i> Simulate</button>
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen}>Tools</button>
+                                        aria-expanded={this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen}><i className="fa fa-pencil" aria-hidden="true"></i> Tools</button>
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'board' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'board' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('board'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'board' && this.state.contextTrayOpen}>Board</button>
+                                        aria-expanded={this.state.contextTrayContent === 'board' && this.state.contextTrayOpen}><i className="fa fa-th" aria-hidden="true"></i> Board</button>
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'rules' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('rules'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen}>Rules</button>
+                                        aria-expanded={this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen}><i className="fa fa-cog" aria-hidden="true"></i> Rules</button>
                                     <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'export' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'export' && this.state.contextTrayOpen}>Export</button>
+                                        aria-expanded={this.state.contextTrayContent === 'export' && this.state.contextTrayOpen}><i className="fa fa-download" aria-hidden="true"></i> Export</button>
+                                    </div>
+                                    {this.renderLayoutSwitcher()}
                                 </div>
-                                {this.renderLayoutSwitcher()}
                             </div>
                         </div>
                         {/* Context tray */}
@@ -5021,8 +5036,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         sheetContent = (
                             <div>
                                 <div className="sidebar-section-title">Simulation</div>
+                                <label className="control-group-label">Transport</label>
                                 {this.renderTransportControls(false)}
+                                <label className="control-group-label">View</label>
                                 {this.renderViewControls()}
+                                <label className="control-group-label">Mode</label>
                                 {this.renderModeControls()}
                                 {this.renderMobileSparkline()}
                             </div>
@@ -5047,6 +5065,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
+                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
                             <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                                 onClick={this.togglePanMode}
                                 aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
@@ -5153,7 +5172,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     {this.state._panelMenuOpen &&
                                         <div className="panel-menu-list" role="group" aria-label="Panel toggles">
                                             {['transport','view','mode','tools','board','rules','stats','importExport'].map(function(id){
-                                                var label = id === 'importExport' ? 'Import/Export' : id.charAt(0).toUpperCase() + id.slice(1);
+                                                var label = id === 'importExport' ? 'Import / Export' : id.charAt(0).toUpperCase() + id.slice(1);
                                                 return (
                                                     <label key={id} className="panel-menu-item">
                                                         <input type="checkbox" checked={panels[id].open}
@@ -5191,8 +5210,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         sheetContent = (
                             <div>
                                 <div className="sidebar-section-title">Simulation</div>
+                                <label className="control-group-label">Transport</label>
                                 {this.renderTransportControls(false)}
+                                <label className="control-group-label">View</label>
                                 {this.renderViewControls()}
+                                <label className="control-group-label">Mode</label>
                                 {this.renderModeControls()}
                                 {this.renderMobileSparkline()}
                             </div>
@@ -5233,7 +5255,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
-                                aria-label="Open controls panel">Controls</button>
+                                aria-label="Open controls panel">More</button>
                         </div>
                         {/* Stats chip — hide when bottom sheet is open to avoid overlap */}
                         {!this.state.bottomSheetOpen &&

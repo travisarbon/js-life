@@ -5786,7 +5786,9 @@ document.addEventListener('DOMContentLoaded', function () {
           max: "7",
           value: 9 - this.state.sparseness,
           onChange: this.setDensity
-        }))), /*#__PURE__*/React.createElement("div", {
+        }))), /*#__PURE__*/React.createElement("label", {
+          className: "control-group-label"
+        }, "Playback & Display"), /*#__PURE__*/React.createElement("div", {
           className: "sliders"
         }, /*#__PURE__*/React.createElement("label", {
           className: "slider-title"
@@ -5890,7 +5892,10 @@ document.addEventListener('DOMContentLoaded', function () {
             className: "btn",
             onClick: this.stepGame,
             title: "Step (.)"
-          }, "Step"), /*#__PURE__*/React.createElement("span", {
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fa fa-step-forward",
+            "aria-hidden": "true"
+          }), " Step"), /*#__PURE__*/React.createElement("span", {
             className: "transport-speed-label"
           }, "Gen " + this.state.generations.toLocaleString()));
         }
@@ -5900,16 +5905,25 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
           onClick: this.toggleGame,
           title: "Start or pause the simulation (Space)"
-        }, this.state.running ? "Pause" : "Play"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + (this.state.running ? "fa-pause" : "fa-play"),
+          "aria-hidden": "true"
+        }), " ", this.state.running ? "Pause" : "Play"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepGame,
           title: "Advance one generation (Enter)"
-        }, "Step"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-step-forward",
+          "aria-hidden": "true"
+        }), " Step"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepBack,
           title: "Step backward (,)",
           disabled: this._genHistory && this._genHistory.length === 0
-        }, "Back"), /*#__PURE__*/React.createElement("select", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-step-backward",
+          "aria-hidden": "true"
+        }), " Back"), /*#__PURE__*/React.createElement("select", {
           className: "toolbar-step-select",
           value: this.state.stepCount,
           onChange: this.setStepCount,
@@ -5930,19 +5944,31 @@ document.addEventListener('DOMContentLoaded', function () {
             self.stepN(self.state.stepCount);
           },
           title: "Advance multiple generations"
-        }, "Go"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-fast-forward",
+          "aria-hidden": "true"
+        }), " Go"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.resetGame,
           title: "Randomize the board (R)"
-        }, "Reset"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-refresh",
+          "aria-hidden": "true"
+        }), " Reset"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.emptyBoard,
           title: "Clear all cells (E)"
-        }, "Empty"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-eraser",
+          "aria-hidden": "true"
+        }), " Empty"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.undo,
           title: "Undo last edit (Ctrl+Z)"
-        }, "Undo"));
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-undo",
+          "aria-hidden": "true"
+        }), " Undo"));
       },
       renderViewControls: function () {
         return /*#__PURE__*/React.createElement("div", {
@@ -5951,23 +5977,38 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.fitView,
           title: "Zoom to fit entire grid"
-        }, "Fit Grid"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-arrows-alt",
+          "aria-hidden": "true"
+        }), " Fit Grid"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.fitLiveCells,
           title: "Zoom to fit live cells"
-        }, "Fit Cells"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-compress",
+          "aria-hidden": "true"
+        }), " Fit Cells"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.gridLines ? " active" : ""),
           onClick: this.toggleGridLines,
           title: "Toggle grid lines (G)"
-        }, "Grid"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-th",
+          "aria-hidden": "true"
+        }), " Grid"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.showTrails ? " active" : ""),
           onClick: this.toggleTrails,
           title: "Show ghost trails"
-        }, "Trails"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-eye",
+          "aria-hidden": "true"
+        }), " Trails"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.showMinimap ? " active" : ""),
           onClick: this.toggleMinimap,
           title: "Show/hide minimap (M)"
-        }, "Minimap"));
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-map-o",
+          "aria-hidden": "true"
+        }), " Minimap"));
       },
       renderModeControls: function () {
         return /*#__PURE__*/React.createElement("div", {
@@ -5976,28 +6017,46 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : ""),
           onClick: this.toggleDrawMode,
           title: "Freehand draw mode (D)"
-        }, "Draw"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-pencil",
+          "aria-hidden": "true"
+        }), " Draw"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : ""),
           onClick: this.togglePresetMode,
           title: "Place preset patterns (P)"
-        }, "Preset"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-puzzle-piece",
+          "aria-hidden": "true"
+        }), " Preset"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
           onClick: this.toggleSelectMode,
           title: "Select and move cells (S)"
-        }, "Select"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-mouse-pointer",
+          "aria-hidden": "true"
+        }), " Select"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
           onClick: this.toggleLivePaint,
           title: "Paint while running"
-        }, "Live Paint"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-paint-brush",
+          "aria-hidden": "true"
+        }), " Live Paint"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : ""),
           onClick: this.toggleBoundary,
           title: "Cycle boundary"
-        }, this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-repeat",
+          "aria-hidden": "true"
+        }), " ", this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.analyzePattern,
           disabled: this.state.analyzing,
           title: "Detect oscillator/spaceship"
-        }, "Analyze"));
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-crosshairs",
+          "aria-hidden": "true"
+        }), " Analyze"));
       },
       renderToolsContent: function () {
         var self = this;
@@ -6150,7 +6209,7 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "export-content"
         }, /*#__PURE__*/React.createElement("div", {
           className: "sidebar-section-title"
-        }, "Export & Import"), /*#__PURE__*/React.createElement("div", {
+        }, "Import / Export"), /*#__PURE__*/React.createElement("div", {
           className: "btn-section"
         }, /*#__PURE__*/React.createElement("div", {
           className: "buttons buttons-export"
@@ -6158,17 +6217,29 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn",
           onClick: this.exportPNG,
           title: "Save as PNG"
-        }, "Export PNG"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-camera",
+          "aria-hidden": "true"
+        }), " Export PNG"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.copyRLE,
           title: "Copy board as RLE"
-        }, "Copy RLE"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-clipboard",
+          "aria-hidden": "true"
+        }), " Copy RLE"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.recording ? " active btn-record" : ""),
           onClick: this.toggleRecording
-        }, this.state.recording ? "Stop" : "Record"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + (this.state.recording ? "fa-stop" : "fa-circle"),
+          "aria-hidden": "true"
+        }), " ", this.state.recording ? "Stop" : "Record"), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.shareURL
-        }, this.state.shareTooltip ? "Copied!" : "Share")), this.renderRLESection()));
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-share-alt",
+          "aria-hidden": "true"
+        }), " ", this.state.shareTooltip ? "Copied!" : "Share")), this.renderRLESection()));
       },
       renderLayoutSwitcher: function () {
         var self = this;
@@ -6223,7 +6294,13 @@ document.addEventListener('DOMContentLoaded', function () {
               className: "rail-tab-content"
             }, /*#__PURE__*/React.createElement("div", {
               className: "sidebar-section-title"
-            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls());
+            }, "Simulation"), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "Mode"), this.renderModeControls());
             break;
           case 'tools':
             tabContent = /*#__PURE__*/React.createElement("div", {
@@ -6365,7 +6442,13 @@ document.addEventListener('DOMContentLoaded', function () {
           case 'simulate':
             sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
               className: "sidebar-section-title"
-            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderMobileSparkline());
+            }, "Simulation"), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "Mode"), this.renderModeControls(), this.renderMobileSparkline());
             break;
           case 'tools':
             sheetContent = this.renderToolsContent();
@@ -6413,6 +6496,13 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.stepGame,
           "aria-label": "Step one generation"
         }, "Step"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.resetGame,
+          "aria-label": "Reset simulation"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-refresh",
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
           onClick: this.togglePanMode,
           "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
@@ -6508,7 +6598,11 @@ document.addEventListener('DOMContentLoaded', function () {
         var trayContent = null;
         switch (this.state.contextTrayContent) {
           case 'simulate':
-            trayContent = /*#__PURE__*/React.createElement("div", null, this.renderTransportControls(false), this.renderViewControls());
+            trayContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "View"), this.renderViewControls());
             break;
           case 'tools':
             trayContent = this.renderToolsContent();
@@ -6535,9 +6629,17 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "top-bar-title"
         }, "Conway's Game of Life")), /*#__PURE__*/React.createElement("div", {
           className: "top-bar-center"
-        }, this.renderTransportControls(true)), /*#__PURE__*/React.createElement("div", {
+        }, !(this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen) && this.renderTransportControls(true)), /*#__PURE__*/React.createElement("div", {
           className: "top-bar-right"
-        }, this.renderModeControls(), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-group",
+          role: "group",
+          "aria-label": "Interaction modes"
+        }, this.renderModeControls()), /*#__PURE__*/React.createElement("div", {
+          className: "toolbar-group",
+          role: "group",
+          "aria-label": "Settings and navigation"
+        }, /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.toggleHelp,
           "aria-label": "Help",
@@ -6555,31 +6657,46 @@ document.addEventListener('DOMContentLoaded', function () {
             self.state.contextTrayContent === 'simulate' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('simulate');
           },
           "aria-expanded": this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen
-        }, "Sim"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-play",
+          "aria-hidden": "true"
+        }), " Simulate"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : ""),
           onClick: function () {
             self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools');
           },
           "aria-expanded": this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen
-        }, "Tools"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-pencil",
+          "aria-hidden": "true"
+        }), " Tools"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayContent === 'board' && this.state.contextTrayOpen ? " active" : ""),
           onClick: function () {
             self.state.contextTrayContent === 'board' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('board');
           },
           "aria-expanded": this.state.contextTrayContent === 'board' && this.state.contextTrayOpen
-        }, "Board"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-th",
+          "aria-hidden": "true"
+        }), " Board"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen ? " active" : ""),
           onClick: function () {
             self.state.contextTrayContent === 'rules' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('rules');
           },
           "aria-expanded": this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen
-        }, "Rules"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-cog",
+          "aria-hidden": "true"
+        }), " Rules"), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.contextTrayContent === 'export' && this.state.contextTrayOpen ? " active" : ""),
           onClick: function () {
             self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export');
           },
           "aria-expanded": this.state.contextTrayContent === 'export' && this.state.contextTrayOpen
-        }, "Export")), this.renderLayoutSwitcher())), this.state.contextTrayOpen && /*#__PURE__*/React.createElement("div", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-download",
+          "aria-hidden": "true"
+        }), " Export")), this.renderLayoutSwitcher()))), this.state.contextTrayOpen && /*#__PURE__*/React.createElement("div", {
           className: "context-tray" + (this.state.contextTrayPinned ? " pinned" : ""),
           role: "region",
           "aria-label": this.state.contextTrayContent + " settings"
@@ -6652,7 +6769,13 @@ document.addEventListener('DOMContentLoaded', function () {
           case 'simulate':
             sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
               className: "sidebar-section-title"
-            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderMobileSparkline());
+            }, "Simulation"), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "Mode"), this.renderModeControls(), this.renderMobileSparkline());
             break;
           case 'tools':
             sheetContent = this.renderToolsContent();
@@ -6687,6 +6810,13 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.stepGame,
           "aria-label": "Step one generation"
         }, "Step"), /*#__PURE__*/React.createElement("button", {
+          className: "btn",
+          onClick: this.resetGame,
+          "aria-label": "Reset simulation"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-refresh",
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
           onClick: this.togglePanMode,
           "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
@@ -6816,7 +6946,7 @@ document.addEventListener('DOMContentLoaded', function () {
           role: "group",
           "aria-label": "Panel toggles"
         }, ['transport', 'view', 'mode', 'tools', 'board', 'rules', 'stats', 'importExport'].map(function (id) {
-          var label = id === 'importExport' ? 'Import/Export' : id.charAt(0).toUpperCase() + id.slice(1);
+          var label = id === 'importExport' ? 'Import / Export' : id.charAt(0).toUpperCase() + id.slice(1);
           return /*#__PURE__*/React.createElement("label", {
             key: id,
             className: "panel-menu-item"
@@ -6858,7 +6988,13 @@ document.addEventListener('DOMContentLoaded', function () {
           case 'simulate':
             sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
               className: "sidebar-section-title"
-            }, "Simulation"), this.renderTransportControls(false), this.renderViewControls(), this.renderModeControls(), this.renderMobileSparkline());
+            }, "Simulation"), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
+              className: "control-group-label"
+            }, "Mode"), this.renderModeControls(), this.renderMobileSparkline());
             break;
           case 'tools':
             sheetContent = this.renderToolsContent();
@@ -6918,7 +7054,7 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.toggleBottomSheet,
           "aria-expanded": this.state.bottomSheetOpen,
           "aria-label": "Open controls panel"
-        }, "Controls")), !this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+        }, "More")), !this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "stats-chip",
           onClick: this.togglePopGraph,
           role: "button",

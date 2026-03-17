@@ -259,6 +259,9 @@ canvas.display {
               border-color var(--transition-fast),
               filter var(--transition-fast);
   word-break: break-word; }
+/* Icon spacing inside buttons */
+.btn > .fa,
+#content .btn > .fa { margin-right: 4px; }
 #content .btn:hover {
   filter: brightness(var(--hover-brightness));
   border-color: var(--accent); }
@@ -507,6 +510,18 @@ canvas.display {
   letter-spacing: 0.05em;
   opacity: var(--opacity-muted);
   padding: var(--space-xs) 0 var(--space-sm); }
+
+/* Control group sub-labels (e.g. Transport / View / Mode within Simulate tab) */
+.control-group-label {
+  display: block;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-xs); }
+.control-group-label:first-of-type {
+  margin-top: 0; }
 
 /* ── Mobile context panel ─────────────────────────────────────────────────── */
 /* Contextual controls (rotation preview, selection actions) below canvas on mobile. */
@@ -941,6 +956,16 @@ canvas.display {
 .top-bar .mode-controls,
 .top-bar .view-controls {
   margin-top: 0; }
+
+/* Toolbar groups with visual separator */
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm); }
+.top-bar-right > .toolbar-group + .toolbar-group {
+  margin-left: var(--space-md);
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--separator-color); }
 
 .top-bar-left {
   display: flex;
