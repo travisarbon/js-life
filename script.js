@@ -1228,6 +1228,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(this.state.showMinimap && (isUnbounded || (cols > 0 && rows > 0))){
                     if(isMobileView){
                         this.drawMinimapMobile(liveCells, cols, rows, viewX, viewY, cellSize, theme);
+                        this._minimapRect = null;
                     } else {
                         var cs2 = this.getCanvasSize();
                         var mmDisplayScale = (cs2.w > 0) ? cs2.displayW / cs2.w : 1;
@@ -2141,6 +2142,28 @@ document.addEventListener('DOMContentLoaded', function(){
                 this.setState({liveCells: newLiveCells, stable: false}, function(){ self.drawBoard(); });
             },
 
+            _startPanMomentum : function(vx, vy){
+                var self = this;
+                var friction = 0.92;
+                var cellSize = this.state.cellSize;
+                function tick(){
+                    vx *= friction;
+                    vy *= friction;
+                    if(Math.abs(vx) < 0.05 && Math.abs(vy) < 0.05){ return; }
+                    var dCols = -vx * 16 / cellSize;
+                    var dRows = -vy * 16 / cellSize;
+                    var newVX = self.state.viewX + Math.round(dCols);
+                    var newVY = self.state.viewY + Math.round(dRows);
+                    var clamped = self.clampView(newVX, newVY,
+                        self.state.cols, self.state.rows, cellSize);
+                    if(clamped.viewX === self.state.viewX && clamped.viewY === self.state.viewY){ return; }
+                    self.setState({viewX: clamped.viewX, viewY: clamped.viewY},
+                        function(){ self.drawBoard(); });
+                    self._panMomentumFrame = requestAnimationFrame(tick);
+                }
+                this._panMomentumFrame = requestAnimationFrame(tick);
+            },
+
             onMouseLeave : function(){
                 if(this.state.hoverCell){ this.setState({hoverCell : null}); }
                 this._minimapDragging = false;
@@ -2546,6 +2569,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
             onTouchStart : function(event){
                 event.preventDefault();
+                if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
                 clearTimeout(this._longPressTimer);
                 if(!event.touches || event.touches.length === 0){ return; }
                 if(event.touches.length === 2){
@@ -2637,6 +2661,15 @@ document.addEventListener('DOMContentLoaded', function(){
                     var self = this;
                     this.setState({viewX: clamped.viewX, viewY: clamped.viewY},
                         function(){ self.drawBoard(); });
+                    // Track velocity for momentum on release
+                    var now = Date.now();
+                    this._panVelocity = {
+                        vx: (dx - (this._panLastDx || 0)) / Math.max(1, now - (this._panLastTime || now)),
+                        vy: (dy - (this._panLastDy || 0)) / Math.max(1, now - (this._panLastTime || now))
+                    };
+                    this._panLastDx = dx;
+                    this._panLastDy = dy;
+                    this._panLastTime = now;
                     return;
                 }
                 this.onMouseMove({clientX: t.clientX, clientY: t.clientY});
@@ -2648,10 +2681,21 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._longPressTimer = null;
                 if(event.touches.length < 2){ this._pinchStart = null; }
                 if(event.touches.length === 0){
-                    // End pan mode drag
+                    // End pan mode drag — apply momentum if flicked
                     if(this.state.panMode && this._panDragging){
                         this._panDragging = false;
                         this._panStart = null;
+                        if(this._panVelocity){
+                            var vel = this._panVelocity;
+                            var speed = Math.sqrt(vel.vx * vel.vx + vel.vy * vel.vy);
+                            if(speed > 0.15){
+                                this._startPanMomentum(vel.vx, vel.vy);
+                            }
+                        }
+                        this._panVelocity = null;
+                        this._panLastDx = 0;
+                        this._panLastDy = 0;
+                        this._panLastTime = 0;
                         return;
                     }
                     // For pattern placement, place at the final preview position rather than
@@ -4722,12 +4766,12 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                         {/* Mobile context: rotation preview + selection when active */}
                         {this.renderMobileContextPanel()}
-                        {this.renderMobileMinimapArea()}
+                        {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom transport bar */}
                         <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
-                                {this.state.running ? "\u23F8" : "\u25B6"}
+                                <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
                             <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
@@ -4782,9 +4826,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                         role="tabpanel"
                                         aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
-                                    </div>
-                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
-                                        {this.renderLayoutSwitcher()}
+                                        <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                            {this.renderLayoutSwitcher()}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -4932,7 +4976,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             </span>
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
-                                {this.state.running ? "\u23F8" : "\u25B6"}
+                                <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
                             <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
@@ -4956,7 +5000,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 aria-label="Open controls panel">More</button>
                         </div>
                         {this.renderMobileContextPanel()}
-                        {this.renderMobileMinimapArea()}
+                        {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
                             <div className="bottom-sheet-container"
@@ -4989,9 +5033,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                         role="tabpanel"
                                         aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
-                                    </div>
-                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
-                                        {this.renderLayoutSwitcher()}
+                                        <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                            {this.renderLayoutSwitcher()}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -5097,7 +5141,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
-                                {this.state.running ? "\u23F8" : "\u25B6"}
+                                <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
                             <button className="btn" onClick={this.stepGame} aria-label="Step one generation">Step</button>
                             <button className="btn" onClick={this.resetGame} aria-label="Reset simulation">Reset</button>
@@ -5134,7 +5178,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                         }
                         {this.renderMobileContextPanel()}
-                        {this.renderMobileMinimapArea()}
+                        {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom sheet with tabs */}
                         {this.state.bottomSheetOpen &&
                             <div className="bottom-sheet-container"
@@ -5167,9 +5211,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                         role="tabpanel"
                                         aria-label={this.state.bottomSheetTab + " controls"}>
                                         {sheetContent}
-                                    </div>
-                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
-                                        {this.renderLayoutSwitcher()}
+                                        <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                            {this.renderLayoutSwitcher()}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

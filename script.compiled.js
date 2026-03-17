@@ -1555,6 +1555,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (this.state.showMinimap && (isUnbounded || cols > 0 && rows > 0)) {
           if (isMobileView) {
             this.drawMinimapMobile(liveCells, cols, rows, viewX, viewY, cellSize, theme);
+            this._minimapRect = null;
           } else {
             var cs2 = this.getCanvasSize();
             var mmDisplayScale = cs2.w > 0 ? cs2.displayW / cs2.w : 1;
@@ -2699,6 +2700,34 @@ document.addEventListener('DOMContentLoaded', function () {
           self.drawBoard();
         });
       },
+      _startPanMomentum: function (vx, vy) {
+        var self = this;
+        var friction = 0.92;
+        var cellSize = this.state.cellSize;
+        function tick() {
+          vx *= friction;
+          vy *= friction;
+          if (Math.abs(vx) < 0.05 && Math.abs(vy) < 0.05) {
+            return;
+          }
+          var dCols = -vx * 16 / cellSize;
+          var dRows = -vy * 16 / cellSize;
+          var newVX = self.state.viewX + Math.round(dCols);
+          var newVY = self.state.viewY + Math.round(dRows);
+          var clamped = self.clampView(newVX, newVY, self.state.cols, self.state.rows, cellSize);
+          if (clamped.viewX === self.state.viewX && clamped.viewY === self.state.viewY) {
+            return;
+          }
+          self.setState({
+            viewX: clamped.viewX,
+            viewY: clamped.viewY
+          }, function () {
+            self.drawBoard();
+          });
+          self._panMomentumFrame = requestAnimationFrame(tick);
+        }
+        this._panMomentumFrame = requestAnimationFrame(tick);
+      },
       onMouseLeave: function () {
         if (this.state.hoverCell) {
           this.setState({
@@ -3243,6 +3272,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
       onTouchStart: function (event) {
         event.preventDefault();
+        if (this._panMomentumFrame) {
+          cancelAnimationFrame(this._panMomentumFrame);
+          this._panMomentumFrame = null;
+        }
         clearTimeout(this._longPressTimer);
         if (!event.touches || event.touches.length === 0) {
           return;
@@ -3362,6 +3395,15 @@ document.addEventListener('DOMContentLoaded', function () {
           }, function () {
             self.drawBoard();
           });
+          // Track velocity for momentum on release
+          var now = Date.now();
+          this._panVelocity = {
+            vx: (dx - (this._panLastDx || 0)) / Math.max(1, now - (this._panLastTime || now)),
+            vy: (dy - (this._panLastDy || 0)) / Math.max(1, now - (this._panLastTime || now))
+          };
+          this._panLastDx = dx;
+          this._panLastDy = dy;
+          this._panLastTime = now;
           return;
         }
         this.onMouseMove({
@@ -3377,10 +3419,21 @@ document.addEventListener('DOMContentLoaded', function () {
           this._pinchStart = null;
         }
         if (event.touches.length === 0) {
-          // End pan mode drag
+          // End pan mode drag — apply momentum if flicked
           if (this.state.panMode && this._panDragging) {
             this._panDragging = false;
             this._panStart = null;
+            if (this._panVelocity) {
+              var vel = this._panVelocity;
+              var speed = Math.sqrt(vel.vx * vel.vx + vel.vy * vel.vy);
+              if (speed > 0.15) {
+                this._startPanMomentum(vel.vx, vel.vy);
+              }
+            }
+            this._panVelocity = null;
+            this._panLastDx = 0;
+            this._panLastDy = 0;
+            this._panLastTime = 0;
             return;
           }
           // For pattern placement, place at the final preview position rather than
@@ -6277,7 +6330,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
-        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
+        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
           className: "mobile-transport-bar",
           role: "toolbar",
           "aria-label": "Simulation transport"
@@ -6285,7 +6338,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
           onClick: this.toggleGame,
           "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
-        }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + (this.state.running ? "fa-pause" : "fa-play"),
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepGame,
           "aria-label": "Step one generation"
@@ -6366,12 +6422,12 @@ document.addEventListener('DOMContentLoaded', function () {
           id: "sheet-panel-" + this.state.bottomSheetTab,
           role: "tabpanel",
           "aria-label": this.state.bottomSheetTab + " controls"
-        }, sheetContent), /*#__PURE__*/React.createElement("div", {
+        }, sheetContent, /*#__PURE__*/React.createElement("div", {
           style: {
             padding: '8px 12px 0',
             borderTop: '1px solid var(--panel-border)'
           }
-        }, this.renderLayoutSwitcher()))));
+        }, this.renderLayoutSwitcher())))));
       },
       // ── Specimen layout ──────────────────────────────────────────────
 
@@ -6556,7 +6612,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
           onClick: this.toggleGame,
           "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
-        }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + (this.state.running ? "fa-pause" : "fa-play"),
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepGame,
           "aria-label": "Step one generation"
@@ -6584,7 +6643,7 @@ document.addEventListener('DOMContentLoaded', function () {
           onClick: this.toggleBottomSheet,
           "aria-expanded": this.state.bottomSheetOpen,
           "aria-label": "Open controls panel"
-        }, "More")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+        }, "More")), this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-container",
           onKeyDown: function (e) {
             self._onSheetKeyDown(e);
@@ -6637,12 +6696,12 @@ document.addEventListener('DOMContentLoaded', function () {
           id: "sheet-panel-" + this.state.bottomSheetTab,
           role: "tabpanel",
           "aria-label": this.state.bottomSheetTab + " controls"
-        }, sheetContent), /*#__PURE__*/React.createElement("div", {
+        }, sheetContent, /*#__PURE__*/React.createElement("div", {
           style: {
             padding: '8px 12px 0',
             borderTop: '1px solid var(--panel-border)'
           }
-        }, this.renderLayoutSwitcher()))));
+        }, this.renderLayoutSwitcher())))));
       },
       // ── Observatory layout ───────────────────────────────────────────
 
@@ -6757,7 +6816,10 @@ document.addEventListener('DOMContentLoaded', function () {
           className: "btn btn-toggle" + (this.state.running ? " active" : ""),
           onClick: this.toggleGame,
           "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
-        }, this.state.running ? "\u23F8" : "\u25B6"), /*#__PURE__*/React.createElement("button", {
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + (this.state.running ? "fa-pause" : "fa-play"),
+          "aria-hidden": "true"
+        })), /*#__PURE__*/React.createElement("button", {
           className: "btn",
           onClick: this.stepGame,
           "aria-label": "Step one generation"
@@ -6804,7 +6866,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
           className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
-        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
+        }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
           className: "bottom-sheet-container",
           onKeyDown: function (e) {
             self._onSheetKeyDown(e);
@@ -6857,12 +6919,12 @@ document.addEventListener('DOMContentLoaded', function () {
           id: "sheet-panel-" + this.state.bottomSheetTab,
           role: "tabpanel",
           "aria-label": this.state.bottomSheetTab + " controls"
-        }, sheetContent), /*#__PURE__*/React.createElement("div", {
+        }, sheetContent, /*#__PURE__*/React.createElement("div", {
           style: {
             padding: '8px 12px 0',
             borderTop: '1px solid var(--panel-border)'
           }
-        }, this.renderLayoutSwitcher()))));
+        }, this.renderLayoutSwitcher())))));
       },
       // ── Float panel helper (Observatory) ─────────────────────────────
 
