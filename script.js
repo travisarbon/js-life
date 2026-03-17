@@ -752,7 +752,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 // ── Device class detection via matchMedia ──────────────────
                 var self3 = this;
                 this._mqPhone = window.matchMedia('(max-width: 620px)');
-                this._mqPhoneLandscape = window.matchMedia('(max-width: 900px) and (orientation: landscape) and (max-height: 500px)');
+                this._mqPhoneLandscape = window.matchMedia('(orientation: landscape) and (max-height: 550px)');
                 this._mqTablet = window.matchMedia('(min-width: 621px) and (max-width: 900px)');
                 this._mqLandscape = window.matchMedia('(orientation: landscape)');
                 this._updateDeviceClass = function(){
@@ -4418,7 +4418,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(compact){
                     return (
                         <div className="transport-controls transport-compact">
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Play/Pause (Space)">{this.state.running ? "\u23F8" : "\u25B6"}</button>
+                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Play/Pause (Space)"><i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i></button>
                             <button className="btn" onClick={this.stepGame} title="Step (.)">Step</button>
                             <span className="transport-speed-label">{"Gen " + this.state.generations.toLocaleString()}</span>
                         </div>
