@@ -1566,9 +1566,20 @@ canvas.display {
   .layout-cartographer .rail-tab-label {
     font-size: var(--text-xs); }
   .layout-specimen .top-bar {
-    min-height: 44px; }
+    min-height: 44px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; }
+  .layout-specimen .top-bar-more .btn {
+    min-width: 44px;
+    white-space: nowrap; }
   .layout-observatory .float-panel {
     max-width: 260px; }
+  /* Redistribute observatory panel default positions to avoid overlap on tablet */
+  .layout-observatory .float-panel-stats { top: 10px; left: 10px; }
+  .layout-observatory .float-panel-mode { top: 10px; left: auto; right: 10px; }
+  .layout-observatory .float-panel-tools { top: 60px; left: auto; right: 10px; }
+  .layout-observatory .float-panel-board { bottom: 60px; left: 10px; right: auto; top: auto; }
 
   /* Slightly larger touch targets for tablet */
   #content .btn {
