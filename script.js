@@ -2062,7 +2062,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
             onMouseUp : function(){
                 this._minimapDragging = false;
-                this._paintedCells = {};
                 if(this._panDragging){
                     this._panDragging = false;
                     this._panStart = null;
