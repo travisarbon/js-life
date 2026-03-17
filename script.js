@@ -562,7 +562,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     generations :    0,
                     livePaintMode :  false,
                     speed :          5,
-                    gridLines :      false,
+                    gridLines :      true,
                     boundary :       'toroidal',
                     birthRule :      [3],
                     surviveRule :    [2, 3],
@@ -590,7 +590,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     showMinimap :     true,
                     recording :       false,
                     showMobileTools : false,
-                    showTrails :      false,
+                    showTrails :      true,
                     darkModePref :    'system',
                     stepCount :       1,
                     shareTooltip :    false,
@@ -662,7 +662,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._genHistoryInterval = 1;
                 this._genHistoryCounter = 0;
                 this._trailMap = new Map();
-                this._trailEnabled = false;
+                this._trailEnabled = true;
                 this._dragging = false;
                 this._dragStatus = null;
                 this._paintedCells = {};
@@ -861,25 +861,10 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                 }
 
+                // Infinite canvas: always fill the available space regardless of boundary mode.
                 var isUnbounded = this.state.boundary === 'unbounded';
-                var w, h;
-                if(isUnbounded){
-                    w = maxW;
-                    h = maxH;
-                } else {
-                    w = Math.min(pendingCols * cellSize, maxW);
-                    h = Math.min(pendingRows * cellSize, maxH);
-                    if(pendingRows <= 0 || pendingCols <= 0){
-                        return {w: Math.max(1, w), h: Math.max(1, h), displayW: Math.max(1, w), displayH: Math.max(1, h)};
-                    }
-                    var gridAspect = pendingCols / pendingRows;
-                    if(w / h > gridAspect){
-                        w = Math.max(1, Math.round(h * gridAspect));
-                    } else if(h / w > 1 / gridAspect){
-                        h = Math.max(1, Math.round(w / gridAspect));
-                    }
-                }
-                var displayScale = isUnbounded ? 1 : ((w > 0 && h > 0) ? Math.min(maxW / w, maxH / h) : 1);
+                var w = maxW, h = maxH;
+                var displayScale = 1;
                 var displayW = Math.round(w * displayScale);
                 var displayH = Math.round(h * displayScale);
                 var result = {w: w, h: h, displayW: displayW, displayH: displayH};
@@ -1028,12 +1013,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 ctx.fillStyle = theme.bg;
                 ctx.fillRect(0, 0, canvasW, canvasH);
 
-                // Compute visible cell range.
+                // Compute visible cell range (infinite canvas — always viewport-based).
                 var isUnbounded = this.state.boundary === 'unbounded';
-                var startC = isUnbounded ? viewX : Math.max(0, viewX);
-                var startR = isUnbounded ? viewY : Math.max(0, viewY);
-                var endC   = isUnbounded ? viewX + Math.ceil(canvasW / cellSize) + 1 : Math.min(cols, viewX + Math.ceil(canvasW / cellSize) + 1);
-                var endR   = isUnbounded ? viewY + Math.ceil(canvasH / cellSize) + 1 : Math.min(rows, viewY + Math.ceil(canvasH / cellSize) + 1);
+                var startC = viewX;
+                var startR = viewY;
+                var endC   = viewX + Math.ceil(canvasW / cellSize) + 1;
+                var endR   = viewY + Math.ceil(canvasH / cellSize) + 1;
 
                 // Pre-compute color palette (64 steps from young to alive color).
                 var aR = theme.aliveR, aG = theme.aliveG, aB = theme.aliveB;
@@ -1120,6 +1105,38 @@ document.addEventListener('DOMContentLoaded', function(){
                     ctx.stroke();
                 }
 
+                // Bounding box overlay (visible in wrap/dead modes on the infinite canvas).
+                if(!isUnbounded){
+                    var bbX1 = (0 - viewX) * cellSize;
+                    var bbY1 = (0 - viewY) * cellSize;
+                    var bbW = cols * cellSize;
+                    var bbH = rows * cellSize;
+                    // Dim area outside the bounding box.
+                    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+                    // Top strip
+                    if(bbY1 > 0) ctx.fillRect(0, 0, canvasW, Math.min(bbY1, canvasH));
+                    // Bottom strip
+                    var bbBot = bbY1 + bbH;
+                    if(bbBot < canvasH) ctx.fillRect(0, Math.max(0, bbBot), canvasW, canvasH - Math.max(0, bbBot));
+                    // Left strip (between top and bottom)
+                    var clipTop = Math.max(0, bbY1);
+                    var clipBot = Math.min(canvasH, bbBot);
+                    if(clipBot > clipTop && bbX1 > 0){
+                        ctx.fillRect(0, clipTop, Math.min(bbX1, canvasW), clipBot - clipTop);
+                    }
+                    // Right strip
+                    var bbRight = bbX1 + bbW;
+                    if(clipBot > clipTop && bbRight < canvasW){
+                        ctx.fillRect(Math.max(0, bbRight), clipTop, canvasW - Math.max(0, bbRight), clipBot - clipTop);
+                    }
+                    // Draw bounding box border.
+                    ctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.6)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([8, 4]);
+                    ctx.strokeRect(bbX1 + 0.5, bbY1 + 0.5, bbW, bbH);
+                    ctx.setLineDash([]);
+                }
+
                 // Selection overlay.
                 var sel = this.state.selection;
                 if(sel){
@@ -1196,9 +1213,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     var dpCells = this._drawPreviewCells;
                     for(var di = 0; di < dpCells.length; di++){
                         var dpr = dpCells[di][0], dpc = dpCells[di][1];
-                        if(isUnbounded || (dpr >= 0 && dpr < rows && dpc >= 0 && dpc < cols)){
-                            ctx.fillRect((dpc-viewX)*cellSize, (dpr-viewY)*cellSize, cellSize, cellSize);
-                        }
+                        ctx.fillRect((dpc-viewX)*cellSize, (dpr-viewY)*cellSize, cellSize, cellSize);
                     }
                 }
 
@@ -1216,9 +1231,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     for(var pj = 0; pj < pattern.length; pj++){
                         var pvR = pattern[pj][0] + offsetPR;
                         var pvC = pattern[pj][1] + offsetPC;
-                        if(isUnbounded || (pvR >= 0 && pvR < rows && pvC >= 0 && pvC < cols)){
-                            ctx.fillRect((pvC - viewX) * cellSize, (pvR - viewY) * cellSize, cellSize, cellSize);
-                        }
+                        ctx.fillRect((pvC - viewX) * cellSize, (pvR - viewY) * cellSize, cellSize, cellSize);
                     }
                 }
 
@@ -1249,9 +1262,12 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             drawMinimap : function(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, displayScale){
-                // In unbounded mode, derive cols/rows from live cell bounding box.
+                // Derive minimap world region.
+                // For all modes on the infinite canvas, show the bounding box area
+                // expanded to include any live cells outside and the current viewport.
                 var isUnbounded = this.state.boundary === 'unbounded';
                 var mmOriginR = 0, mmOriginC = 0;
+                var mmBBCols = cols, mmBBRows = rows; // original bounding box dims for overlay
                 if(isUnbounded){
                     var bb = SimEngine.getBoundingBox(liveCells);
                     if(bb){
@@ -1261,11 +1277,33 @@ document.addEventListener('DOMContentLoaded', function(){
                         rows = bb.maxR - bb.minR + 1 + pad * 2;
                         cols = bb.maxC - bb.minC + 1 + pad * 2;
                     } else {
-                        // No live cells — show a tiny empty minimap.
                         mmOriginR = viewY - 50;
                         mmOriginC = viewX - 50;
                         rows = 100; cols = 100;
                     }
+                } else {
+                    // Bounded modes: expand minimap to include bounding box + viewport + any live cells outside.
+                    var mmMinR = 0, mmMinC = 0, mmMaxR = rows, mmMaxC = cols;
+                    // Include viewport
+                    var visCols0 = Math.ceil(canvasW / cellSize);
+                    var visRows0 = Math.ceil(canvasH / cellSize);
+                    mmMinR = Math.min(mmMinR, viewY);
+                    mmMinC = Math.min(mmMinC, viewX);
+                    mmMaxR = Math.max(mmMaxR, viewY + visRows0);
+                    mmMaxC = Math.max(mmMaxC, viewX + visCols0);
+                    // Include any cells outside bounding box
+                    var bbLive = SimEngine.getBoundingBox(liveCells);
+                    if(bbLive){
+                        mmMinR = Math.min(mmMinR, bbLive.minR);
+                        mmMinC = Math.min(mmMinC, bbLive.minC);
+                        mmMaxR = Math.max(mmMaxR, bbLive.maxR + 1);
+                        mmMaxC = Math.max(mmMaxC, bbLive.maxC + 1);
+                    }
+                    var pad2 = Math.max(5, Math.round(Math.max(mmMaxR - mmMinR, mmMaxC - mmMinC) * 0.1));
+                    mmOriginR = mmMinR - pad2;
+                    mmOriginC = mmMinC - pad2;
+                    rows = mmMaxR - mmMinR + pad2 * 2;
+                    cols = mmMaxC - mmMinC + pad2 * 2;
                 }
                 // Target a fixed CSS display size of ~160px for the minimap.
                 // The buffer size is inversely proportional to displayScale so the CSS display size stays constant.
@@ -1316,6 +1354,18 @@ document.addEventListener('DOMContentLoaded', function(){
                             mctx.fillRect(Math.floor(kc / _mmCols * mmW), Math.floor(kr / _mmRows * mmH), 1, 1);
                         }
                     });
+                    // Bounding box indicator on minimap (bounded modes only).
+                    if(!isUnbounded){
+                        var bbMmX = Math.round((0 - mmOriginC) / cols * mmW);
+                        var bbMmY = Math.round((0 - mmOriginR) / rows * mmH);
+                        var bbMmW = Math.round(mmBBCols / cols * mmW);
+                        var bbMmH = Math.round(mmBBRows / rows * mmH);
+                        mctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.5)';
+                        mctx.lineWidth = 1;
+                        mctx.setLineDash([3, 2]);
+                        mctx.strokeRect(bbMmX + 0.5, bbMmY + 0.5, bbMmW, bbMmH);
+                        mctx.setLineDash([]);
+                    }
                     // Border.
                     mctx.strokeStyle = 'rgba(255,255,255,0.2)';
                     mctx.lineWidth = 1;
@@ -1343,8 +1393,8 @@ document.addEventListener('DOMContentLoaded', function(){
                     ctx.strokeRect(clampX + 0.5, clampY + 0.5, clampR - clampX, clampB - clampY);
                 }
 
-                // Store minimap rect for click detection.
-                this._minimapRect = {x: mmX, y: mmY, w: mmW, h: mmH};
+                // Store minimap rect for click detection (include world origin/dims for coordinate mapping).
+                this._minimapRect = {x: mmX, y: mmY, w: mmW, h: mmH, originC: mmOriginC, originR: mmOriginR, worldCols: cols, worldRows: rows};
             },
 
             drawRotationPreview : function(){
@@ -1842,22 +1892,9 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             // Clamp view offsets to valid range given current canvas and cell size.
+            // With infinite canvas, all modes allow unlimited panning.
             clampView : function(viewX, viewY, cols, rows, cellSize){
-                // In unbounded mode, allow unlimited panning.
-                if(this.state.boundary === 'unbounded'){
-                    return {viewX: Math.round(viewX), viewY: Math.round(viewY)};
-                }
-                var canvasW = this._canvas ? this._canvas.width  : cols * cellSize;
-                var canvasH = this._canvas ? this._canvas.height : rows * cellSize;
-                if(canvasW <= 0 || canvasH <= 0 || cellSize <= 0){
-                    return {viewX: Math.round(viewX), viewY: Math.round(viewY)};
-                }
-                var maxVX = Math.max(0, cols - Math.ceil(canvasW / cellSize));
-                var maxVY = Math.max(0, rows - Math.ceil(canvasH / cellSize));
-                return {
-                    viewX : Math.max(0, Math.min(maxVX, viewX)),
-                    viewY : Math.max(0, Math.min(maxVY, viewY))
-                };
+                return {viewX: Math.round(viewX), viewY: Math.round(viewY)};
             },
 
             onMouseDown : function(event){
@@ -1871,8 +1908,12 @@ document.addEventListener('DOMContentLoaded', function(){
                        mouse.y >= mm.y && mouse.y <= mm.y + mm.h){
                         var frac_c = (mouse.x - mm.x) / mm.w;
                         var frac_r = (mouse.y - mm.y) / mm.h;
-                        var newVX = Math.round(frac_c * this.state.cols - (this._canvas.width  / this.state.cellSize) / 2);
-                        var newVY = Math.round(frac_r * this.state.rows - (this._canvas.height / this.state.cellSize) / 2);
+                        var mmWorldCols = mm.worldCols || this.state.cols;
+                        var mmWorldRows = mm.worldRows || this.state.rows;
+                        var mmOC = mm.originC || 0;
+                        var mmOR = mm.originR || 0;
+                        var newVX = Math.round(frac_c * mmWorldCols + mmOC - (this._canvas.width  / this.state.cellSize) / 2);
+                        var newVY = Math.round(frac_r * mmWorldRows + mmOR - (this._canvas.height / this.state.cellSize) / 2);
                         var clamped = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
                         var self0 = this;
                         this.setState({viewX: clamped.viewX, viewY: clamped.viewY}, function(){ self0.drawBoard(); });
@@ -1989,8 +2030,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 var c = pos.c, r = pos.r;
                 var inBounds = c >= 0 && c < this.state.cols && r >= 0 && r < this.state.rows;
 
-                // Always update hover cell for coordinate display.
-                var newHover = (inBounds || this.state.boundary === 'unbounded') ? {c : c, r : r} : null;
+                // Always update hover cell for coordinate display (infinite canvas).
+                var newHover = {c : c, r : r};
                 var ph = this.state.hoverCell;
                 var hoverChanged = (!!newHover !== !!ph) ||
                     (newHover && ph && (newHover.c !== ph.c || newHover.r !== ph.r));
@@ -2053,8 +2094,12 @@ document.addEventListener('DOMContentLoaded', function(){
                     var mmMouse = this.getMousePos(event);
                     var frac_c = Math.max(0, Math.min(1, (mmMouse.x - mm.x) / mm.w));
                     var frac_r = Math.max(0, Math.min(1, (mmMouse.y - mm.y) / mm.h));
-                    var newVX = Math.round(frac_c * this.state.cols - (this._canvas.width  / this.state.cellSize) / 2);
-                    var newVY = Math.round(frac_r * this.state.rows - (this._canvas.height / this.state.cellSize) / 2);
+                    var mmWC2 = mm.worldCols || this.state.cols;
+                    var mmWR2 = mm.worldRows || this.state.rows;
+                    var mmOC2 = mm.originC || 0;
+                    var mmOR2 = mm.originR || 0;
+                    var newVX = Math.round(frac_c * mmWC2 + mmOC2 - (this._canvas.width  / this.state.cellSize) / 2);
+                    var newVY = Math.round(frac_r * mmWR2 + mmOR2 - (this._canvas.height / this.state.cellSize) / 2);
                     var clampedMm = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
                     var selfMm = this;
                     this.setState({viewX: clampedMm.viewX, viewY: clampedMm.viewY}, function(){ selfMm.drawBoard(); });
@@ -2062,7 +2107,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
 
                 if(this.state.drawMode === 'preset' && this.state.selectedPattern){
-                    var newPos = (inBounds || this.state.boundary === 'unbounded') ? {c : c, r : r} : null;
+                    var newPos = {c : c, r : r};
                     var prev = this._previewPos;
                     if(prev === newPos){ return; }
                     if(prev && newPos && prev.c === newPos.c && prev.r === newPos.r){ return; }
@@ -2399,10 +2444,15 @@ document.addEventListener('DOMContentLoaded', function(){
                 } else if(effH / effW > 1 / fitAspect){
                     effH = Math.max(1, Math.round(effW / fitAspect));
                 }
-                // Largest integer cellSize where every grid cell fits in the canvas.
-                var newCS = Math.max(1, Math.floor(Math.min(effW / cols, effH / rows)));
+                // Add padding around bounding box so its border is visible on the infinite canvas.
+                var padCols = Math.max(2, Math.round(cols * 0.05));
+                var padRows = Math.max(2, Math.round(rows * 0.05));
+                var totalCols = cols + padCols * 2;
+                var totalRows = rows + padRows * 2;
+                // Largest integer cellSize where the padded area fits in the canvas.
+                var newCS = Math.max(1, Math.floor(Math.min(effW / totalCols, effH / totalRows)));
                 var self = this;
-                this.setState({cellSize: newCS, viewX: 0, viewY: 0}, function(){ self.drawBoard(); });
+                this.setState({cellSize: newCS, viewX: -padCols, viewY: -padRows}, function(){ self.drawBoard(); });
             },
 
             fitLiveCells : function(){
@@ -2433,8 +2483,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 var effH = typeof window !== 'undefined'
                     ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
                 var newCS = Math.max(1, Math.floor(Math.min(effW / totalC, effH / totalR)));
-                var newVX = this.state.boundary === 'unbounded' ? minC - padC : Math.max(0, minC - padC);
-                var newVY = this.state.boundary === 'unbounded' ? minR - padR : Math.max(0, minR - padR);
+                var newVX = minC - padC;
+                var newVY = minR - padR;
                 var self = this;
                 this.setState({cellSize: newCS, viewX: newVX, viewY: newVY}, function(){ self.drawBoard(); });
             },
@@ -3904,16 +3954,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 var clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 var frac_c = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
                 var frac_r = Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height));
-                var mmCols = this.state.cols, mmRows = this.state.rows, mmOC = 0, mmOR = 0;
-                if(this.state.boundary === 'unbounded'){
-                    var bb = SimEngine.getBoundingBox(this.state.liveCells);
-                    if(bb){
-                        var pad = Math.max(5, Math.round(Math.max(bb.maxR - bb.minR, bb.maxC - bb.minC) * 0.15));
-                        mmOR = bb.minR - pad; mmOC = bb.minC - pad;
-                        mmRows = bb.maxR - bb.minR + 1 + pad * 2;
-                        mmCols = bb.maxC - bb.minC + 1 + pad * 2;
-                    }
-                }
+                // Use stored world dims from last minimap render for accurate panning.
+                var mmWorld = this._mmMobileWorld;
+                var mmCols = mmWorld ? mmWorld.cols : this.state.cols;
+                var mmRows = mmWorld ? mmWorld.rows : this.state.rows;
+                var mmOC = mmWorld ? mmWorld.originC : 0;
+                var mmOR = mmWorld ? mmWorld.originR : 0;
                 var newVX = Math.round(frac_c * mmCols + mmOC - (this._canvas.width  / this.state.cellSize) / 2);
                 var newVY = Math.round(frac_r * mmRows + mmOR - (this._canvas.height / this.state.cellSize) / 2);
                 var clamped = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
@@ -3923,9 +3969,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
             drawMinimapMobile : function(liveCells, cols, rows, viewX, viewY, cellSize, theme){
                 if(!this._mobileMinimap){ return; }
-                // In unbounded mode, derive cols/rows from live cell bounding box.
+                var isUnbounded = this.state.boundary === 'unbounded';
                 var mmMobOriginR = 0, mmMobOriginC = 0;
-                if(this.state.boundary === 'unbounded'){
+                var mmMobBBCols = cols, mmMobBBRows = rows;
+                if(isUnbounded){
                     var bb = SimEngine.getBoundingBox(liveCells);
                     if(bb){
                         var pad = Math.max(5, Math.round(Math.max(bb.maxR - bb.minR, bb.maxC - bb.minC) * 0.15));
@@ -3937,6 +3984,27 @@ document.addEventListener('DOMContentLoaded', function(){
                         mmMobOriginR = viewY - 50; mmMobOriginC = viewX - 50;
                         rows = 100; cols = 100;
                     }
+                } else {
+                    // Bounded modes: expand to include bounding box + viewport + live cells outside.
+                    var mmMR = 0, mmMC = 0, mmMXR = rows, mmMXC = cols;
+                    var visCols0m = Math.ceil((this._canvas ? this._canvas.width : 500) / cellSize);
+                    var visRows0m = Math.ceil((this._canvas ? this._canvas.height : 500) / cellSize);
+                    mmMR = Math.min(mmMR, viewY);
+                    mmMC = Math.min(mmMC, viewX);
+                    mmMXR = Math.max(mmMXR, viewY + visRows0m);
+                    mmMXC = Math.max(mmMXC, viewX + visCols0m);
+                    var bbMob = SimEngine.getBoundingBox(liveCells);
+                    if(bbMob){
+                        mmMR = Math.min(mmMR, bbMob.minR);
+                        mmMC = Math.min(mmMC, bbMob.minC);
+                        mmMXR = Math.max(mmMXR, bbMob.maxR + 1);
+                        mmMXC = Math.max(mmMXC, bbMob.maxC + 1);
+                    }
+                    var pad2m = Math.max(5, Math.round(Math.max(mmMXR - mmMR, mmMXC - mmMC) * 0.1));
+                    mmMobOriginR = mmMR - pad2m;
+                    mmMobOriginC = mmMC - pad2m;
+                    rows = mmMXR - mmMR + pad2m * 2;
+                    cols = mmMXC - mmMC + pad2m * 2;
                 }
                 var MOBILE_MM_CSS_W = 160;
                 var mmAspect = cols / Math.max(1, rows);
@@ -3972,6 +4040,19 @@ document.addEventListener('DOMContentLoaded', function(){
                     mmCtx.fillRect(px, py, pw, ph);
                 });
 
+                // Bounding box indicator on mobile minimap (bounded modes only).
+                if(!isUnbounded){
+                    var bbMmMX = Math.round((0 - mmMobOriginC) * cellW);
+                    var bbMmMY = Math.round((0 - mmMobOriginR) * cellH);
+                    var bbMmMW = Math.round(mmMobBBCols * cellW);
+                    var bbMmMH = Math.round(mmMobBBRows * cellH);
+                    mmCtx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.5)';
+                    mmCtx.lineWidth = 1;
+                    mmCtx.setLineDash([3, 2]);
+                    mmCtx.strokeRect(bbMmMX + 0.5, bbMmMY + 0.5, bbMmMW, bbMmMH);
+                    mmCtx.setLineDash([]);
+                }
+
                 // Border.
                 mmCtx.strokeStyle = 'rgba(255,255,255,0.2)';
                 mmCtx.lineWidth = 1;
@@ -3993,6 +4074,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
                 var mobileCtx = this._mobileMinimap.getContext('2d');
                 mobileCtx.drawImage(this._minimapCanvas, 0, 0);
+                // Store world dims for mobile minimap panning.
+                this._mmMobileWorld = {originC: mmMobOriginC, originR: mmMobOriginR, cols: cols, rows: rows};
             },
 
             renderStats : function(){
@@ -4379,7 +4462,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                         </div>}
                         {isUnbounded && <div className="sliders">
-                            <label className="slider-title" style={{fontStyle:'italic'}}>Infinite grid — no dimension limits</label>
+                            <label className="slider-title" style={{fontStyle:'italic'}}>No bounding box — infinite canvas</label>
                         </div>}
                         <div className="sliders">
                             <label className="slider-title">Fill Density (on Reset)</label>
