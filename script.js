@@ -802,7 +802,8 @@ document.addEventListener('DOMContentLoaded', function(){
             componentDidUpdate : function(prevProps, prevState){
                 if(prevState.selectedPattern !== this.state.selectedPattern ||
                    prevState.patternRotation !== this.state.patternRotation ||
-                   prevState.bottomSheetOpen !== this.state.bottomSheetOpen){
+                   prevState.bottomSheetOpen !== this.state.bottomSheetOpen ||
+                   prevState.bottomSheetTab !== this.state.bottomSheetTab){
                     this.drawRotationPreview();
                 }
             },

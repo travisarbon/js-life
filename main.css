@@ -1717,9 +1717,8 @@ canvas.display {
     gap: var(--space-sm);
     padding: var(--space-sm) var(--space-xs) var(--space-xs);
     position: fixed;
-    bottom: calc(220px + env(safe-area-inset-bottom, 0px));
-    left: 0;
-    right: 0;
+    top: calc(48px + env(safe-area-inset-top, 0px));
+    right: var(--space-sm);
     z-index: 102;
     pointer-events: none; }
   .mobile-context-panel > * {
@@ -1729,13 +1728,13 @@ canvas.display {
     border-radius: var(--radius);
     padding: var(--space-sm);
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    align-self: center; }
+    align-self: flex-end; }
   .mobile-context-panel .buttons-selection {
     background: var(--panel-bg);
     border-radius: var(--radius);
     padding: var(--space-sm);
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    align-self: center; }
+    align-self: flex-end; }
   .mobile-stats-bar {
     display: flex;
     justify-content: space-between;
