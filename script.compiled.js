@@ -743,7 +743,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var dominated = this.state.running && nextState.running;
       if (dominated) {
         // During running simulation, only re-render if UI-relevant state changed.
-        var dominated_keys = ['generations', 'popHistory', 'srAnnouncement', 'liveCells'];
+        var dominated_keys = ['popHistory', 'srAnnouncement', 'liveCells'];
         var dominated_only = true;
         var keys = Object.keys(nextState);
         for (var i = 0; i < keys.length; i++) {
@@ -4158,10 +4158,10 @@ document.addEventListener('DOMContentLoaded', function () {
         type: "button",
         className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
         onClick: this.togglePanMode,
-        "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
+        "aria-label": this.state.panMode ? "Switch to " + (this.state.drawMode === 'select' ? "select" : this.state.drawMode === 'preset' ? "preset" : "draw") + " mode" : "Switch to pan mode",
         "aria-pressed": this.state.panMode
       }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows"),
+        className: "fa " + (this.state.panMode ? this.state.drawMode === 'select' ? "fa-crosshairs" : this.state.drawMode === 'preset' ? "fa-puzzle-piece" : "fa-pencil" : "fa-hand-paper-o"),
         "aria-hidden": "true"
       })), /*#__PURE__*/React.createElement("span", {
         className: "mobile-transport-mode",
@@ -4280,7 +4280,7 @@ document.addEventListener('DOMContentLoaded', function () {
         type: "button",
         className: "btn",
         onClick: function () {
-          self._previewPos = null;
+          InputHandler._previewPos = null;
           self.setState({
             selectedPattern: null,
             patternRotation: 0,
@@ -4317,7 +4317,22 @@ document.addEventListener('DOMContentLoaded', function () {
         disabled: !this.state.selection,
         title: "Delete selected cells",
         "aria-label": "Delete selected cells"
-      }, "Delete")));
+      }, "Delete"), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn",
+        onClick: function () {
+          self.setState({
+            selection: null
+          }, function () {
+            self.drawBoard();
+          });
+        },
+        title: "Clear selection",
+        "aria-label": "Clear selection"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa fa-times",
+        "aria-hidden": "true"
+      }))));
     },
     renderMobileStatsBar: function () {
       var population = this.state.liveCells.size;
@@ -5554,10 +5569,10 @@ document.addEventListener('DOMContentLoaded', function () {
         type: "button",
         className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
         onClick: this.togglePanMode,
-        "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
+        "aria-label": this.state.panMode ? "Switch to " + (this.state.drawMode === 'select' ? "select" : this.state.drawMode === 'preset' ? "preset" : "draw") + " mode" : "Switch to pan mode",
         "aria-pressed": this.state.panMode
       }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows"),
+        className: "fa " + (this.state.panMode ? this.state.drawMode === 'select' ? "fa-crosshairs" : this.state.drawMode === 'preset' ? "fa-puzzle-piece" : "fa-pencil" : "fa-hand-paper-o"),
         "aria-hidden": "true"
       })), /*#__PURE__*/React.createElement("span", {
         className: "mobile-transport-mode",
