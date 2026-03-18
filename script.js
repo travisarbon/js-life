@@ -570,7 +570,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var dominated = this.state.running && nextState.running;
                 if(dominated){
                     // During running simulation, only re-render if UI-relevant state changed.
-                    var dominated_keys = ['generations', 'popHistory', 'srAnnouncement', 'liveCells'];
+                    var dominated_keys = ['popHistory', 'srAnnouncement', 'liveCells'];
                     var dominated_only = true;
                     var keys = Object.keys(nextState);
                     for(var i = 0; i < keys.length; i++){
@@ -3220,9 +3220,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         <button type="button" className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
                         <button type="button" className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                             onClick={this.togglePanMode}
-                            aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
+                            aria-label={this.state.panMode ? "Switch to " + (this.state.drawMode === 'select' ? "select" : this.state.drawMode === 'preset' ? "preset" : "draw") + " mode" : "Switch to pan mode"}
                             aria-pressed={this.state.panMode}>
-                            <i className={"fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows")} aria-hidden="true"></i>
+                            <i className={"fa " + (this.state.panMode
+                                ? (this.state.drawMode === 'select' ? "fa-crosshairs" : this.state.drawMode === 'preset' ? "fa-puzzle-piece" : "fa-pencil")
+                                : "fa-hand-paper-o")} aria-hidden="true"></i>
                         </button>
                         <span className="mobile-transport-mode" aria-live="polite">
                             {this.state.panMode ? 'Pan'
@@ -3298,7 +3300,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <button type="button" className="btn btn-rotate" onClick={this.rotateCW}
                                     title="Rotate 90° clockwise"><i className="fa fa-repeat" aria-hidden="true"></i></button>
                                 <button type="button" className="btn" onClick={function(){
-                                    self._previewPos = null;
+                                    InputHandler._previewPos = null;
                                     self.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
                                         function(){ self.drawBoard(); });
                                 }} aria-label="Cancel pattern placement" title="Cancel placement">
@@ -3314,6 +3316,11 @@ document.addEventListener('DOMContentLoaded', function(){
                                     disabled={!this.state.clipboard || this.state.clipboard.length === 0} title="Paste copied cells" aria-label="Paste copied cells">Paste</button>
                                 <button type="button" className="btn" onClick={this.deleteSelection}
                                     disabled={!this.state.selection} title="Delete selected cells" aria-label="Delete selected cells">Delete</button>
+                                <button type="button" className="btn" onClick={function(){
+                                    self.setState({selection: null}, function(){ self.drawBoard(); });
+                                }} title="Clear selection" aria-label="Clear selection">
+                                    <i className="fa fa-times" aria-hidden="true"></i>
+                                </button>
                             </div>
                         }
                     </div>
@@ -4036,9 +4043,11 @@ document.addEventListener('DOMContentLoaded', function(){
                             <button type="button" className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
                             <button type="button" className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                                 onClick={this.togglePanMode}
-                                aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
+                                aria-label={this.state.panMode ? "Switch to " + (this.state.drawMode === 'select' ? "select" : this.state.drawMode === 'preset' ? "preset" : "draw") + " mode" : "Switch to pan mode"}
                                 aria-pressed={this.state.panMode}>
-                                <i className={"fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows")} aria-hidden="true"></i>
+                                <i className={"fa " + (this.state.panMode
+                                    ? (this.state.drawMode === 'select' ? "fa-crosshairs" : this.state.drawMode === 'preset' ? "fa-puzzle-piece" : "fa-pencil")
+                                    : "fa-hand-paper-o")} aria-hidden="true"></i>
                             </button>
                             <span className="mobile-transport-mode" aria-live="polite">
                                 {this.state.panMode ? 'Pan'
