@@ -4,6 +4,12 @@
    Receives: { liveCells: [[r, c, age], ...], cols, rows, birth, survive, boundary, tickId }
    Posts:    { liveCells: [[r, c, age], ...], newPop, tickId }
 */
+
+function parseKey(key) {
+    var i = key.indexOf(',');
+    return [parseInt(key.substring(0, i), 10), parseInt(key.substring(i + 1), 10)];
+}
+
 self.onmessage = function (e) {
     var d = e.data;
     var cols     = d.cols;
@@ -24,6 +30,10 @@ self.onmessage = function (e) {
 };
 
 function computeTypedArray(inputCells, cols, rows, birth, survive, toroidal, tickId) {
+    if (rows <= 0 || cols <= 0) {
+        self.postMessage({ liveCells: [], newPop: 0, tickId: tickId });
+        return;
+    }
     var totalCells = rows * cols;
     // Grid stores cell age: 0 = dead, 1+ = alive.
     var grid = new Uint16Array(totalCells);
@@ -104,6 +114,11 @@ function computeTypedArray(inputCells, cols, rows, birth, survive, toroidal, tic
 }
 
 function computeSparse(inputCells, cols, rows, birth, survive, toroidal, tickId) {
+    if (rows <= 0 || cols <= 0) {
+        self.postMessage({ liveCells: [], newPop: 0, tickId: tickId });
+        return;
+    }
+
     // Reconstruct sparse Map from [[r, c, age], ...] payload.
     var liveCells = new Map();
     for (var i = 0; i < inputCells.length; i++) {
@@ -111,13 +126,17 @@ function computeSparse(inputCells, cols, rows, birth, survive, toroidal, tickId)
         liveCells.set(cell[0] + ',' + cell[1], cell[2]);
     }
 
+    // Build birth/survive lookup tables for O(1) rule checking.
+    var birthLut = new Uint8Array(9);
+    var surviveLut = new Uint8Array(9);
+    for (var bi = 0; bi < birth.length; bi++) { birthLut[birth[bi]] = 1; }
+    for (var si = 0; si < survive.length; si++) { surviveLut[survive[si]] = 1; }
+
     // Build candidate set: every live cell plus all 8 neighbours.
     var candidates = new Map();
     liveCells.forEach(function (age, key) {
-        var comma = key.indexOf(',');
-        var kr = parseInt(key.substring(0, comma));
-        var kc = parseInt(key.substring(comma + 1));
-        candidates.set(key, [kr, kc]);
+        var _krc = parseKey(key), kr = _krc[0], kc = _krc[1];
+        candidates.set(key, _krc);
         for (var dr = -1; dr <= 1; dr++) {
             for (var dc = -1; dc <= 1; dc++) {
                 if (dr === 0 && dc === 0) { continue; }
@@ -156,11 +175,9 @@ function computeSparse(inputCells, cols, rows, birth, survive, toroidal, tickId)
             }
         }
         var wasAlive = liveCells.has(key);
-        var alive = wasAlive
-            ? (survive.indexOf(count) !== -1)
-            : (birth.indexOf(count) !== -1);
+        var alive = wasAlive ? surviveLut[count] : birthLut[count];
         if (alive) {
-            var age = wasAlive ? (liveCells.get(key) || 0) + 1 : 1;
+            var age = wasAlive ? Math.min((liveCells.get(key) || 0) + 1, 65535) : 1;
             result.push([r, c, age]);
             newPop++;
         }
