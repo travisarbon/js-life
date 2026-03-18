@@ -1737,6 +1737,10 @@ canvas.display {
     right: 0;
     z-index: calc(var(--z-panels) + 2);
     pointer-events: none; }
+  /* Cartographer/Observatory: clear the floating stats-chip at bottom:62px */
+  .layout-cartographer .mobile-context-panel,
+  .layout-observatory .mobile-context-panel {
+    bottom: calc(98px + env(safe-area-inset-bottom, 0px)); }
   .mobile-context-panel > * {
     pointer-events: auto; }
   .mobile-context-panel .rotation-btns {
