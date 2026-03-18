@@ -14,8 +14,6 @@
     "CanvasRenderer": "readonly",
     "InputHandler": "writable",
     "parseKey": "readonly",
-    "makeKey": "readonly",
-    "CoordUtils": "readonly",
     "detectAndParsePattern": "readonly",
     "overlayAges": "readonly",
     "PATTERN_GROUPS": "readonly",
