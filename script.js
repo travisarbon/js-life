@@ -776,6 +776,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._longPressTimer = null;
                 this._statsChipHidden = false;
                 this._statsChipTimer = null;
+                this._minimapHidden = false;
+                this._minimapTimer = null;
                 this._canvas = document.getElementById("life-canvas");
                 // Attach wheel listener as non-passive so preventDefault works.
                 this._canvas.addEventListener('wheel', this.onWheel, {passive: false});
@@ -3376,14 +3378,21 @@ document.addEventListener('DOMContentLoaded', function(){
 
             _hideStatsChip : function(){
                 this._statsChipHidden = true;
+                this._minimapHidden = true;
                 clearTimeout(this._statsChipTimer);
+                clearTimeout(this._minimapTimer);
             },
 
             _showStatsChipAfterDelay : function(){
                 var self = this;
                 clearTimeout(this._statsChipTimer);
+                clearTimeout(this._minimapTimer);
                 this._statsChipTimer = setTimeout(function(){
                     self._statsChipHidden = false;
+                    self.forceUpdate();
+                }, STATS_CHIP_REAPPEAR_DELAY);
+                this._minimapTimer = setTimeout(function(){
+                    self._minimapHidden = false;
                     self.forceUpdate();
                 }, STATS_CHIP_REAPPEAR_DELAY);
             },
@@ -4173,7 +4182,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             renderMobileMinimapArea : function(){
-                if(!this.state.showMinimap){ return null; }
+                if(!this.state.showMinimap || this._minimapHidden){ return null; }
                 var self = this;
                 return (
                     <div className="mobile-minimap-area">
