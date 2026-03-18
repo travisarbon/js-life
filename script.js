@@ -691,7 +691,6 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._minimapDirty = true;
                 this._minimapDragging = false;
                 this._minimapCanvas = document.createElement('canvas');
-                this._mobilePreviewCanvas = null;
                 this._mobileMinimap = null;
                 this._mmElemDragging = false;
                 this._minimapCanvas.width  = 100;
@@ -1468,7 +1467,6 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                 };
                 drawOn(this._previewCanvas);
-                drawOn(this._mobilePreviewCanvas);
             },
 
             // ── HashLife step ────────────────────────────────────────────────────
@@ -4191,23 +4189,18 @@ document.addEventListener('DOMContentLoaded', function(){
                 return (
                     <div className="mobile-context-panel">
                         {showRotation &&
-                            <div className="rotation-row">
-                                <canvas className="rotation-preview" width="96" height="96"
-                                    role="img" aria-label="Pattern rotation preview"
-                                    ref={function(c){ self._mobilePreviewCanvas = c; }} />
-                                <div className="rotation-btns">
-                                    <button className="btn btn-rotate" onClick={this.rotateCCW}
-                                        title="Rotate 90° counter-clockwise">&#8634;</button>
-                                    <button className="btn btn-rotate" onClick={this.rotateCW}
-                                        title="Rotate 90° clockwise">&#8635;</button>
-                                    <button className="btn" onClick={function(){
-                                        self._previewPos = null;
-                                        self.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
-                                            function(){ self.drawBoard(); });
-                                    }} aria-label="Cancel pattern placement" title="Cancel placement">
-                                        <i className="fa fa-times" aria-hidden="true"></i>
-                                    </button>
-                                </div>
+                            <div className="rotation-btns">
+                                <button className="btn btn-rotate" onClick={this.rotateCCW}
+                                    title="Rotate 90° counter-clockwise">&#8634;</button>
+                                <button className="btn btn-rotate" onClick={this.rotateCW}
+                                    title="Rotate 90° clockwise">&#8635;</button>
+                                <button className="btn" onClick={function(){
+                                    self._previewPos = null;
+                                    self.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
+                                        function(){ self.drawBoard(); });
+                                }} aria-label="Cancel pattern placement" title="Cancel placement">
+                                    <i className="fa fa-times" aria-hidden="true"></i>
+                                </button>
                             </div>
                         }
                         {showSelection &&
