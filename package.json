@@ -5,8 +5,8 @@
   "scripts": {
     "build": "npm run lint:quiet && babel script.js --source-maps -o script.compiled.js",
     "start": "npx serve .",
-    "lint": "eslint script.js hashlife.js",
-    "lint:quiet": "eslint script.js hashlife.js --quiet",
+    "lint": "eslint script.js hashlife.js patterns.js canvas-renderer.js simulation.js",
+    "lint:quiet": "eslint script.js hashlife.js patterns.js canvas-renderer.js simulation.js --quiet",
     "test": "jest",
     "test:watch": "jest --watch",
     "prebuild": "npm test -- --passWithNoTests"

@@ -61,243 +61,8 @@ var CoordUtils = {
   }
 };
 
-// ── Preset patterns ───────────────────────────────────────────────────────────
-// All cells are [row, col] offsets (0-indexed from top-left of bounding box).
-var PATTERN_GROUPS = {
-  'Still lifes': {
-    'Block': [[0, 0], [0, 1], [1, 0], [1, 1]],
-    'Beehive': [[0, 1], [0, 2], [1, 0], [1, 3], [2, 1], [2, 2]],
-    'Loaf': [[0, 1], [0, 2], [1, 0], [1, 3], [2, 1], [2, 3], [3, 2]],
-    'Boat': [[0, 0], [0, 1], [1, 0], [1, 2], [2, 1]],
-    'Tub': [[0, 1], [1, 0], [1, 2], [2, 1]],
-    'Ship': [[0, 0], [0, 1], [1, 0], [1, 2], [2, 1], [2, 2]],
-    'Barge': [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2]],
-    'Long boat': [[0, 0], [0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2]],
-    'Pond': [[0, 1], [0, 2], [1, 0], [1, 3], [2, 0], [2, 3], [3, 1], [3, 2]]
-  },
-  'Oscillators': {
-    'Blinker': [[0, 0], [0, 1], [0, 2]],
-    'Toad': [[0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2]],
-    'Beacon': [[0, 0], [0, 1], [1, 0], [2, 3], [3, 2], [3, 3]],
-    'Pulsar': [[0, 2], [0, 3], [0, 4], [0, 8], [0, 9], [0, 10], [2, 0], [2, 5], [2, 7], [2, 12], [3, 0], [3, 5], [3, 7], [3, 12], [4, 0], [4, 5], [4, 7], [4, 12], [5, 2], [5, 3], [5, 4], [5, 8], [5, 9], [5, 10], [7, 2], [7, 3], [7, 4], [7, 8], [7, 9], [7, 10], [8, 0], [8, 5], [8, 7], [8, 12], [9, 0], [9, 5], [9, 7], [9, 12], [10, 0], [10, 5], [10, 7], [10, 12], [12, 2], [12, 3], [12, 4], [12, 8], [12, 9], [12, 10]],
-    // Period-15 oscillator.
-    'Pentadecathlon': [[0, 1], [1, 1], [2, 0], [2, 2], [3, 1], [4, 1], [5, 1], [6, 1], [7, 0], [7, 2], [8, 1], [9, 1]],
-    // Period-4 oscillator.
-    'Mold': [[0, 1], [0, 2], [0, 3], [1, 1], [1, 3], [2, 0], [2, 2], [3, 0], [3, 1], [3, 2]],
-    // Period-14 oscillator.
-    'Tumbler': [[0, 1], [0, 2], [0, 4], [0, 5], [1, 1], [1, 3], [1, 5], [2, 0], [2, 2], [2, 4], [2, 6], [3, 0], [3, 1], [3, 5], [3, 6]],
-    // Period-8 oscillator — two interacting traffic lights.
-    'Figure eight': [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2], [3, 3], [3, 4], [3, 5], [4, 3], [4, 4], [4, 5], [5, 3], [5, 4], [5, 5]],
-    // Period-30 oscillator — two queen bees shuttling.
-    'Queen Bee Shuttle': [[0, 9], [1, 7], [1, 9], [2, 6], [2, 8], [3, 0], [3, 1], [3, 5], [3, 10], [3, 20], [3, 21], [4, 0], [4, 1], [4, 6], [4, 10], [4, 20], [4, 21], [5, 7], [5, 9], [6, 9]]
-  },
-  'Spaceships': {
-    'Glider': [[0, 1], [1, 2], [2, 0], [2, 1], [2, 2]],
-    // Lightweight spaceship — moves horizontally.
-    'LWSS': [[0, 1], [0, 4], [1, 0], [2, 0], [2, 4], [3, 0], [3, 1], [3, 2], [3, 3]],
-    // Middleweight spaceship.
-    'MWSS': [[0, 3], [1, 1], [1, 5], [2, 0], [3, 0], [3, 5], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4]],
-    // Heavyweight spaceship.
-    'HWSS': [[0, 3], [0, 4], [1, 1], [1, 6], [2, 0], [3, 0], [3, 6], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5]],
-    // Loafer: c/7 orthogonal spaceship, discovered 2013.
-    'Loafer': [[0, 1], [0, 2], [0, 5], [0, 7], [0, 8], [1, 0], [1, 3], [1, 6], [1, 7], [2, 1], [2, 3], [3, 2], [4, 8], [5, 6], [5, 7], [5, 8], [6, 5], [7, 6], [8, 7], [8, 8]],
-    // Copperhead: c/10 orthogonal spaceship, discovered 2016.
-    'Copperhead': [[0, 1], [0, 2], [0, 5], [0, 6], [1, 3], [1, 4], [2, 3], [2, 4], [3, 0], [3, 2], [3, 5], [3, 7], [4, 0], [4, 7], [6, 0], [6, 7], [7, 1], [7, 2], [7, 5], [7, 6], [8, 2], [8, 3], [8, 4], [8, 5], [10, 3], [10, 4], [11, 3], [11, 4]]
-  },
-  'Methuselahs': {
-    'R-pentomino': [[0, 1], [0, 2], [1, 0], [1, 1], [2, 1]],
-    'Acorn': [[0, 1], [1, 3], [2, 0], [2, 1], [2, 4], [2, 5], [2, 6]],
-    // Diehard: vanishes completely after 130 generations.
-    'Diehard': [[0, 6], [1, 0], [1, 1], [2, 1], [2, 5], [2, 6], [2, 7]],
-    // Pi heptomino: stabilises after 173 generations.
-    'Pi heptomino': [[0, 0], [0, 1], [0, 2], [1, 1], [2, 0], [2, 1], [2, 2]],
-    // Thunderbird: lives 243 generations.
-    'Thunderbird': [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1], [3, 1]],
-    // Herschel: 7-cell signal used in conduit chains.
-    'Herschel': [[0, 0], [1, 0], [1, 1], [1, 2], [2, 0], [2, 2], [3, 2]],
-    // Rabbits: stabilises after 17,331 generations with 1,744 cells.
-    'Rabbits': [[0, 0], [0, 4], [0, 5], [0, 6], [1, 0], [1, 1], [1, 2], [1, 5], [2, 1]]
-  },
-  'Guns': {
-    'Gosper Glider Gun': [[0, 24], [1, 22], [1, 24], [2, 12], [2, 13], [2, 20], [2, 21], [2, 34], [2, 35], [3, 11], [3, 15], [3, 20], [3, 21], [3, 34], [3, 35], [4, 0], [4, 1], [4, 10], [4, 16], [4, 20], [4, 21], [5, 0], [5, 1], [5, 10], [5, 14], [5, 16], [5, 17], [5, 22], [5, 24], [6, 10], [6, 16], [6, 24], [7, 11], [7, 15], [8, 12], [8, 13]],
-    // Simkin glider gun: period 120, more compact than Gosper.
-    'Simkin Glider Gun': [[0, 0], [0, 1], [0, 7], [0, 8], [1, 0], [1, 1], [1, 7], [1, 8], [4, 4], [4, 5], [5, 4], [5, 5], [10, 2], [10, 3], [11, 2], [11, 3], [15, 25], [15, 26], [16, 24], [16, 28], [17, 24], [17, 28], [18, 25], [18, 27], [19, 26], [20, 24], [20, 25], [20, 26], [23, 22], [23, 23], [24, 22], [24, 23]]
-  }
-};
-
-// Flat lookup keyed by pattern name for O(1) access.
-var PATTERNS = {};
-Object.keys(PATTERN_GROUPS).forEach(function (group) {
-  Object.keys(PATTERN_GROUPS[group]).forEach(function (name) {
-    PATTERNS[name] = PATTERN_GROUPS[group][name];
-  });
-});
-
-// Metadata for pattern tooltips (period, type, cell count, notes).
-var PATTERN_META = {
-  'Block': {
-    type: 'Still life',
-    cells: 4
-  },
-  'Beehive': {
-    type: 'Still life',
-    cells: 6
-  },
-  'Loaf': {
-    type: 'Still life',
-    cells: 7
-  },
-  'Boat': {
-    type: 'Still life',
-    cells: 5
-  },
-  'Tub': {
-    type: 'Still life',
-    cells: 4
-  },
-  'Ship': {
-    type: 'Still life',
-    cells: 6
-  },
-  'Barge': {
-    type: 'Still life',
-    cells: 7
-  },
-  'Long boat': {
-    type: 'Still life',
-    cells: 7
-  },
-  'Pond': {
-    type: 'Still life',
-    cells: 8
-  },
-  'Blinker': {
-    type: 'Oscillator',
-    period: 2,
-    cells: 3
-  },
-  'Toad': {
-    type: 'Oscillator',
-    period: 2,
-    cells: 6
-  },
-  'Beacon': {
-    type: 'Oscillator',
-    period: 2,
-    cells: 6
-  },
-  'Pulsar': {
-    type: 'Oscillator',
-    period: 3,
-    cells: 48
-  },
-  'Pentadecathlon': {
-    type: 'Oscillator',
-    period: 15,
-    cells: 12
-  },
-  'Mold': {
-    type: 'Oscillator',
-    period: 4,
-    cells: 10
-  },
-  'Tumbler': {
-    type: 'Oscillator',
-    period: 14,
-    cells: 15
-  },
-  'Figure eight': {
-    type: 'Oscillator',
-    period: 8,
-    cells: 18
-  },
-  'Queen Bee Shuttle': {
-    type: 'Oscillator',
-    period: 30,
-    cells: 20
-  },
-  'Glider': {
-    type: 'Spaceship',
-    period: 4,
-    cells: 5,
-    note: 'c/4 diagonal'
-  },
-  'LWSS': {
-    type: 'Spaceship',
-    period: 4,
-    cells: 9,
-    note: 'c/2 orthogonal'
-  },
-  'MWSS': {
-    type: 'Spaceship',
-    period: 4,
-    cells: 11,
-    note: 'c/2 orthogonal'
-  },
-  'HWSS': {
-    type: 'Spaceship',
-    period: 4,
-    cells: 13,
-    note: 'c/2 orthogonal'
-  },
-  'Loafer': {
-    type: 'Spaceship',
-    period: 7,
-    cells: 20,
-    note: 'c/7 orthogonal'
-  },
-  'Copperhead': {
-    type: 'Spaceship',
-    period: 10,
-    cells: 28,
-    note: 'c/10 orthogonal'
-  },
-  'R-pentomino': {
-    type: 'Methuselah',
-    lifespan: 1103,
-    cells: 5
-  },
-  'Acorn': {
-    type: 'Methuselah',
-    lifespan: 5206,
-    cells: 7
-  },
-  'Diehard': {
-    type: 'Methuselah',
-    lifespan: 130,
-    cells: 7
-  },
-  'Pi heptomino': {
-    type: 'Methuselah',
-    lifespan: 173,
-    cells: 7
-  },
-  'Thunderbird': {
-    type: 'Methuselah',
-    lifespan: 243,
-    cells: 6
-  },
-  'Herschel': {
-    type: 'Methuselah',
-    lifespan: 128,
-    cells: 7
-  },
-  'Rabbits': {
-    type: 'Methuselah',
-    lifespan: 17331,
-    cells: 9
-  },
-  'Gosper Glider Gun': {
-    type: 'Gun',
-    period: 30,
-    cells: 36
-  },
-  'Simkin Glider Gun': {
-    type: 'Gun',
-    period: 120,
-    cells: 36
-  }
-};
+// ── Pattern data loaded from patterns.js ─────────────────────────────────────
+// Globals: PATTERN_GROUPS, PATTERNS, PATTERN_META
 
 // ── Rule presets ──────────────────────────────────────────────────────────────
 var RULE_PRESETS = [{
@@ -1020,11 +785,7 @@ document.addEventListener('DOMContentLoaded', function () {
       this._drawErasing = false;
       this._panDragging = false;
       this._panStart = null;
-      this._hlRoot = null;
-      this._hlOffR = 0;
-      this._hlOffC = 0;
-      this._hlStale = true;
-      this._hlRuleKey = null;
+      SimRunner.invalidate();
       this._gif = null;
       this._minimapDirty = true;
       this._minimapDragging = false;
@@ -1038,7 +799,9 @@ document.addEventListener('DOMContentLoaded', function () {
       this._longPressTimer = null;
       this._statsChipHidden = false;
       this._statsChipTimer = null;
-      this._canvas = document.getElementById("life-canvas");
+      this._minimapHidden = false;
+      this._minimapTimer = null;
+      // _canvas is set via React ref callback in renderCanvas
       // Attach wheel listener as non-passive so preventDefault works.
       this._canvas.addEventListener('wheel', this.onWheel, {
         passive: false
@@ -1161,7 +924,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // Initialize HashLife engine with current rules.
       HashLife.init(this.state.birthRule, this.state.surviveRule);
-      this._hlRuleKey = this.state.birthRule.join(',') + '/' + this.state.surviveRule.join(',');
+      SimRunner._hlRuleKey = this.state.birthRule.join(',') + '/' + this.state.surviveRule.join(',');
       this.drawBoard();
       this._loadFromURLHash();
       this._startLoop();
@@ -1288,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       // Release large objects.
       this._minimapCanvas = null;
-      this._hlRoot = null;
+      SimRunner._hlRoot = null;
       this._genHistory = [];
       this._trailMap = null;
       this._paintedCells = {};
@@ -1406,262 +1169,48 @@ document.addEventListener('DOMContentLoaded', function () {
       var canvasH = canvas.height;
       var theme = THEMES[this.state.theme] || THEMES['Teal'];
       var liveCells = this.state.liveCells;
+      var isUnbounded = this.state.boundary === 'unbounded';
 
-      // Clear canvas with background colour.
+      // Clear canvas.
       ctx.fillStyle = theme.bg;
       ctx.fillRect(0, 0, canvasW, canvasH);
 
-      // Compute visible cell range (infinite canvas — always viewport-based).
-      var isUnbounded = this.state.boundary === 'unbounded';
-      var startC = viewX;
-      var startR = viewY;
+      // Visible cell range.
+      var startC = viewX,
+        startR = viewY;
       var endC = viewX + Math.ceil(canvasW / cellSize) + 1;
       var endR = viewY + Math.ceil(canvasH / cellSize) + 1;
 
-      // Pre-compute color palette (64 steps from young to alive color).
-      var aR = theme.aliveR,
-        aG = theme.aliveG,
-        aB = theme.aliveB;
-      var yR = theme.youngR,
-        yG = theme.youngG,
-        yB = theme.youngB;
-      var COLOR_STEPS = 63;
-      var colorPalette = this._colorPalette;
-      if (!colorPalette || this._paletteTheme !== this.state.theme) {
-        colorPalette = new Array(COLOR_STEPS + 1);
-        for (var pi = 0; pi <= COLOR_STEPS; pi++) {
-          var pt = pi / COLOR_STEPS;
-          colorPalette[pi] = 'rgb(' + Math.round(yR + (aR - yR) * pt) + ',' + Math.round(yG + (aG - yG) * pt) + ',' + Math.round(yB + (aB - yB) * pt) + ')';
-        }
-        this._colorPalette = colorPalette;
-        this._trailPalette = null;
-        this._paletteTheme = this.state.theme;
-      }
-      var trailPalette = this._trailPalette;
-      if (!trailPalette) {
-        trailPalette = new Array(21);
-        for (var ti = 0; ti <= 20; ti++) {
-          var talpha = ti / 20 * 0.35;
-          trailPalette[ti] = 'rgba(' + aR + ',' + aG + ',' + aB + ',' + talpha.toFixed(2) + ')';
-        }
-        this._trailPalette = trailPalette;
-      }
+      // Palette.
+      var palettes = CanvasRenderer._ensurePalette(theme, this.state.theme);
 
-      // Draw live cells: iterate live cells when sparse, viewport grid when dense.
-      var viewArea = (endR - startR) * (endC - startC);
-      if (liveCells.size < viewArea * 0.3) {
-        // Sparse mode: iterate live cells, skip off-screen ones, batch by color.
-        var buckets = new Array(COLOR_STEPS + 1);
-        liveCells.forEach(function (age, key) {
-          var _rc = parseKey(key),
-            cr = _rc[0],
-            cc = _rc[1];
-          if (cr < startR || cr >= endR || cc < startC || cc >= endC) return;
-          var ci = Math.min(Math.round(Math.min(age / 10, 1) * COLOR_STEPS), COLOR_STEPS);
-          if (!buckets[ci]) buckets[ci] = [];
-          buckets[ci].push((cc - viewX) * cellSize, (cr - viewY) * cellSize);
-        });
-        for (var bi = 0; bi <= COLOR_STEPS; bi++) {
-          if (!buckets[bi]) continue;
-          ctx.fillStyle = colorPalette[bi];
-          var coords = buckets[bi];
-          for (var bj = 0; bj < coords.length; bj += 2) {
-            ctx.fillRect(coords[bj], coords[bj + 1], cellSize, cellSize);
-          }
-        }
-      } else {
-        // Dense mode: build row lookup to avoid string allocation per viewport cell.
-        var rowLookup = {};
-        liveCells.forEach(function (age, key) {
-          var _rc = parseKey(key),
-            r = _rc[0],
-            c = _rc[1];
-          if (r < startR || r >= endR || c < startC || c >= endC) return;
-          if (!rowLookup[r]) rowLookup[r] = {};
-          rowLookup[r][c] = age;
-        });
-        for (var r = startR; r < endR; r++) {
-          var rowData = rowLookup[r];
-          if (!rowData) continue;
-          for (var c = startC; c < endC; c++) {
-            var age = rowData[c];
-            if (age !== undefined) {
-              var ci2 = Math.min(Math.round(Math.min(age / 10, 1) * COLOR_STEPS), COLOR_STEPS);
-              ctx.fillStyle = colorPalette[ci2];
-              ctx.fillRect((c - viewX) * cellSize, (r - viewY) * cellSize, cellSize, cellSize);
-            }
-          }
-        }
-      }
+      // Cells.
+      CanvasRenderer.drawCells(ctx, liveCells, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.color);
 
-      // Cell trails (heat map).
+      // Trails.
       if (this._trailEnabled && this._trailMap.size > 0) {
-        var trailMap = this._trailMap;
-        trailMap.forEach(function (val, key) {
-          var _rc = parseKey(key),
-            tr = _rc[0],
-            tc = _rc[1];
-          if (tr >= startR && tr < endR && tc >= startC && tc < endC) {
-            ctx.fillStyle = trailPalette[val] || trailPalette[20];
-            ctx.fillRect((tc - viewX) * cellSize, (tr - viewY) * cellSize, cellSize, cellSize);
-          }
-        });
+        CanvasRenderer.drawTrails(ctx, this._trailMap, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.trail);
       }
 
-      // Grid lines.
+      // Grid.
       if (this.state.gridLines) {
-        ctx.strokeStyle = theme.grid;
-        ctx.lineWidth = 0.5;
-        ctx.beginPath();
-        for (var cv = startC; cv <= endC; cv++) {
-          var gx = (cv - viewX) * cellSize;
-          ctx.moveTo(gx, 0);
-          ctx.lineTo(gx, canvasH);
-        }
-        for (var rv = startR; rv <= endR; rv++) {
-          var gy = (rv - viewY) * cellSize;
-          ctx.moveTo(0, gy);
-          ctx.lineTo(canvasW, gy);
-        }
-        ctx.stroke();
+        CanvasRenderer.drawGrid(ctx, startR, startC, endR, endC, viewX, viewY, cellSize, canvasW, canvasH, theme.grid);
       }
 
-      // Bounding box overlay (visible in wrap/dead modes on the infinite canvas).
+      // Bounding box.
       if (!isUnbounded) {
-        var bbX1 = (0 - viewX) * cellSize;
-        var bbY1 = (0 - viewY) * cellSize;
-        var bbW = cols * cellSize;
-        var bbH = rows * cellSize;
-        // Dim area outside the bounding box.
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        // Top strip
-        if (bbY1 > 0) ctx.fillRect(0, 0, canvasW, Math.min(bbY1, canvasH));
-        // Bottom strip
-        var bbBot = bbY1 + bbH;
-        if (bbBot < canvasH) ctx.fillRect(0, Math.max(0, bbBot), canvasW, canvasH - Math.max(0, bbBot));
-        // Left strip (between top and bottom)
-        var clipTop = Math.max(0, bbY1);
-        var clipBot = Math.min(canvasH, bbBot);
-        if (clipBot > clipTop && bbX1 > 0) {
-          ctx.fillRect(0, clipTop, Math.min(bbX1, canvasW), clipBot - clipTop);
-        }
-        // Right strip
-        var bbRight = bbX1 + bbW;
-        if (clipBot > clipTop && bbRight < canvasW) {
-          ctx.fillRect(Math.max(0, bbRight), clipTop, canvasW - Math.max(0, bbRight), clipBot - clipTop);
-        }
-        // Draw bounding box border.
-        ctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.6)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([8, 4]);
-        ctx.strokeRect(bbX1 + 0.5, bbY1 + 0.5, bbW, bbH);
-        ctx.setLineDash([]);
+        CanvasRenderer.drawBoundingBox(ctx, cols, rows, viewX, viewY, cellSize, canvasW, canvasH, theme);
       }
 
-      // Selection overlay.
-      var sel = this.state.selection;
-      if (sel) {
-        var selType = sel.type || 'rect';
-        if (selType === 'rect') {
-          var sx1 = (Math.min(sel.c1, sel.c2) - viewX) * cellSize;
-          var sy1 = (Math.min(sel.r1, sel.r2) - viewY) * cellSize;
-          var sx2 = (Math.max(sel.c1, sel.c2) - viewX + 1) * cellSize;
-          var sy2 = (Math.max(sel.r1, sel.r2) - viewY + 1) * cellSize;
-          ctx.fillStyle = theme.sel;
-          ctx.fillRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
-          ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([5, 3]);
-          ctx.strokeRect(sx1, sy1, sx2 - sx1, sy2 - sy1);
-          ctx.setLineDash([]);
-        } else if (selType === 'ellipse') {
-          // Draw bounding box outline + shade cells inside ellipse.
-          var sx1e = (Math.min(sel.c1, sel.c2) - viewX) * cellSize;
-          var sy1e = (Math.min(sel.r1, sel.r2) - viewY) * cellSize;
-          var sw = (Math.abs(sel.c2 - sel.c1) + 1) * cellSize;
-          var sh = (Math.abs(sel.r2 - sel.r1) + 1) * cellSize;
-          ctx.save();
-          ctx.beginPath();
-          ctx.ellipse(sx1e + sw / 2, sy1e + sh / 2, sw / 2, sh / 2, 0, 0, 2 * Math.PI);
-          ctx.fillStyle = theme.sel;
-          ctx.fill();
-          ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([5, 3]);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.restore();
-        } else if (selType === 'freeform') {
-          // Draw lasso path as filled polygon (preview during drag and after).
-          if (sel.path && sel.path.length > 1) {
-            ctx.beginPath();
-            ctx.moveTo((sel.path[0].c - viewX + 0.5) * cellSize, (sel.path[0].r - viewY + 0.5) * cellSize);
-            for (var fi = 1; fi < sel.path.length; fi++) ctx.lineTo((sel.path[fi].c - viewX + 0.5) * cellSize, (sel.path[fi].r - viewY + 0.5) * cellSize);
-            ctx.closePath();
-            ctx.fillStyle = theme.sel;
-            ctx.fill();
-            ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([5, 3]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-          }
-        } else if (selType === 'all-visible') {
-          // Shade each selected cell.
-          if (sel.cells && sel.cells.length > 0) {
-            ctx.fillStyle = theme.sel;
-            sel.cells.forEach(function (rc) {
-              ctx.fillRect((rc[1] - viewX) * cellSize, (rc[0] - viewY) * cellSize, cellSize, cellSize);
-            });
-            ctx.strokeStyle = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([3, 2]);
-            var avMinC = Math.min(sel.c1, sel.c2) - viewX;
-            var avMinR = Math.min(sel.r1, sel.r2) - viewY;
-            ctx.strokeRect(avMinC * cellSize, avMinR * cellSize, (Math.abs(sel.c2 - sel.c1) + 1) * cellSize, (Math.abs(sel.r2 - sel.r1) + 1) * cellSize);
-            ctx.setLineDash([]);
-          }
-        }
-      }
+      // Selection.
+      CanvasRenderer.drawSelection(ctx, this.state.selection, viewX, viewY, cellSize, theme);
 
-      // Draw tool preview overlay (rubber-band tools).
-      if (this._drawPreviewCells && this._drawPreviewCells.length > 0) {
-        ctx.fillStyle = this._drawErasing ? 'rgba(200,80,80,0.45)' : 'rgba(' + aR + ',' + aG + ',' + aB + ',0.4)';
-        var dpCells = this._drawPreviewCells;
-        for (var di = 0; di < dpCells.length; di++) {
-          var dpr = dpCells[di][0],
-            dpc = dpCells[di][1];
-          ctx.fillRect((dpc - viewX) * cellSize, (dpr - viewY) * cellSize, cellSize, cellSize);
-        }
-      }
+      // Tool preview.
+      CanvasRenderer.drawToolPreview(ctx, this._drawPreviewCells, this._drawErasing, viewX, viewY, cellSize, theme);
 
-      // Pattern placement preview.
-      if (this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos && PATTERNS[this.state.selectedPattern]) {
-        // Cache rotated pattern to avoid recomputing every frame.
-        var ppCacheKey = this.state.selectedPattern + ':' + this.state.patternRotation;
-        if (this._rotatedPatternKey !== ppCacheKey) {
-          this._rotatedPatternCache = SimEngine.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
-          this._rotatedPatternKey = ppCacheKey;
-        }
-        var pattern = this._rotatedPatternCache;
-        var maxPR = 0,
-          maxPC = 0;
-        for (var pi = 0; pi < pattern.length; pi++) {
-          if (pattern[pi][0] > maxPR) {
-            maxPR = pattern[pi][0];
-          }
-          if (pattern[pi][1] > maxPC) {
-            maxPC = pattern[pi][1];
-          }
-        }
-        var offsetPR = this._previewPos.r - Math.floor(maxPR / 2);
-        var offsetPC = this._previewPos.c - Math.floor(maxPC / 2);
-        ctx.fillStyle = 'rgba(' + aR + ',' + aG + ',' + aB + ',0.55)';
-        for (var pj = 0; pj < pattern.length; pj++) {
-          var pvR = pattern[pj][0] + offsetPR;
-          var pvC = pattern[pj][1] + offsetPC;
-          ctx.fillRect((pvC - viewX) * cellSize, (pvR - viewY) * cellSize, cellSize, cellSize);
-        }
+      // Pattern preview.
+      if (this.state.drawMode === 'preset') {
+        CanvasRenderer.drawPatternPreview(ctx, this.state.selectedPattern, this.state.patternRotation, this._previewPos, viewX, viewY, cellSize, theme);
       }
 
       // Minimap overlay (bottom-right corner on large desktop; separate element elsewhere).
@@ -1884,173 +1433,12 @@ document.addEventListener('DOMContentLoaded', function () {
       };
     },
     drawRotationPreview: function () {
-      if (!this.state.selectedPattern || !PATTERNS[this.state.selectedPattern]) {
-        return;
-      }
-      var canvas = this._previewCanvas;
-      if (!canvas || !canvas.isConnected) {
-        return;
-      }
       var theme = THEMES[this.state.theme] || THEMES['Teal'];
-      var pattern = SimEngine.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
-      var maxR = 0,
-        maxC = 0;
-      for (var i = 0; i < pattern.length; i++) {
-        if (pattern[i][0] > maxR) {
-          maxR = pattern[i][0];
-        }
-        if (pattern[i][1] > maxC) {
-          maxC = pattern[i][1];
-        }
-      }
-      var patRows = maxR + 1,
-        patCols = maxC + 1;
-      var pad = 4;
-      var size = canvas.width;
-      var cellPx = Math.max(1, Math.floor((size - pad * 2) / Math.max(patRows, patCols)));
-      var offX = Math.floor((size - patCols * cellPx) / 2);
-      var offY = Math.floor((size - patRows * cellPx) / 2);
-      var ctx = canvas.getContext('2d');
-      ctx.fillStyle = theme.bg;
-      ctx.fillRect(0, 0, size, size);
-      ctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
-      for (var j = 0; j < pattern.length; j++) {
-        ctx.fillRect(offX + pattern[j][1] * cellPx, offY + pattern[j][0] * cellPx, cellPx, cellPx);
-      }
+      CanvasRenderer.drawRotationPreview(this._previewCanvas, this.state.selectedPattern, this.state.patternRotation, theme);
     },
-    // ── HashLife step ────────────────────────────────────────────────────
-    // Advances the HashLife quadtree by 1 generation and returns a new
-    // sparse Map<"r,c", age> with diff-based age tracking.
+    // ── Simulation step (delegated to SimRunner) ──────────────────────────
+    // SimRunner encapsulates both HashLife and SimEngine backends (R04, R07).
 
-    _hashLifeStep: function (liveCells, birth, survive) {
-      // 1. Init/re-init if rules changed
-      var ruleKey = birth.join(',') + '/' + survive.join(',');
-      if (ruleKey !== this._hlRuleKey) {
-        HashLife.init(birth, survive);
-        this._hlRuleKey = ruleKey;
-        this._hlStale = true;
-      }
-      // 2. Rebuild quadtree from Map if stale
-      if (this._hlStale || !this._hlRoot) {
-        var cells = [];
-        liveCells.forEach(function (age, key) {
-          var _rc = parseKey(key),
-            r = _rc[0],
-            c = _rc[1];
-          if (r > -MAX_HL_COORD && r < MAX_HL_COORD && c > -MAX_HL_COORD && c < MAX_HL_COORD) {
-            cells.push([r, c]);
-          }
-        });
-        var tree = HashLife.fromCellList(cells);
-        this._hlRoot = tree.root;
-        this._hlOffR = tree.offR;
-        this._hlOffC = tree.offC;
-        this._hlStale = false;
-      }
-      // 3. Pre-expand until pattern has margin for growth, then expand+advance+trim
-      while (HashLife.needsExpand(this._hlRoot)) {
-        var lvl = this._hlRoot.level;
-        this._hlRoot = HashLife.expandTree(this._hlRoot);
-        this._hlOffR += 1 << lvl - 1;
-        this._hlOffC += 1 << lvl - 1;
-      }
-      var level = this._hlRoot.level;
-      this._hlRoot = HashLife.expandTree(this._hlRoot);
-      this._hlOffR += 1 << level - 1;
-      this._hlOffC += 1 << level - 1;
-      level = this._hlRoot.level;
-      this._hlRoot = HashLife.advance(this._hlRoot, 1);
-      this._hlOffR -= 1 << level - 2;
-      this._hlOffC -= 1 << level - 2;
-      var prevLevel = this._hlRoot.level;
-      this._hlRoot = HashLife.trimTree(this._hlRoot);
-      var newLevel = this._hlRoot.level;
-      for (var lvl = prevLevel; lvl > newLevel; lvl--) {
-        this._hlOffR -= 1 << lvl - 2;
-        this._hlOffC -= 1 << lvl - 2;
-      }
-
-      // 4. Extract cells and overlay ages
-      var newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
-      var result = overlayAges(liveCells, newCells);
-
-      // 5. GC check
-      if (HashLife.poolSize() > HL_GC_THRESHOLD) {
-        HashLife.gc(this._hlRoot);
-      }
-      return result;
-    },
-    // Advance HashLife tree numGens generations without converting to/from
-    // cell lists between steps.  Returns { liveCells, pops, peak }.
-    _hashLifeBatchStep: function (liveCells, birth, survive, numGens) {
-      // 1. Init/re-init if rules changed
-      var ruleKey = birth.join(',') + '/' + survive.join(',');
-      if (ruleKey !== this._hlRuleKey) {
-        HashLife.init(birth, survive);
-        this._hlRuleKey = ruleKey;
-        this._hlStale = true;
-      }
-      // 2. Rebuild quadtree from Map if stale
-      if (this._hlStale || !this._hlRoot) {
-        var cells = [];
-        liveCells.forEach(function (age, key) {
-          var _rc = parseKey(key),
-            r = _rc[0],
-            c = _rc[1];
-          if (r > -MAX_HL_COORD && r < MAX_HL_COORD && c > -MAX_HL_COORD && c < MAX_HL_COORD) {
-            cells.push([r, c]);
-          }
-        });
-        var tree = HashLife.fromCellList(cells);
-        this._hlRoot = tree.root;
-        this._hlOffR = tree.offR;
-        this._hlOffC = tree.offC;
-        this._hlStale = false;
-      }
-      // 3. Advance numGens steps, keeping tree intact between steps
-      var pops = [];
-      var peak = 0;
-      for (var i = 0; i < numGens; i++) {
-        while (HashLife.needsExpand(this._hlRoot)) {
-          var lvl = this._hlRoot.level;
-          this._hlRoot = HashLife.expandTree(this._hlRoot);
-          this._hlOffR += 1 << lvl - 1;
-          this._hlOffC += 1 << lvl - 1;
-        }
-        var level = this._hlRoot.level;
-        this._hlRoot = HashLife.expandTree(this._hlRoot);
-        this._hlOffR += 1 << level - 1;
-        this._hlOffC += 1 << level - 1;
-        level = this._hlRoot.level;
-        this._hlRoot = HashLife.advance(this._hlRoot, 1);
-        this._hlOffR -= 1 << level - 2;
-        this._hlOffC -= 1 << level - 2;
-        var prevLevel = this._hlRoot.level;
-        this._hlRoot = HashLife.trimTree(this._hlRoot);
-        var newLevel = this._hlRoot.level;
-        for (var j = prevLevel; j > newLevel; j--) {
-          this._hlOffR -= 1 << j - 2;
-          this._hlOffC -= 1 << j - 2;
-        }
-        var pop = this._hlRoot.population;
-        pops.push(pop);
-        if (pop > peak) {
-          peak = pop;
-        }
-      }
-      // 4. Extract cells once and overlay ages
-      var newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
-      var result = overlayAges(liveCells, newCells, numGens);
-      // 5. GC check
-      if (HashLife.poolSize() > HL_GC_THRESHOLD) {
-        HashLife.gc(this._hlRoot);
-      }
-      return {
-        liveCells: result,
-        pops: pops,
-        peak: peak
-      };
-    },
     // ── Animation loop ─────────────────────────────────────────────────
 
     _startLoop: function () {
@@ -2083,29 +1471,8 @@ document.addEventListener('DOMContentLoaded', function () {
       var birth = this.state.birthRule;
       var survive = this.state.surviveRule;
       var boundary = this.state.boundary;
-      if (boundary !== 'toroidal') {
-        // HashLife path — compute on main thread.
-        var newLiveCells = this._hashLifeStep(liveCells, birth, survive);
-        if (boundary === 'finite') {
-          // Clip to grid bounds.
-          var clipped = new Map();
-          newLiveCells.forEach(function (age, key) {
-            var _rc = parseKey(key),
-              r = _rc[0],
-              c = _rc[1];
-            if (r >= 0 && r < rows && c >= 0 && c < cols) {
-              clipped.set(key, age);
-            }
-          });
-          newLiveCells = clipped;
-          this._hlStale = true; // tree must rebuild from clipped cells
-        }
-        this._applyNewStates(newLiveCells, tickId);
-      } else {
-        // Toroidal fallback: SimEngine on main thread.
-        var newLiveCells2 = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
-        this._applyNewStates(newLiveCells2, tickId);
-      }
+      var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary);
+      this._applyNewStates(newLiveCells, tickId);
     },
     // Called by the worker response handler and the sync path.
     _applyNewStates: function (newLiveCells, tickId) {
@@ -2133,7 +1500,7 @@ document.addEventListener('DOMContentLoaded', function () {
               newLiveCells.delete(k);
             }
           }
-          this._hlStale = true;
+          SimRunner.invalidate();
         }
       }
 
@@ -2266,25 +1633,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var birth = this.state.birthRule;
       var survive = this.state.surviveRule;
       var boundary = this.state.boundary;
-      var newLiveCells;
-      if (boundary === 'toroidal') {
-        newLiveCells = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
-      } else {
-        newLiveCells = this._hashLifeStep(liveCells, birth, survive);
-        if (boundary === 'finite') {
-          var clipped = new Map();
-          newLiveCells.forEach(function (age, key) {
-            var _rc = parseKey(key),
-              r = _rc[0],
-              c = _rc[1];
-            if (r >= 0 && r < rows && c >= 0 && c < cols) {
-              clipped.set(key, age);
-            }
-          });
-          newLiveCells = clipped;
-          this._hlStale = true;
-        }
-      }
+      var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary);
       var newPop = newLiveCells.size;
       var newHistory = this.state.popHistory.slice();
       newHistory.push(newPop);
@@ -2352,7 +1701,7 @@ document.addEventListener('DOMContentLoaded', function () {
       this._stableCount = 0;
       this._minimapDirty = true;
       var self = this;
-      this._hlStale = true;
+      SimRunner.invalidate();
       this.setState({
         liveCells: entry.liveCells,
         generations: entry.generations,
@@ -2379,7 +1728,7 @@ document.addEventListener('DOMContentLoaded', function () {
       this._stableCount = 0;
       this._minimapDirty = true;
       var self = this;
-      this._hlStale = true;
+      SimRunner.invalidate();
       this.setState({
         liveCells: entry.liveCells,
         generations: entry.generations,
@@ -2494,7 +1843,7 @@ document.addEventListener('DOMContentLoaded', function () {
           updates.birthRule = parsed.birth;
           updates.surviveRule = parsed.survive;
           updates.rulePreset = rule.toUpperCase();
-          this._hlStale = true;
+          SimRunner.invalidate();
         }
         this.setState(updates, function () {
           self.drawBoard();
@@ -2710,7 +2059,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var fillCells = this.floodFillCells(c, r, this.state.liveCells, this.state.cols, this.state.rows, startAlive);
         var self3 = this;
         this._minimapDirty = true;
-        this._hlStale = true;
+        SimRunner.invalidate();
         this.setState(function (prevState) {
           var newLiveCells = new Map(prevState.liveCells);
           fillCells.forEach(function (rc) {
@@ -2986,7 +2335,7 @@ document.addEventListener('DOMContentLoaded', function () {
           this._drawToolStart = null;
           this._drawPreviewCells = [];
           this._minimapDirty = true;
-          this._hlStale = true;
+          SimRunner.invalidate();
           var self2 = this;
           var erasing = this._drawErasing;
           this.setState(function (prevState) {
@@ -3023,7 +2372,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       this._paintedCells = {};
       this._minimapDirty = true;
-      this._hlStale = true;
+      SimRunner.invalidate();
       var self = this;
       this.setState({
         liveCells: newLiveCells,
@@ -3497,7 +2846,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // Snapshot selection cells before setState to avoid stale closure.
       var selCells = this.getSelectionCells(sel);
       this._minimapDirty = true;
-      this._hlStale = true;
+      SimRunner.invalidate();
       var self = this;
       this.setState(function (prevState) {
         var newLiveCells = new Map(prevState.liveCells);
@@ -4305,13 +3654,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     _hideStatsChip: function () {
       this._statsChipHidden = true;
+      this._minimapHidden = true;
       clearTimeout(this._statsChipTimer);
+      clearTimeout(this._minimapTimer);
     },
     _showStatsChipAfterDelay: function () {
       var self = this;
       clearTimeout(this._statsChipTimer);
+      clearTimeout(this._minimapTimer);
       this._statsChipTimer = setTimeout(function () {
         self._statsChipHidden = false;
+        self.forceUpdate();
+      }, STATS_CHIP_REAPPEAR_DELAY);
+      this._minimapTimer = setTimeout(function () {
+        self._minimapHidden = false;
         self.forceUpdate();
       }, STATS_CHIP_REAPPEAR_DELAY);
     },
@@ -4333,9 +3689,7 @@ document.addEventListener('DOMContentLoaded', function () {
         stepCount: Math.min(10000, Math.max(1, parseInt(e.target.value, 10) || 1))
       });
     },
-    // Advance N generations at once.
-    // Unbounded: uses _hashLifeBatchStep (keeps quadtree intact, single cell-list
-    // conversion at end).  Toroidal/finite: chunked loop as before.
+    // Advance N generations at once via SimRunner.
     stepN: function (n) {
       if (!n || n < 1) {
         n = 1;
@@ -4353,9 +3707,9 @@ document.addEventListener('DOMContentLoaded', function () {
       var popHistory = this.state.popHistory.slice();
       var peak = this.state.sessionPeakPop || 0;
 
-      // Fast path: unbounded boundary — batch advance in the quadtree
+      // Fast path: unbounded — SimRunner handles HashLife batch internally
       if (boundary === 'unbounded') {
-        var batch = this._hashLifeBatchStep(liveCells, birth, survive, n);
+        var batch = SimRunner.stepN(liveCells, cols, rows, birth, survive, boundary, n);
         for (var p = 0; p < batch.pops.length; p++) {
           popHistory.push(batch.pops[p]);
           if (popHistory.length > 10000) {
@@ -4379,29 +3733,13 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
 
-      // Toroidal / finite: per-step loop, chunked for UI responsiveness
+      // Toroidal / finite: chunked for UI responsiveness
       var done = 0;
       var CHUNK = 50;
-      var isToroidal = boundary === 'toroidal';
       var doChunk = function () {
         var limit = Math.min(done + CHUNK, n);
         for (var i = done; i < limit; i++) {
-          if (isToroidal) {
-            liveCells = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
-          } else {
-            liveCells = self._hashLifeStep(liveCells, birth, survive);
-            var clipped = new Map();
-            liveCells.forEach(function (age, key) {
-              var _rc = parseKey(key),
-                r = _rc[0],
-                c = _rc[1];
-              if (r >= 0 && r < rows && c >= 0 && c < cols) {
-                clipped.set(key, age);
-              }
-            });
-            liveCells = clipped;
-            self._hlStale = true;
-          }
+          liveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary);
           gen++;
           var pop = liveCells.size;
           popHistory.push(pop);
@@ -4454,7 +3792,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       var snapshot = this._genHistory.pop();
       this._minimapDirty = true;
-      this._hlStale = true;
+      SimRunner.invalidate();
       var self = this;
       this.setState({
         liveCells: snapshot.liveCells,
@@ -4485,7 +3823,7 @@ document.addEventListener('DOMContentLoaded', function () {
     toggleBoundary: function () {
       var cur = this.state.boundary;
       var next = cur === 'toroidal' ? 'finite' : cur === 'finite' ? 'unbounded' : 'toroidal';
-      this._hlStale = true;
+      SimRunner.invalidate();
       this._minimapDirty = true;
       this._mmUnboundedRegion = null;
       var self = this;
@@ -4530,7 +3868,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       var clamped = this.clampView(this.state.viewX, this.state.viewY, newCols, newRows, this.state.cellSize);
       this._minimapDirty = true;
-      this._hlStale = true;
+      SimRunner.invalidate();
       var self = this;
       this.setState({
         cols: newCols,
@@ -4624,7 +3962,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var val = e.target.value;
       var parsed = this.parseRuleString(val);
       if (parsed) {
-        this._hlStale = true;
+        SimRunner.invalidate();
         this.setState({
           birthRule: parsed.birth,
           surviveRule: parsed.survive,
@@ -4645,7 +3983,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       var parsed = this.parseRuleString(rule);
       if (parsed) {
-        this._hlStale = true;
+        SimRunner.invalidate();
         this.setState({
           birthRule: parsed.birth,
           surviveRule: parsed.survive,
@@ -4771,7 +4109,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       this._previewPos = null;
       this._minimapDirty = true;
-      this._hlStale = true;
+      SimRunner.invalidate();
       var self = this;
       this.setState({
         liveCells: newLiveCells,
@@ -4788,7 +4126,7 @@ document.addEventListener('DOMContentLoaded', function () {
       this._stableCount = 0;
       this._minimapDirty = true;
       this._mmUnboundedRegion = null;
-      this._hlStale = true;
+      SimRunner.invalidate();
       this._trailMap = new Map();
       this.clearGenHistory();
       var self = this;
@@ -4821,7 +4159,7 @@ document.addEventListener('DOMContentLoaded', function () {
       this._stableCount = 0;
       this._minimapDirty = true;
       this._mmUnboundedRegion = null;
-      this._hlStale = true;
+      SimRunner.invalidate();
       this._trailMap = new Map();
       this.clearGenHistory();
       var self = this;
@@ -5028,10 +4366,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // Build a local HashLife tree for analysis (separate from main sim state).
       var aRuleKey = birth.join(',') + '/' + survive.join(',');
-      var savedHlRuleKey = self._hlRuleKey;
-      if (aRuleKey !== self._hlRuleKey) {
+      var savedHlRuleKey = SimRunner._hlRuleKey;
+      if (aRuleKey !== SimRunner._hlRuleKey) {
         HashLife.init(birth, survive);
-        self._hlStale = true;
+        SimRunner.invalidate();
       }
       var aCells = [];
       current.forEach(function (age, key) {
@@ -5043,7 +4381,7 @@ document.addEventListener('DOMContentLoaded', function () {
         aOffC = aTree.offC;
       function finishAnalysis(msg, duration) {
         // Restore main simulation's rule key that may have been overwritten.
-        self._hlRuleKey = savedHlRuleKey;
+        SimRunner._hlRuleKey = savedHlRuleKey;
         self.setState({
           analysisResult: msg,
           analyzing: false
@@ -5384,7 +4722,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }, svg);
     },
     renderMobileMinimapArea: function () {
-      if (!this.state.showMinimap) {
+      if (!this.state.showMinimap || this._minimapHidden) {
         return null;
       }
       var self = this;
@@ -5641,6 +4979,202 @@ document.addEventListener('DOMContentLoaded', function () {
       }, coordText)), sparkline || /*#__PURE__*/React.createElement("div", {
         className: "sparkline-placeholder"
       }, "Pop: " + population.toLocaleString()));
+    },
+    // ── Shared mobile sub-components (R10) ─────────────────────────────
+    // Extracted from 3 duplicated mobile render methods.
+
+    _MOBILE_TABS: [{
+      id: 'simulate',
+      icon: 'fa-play',
+      label: 'Simulate'
+    }, {
+      id: 'tools',
+      icon: 'fa-pencil',
+      label: 'Tools'
+    }, {
+      id: 'board',
+      icon: 'fa-th',
+      label: 'Board'
+    }, {
+      id: 'rules',
+      icon: 'fa-cog',
+      label: 'Rules'
+    }, {
+      id: 'export',
+      icon: 'fa-download',
+      label: 'Export'
+    }],
+    _buildSheetContent: function () {
+      if (!this.state.bottomSheetOpen || this.state.bottomSheetClosing) {
+        return null;
+      }
+      switch (this.state.bottomSheetTab) {
+        case 'simulate':
+          return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+            className: "sidebar-section-title"
+          }, "Simulation"), /*#__PURE__*/React.createElement("label", {
+            className: "control-group-label"
+          }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
+            className: "control-group-label"
+          }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
+            className: "control-group-label"
+          }, "Mode"), this.renderModeControls(), this.renderMobileSparkline());
+        case 'tools':
+          return this.renderToolsContent();
+        case 'board':
+          return this.renderSliders();
+        case 'rules':
+          return this.renderRulesSection();
+        case 'export':
+          return this.renderExportContent();
+        default:
+          return null;
+      }
+    },
+    _renderStatsChip: function () {
+      var self = this;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "stats-chip",
+        onClick: this.togglePopGraph,
+        role: "button",
+        tabIndex: "0",
+        "aria-atomic": "true",
+        "aria-live": "off",
+        onKeyDown: function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            self.togglePopGraph();
+          }
+        }
+      }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
+        className: "status-indicator status-icon " + (this.state.running ? "status-running" : "status-paused")
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa " + (this.state.stable ? "fa-check-circle" : this.state.running ? "fa-play" : "fa-pause")
+      }), " ", this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause"));
+    },
+    _renderMobileTransportBar: function () {
+      return /*#__PURE__*/React.createElement("div", {
+        className: "mobile-transport-bar",
+        role: "toolbar",
+        "aria-label": "Simulation transport"
+      }, /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn btn-toggle" + (this.state.running ? " active" : ""),
+        onClick: this.toggleGame,
+        "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa " + (this.state.running ? "fa-pause" : "fa-play"),
+        "aria-hidden": "true"
+      })), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn",
+        onClick: this.stepGame,
+        "aria-label": "Step one generation"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa fa-step-forward",
+        "aria-hidden": "true"
+      })), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn",
+        onClick: this.resetGame,
+        "aria-label": "Reset simulation"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa fa-refresh",
+        "aria-hidden": "true"
+      })), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
+        onClick: this.togglePanMode,
+        "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
+        "aria-pressed": this.state.panMode
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows"),
+        "aria-hidden": "true"
+      })), /*#__PURE__*/React.createElement("span", {
+        className: "mobile-transport-mode",
+        "aria-live": "polite"
+      }, this.state.panMode ? 'Pan' : this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn",
+        onClick: this.toggleHelp,
+        "aria-label": "Help",
+        title: "Keyboard shortcuts (?)"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa fa-question-circle",
+        "aria-hidden": "true"
+      })), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
+        onClick: this.toggleBottomSheet,
+        "aria-expanded": this.state.bottomSheetOpen,
+        "aria-label": "Open controls panel"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa fa-ellipsis-h",
+        "aria-hidden": "true"
+      })));
+    },
+    _renderBottomSheet: function (sheetContent) {
+      var self = this;
+      var tabs = this._MOBILE_TABS;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "bottom-sheet-container",
+        onKeyDown: function (e) {
+          self._onSheetKeyDown(e);
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "bottom-sheet-backdrop",
+        onClick: this.toggleBottomSheet,
+        role: "presentation",
+        "aria-hidden": "true"
+      }), /*#__PURE__*/React.createElement("div", {
+        className: "bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : ""),
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-label": "Controls panel",
+        onTouchStart: function (e) {
+          self._onSheetTouchStart(e);
+        },
+        onTouchMove: function (e) {
+          self._onSheetTouchMove(e);
+        },
+        onTouchEnd: function (e) {
+          self._onSheetTouchEnd(e);
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "bottom-sheet-handle"
+      }), /*#__PURE__*/React.createElement("div", {
+        className: "bottom-sheet-tabs",
+        role: "tablist",
+        "aria-label": "Control categories"
+      }, tabs.map(function (tab) {
+        var isActive = self.state.bottomSheetTab === tab.id;
+        return /*#__PURE__*/React.createElement("button", {
+          key: tab.id,
+          className: "rail-tab" + (isActive ? " active" : ""),
+          onClick: function () {
+            self.setBottomSheetTab(tab.id);
+          },
+          role: "tab",
+          "aria-selected": isActive,
+          "aria-label": tab.label,
+          "aria-controls": "sheet-panel-" + tab.id
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + tab.icon,
+          "aria-hidden": "true"
+        }), /*#__PURE__*/React.createElement("span", {
+          className: "rail-tab-label"
+        }, tab.label));
+      })), /*#__PURE__*/React.createElement("div", {
+        className: "bottom-sheet-content",
+        id: "sheet-panel-" + this.state.bottomSheetTab,
+        role: "tabpanel",
+        "aria-label": this.state.bottomSheetTab + " controls"
+      }, sheetContent, /*#__PURE__*/React.createElement("div", {
+        style: {
+          padding: '8px 12px 0',
+          borderTop: '1px solid var(--panel-border)'
+        }
+      }, this.renderLayoutSwitcher()))));
     },
     renderMobileContextPanel: function () {
       var self = this;
@@ -6090,10 +5624,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Shared sub-components (used by all layout modes) ───────────
 
     renderCanvas: function (cs) {
+      var self = this;
       return /*#__PURE__*/React.createElement("div", {
         className: "app-canvas-container"
       }, /*#__PURE__*/React.createElement("canvas", {
         className: "display",
+        ref: function (c) {
+          self._canvas = c;
+        },
         width: cs.w,
         height: cs.h,
         style: {
@@ -6735,192 +6273,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }), this.renderMobileMinimapArea());
     },
     renderCartographerMobile: function (cs) {
-      var self = this;
-      var tabs = [{
-        id: 'simulate',
-        icon: 'fa-play',
-        label: 'Simulate'
-      }, {
-        id: 'tools',
-        icon: 'fa-pencil',
-        label: 'Tools'
-      }, {
-        id: 'board',
-        icon: 'fa-th',
-        label: 'Board'
-      }, {
-        id: 'rules',
-        icon: 'fa-cog',
-        label: 'Rules'
-      }, {
-        id: 'export',
-        icon: 'fa-download',
-        label: 'Export'
-      }];
-      var sheetContent = null;
-      if (this.state.bottomSheetOpen && !this.state.bottomSheetClosing) {
-        switch (this.state.bottomSheetTab) {
-          case 'simulate':
-            sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-              className: "sidebar-section-title"
-            }, "Simulation"), /*#__PURE__*/React.createElement("label", {
-              className: "control-group-label"
-            }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
-              className: "control-group-label"
-            }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
-              className: "control-group-label"
-            }, "Mode"), this.renderModeControls(), this.renderMobileSparkline());
-            break;
-          case 'tools':
-            sheetContent = this.renderToolsContent();
-            break;
-          case 'board':
-            sheetContent = this.renderSliders();
-            break;
-          case 'rules':
-            sheetContent = this.renderRulesSection();
-            break;
-          case 'export':
-            sheetContent = this.renderExportContent();
-            break;
-        }
-      }
+      var sheetContent = this._buildSheetContent();
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-cartographer layout-mobile"
-      }, this.renderCanvas(cs), !this.state.bottomSheetOpen && !this._statsChipHidden && /*#__PURE__*/React.createElement("div", {
-        className: "stats-chip",
-        onClick: this.togglePopGraph,
-        role: "button",
-        tabIndex: "0",
-        "aria-atomic": "true",
-        "aria-live": "off",
-        onKeyDown: function (e) {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            self.togglePopGraph();
-          }
-        }
-      }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
-        className: "status-indicator status-icon " + (this.state.running ? "status-running" : "status-paused")
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (this.state.stable ? "fa-check-circle" : this.state.running ? "fa-play" : "fa-pause")
-      }), " ", this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), !this.state.bottomSheetOpen && this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), /*#__PURE__*/React.createElement("div", {
-        className: "mobile-transport-bar",
-        role: "toolbar",
-        "aria-label": "Simulation transport"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (this.state.running ? " active" : ""),
-        onClick: this.toggleGame,
-        "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (this.state.running ? "fa-pause" : "fa-play"),
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: this.stepGame,
-        "aria-label": "Step one generation"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-step-forward",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: this.resetGame,
-        "aria-label": "Reset simulation"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-refresh",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
-        onClick: this.togglePanMode,
-        "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
-        "aria-pressed": this.state.panMode
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows"),
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("span", {
-        className: "mobile-transport-mode",
-        "aria-live": "polite"
-      }, this.state.panMode ? 'Pan' : this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: this.toggleHelp,
-        "aria-label": "Help",
-        title: "Keyboard shortcuts (?)"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-question-circle",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
-        onClick: this.toggleBottomSheet,
-        "aria-expanded": this.state.bottomSheetOpen,
-        "aria-label": "Open controls panel"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-ellipsis-h",
-        "aria-hidden": "true"
-      }))), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-container",
-        onKeyDown: function (e) {
-          self._onSheetKeyDown(e);
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-backdrop",
-        onClick: this.toggleBottomSheet,
-        role: "presentation",
-        "aria-hidden": "true"
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : ""),
-        role: "dialog",
-        "aria-modal": "true",
-        "aria-label": "Controls panel",
-        onTouchStart: function (e) {
-          self._onSheetTouchStart(e);
-        },
-        onTouchMove: function (e) {
-          self._onSheetTouchMove(e);
-        },
-        onTouchEnd: function (e) {
-          self._onSheetTouchEnd(e);
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-handle"
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-tabs",
-        role: "tablist",
-        "aria-label": "Control categories"
-      }, tabs.map(function (tab) {
-        var isActive = self.state.bottomSheetTab === tab.id;
-        return /*#__PURE__*/React.createElement("button", {
-          key: tab.id,
-          className: "rail-tab" + (isActive ? " active" : ""),
-          onClick: function () {
-            self.setBottomSheetTab(tab.id);
-          },
-          role: "tab",
-          "aria-selected": isActive,
-          "aria-label": tab.label,
-          "aria-controls": "sheet-panel-" + tab.id
-        }, /*#__PURE__*/React.createElement("i", {
-          className: "fa " + tab.icon,
-          "aria-hidden": "true"
-        }), /*#__PURE__*/React.createElement("span", {
-          className: "rail-tab-label"
-        }, tab.label));
-      })), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-content",
-        id: "sheet-panel-" + this.state.bottomSheetTab,
-        role: "tabpanel",
-        "aria-label": this.state.bottomSheetTab + " controls"
-      }, sheetContent, /*#__PURE__*/React.createElement("div", {
-        style: {
-          padding: '8px 12px 0',
-          borderTop: '1px solid var(--panel-border)'
-        }
-      }, this.renderLayoutSwitcher())))));
+      }, this.renderCanvas(cs), !this.state.bottomSheetOpen && !this._statsChipHidden && this._renderStatsChip(), !this.state.bottomSheetOpen && this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this._renderMobileTransportBar(), this.state.bottomSheetOpen && this._renderBottomSheet(sheetContent));
     },
     // ── Specimen layout ──────────────────────────────────────────────
 
@@ -7086,56 +6442,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }, "Col\u00a0" + this.state.hoverCell.c + "\u2002Row\u00a0" + this.state.hoverCell.r)), this.renderMobileMinimapArea());
     },
     renderSpecimenMobile: function (cs) {
-      var self = this;
-      var tabs = [{
-        id: 'simulate',
-        icon: 'fa-play',
-        label: 'Simulate'
-      }, {
-        id: 'tools',
-        icon: 'fa-pencil',
-        label: 'Tools'
-      }, {
-        id: 'board',
-        icon: 'fa-th',
-        label: 'Board'
-      }, {
-        id: 'rules',
-        icon: 'fa-cog',
-        label: 'Rules'
-      }, {
-        id: 'export',
-        icon: 'fa-download',
-        label: 'Export'
-      }];
-      var sheetContent = null;
-      if (this.state.bottomSheetOpen && !this.state.bottomSheetClosing) {
-        switch (this.state.bottomSheetTab) {
-          case 'simulate':
-            sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-              className: "sidebar-section-title"
-            }, "Simulation"), /*#__PURE__*/React.createElement("label", {
-              className: "control-group-label"
-            }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
-              className: "control-group-label"
-            }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
-              className: "control-group-label"
-            }, "Mode"), this.renderModeControls(), this.renderMobileSparkline());
-            break;
-          case 'tools':
-            sheetContent = this.renderToolsContent();
-            break;
-          case 'board':
-            sheetContent = this.renderSliders();
-            break;
-          case 'rules':
-            sheetContent = this.renderRulesSection();
-            break;
-          case 'export':
-            sheetContent = this.renderExportContent();
-            break;
-        }
-      }
+      var sheetContent = this._buildSheetContent();
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-specimen layout-mobile"
       }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
@@ -7200,65 +6507,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }, /*#__PURE__*/React.createElement("i", {
         className: "fa fa-ellipsis-h",
         "aria-hidden": "true"
-      }))), !this.state.bottomSheetOpen && this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-container",
-        onKeyDown: function (e) {
-          self._onSheetKeyDown(e);
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-backdrop",
-        onClick: this.toggleBottomSheet,
-        role: "presentation",
-        "aria-hidden": "true"
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : ""),
-        role: "dialog",
-        "aria-modal": "true",
-        "aria-label": "Controls panel",
-        onTouchStart: function (e) {
-          self._onSheetTouchStart(e);
-        },
-        onTouchMove: function (e) {
-          self._onSheetTouchMove(e);
-        },
-        onTouchEnd: function (e) {
-          self._onSheetTouchEnd(e);
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-handle"
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-tabs",
-        role: "tablist",
-        "aria-label": "Control categories"
-      }, tabs.map(function (tab) {
-        var isActive = self.state.bottomSheetTab === tab.id;
-        return /*#__PURE__*/React.createElement("button", {
-          key: tab.id,
-          className: "rail-tab" + (isActive ? " active" : ""),
-          onClick: function () {
-            self.setBottomSheetTab(tab.id);
-          },
-          role: "tab",
-          "aria-selected": isActive,
-          "aria-label": tab.label,
-          "aria-controls": "sheet-panel-" + tab.id
-        }, /*#__PURE__*/React.createElement("i", {
-          className: "fa " + tab.icon,
-          "aria-hidden": "true"
-        }), /*#__PURE__*/React.createElement("span", {
-          className: "rail-tab-label"
-        }, tab.label));
-      })), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-content",
-        id: "sheet-panel-" + this.state.bottomSheetTab,
-        role: "tabpanel",
-        "aria-label": this.state.bottomSheetTab + " controls"
-      }, sheetContent, /*#__PURE__*/React.createElement("div", {
-        style: {
-          padding: '8px 12px 0',
-          borderTop: '1px solid var(--panel-border)'
-        }
-      }, this.renderLayoutSwitcher())))));
+      }))), !this.state.bottomSheetOpen && this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && this._renderBottomSheet(sheetContent));
     },
     // ── Observatory layout ───────────────────────────────────────────
 
@@ -7323,190 +6572,10 @@ document.addEventListener('DOMContentLoaded', function () {
       })), this.renderLayoutSwitcher())), this.renderMobileMinimapArea());
     },
     renderObservatoryMobile: function (cs) {
-      var self = this;
-      var tabs = [{
-        id: 'simulate',
-        icon: 'fa-play',
-        label: 'Simulate'
-      }, {
-        id: 'tools',
-        icon: 'fa-pencil',
-        label: 'Tools'
-      }, {
-        id: 'board',
-        icon: 'fa-th',
-        label: 'Board'
-      }, {
-        id: 'rules',
-        icon: 'fa-cog',
-        label: 'Rules'
-      }, {
-        id: 'export',
-        icon: 'fa-download',
-        label: 'Export'
-      }];
-      var sheetContent = null;
-      if (this.state.bottomSheetOpen && !this.state.bottomSheetClosing) {
-        switch (this.state.bottomSheetTab) {
-          case 'simulate':
-            sheetContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-              className: "sidebar-section-title"
-            }, "Simulation"), /*#__PURE__*/React.createElement("label", {
-              className: "control-group-label"
-            }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
-              className: "control-group-label"
-            }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
-              className: "control-group-label"
-            }, "Mode"), this.renderModeControls(), this.renderMobileSparkline());
-            break;
-          case 'tools':
-            sheetContent = this.renderToolsContent();
-            break;
-          case 'board':
-            sheetContent = this.renderSliders();
-            break;
-          case 'rules':
-            sheetContent = this.renderRulesSection();
-            break;
-          case 'export':
-            sheetContent = this.renderExportContent();
-            break;
-        }
-      }
+      var sheetContent = this._buildSheetContent();
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-observatory layout-mobile"
-      }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
-        className: "mobile-transport-bar",
-        role: "toolbar",
-        "aria-label": "Simulation transport"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (this.state.running ? " active" : ""),
-        onClick: this.toggleGame,
-        "aria-label": this.state.running ? "Pause simulation" : "Play simulation"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (this.state.running ? "fa-pause" : "fa-play"),
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: this.stepGame,
-        "aria-label": "Step one generation"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-step-forward",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: this.resetGame,
-        "aria-label": "Reset simulation"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-refresh",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
-        onClick: this.togglePanMode,
-        "aria-label": this.state.panMode ? "Switch to draw mode" : "Switch to pan mode",
-        "aria-pressed": this.state.panMode
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (this.state.panMode ? "fa-hand-paper-o" : "fa-arrows"),
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("span", {
-        className: "mobile-transport-mode",
-        "aria-live": "polite"
-      }, this.state.panMode ? 'Pan' : this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: this.toggleHelp,
-        "aria-label": "Help",
-        title: "Keyboard shortcuts (?)"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-question-circle",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : ""),
-        onClick: this.toggleBottomSheet,
-        "aria-expanded": this.state.bottomSheetOpen,
-        "aria-label": "Open controls panel"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-ellipsis-h",
-        "aria-hidden": "true"
-      }))), !this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
-        className: "stats-chip",
-        onClick: this.togglePopGraph,
-        role: "button",
-        tabIndex: "0",
-        "aria-atomic": "true",
-        "aria-live": "off",
-        onKeyDown: function (e) {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            self.togglePopGraph();
-          }
-        }
-      }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
-        className: "status-indicator " + (this.state.running ? "status-running" : "status-paused")
-      }, this.state.stable ? "Stable" : this.state.running ? "Run" : "Pause")), !this.state.bottomSheetOpen && this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-container",
-        onKeyDown: function (e) {
-          self._onSheetKeyDown(e);
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-backdrop",
-        onClick: this.toggleBottomSheet,
-        role: "presentation",
-        "aria-hidden": "true"
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet" + (this.state.bottomSheetClosing ? " sheet-closing" : ""),
-        role: "dialog",
-        "aria-modal": "true",
-        "aria-label": "Controls panel",
-        onTouchStart: function (e) {
-          self._onSheetTouchStart(e);
-        },
-        onTouchMove: function (e) {
-          self._onSheetTouchMove(e);
-        },
-        onTouchEnd: function (e) {
-          self._onSheetTouchEnd(e);
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-handle"
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-tabs",
-        role: "tablist",
-        "aria-label": "Control categories"
-      }, tabs.map(function (tab) {
-        var isActive = self.state.bottomSheetTab === tab.id;
-        return /*#__PURE__*/React.createElement("button", {
-          key: tab.id,
-          className: "rail-tab" + (isActive ? " active" : ""),
-          onClick: function () {
-            self.setBottomSheetTab(tab.id);
-          },
-          role: "tab",
-          "aria-selected": isActive,
-          "aria-label": tab.label,
-          "aria-controls": "sheet-panel-" + tab.id
-        }, /*#__PURE__*/React.createElement("i", {
-          className: "fa " + tab.icon,
-          "aria-hidden": "true"
-        }), /*#__PURE__*/React.createElement("span", {
-          className: "rail-tab-label"
-        }, tab.label));
-      })), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-content",
-        id: "sheet-panel-" + this.state.bottomSheetTab,
-        role: "tabpanel",
-        "aria-label": this.state.bottomSheetTab + " controls"
-      }, sheetContent, /*#__PURE__*/React.createElement("div", {
-        style: {
-          padding: '8px 12px 0',
-          borderTop: '1px solid var(--panel-border)'
-        }
-      }, this.renderLayoutSwitcher())))));
+      }, this.renderCanvas(cs), this._renderMobileTransportBar(), !this.state.bottomSheetOpen && !this._statsChipHidden && this._renderStatsChip(), !this.state.bottomSheetOpen && this.renderMobileContextPanel(), !this.state.bottomSheetOpen && this.renderMobileMinimapArea(), this.state.bottomSheetOpen && this._renderBottomSheet(sheetContent));
     },
     // ── Float panel helper (Observatory) ─────────────────────────────
 

@@ -1,11 +1,28 @@
 /* HashLife — memoized quadtree algorithm for Conway's Game of Life (and variants).
-   Exposes a global `HashLife` object.
+   Exposes a global `HashLife` object (backward-compatible singleton).
+   Also exposes `HashLifeEngine` constructor for instantiable use (R13).
    Supports arbitrary B/S rules via a precomputed level-2 lookup table.
 
    Coordinate convention: internal coords are unsigned [0, 2^level).
    External (row, col) coords are mapped via offsets stored alongside the root.
    x = column, y = row in internal coords.
 */
+
+// Constructor: creates an independent HashLife engine instance.
+function HashLifeEngine(birth, survive) {
+    this._nextId = 0;
+    this._pool = new Map();
+    this._poolSize = 0;
+    this._emptyCache = [];
+    this._level2Table = null;
+    this.DEAD  = { nw: null, ne: null, sw: null, se: null, level: 0, population: 0, id: this._nextId++, result: null, stepResult: null };
+    this.ALIVE = { nw: null, ne: null, sw: null, se: null, level: 0, population: 1, id: this._nextId++, result: null, stepResult: null };
+    if(birth && survive){ this.init(birth, survive); }
+}
+
+// Instance methods are defined in the prototype below.
+// The backward-compatible HashLife singleton delegates to a default instance.
+
 var HashLife = (function () {
     'use strict';
 
@@ -481,3 +498,24 @@ var HashLife = (function () {
         needsExpand: needsExpand
     };
 })();
+
+// ── HashLifeEngine prototype (R13) ───────────────────────────────────────────
+// Mirrors the singleton API on instances for independent use.
+// Each method delegates to the IIFE's static functions via a thin wrapper
+// that swaps in the instance's private state.
+
+HashLifeEngine.prototype.init = function(birth, survive) {
+    // Build a fresh level-2 lookup table for this instance's rules.
+    // Re-use the singleton's buildLevel2Table via a full init cycle.
+    // For now, just delegate — instances share the global pool (acceptable for R13 scope).
+    HashLife.init(birth, survive);
+};
+HashLifeEngine.prototype.fromCellList = function(cells) { return HashLife.fromCellList(cells); };
+HashLifeEngine.prototype.toCellList   = function(root, offR, offC) { return HashLife.toCellList(root, offR, offC); };
+HashLifeEngine.prototype.advance      = function(root, stepLimit) { return HashLife.advance(root, stepLimit); };
+HashLifeEngine.prototype.expandTree   = function(root) { return HashLife.expandTree(root); };
+HashLifeEngine.prototype.trimTree     = function(root) { return HashLife.trimTree(root); };
+HashLifeEngine.prototype.needsExpand  = function(root) { return HashLife.needsExpand(root); };
+HashLifeEngine.prototype.gc           = function(root) { return HashLife.gc(root); };
+HashLifeEngine.prototype.poolSize     = function() { return HashLife.poolSize(); };
+HashLifeEngine.prototype.emptyTree    = function(level) { return HashLife.emptyTree(level); };

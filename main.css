@@ -1728,17 +1728,17 @@ canvas.display {
   .transport-strip {
     display: none; }
 
-  /* Mobile context panel: floats above transport bar when preset/selection active */
+  /* Mobile context panel: floats above stats chip when preset/selection active */
   .mobile-context-panel {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--space-sm);
     padding: 0 var(--space-sm);
     position: fixed;
-    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
-    left: 0;
-    right: 0;
+    bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+    left: var(--space-md);
+    right: auto;
     z-index: calc(var(--z-panels) + 2);
     pointer-events: none; }
   /* Cartographer/Observatory: clear the floating stats-chip at bottom:62px */
