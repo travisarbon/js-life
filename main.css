@@ -1728,11 +1728,13 @@ canvas.display {
   .mobile-context-panel {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: var(--space-sm);
     padding: 0 var(--space-sm);
     position: fixed;
     bottom: calc(60px + env(safe-area-inset-bottom, 0px));
-    left: var(--space-sm);
+    left: 0;
+    right: 0;
     z-index: calc(var(--z-panels) + 2);
     pointer-events: none; }
   .mobile-context-panel > * {

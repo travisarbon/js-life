@@ -4584,7 +4584,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <div className="rotation-row">
                                     <canvas className="rotation-preview" width="96" height="96"
                                         role="img" aria-label="Pattern rotation preview"
-                                        ref={function(c){ self._previewCanvas = c; }} />
+                                        ref={function(c){ self._previewCanvas = c; if(c) self.drawRotationPreview(); }} />
                                     <div className="rotation-btns">
                                         <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise"><i className="fa fa-undo" aria-hidden="true"></i></button>
                                         <button className="btn btn-rotate" onClick={this.rotateCW} title="Rotate 90° clockwise"><i className="fa fa-repeat" aria-hidden="true"></i></button>
