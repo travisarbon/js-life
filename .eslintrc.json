@@ -12,6 +12,7 @@
     "SimEngine": "readonly",
     "SimRunner": "writable",
     "CanvasRenderer": "readonly",
+    "InputHandler": "writable",
     "parseKey": "readonly",
     "makeKey": "readonly",
     "CoordUtils": "readonly",
