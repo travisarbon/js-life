@@ -1443,6 +1443,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
             drawRotationPreview : function(){
                 if(!this.state.selectedPattern || !PATTERNS[this.state.selectedPattern]){ return; }
+                var canvas = this._previewCanvas;
+                if(!canvas || !canvas.isConnected){ return; }
                 var theme = THEMES[this.state.theme] || THEMES['Teal'];
                 var pattern = SimEngine.rotatePattern(
                     PATTERNS[this.state.selectedPattern], this.state.patternRotation);
@@ -1453,22 +1455,18 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
                 var patRows = maxR + 1, patCols = maxC + 1;
                 var pad = 4;
-                var drawOn = function(canvas){
-                    if(!canvas){ return; }
-                    var size   = canvas.width;
-                    var cellPx = Math.max(1, Math.floor((size - pad * 2) / Math.max(patRows, patCols)));
-                    var offX   = Math.floor((size - patCols * cellPx) / 2);
-                    var offY   = Math.floor((size - patRows * cellPx) / 2);
-                    var ctx    = canvas.getContext('2d');
-                    ctx.fillStyle = theme.bg;
-                    ctx.fillRect(0, 0, size, size);
-                    ctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
-                    for(var j = 0; j < pattern.length; j++){
-                        ctx.fillRect(offX + pattern[j][1] * cellPx,
-                                     offY + pattern[j][0] * cellPx, cellPx, cellPx);
-                    }
-                };
-                drawOn(this._previewCanvas);
+                var size   = canvas.width;
+                var cellPx = Math.max(1, Math.floor((size - pad * 2) / Math.max(patRows, patCols)));
+                var offX   = Math.floor((size - patCols * cellPx) / 2);
+                var offY   = Math.floor((size - patRows * cellPx) / 2);
+                var ctx    = canvas.getContext('2d');
+                ctx.fillStyle = theme.bg;
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
+                for(var j = 0; j < pattern.length; j++){
+                    ctx.fillRect(offX + pattern[j][1] * cellPx,
+                                 offY + pattern[j][0] * cellPx, cellPx, cellPx);
+                }
             },
 
             // ── HashLife step ────────────────────────────────────────────────────
@@ -3169,12 +3167,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 var self = this;
                 if(this.state.bottomSheetOpen){
                     // Closing: animate out, then unmount.
+                    this._previewCanvas = null;
                     this.setState({bottomSheetClosing: true}, function(){
                         setTimeout(function(){
                             self.setState({bottomSheetOpen: false, bottomSheetClosing: false}, function(){
                                 self._restoreFocus();
                                 self.drawBoard();
-                                self.drawRotationPreview();
                             });
                         }, 200);
                     });
