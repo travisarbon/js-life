@@ -3,13 +3,14 @@
  * Extracted from script.js for testability.
  */
 
-// Load the parseKey and SimEngine globals by evaluating the relevant portion.
+// Load pattern data + pure functions by concatenating patterns.js + script.js preamble.
 const fs = require('fs');
+const patternsSrc = fs.readFileSync(__dirname + '/../patterns.js', 'utf8');
 const src = fs.readFileSync(__dirname + '/../script.js', 'utf8');
 
 // Extract everything before the DOMContentLoaded listener (pure functions + SimEngine).
 const boundary = src.indexOf("document.addEventListener('DOMContentLoaded'");
-const pureSrc = src.substring(0, boundary);
+const pureSrc = patternsSrc + '\n' + src.substring(0, boundary);
 
 // Execute in current scope using indirect eval to expose globals.
 const script = new Function(pureSrc + '\nreturn { parseKey, SimEngine, PATTERN_GROUPS, PATTERNS, PATTERN_META, RULE_PRESETS, SPEED_DELAYS, THEMES, overlayAges };');
