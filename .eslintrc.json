@@ -1,0 +1,44 @@
+{
+  "env": {
+    "browser": true,
+    "es6": true
+  },
+  "globals": {
+    "React": "readonly",
+    "ReactDOM": "readonly",
+    "GIF": "readonly",
+    "HashLife": "readonly",
+    "SimEngine": "readonly",
+    "parseKey": "readonly",
+    "overlayAges": "readonly",
+    "PATTERN_GROUPS": "readonly",
+    "PATTERNS": "writable",
+    "PATTERN_META": "readonly",
+    "RULE_PRESETS": "readonly",
+    "SPEED_DELAYS": "readonly",
+    "THEMES": "readonly"
+  },
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "plugins": ["react"],
+  "settings": {
+    "react": {
+      "version": "16"
+    }
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-undef": "error",
+    "no-redeclare": "warn",
+    "eqeqeq": ["warn", "smart"],
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "react/jsx-uses-react": "warn",
+    "react/jsx-uses-vars": "warn"
+  }
+}

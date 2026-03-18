@@ -1,6 +1,33 @@
+"use strict";
+
 /**
  * Conway's Game of Life
  */
+
+// ── Constants ────────────────────────────────────────────────────────────────
+var MAX_UNDO_STACK = 30;
+var MAX_POP_HISTORY = 10000;
+var MAX_GEN_HISTORY = 200;
+var MAX_TRAIL_MAP = 50000;
+var TRAIL_MAX_VALUE = 20;
+var TRAIL_PRUNE_THRESHOLD = 5;
+var MAX_CELL_IMPORT = 100000;
+var MAX_FILE_SIZE = 500000;
+var HL_GC_THRESHOLD = 2000000;
+var STABLE_COUNT_THRESHOLD = 2;
+var GPS_DISPLAY_DURATION = 3000;
+var LONG_PRESS_DELAY = 420;
+var MAX_STEP_COUNT = 10000;
+var MAX_ZOOM_WHEEL = 32;
+var MAX_ZOOM_PINCH = 128;
+var COLOR_STEPS = 63;
+var MAX_AGE = 65535;
+var MAX_FLOOD_FILL = 100000;
+var ANALYSIS_TIMEOUT = 10000;
+var STATS_CHIP_REAPPEAR_DELAY = 1500;
+
+// ── Board key utilities ──────────────────────────────────────────────────────
+// Encapsulates the "r,c" string key format used by the cell Map.
 
 // Parse a "r,c" map key into [row, col] integers.
 function parseKey(key) {
@@ -8,6 +35,30 @@ function parseKey(key) {
   if (i < 0) return [0, 0];
   return [parseInt(key.substring(0, i), 10) || 0, parseInt(key.substring(i + 1), 10) || 0];
 }
+
+// Build a "r,c" key from row, col integers.
+function makeKey(r, c) {
+  return r + ',' + c;
+}
+
+// ── Coordinate transformation utilities ──────────────────────────────────────
+// Three coordinate systems: screen pixels, board cells, HashLife internal.
+var CoordUtils = {
+  // Screen pixel → board cell
+  screenToCell: function (px, py, viewX, viewY, cellSize) {
+    return {
+      c: viewX + Math.floor(px / cellSize),
+      r: viewY + Math.floor(py / cellSize)
+    };
+  },
+  // Board cell → screen pixel (top-left corner of cell)
+  cellToScreen: function (c, r, viewX, viewY, cellSize) {
+    return {
+      x: (c - viewX) * cellSize,
+      y: (r - viewY) * cellSize
+    };
+  }
+};
 
 // ── Preset patterns ───────────────────────────────────────────────────────────
 // All cells are [row, col] offsets (0-indexed from top-left of bounding box).
@@ -316,6 +367,22 @@ var THEMES = {
   }
 };
 
+// ── Format detection helper (shared between file drop and manual import) ─────
+// R21: Extracted to avoid duplication between _handleFileDrop and loadRle.
+function detectAndParsePattern(text) {
+  var result;
+  if (/^#Life\s+1\.06/m.test(text)) {
+    result = SimEngine.parseLife106(text);
+  } else if (/^#Life\s+1\.05/m.test(text)) {
+    result = SimEngine.parseLife105(text);
+  } else if (/x\s*=/i.test(text) || /[bo\$]/.test(text) && /!/.test(text)) {
+    result = SimEngine.parseRLE(text);
+  } else {
+    result = SimEngine.parsePlaintext(text);
+  }
+  return result;
+}
+
 // ── Age overlay for HashLife ──────────────────────────────────────────────────
 // Computes cell ages by diffing old Map (key→age) against new cell list [[r,c],...].
 function overlayAges(oldLiveCells, newCellList, ageIncrement) {
@@ -324,7 +391,7 @@ function overlayAges(oldLiveCells, newCellList, ageIncrement) {
   for (var i = 0; i < newCellList.length; i++) {
     var key = newCellList[i][0] + ',' + newCellList[i][1];
     var oldAge = oldLiveCells.get(key);
-    newMap.set(key, oldAge !== undefined ? Math.min(oldAge + inc, 65535) : 1);
+    newMap.set(key, oldAge !== undefined ? Math.min(oldAge + inc, MAX_AGE) : 1);
   }
   return newMap;
 }
@@ -462,7 +529,7 @@ var SimEngine = {
       var wasAlive = liveCells.has(key);
       var alive = wasAlive ? surviveLut[count] : birthLut[count];
       if (alive) {
-        newLiveCells.set(key, wasAlive ? Math.min((liveCells.get(key) || 0) + 1, 65535) : 1);
+        newLiveCells.set(key, wasAlive ? Math.min((liveCells.get(key) || 0) + 1, MAX_AGE) : 1);
       }
     });
     return newLiveCells;
@@ -553,7 +620,7 @@ var SimEngine = {
           n = MAX_COORD;
         }
         if (ch === 'o') {
-          for (var j = 0; j < n && cells.length < 100000; j++) {
+          for (var j = 0; j < n && cells.length < MAX_CELL_IMPORT; j++) {
             cells.push([row, col + j]);
           }
         }
@@ -574,9 +641,9 @@ var SimEngine = {
         break;
       }
     }
-    var truncated = cells.length > 100000;
+    var truncated = cells.length > MAX_CELL_IMPORT;
     if (truncated) {
-      cells.length = 100000;
+      cells.length = MAX_CELL_IMPORT;
     }
     return {
       cells: cells,
@@ -602,9 +669,9 @@ var SimEngine = {
       }
       row++;
     }
-    var truncated = cells.length > 100000;
+    var truncated = cells.length > MAX_CELL_IMPORT;
     if (truncated) {
-      cells.length = 100000;
+      cells.length = MAX_CELL_IMPORT;
     }
     return {
       cells: cells,
@@ -629,9 +696,9 @@ var SimEngine = {
         }
       }
     }
-    var truncated = cells.length > 100000;
+    var truncated = cells.length > MAX_CELL_IMPORT;
     if (truncated) {
-      cells.length = 100000;
+      cells.length = MAX_CELL_IMPORT;
     }
     return {
       cells: cells,
@@ -687,9 +754,9 @@ var SimEngine = {
         }
       }
     }
-    var truncated = cells.length > 100000;
+    var truncated = cells.length > MAX_CELL_IMPORT;
     if (truncated) {
-      cells.length = 100000;
+      cells.length = MAX_CELL_IMPORT;
     }
     return {
       cells: cells,
@@ -940,6 +1007,7 @@ document.addEventListener('DOMContentLoaded', function () {
       this._loopRunning = false;
       this._tickId = 0;
       this._undoStack = [];
+      this._redoStack = [];
       this._prevBoardHash = null;
       this._stableCount = 0;
       this._genTimestamps = [];
@@ -1265,16 +1333,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Strip non-printable control characters (keep tabs, newlines, CR).
         text = text.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '');
         try {
-          var result;
-          if (/^#Life\s+1\.06/m.test(text)) {
-            result = SimEngine.parseLife106(text);
-          } else if (/^#Life\s+1\.05/m.test(text)) {
-            result = SimEngine.parseLife105(text);
-          } else if (/x\s*=/i.test(text) || /[bo\$]/.test(text) && /!/.test(text)) {
-            result = SimEngine.parseRLE(text);
-          } else {
-            result = SimEngine.parsePlaintext(text);
-          }
+          var result = detectAndParsePattern(text);
           if (result.cells.length === 0) {
             self.setState({
               rleError: 'No live cells found in file.'
@@ -1288,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', function () {
             patternRotation: 0,
             drawMode: 'preset',
             showRle: false,
-            rleError: result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
+            rleError: result.truncated ? 'Pattern truncated to ' + MAX_CELL_IMPORT.toLocaleString() + ' cells.' : ''
           }, function () {
             self.drawBoard();
             self._announce('Pattern imported. Click on the canvas to place it.');
@@ -1873,7 +1932,6 @@ document.addEventListener('DOMContentLoaded', function () {
       // 2. Rebuild quadtree from Map if stale
       if (this._hlStale || !this._hlRoot) {
         var cells = [];
-        var MAX_HL_COORD = 1000000;
         liveCells.forEach(function (age, key) {
           var _rc = parseKey(key),
             r = _rc[0],
@@ -1916,7 +1974,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var result = overlayAges(liveCells, newCells);
 
       // 5. GC check
-      if (HashLife.poolSize() > 2000000) {
+      if (HashLife.poolSize() > HL_GC_THRESHOLD) {
         HashLife.gc(this._hlRoot);
       }
       return result;
@@ -1934,7 +1992,6 @@ document.addEventListener('DOMContentLoaded', function () {
       // 2. Rebuild quadtree from Map if stale
       if (this._hlStale || !this._hlRoot) {
         var cells = [];
-        var MAX_HL_COORD = 1000000;
         liveCells.forEach(function (age, key) {
           var _rc = parseKey(key),
             r = _rc[0],
@@ -1984,7 +2041,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
       var result = overlayAges(liveCells, newCells, numGens);
       // 5. GC check
-      if (HashLife.poolSize() > 2000000) {
+      if (HashLife.poolSize() > HL_GC_THRESHOLD) {
         HashLife.gc(this._hlRoot);
       }
       return {
@@ -2254,9 +2311,10 @@ document.addEventListener('DOMContentLoaded', function () {
         liveCells: new Map(this.state.liveCells),
         generations: this.state.generations
       });
-      if (this._undoStack.length > 30) {
+      if (this._undoStack.length > MAX_UNDO_STACK) {
         this._undoStack.shift();
       }
+      this._redoStack = [];
     },
     popUndo: function () {
       if (this._undoStack && this._undoStack.length > 0) {
@@ -2278,7 +2336,42 @@ document.addEventListener('DOMContentLoaded', function () {
         this._announce('Nothing to undo');
         return;
       }
+      // Save current state for redo before restoring.
+      this._redoStack.push({
+        liveCells: new Map(this.state.liveCells),
+        generations: this.state.generations
+      });
+      if (this._redoStack.length > MAX_UNDO_STACK) {
+        this._redoStack.shift();
+      }
       var entry = this._undoStack.pop();
+      this._tickId++;
+      this._loopRunning = false;
+      this._prevBoardHash = null;
+      this._stableCount = 0;
+      this._minimapDirty = true;
+      var self = this;
+      this._hlStale = true;
+      this.setState({
+        liveCells: entry.liveCells,
+        generations: entry.generations,
+        running: false,
+        stable: false
+      }, function () {
+        self.drawBoard();
+      });
+    },
+    redo: function () {
+      if (this._redoStack.length === 0) {
+        this._announce('Nothing to redo');
+        return;
+      }
+      // Save current state for undo before applying redo.
+      this._undoStack.push({
+        liveCells: new Map(this.state.liveCells),
+        generations: this.state.generations
+      });
+      var entry = this._redoStack.pop();
       this._tickId++;
       this._loopRunning = false;
       this._prevBoardHash = null;
@@ -3801,7 +3894,10 @@ document.addEventListener('DOMContentLoaded', function () {
           break;
         case 'z':
         case 'Z':
-          if (e.ctrlKey || e.metaKey) {
+          if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+            e.preventDefault();
+            this.redo();
+          } else if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             this.undo();
           } else if (this.state.layoutMode === 'observatory') {
@@ -3813,6 +3909,13 @@ document.addEventListener('DOMContentLoaded', function () {
           if ((e.ctrlKey || e.metaKey) && this.state.selection) {
             e.preventDefault();
             this.copySelection();
+          }
+          break;
+        case 'y':
+        case 'Y':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            this.redo();
           }
           break;
         case 'v':
@@ -4209,7 +4312,7 @@ document.addEventListener('DOMContentLoaded', function () {
       this._statsChipTimer = setTimeout(function () {
         self._statsChipHidden = false;
         self.forceUpdate();
-      }, 1500);
+      }, STATS_CHIP_REAPPEAR_DELAY);
     },
     toggleTrails: function () {
       var newVal = !this.state.showTrails;
@@ -4582,16 +4685,7 @@ document.addEventListener('DOMContentLoaded', function () {
       text = text.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '');
       try {
         // Auto-detect format.
-        var result;
-        if (/^#Life\s+1\.06/m.test(text)) {
-          result = SimEngine.parseLife106(text);
-        } else if (/^#Life\s+1\.05/m.test(text)) {
-          result = SimEngine.parseLife105(text);
-        } else if (/x\s*=/i.test(text) || /[bo\$]/.test(text) && /!/.test(text)) {
-          result = SimEngine.parseRLE(text);
-        } else {
-          result = SimEngine.parsePlaintext(text);
-        }
+        var result = detectAndParsePattern(text);
         if (result.cells.length === 0) {
           this.setState({
             rleError: 'No live cells found in pattern.'
@@ -4605,7 +4699,7 @@ document.addEventListener('DOMContentLoaded', function () {
           selectedPattern: 'Custom',
           patternRotation: 0,
           showRle: false,
-          rleError: result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
+          rleError: result.truncated ? 'Pattern truncated to ' + MAX_CELL_IMPORT.toLocaleString() + ' cells.' : ''
         }, function () {
           self.drawBoard();
         });
@@ -7609,3 +7703,5 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   ReactDOM.render(/*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(LifeBoard, null)), document.getElementById("content"));
 });
+
+//# sourceMappingURL=script.compiled.js.map
