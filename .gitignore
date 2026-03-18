@@ -48,4 +48,10 @@ Temporary Items
 
 # Node
 node_modules/
-package-lock.json
+
+# IDE
+.idea/
+
+# Build artifacts
+script.compiled.js
+*.map

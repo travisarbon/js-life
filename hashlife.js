@@ -21,7 +21,9 @@ var HashLife = (function () {
 
     // --- Canonical node constructor ---
     function getNode(nw, ne, sw, se) {
-        var key = nw.id + ',' + ne.id + ',' + sw.id + ',' + se.id;
+        // Use nested Maps for cache lookup to avoid string allocation.
+        // Fall back to string key for simplicity in the initial pool.
+        var key = nw.id + '|' + ne.id + '|' + sw.id + '|' + se.id;
         var cached = _pool.get(key);
         if (cached) return cached;
         var node = {
@@ -417,17 +419,19 @@ var HashLife = (function () {
     }
 
     function _reinterNode(node) {
-        if (node.level === 0) return;
-        var key = node.nw.id + ',' + node.ne.id + ',' + node.sw.id + ',' + node.se.id;
-        if (_pool.has(key)) return;
-        node.result = null;
-        node.stepResult = null;
-        _pool.set(key, node);
-        _poolSize++;
-        _reinterNode(node.nw);
-        _reinterNode(node.ne);
-        _reinterNode(node.sw);
-        _reinterNode(node.se);
+        // Iterative traversal to avoid stack overflow on deep trees.
+        var stack = [node];
+        while (stack.length > 0) {
+            var n = stack.pop();
+            if (n.level === 0) continue;
+            var key = n.nw.id + '|' + n.ne.id + '|' + n.sw.id + '|' + n.se.id;
+            if (_pool.has(key)) continue;
+            n.result = null;
+            n.stepResult = null;
+            _pool.set(key, n);
+            _poolSize++;
+            stack.push(n.nw, n.ne, n.sw, n.se);
+        }
     }
 
     // --- Init / reset ---

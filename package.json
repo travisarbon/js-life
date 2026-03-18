@@ -1,6 +1,20 @@
 {
+  "name": "js-life",
+  "version": "1.0.0",
+  "description": "Conway's Game of Life — interactive cellular automaton simulator",
   "scripts": {
-    "build": "babel script.js -o script.compiled.js"
+    "build": "babel script.js -o script.compiled.js",
+    "start": "npx serve .",
+    "lint": "echo 'No linter configured yet'",
+    "test": "echo 'No tests configured yet'"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
+  "engines": {
+    "node": ">=16"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.6",
