@@ -200,12 +200,13 @@ var THEMES = {
 
 // ── Age overlay for HashLife ──────────────────────────────────────────────────
 // Computes cell ages by diffing old Map (key→age) against new cell list [[r,c],...].
-function overlayAges(oldLiveCells, newCellList) {
+function overlayAges(oldLiveCells, newCellList, ageIncrement) {
+    var inc = ageIncrement || 1;
     var newMap = new Map();
     for (var i = 0; i < newCellList.length; i++) {
         var key = newCellList[i][0] + ',' + newCellList[i][1];
         var oldAge = oldLiveCells.get(key);
-        newMap.set(key, oldAge !== undefined ? Math.min(oldAge + 1, 65535) : 1);
+        newMap.set(key, oldAge !== undefined ? Math.min(oldAge + inc, 65535) : 1);
     }
     return newMap;
 }
@@ -1442,6 +1443,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
             drawRotationPreview : function(){
                 if(!this.state.selectedPattern || !PATTERNS[this.state.selectedPattern]){ return; }
+                var canvas = this._previewCanvas;
+                if(!canvas || !canvas.isConnected){ return; }
                 var theme = THEMES[this.state.theme] || THEMES['Teal'];
                 var pattern = SimEngine.rotatePattern(
                     PATTERNS[this.state.selectedPattern], this.state.patternRotation);
@@ -1452,22 +1455,18 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
                 var patRows = maxR + 1, patCols = maxC + 1;
                 var pad = 4;
-                var drawOn = function(canvas){
-                    if(!canvas){ return; }
-                    var size   = canvas.width;
-                    var cellPx = Math.max(1, Math.floor((size - pad * 2) / Math.max(patRows, patCols)));
-                    var offX   = Math.floor((size - patCols * cellPx) / 2);
-                    var offY   = Math.floor((size - patRows * cellPx) / 2);
-                    var ctx    = canvas.getContext('2d');
-                    ctx.fillStyle = theme.bg;
-                    ctx.fillRect(0, 0, size, size);
-                    ctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
-                    for(var j = 0; j < pattern.length; j++){
-                        ctx.fillRect(offX + pattern[j][1] * cellPx,
-                                     offY + pattern[j][0] * cellPx, cellPx, cellPx);
-                    }
-                };
-                drawOn(this._previewCanvas);
+                var size   = canvas.width;
+                var cellPx = Math.max(1, Math.floor((size - pad * 2) / Math.max(patRows, patCols)));
+                var offX   = Math.floor((size - patCols * cellPx) / 2);
+                var offY   = Math.floor((size - patRows * cellPx) / 2);
+                var ctx    = canvas.getContext('2d');
+                ctx.fillStyle = theme.bg;
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
+                for(var j = 0; j < pattern.length; j++){
+                    ctx.fillRect(offX + pattern[j][1] * cellPx,
+                                 offY + pattern[j][0] * cellPx, cellPx, cellPx);
+                }
             },
 
             // ── HashLife step ────────────────────────────────────────────────────
@@ -1532,6 +1531,73 @@ document.addEventListener('DOMContentLoaded', function(){
                     HashLife.gc(this._hlRoot);
                 }
                 return result;
+            },
+
+            // Advance HashLife tree numGens generations without converting to/from
+            // cell lists between steps.  Returns { liveCells, pops, peak }.
+            _hashLifeBatchStep : function(liveCells, birth, survive, numGens){
+                // 1. Init/re-init if rules changed
+                var ruleKey = birth.join(',') + '/' + survive.join(',');
+                if(ruleKey !== this._hlRuleKey){
+                    HashLife.init(birth, survive);
+                    this._hlRuleKey = ruleKey;
+                    this._hlStale = true;
+                }
+                // 2. Rebuild quadtree from Map if stale
+                if(this._hlStale || !this._hlRoot){
+                    var cells = [];
+                    var MAX_HL_COORD = 1000000;
+                    liveCells.forEach(function(age, key){
+                        var _rc = parseKey(key), r = _rc[0], c = _rc[1];
+                        if(r > -MAX_HL_COORD && r < MAX_HL_COORD && c > -MAX_HL_COORD && c < MAX_HL_COORD){
+                            cells.push([r, c]);
+                        }
+                    });
+                    var tree = HashLife.fromCellList(cells);
+                    this._hlRoot = tree.root;
+                    this._hlOffR = tree.offR;
+                    this._hlOffC = tree.offC;
+                    this._hlStale = false;
+                }
+                // 3. Advance numGens steps, keeping tree intact between steps
+                var pops = [];
+                var peak = 0;
+                for(var i = 0; i < numGens; i++){
+                    while(HashLife.needsExpand(this._hlRoot)){
+                        var lvl = this._hlRoot.level;
+                        this._hlRoot = HashLife.expandTree(this._hlRoot);
+                        this._hlOffR += (1 << (lvl - 1));
+                        this._hlOffC += (1 << (lvl - 1));
+                    }
+                    var level = this._hlRoot.level;
+                    this._hlRoot = HashLife.expandTree(this._hlRoot);
+                    this._hlOffR += (1 << (level - 1));
+                    this._hlOffC += (1 << (level - 1));
+
+                    level = this._hlRoot.level;
+                    this._hlRoot = HashLife.advance(this._hlRoot, 1);
+                    this._hlOffR -= (1 << (level - 2));
+                    this._hlOffC -= (1 << (level - 2));
+
+                    var prevLevel = this._hlRoot.level;
+                    this._hlRoot = HashLife.trimTree(this._hlRoot);
+                    var newLevel = this._hlRoot.level;
+                    for(var j = prevLevel; j > newLevel; j--){
+                        this._hlOffR -= (1 << (j - 2));
+                        this._hlOffC -= (1 << (j - 2));
+                    }
+                    var pop = this._hlRoot.population;
+                    pops.push(pop);
+                    if(pop > peak){ peak = pop; }
+                }
+                // 4. Extract cells once and overlay ages
+                var newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
+                var result = overlayAges(liveCells, newCells, numGens);
+                // 5. GC check
+                if(HashLife.poolSize() > 2000000){
+                    HashLife.gc(this._hlRoot);
+                }
+                return { liveCells: result, pops: pops, peak: peak };
             },
 
             // ── Animation loop ─────────────────────────────────────────────────
@@ -3101,12 +3167,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 var self = this;
                 if(this.state.bottomSheetOpen){
                     // Closing: animate out, then unmount.
+                    this._previewCanvas = null;
                     this.setState({bottomSheetClosing: true}, function(){
                         setTimeout(function(){
                             self.setState({bottomSheetOpen: false, bottomSheetClosing: false}, function(){
                                 self._restoreFocus();
                                 self.drawBoard();
-                                self.drawRotationPreview();
                             });
                         }, 200);
                     });
@@ -3190,11 +3256,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 this.setState({stepCount: parseInt(e.target.value) || 1});
             },
 
-            // Advance N generations at once (synchronous, chunked for large N).
+            // Advance N generations at once.
+            // Unbounded: uses _hashLifeBatchStep (keeps quadtree intact, single cell-list
+            // conversion at end).  Toroidal/finite: chunked loop as before.
             stepN : function(n){
                 if(!n || n < 1){ n = 1; }
                 this.pushUndo();
-                // Snapshot for gen history before batch.
                 this._pushGenHistory();
                 var liveCells = this.state.liveCells;
                 var cols      = this.state.cols;
@@ -3206,6 +3273,28 @@ document.addEventListener('DOMContentLoaded', function(){
                 var gen = this.state.generations;
                 var popHistory = this.state.popHistory.slice();
                 var peak = this.state.sessionPeakPop || 0;
+
+                // Fast path: unbounded boundary — batch advance in the quadtree
+                if(boundary === 'unbounded'){
+                    var batch = this._hashLifeBatchStep(liveCells, birth, survive, n);
+                    for(var p = 0; p < batch.pops.length; p++){
+                        popHistory.push(batch.pops[p]);
+                        if(popHistory.length > 10000){ popHistory = popHistory.slice(popHistory.length - 10000); }
+                    }
+                    if(batch.peak > peak){ peak = batch.peak; }
+                    this._minimapDirty = true;
+                    this.setState({
+                        liveCells: batch.liveCells,
+                        generations: gen + n,
+                        running: false,
+                        popHistory: popHistory,
+                        sessionPeakPop: peak,
+                        stable: false
+                    }, function(){ self.drawBoard(); });
+                    return;
+                }
+
+                // Toroidal / finite: per-step loop, chunked for UI responsiveness
                 var done = 0;
                 var CHUNK = 50;
                 var isToroidal = boundary === 'toroidal';
@@ -3216,17 +3305,15 @@ document.addEventListener('DOMContentLoaded', function(){
                             liveCells = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
                         } else {
                             liveCells = self._hashLifeStep(liveCells, birth, survive);
-                            if(boundary === 'finite'){
-                                var clipped = new Map();
-                                liveCells.forEach(function(age, key){
-                                    var _rc = parseKey(key), r = _rc[0], c = _rc[1];
-                                    if(r >= 0 && r < rows && c >= 0 && c < cols){
-                                        clipped.set(key, age);
-                                    }
-                                });
-                                liveCells = clipped;
-                                self._hlStale = true; // tree must rebuild from clipped cells
-                            }
+                            var clipped = new Map();
+                            liveCells.forEach(function(age, key){
+                                var _rc = parseKey(key), r = _rc[0], c = _rc[1];
+                                if(r >= 0 && r < rows && c >= 0 && c < cols){
+                                    clipped.set(key, age);
+                                }
+                            });
+                            liveCells = clipped;
+                            self._hlStale = true;
                         }
                         gen++;
                         var pop = liveCells.size;
