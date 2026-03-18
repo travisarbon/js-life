@@ -802,7 +802,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(prevState.selectedPattern !== this.state.selectedPattern ||
                    prevState.patternRotation !== this.state.patternRotation ||
                    prevState.bottomSheetOpen !== this.state.bottomSheetOpen ||
-                   prevState.bottomSheetTab !== this.state.bottomSheetTab){
+                   prevState.bottomSheetTab !== this.state.bottomSheetTab ||
+                   prevState.layoutMode !== this.state.layoutMode){
                     this.drawRotationPreview();
                 }
             },
@@ -4584,7 +4585,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <div className="rotation-row">
                                     <canvas className="rotation-preview" width="96" height="96"
                                         role="img" aria-label="Pattern rotation preview"
-                                        ref={function(c){ self._previewCanvas = c; if(c) self.drawRotationPreview(); }} />
+                                        ref={function(c){ self._previewCanvas = c; if(c) requestAnimationFrame(function(){ self.drawRotationPreview(); }); }} />
                                     <div className="rotation-btns">
                                         <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise"><i className="fa fa-undo" aria-hidden="true"></i></button>
                                         <button className="btn btn-rotate" onClick={this.rotateCW} title="Rotate 90° clockwise"><i className="fa fa-repeat" aria-hidden="true"></i></button>
@@ -4789,6 +4790,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 ];
 
                 var sheetContent = null;
+                if(this.state.bottomSheetOpen && !this.state.bottomSheetClosing){
                 switch(this.state.bottomSheetTab){
                     case 'simulate':
                         sheetContent = (
@@ -4816,6 +4818,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     case 'export':
                         sheetContent = this.renderExportContent();
                         break;
+                }
                 }
 
                 return (
@@ -5027,6 +5030,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 ];
 
                 var sheetContent = null;
+                if(this.state.bottomSheetOpen && !this.state.bottomSheetClosing){
                 switch(this.state.bottomSheetTab){
                     case 'simulate':
                         sheetContent = (
@@ -5046,6 +5050,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     case 'board': sheetContent = this.renderSliders(); break;
                     case 'rules': sheetContent = this.renderRulesSection(); break;
                     case 'export': sheetContent = this.renderExportContent(); break;
+                }
                 }
 
                 return (
@@ -5205,6 +5210,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 ];
 
                 var sheetContent = null;
+                if(this.state.bottomSheetOpen && !this.state.bottomSheetClosing){
                 switch(this.state.bottomSheetTab){
                     case 'simulate':
                         sheetContent = (
@@ -5224,6 +5230,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     case 'board': sheetContent = this.renderSliders(); break;
                     case 'rules': sheetContent = this.renderRulesSection(); break;
                     case 'export': sheetContent = this.renderExportContent(); break;
+                }
                 }
 
                 return (
