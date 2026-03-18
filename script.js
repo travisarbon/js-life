@@ -594,10 +594,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._genHistoryCounter = 0;
                 this._trailMap = new Map();
                 this._trailEnabled = true;
-                this._dragging = false;
-                this._dragStatus = null;
-                this._paintedCells = {};
-                this._previewPos = null;
+                // Input state is managed by InputHandler module
                 this._loopRunning = false;
                 this._tickId = 0;
                 this._undoStack = [];
@@ -606,25 +603,17 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._stableCount = 0;
                 this._genTimestamps = [];
                 this._measuredGps = 0;
-                this._selStart = null;
-                this._lassoPath = [];
-                this._drawToolStart = null;
-                this._drawPreviewCells = [];
-                this._drawErasing = false;
-                this._panDragging = false;
-                this._panStart = null;
+                InputHandler.reset();
                 SimRunner.invalidate();
                 this._gif = null;
                 this._minimapDirty = true;
-                this._minimapDragging = false;
+                // _minimapDragging managed by InputHandler
                 this._minimapCanvas = document.createElement('canvas');
                 this._mobileMinimap = null;
                 this._mmElemDragging = false;
                 this._minimapCanvas.width  = 100;
                 this._minimapCanvas.height = 75;
-                this._pinchStart = null;
-                this._wasPinching = false;
-                this._longPressTimer = null;
+                // _pinchStart, _wasPinching, _longPressTimer managed by InputHandler
                 this._statsChipHidden = false;
                 this._statsChipTimer = null;
                 this._minimapHidden = false;
@@ -829,13 +818,13 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._mounted = false;
                 if(this._rafId){ cancelAnimationFrame(this._rafId); this._rafId = null; }
                 if(this._loopTimeout){ clearTimeout(this._loopTimeout); this._loopTimeout = null; }
-                if(this._longPressTimer){ clearTimeout(this._longPressTimer); this._longPressTimer = null; }
+                InputHandler.reset();
                 // Release large objects.
                 this._minimapCanvas = null;
                 SimRunner._hlRoot = null;
                 this._genHistory = [];
                 this._trailMap = null;
-                this._paintedCells = {};
+                InputHandler._paintedCells = {};
                 this._sheetEl = null;
             },
 
@@ -966,11 +955,11 @@ document.addEventListener('DOMContentLoaded', function(){
                 CanvasRenderer.drawSelection(ctx, this.state.selection, viewX, viewY, cellSize, theme);
 
                 // Tool preview.
-                CanvasRenderer.drawToolPreview(ctx, this._drawPreviewCells, this._drawErasing, viewX, viewY, cellSize, theme);
+                CanvasRenderer.drawToolPreview(ctx, InputHandler._drawPreviewCells, InputHandler._drawErasing, viewX, viewY, cellSize, theme);
 
                 // Pattern preview.
                 if(this.state.drawMode === 'preset'){
-                    CanvasRenderer.drawPatternPreview(ctx, this.state.selectedPattern, this.state.patternRotation, this._previewPos, viewX, viewY, cellSize, theme);
+                    CanvasRenderer.drawPatternPreview(ctx, this.state.selectedPattern, this.state.patternRotation, InputHandler._previewPos, viewX, viewY, cellSize, theme);
                 }
 
                 // Minimap overlay (bottom-right corner on large desktop; separate element elsewhere).
@@ -1207,8 +1196,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 // While the user is mid-stroke in Live Paint mode, merge the
                 // cells being painted so they aren't erased by the incoming
                 // generation (which was computed from the pre-stroke snapshot).
-                if(this._dragging && this.state.livePaintMode){
-                    var painted = this._paintedCells;
+                if(InputHandler._dragging && this.state.livePaintMode){
+                    var painted = InputHandler._paintedCells;
                     var paintKeys = Object.keys(painted);
                     if(paintKeys.length > 0){
                         for(var pi = 0; pi < paintKeys.length; pi++){
@@ -1358,9 +1347,9 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             cancelDrawTool : function(){
-                if(!this._drawToolStart){ return; }
-                this._drawToolStart = null;
-                this._drawPreviewCells = [];
+                if(!InputHandler._drawToolStart){ return; }
+                InputHandler._drawToolStart = null;
+                InputHandler._drawPreviewCells = [];
                 this.popUndo();
                 this.drawBoard();
             },
@@ -1518,454 +1507,54 @@ document.addEventListener('DOMContentLoaded', function(){
                 });
             },
 
-            // ── Mouse / painting ───────────────────────────────────────────────
+            // ── Mouse / painting (delegated to InputHandler) ───────────────────
 
             getMousePos : function(event){
-                var canvasEl = this._canvas;
-                var rect = canvasEl.getBoundingClientRect();
-                var scaleX = canvasEl.width  / rect.width;
-                var scaleY = canvasEl.height / rect.height;
-                return {
-                    x : (event.clientX - rect.left) * scaleX,
-                    y : (event.clientY - rect.top)  * scaleY
-                };
+                return InputHandler.getMousePos(event, this._canvas);
             },
 
             paintCellDirect : function(c, r){
-                var canvas = this._canvas;
-                if(!canvas){ return; }
-                var ctx = canvas.getContext("2d");
-                if(!ctx){ return; }
-                var cellSize = this.state.cellSize;
-                var viewX = this.state.viewX;
-                var viewY = this.state.viewY;
-                var theme = THEMES[this.state.theme] || THEMES['Teal'];
-                var px = (c - viewX) * cellSize;
-                var py = (r - viewY) * cellSize;
-                ctx.fillStyle = this._dragStatus === 1
-                    ? ('rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')')
-                    : theme.bg;
-                ctx.fillRect(px, py, cellSize, cellSize);
-                if(this.state.gridLines){
-                    ctx.strokeStyle = theme.grid;
-                    ctx.lineWidth = 0.5;
-                    ctx.strokeRect(px, py, cellSize, cellSize);
-                }
+                InputHandler.paintCellDirect(c, r, this);
             },
 
-            // Convert a mouse event to board cell coordinates using the viewport.
             getCellPos : function(event){
-                var mouse = this.getMousePos(event);
-                var cellSize = this.state.cellSize;
-                return {
-                    c : this.state.viewX + Math.floor(mouse.x / cellSize),
-                    r : this.state.viewY + Math.floor(mouse.y / cellSize)
-                };
+                return InputHandler.getCellPos(event, this._canvas, this.state.viewX, this.state.viewY, this.state.cellSize);
             },
 
-            // Clamp view offsets to valid range given current canvas and cell size.
-            // With infinite canvas, all modes allow unlimited panning.
             clampView : function(viewX, viewY, cols, rows, cellSize){
                 return {viewX: Math.round(viewX), viewY: Math.round(viewY)};
             },
 
             onMouseDown : function(event){
-                event.preventDefault();
-                // Click on minimap: pan viewport to that position (skip in select mode to allow selection to start there).
-                if(event.button === 0 && this._minimapRect && this.state.showMinimap && this.state.drawMode !== 'select'){
-                    var mouse = this.getMousePos(event);
-                    var mm = this._minimapRect;
-                    if(mm.w > 0 && mm.h > 0 &&
-                       mouse.x >= mm.x && mouse.x <= mm.x + mm.w &&
-                       mouse.y >= mm.y && mouse.y <= mm.y + mm.h){
-                        var frac_c = (mouse.x - mm.x) / mm.w;
-                        var frac_r = (mouse.y - mm.y) / mm.h;
-                        var mmWorldCols = mm.worldCols || this.state.cols;
-                        var mmWorldRows = mm.worldRows || this.state.rows;
-                        var mmOC = mm.originC || 0;
-                        var mmOR = mm.originR || 0;
-                        var newVX = Math.round(frac_c * mmWorldCols + mmOC - (this._canvas.width  / this.state.cellSize) / 2);
-                        var newVY = Math.round(frac_r * mmWorldRows + mmOR - (this._canvas.height / this.state.cellSize) / 2);
-                        var clamped = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
-                        var self0 = this;
-                        this.setState({viewX: clamped.viewX, viewY: clamped.viewY}, function(){ self0.drawBoard(); });
-                        this._minimapDragging = true;
-                        return;
-                    }
-                }
-                // Middle-mouse or Space+left starts pan drag.
-                if(event.button === 1){
-                    this._panDragging = true;
-                    this._panStart = {x: event.clientX, y: event.clientY,
-                                      vx: this.state.viewX, vy: this.state.viewY};
-                    return;
-                }
-                // Right-click exits pattern placement mode.
-                if(event.button === 2 && this.state.drawMode === 'preset' && this.state.selectedPattern){
-                    this._previewPos = null;
-                    var self = this;
-                    this.setState({selectedPattern : null, patternRotation : 0, drawMode : 'paint'},
-                        function(){ self.drawBoard(); });
-                    return;
-                }
-                if(event.button !== 0){ return; }
-                var pos = this.getCellPos(event);
-                var c = pos.c, r = pos.r;
-                if(this.state.boundary !== 'unbounded' && (c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows)){ return; }
-
-                // Pan mode takes priority over all drawing modes.
-                if(this.state.panMode){
-                    this._panDragging = true;
-                    this._panStart = {x: event.clientX, y: event.clientY,
-                                      vx: this.state.viewX, vy: this.state.viewY};
-                    return;
-                }
-
-                // Hide stats chip during interactive drawing actions.
-                this._hideStatsChip();
-
-                // Selection mode: begin drag-select.
-                if(this.state.drawMode === 'select'){
-                    var selectTool = this.state.selectTool || 'rect';
-                    if(selectTool === 'all-visible'){
-                        this.selectAllVisible();
-                        return;
-                    }
-                    this._selStart = {c : c, r : r};
-                    this._lassoPath = [];
-                    var selType = selectTool === 'ellipse' ? 'ellipse' : (selectTool === 'freeform' ? 'freeform' : 'rect');
-                    var self2 = this;
-                    this.setState({selection : {type: selType, c1: c, r1: r, c2: c, r2: r, path: [], cells: []}},
-                        function(){ self2.drawBoard(); });
-                    return;
-                }
-
-                // Pattern placement mode.
-                if(this.state.drawMode === 'preset' && this.state.selectedPattern){
-                    if(!this.state.livePaintMode){ this.setState({running : false}); }
-                    this.placePattern(this.state.selectedPattern, c, r);
-                    return;
-                }
-
-                // Paint mode — handle draw tool subtypes.
-                if(!this.state.livePaintMode){ this.setState({running : false}); }
-                var drawTool = this.state.drawTool || 'cell';
-                if(drawTool === 'fill'){
-                    // Bidirectional flood fill: erase if starting on live cell, birth if dead.
-                    var startAlive = this.state.liveCells.has(r + ',' + c);
-                    this._drawErasing = startAlive;
-                    this.pushUndo();
-                    var fillCells = this.floodFillCells(c, r, this.state.liveCells, this.state.cols, this.state.rows, startAlive);
-                    var self3 = this;
-                    this._minimapDirty = true;
-                    SimRunner.invalidate();
-                    this.setState(function(prevState){
-                        var newLiveCells = new Map(prevState.liveCells);
-                        fillCells.forEach(function(rc){
-                            if(startAlive){ newLiveCells.delete(rc[0]+','+rc[1]); }
-                            else { newLiveCells.set(rc[0]+','+rc[1], 1); }
-                        });
-                        return {liveCells: newLiveCells, stable: false};
-                    }, function(){ self3.drawBoard(); });
-                    return;
-                }
-                if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                    // Rubber-band tools: start drag. Bidirectional based on start cell state.
-                    this._drawErasing = this.state.liveCells.has(r + ',' + c);
-                    this.pushUndo();
-                    this._drawToolStart = {c: c, r: r};
-                    this._drawPreviewCells = [[r, c]];
-                    this.drawBoard();
-                    return;
-                }
-                // Default: single-cell paint.
-                var key = r + ',' + c;
-                this.pushUndo();
-                this._dragging = true;
-                this._dragStatus = this.state.liveCells.has(key) ? 0 : 1;
-                this._paintedCells = {};
-                this._paintedCells[key] = this._dragStatus;
-                this.paintCellDirect(c, r);
+                InputHandler.onMouseDown(event, this);
             },
 
             onMouseMove : function(event){
-                // Pan drag (middle mouse button) — highest priority.
-                if(this._panDragging && this._panStart){
-                    var dx = event.clientX - this._panStart.x;
-                    var dy = event.clientY - this._panStart.y;
-                    var cellSize = this.state.cellSize;
-                    // Account for CSS display scale: pan speed must match visual cell size.
-                    var rect = this._canvas.getBoundingClientRect();
-                    var displayCellSize = (rect.width > 0 && this._canvas.width > 0)
-                        ? cellSize * (rect.width / this._canvas.width) : cellSize;
-                    var dcells = -Math.round(dx / displayCellSize);
-                    var drows  = -Math.round(dy / displayCellSize);
-                    var clamped = this.clampView(
-                        this._panStart.vx + dcells, this._panStart.vy + drows,
-                        this.state.cols, this.state.rows, cellSize);
-                    var self0 = this;
-                    this.setState({viewX: clamped.viewX, viewY: clamped.viewY},
-                        function(){ self0.drawBoard(); });
-                    return;
-                }
-
-                var pos = this.getCellPos(event);
-                var c = pos.c, r = pos.r;
-                var inBounds = c >= 0 && c < this.state.cols && r >= 0 && r < this.state.rows;
-
-                // Always update hover cell for coordinate display (infinite canvas).
-                var newHover = {c : c, r : r};
-                var ph = this.state.hoverCell;
-                var hoverChanged = (!!newHover !== !!ph) ||
-                    (newHover && ph && (newHover.c !== ph.c || newHover.r !== ph.r));
-                if(hoverChanged){ this.setState({hoverCell : newHover}); }
-
-                // Update selection while dragging in select mode (takes priority over minimap).
-                if(this.state.drawMode === 'select' && this._selStart){
-                    var bc = this.state.boundary === 'unbounded' ? c : Math.max(0, Math.min(this.state.cols - 1, c));
-                    var br = this.state.boundary === 'unbounded' ? r : Math.max(0, Math.min(this.state.rows - 1, r));
-                    var selectTool = this.state.selectTool || 'rect';
-                    var self1 = this;
-                    if(selectTool === 'freeform'){
-                        // Accumulate lasso path, only add if position changed.
-                        var path = this._lassoPath;
-                        var last = path.length > 0 ? path[path.length - 1] : null;
-                        if(!last || last.c !== bc || last.r !== br){
-                            path.push({c: bc, r: br});
-                            this.setState({selection: {type:'freeform', path: path.slice(), cells: []}},
-                                function(){ self1.drawBoard(); });
-                        }
-                        return;
-                    }
-                    // rect / ellipse: update bounding box.
-                    var prev2 = this.state.selection;
-                    if(prev2 && prev2.c2 === bc && prev2.r2 === br){ return; }
-                    var selType = selectTool === 'ellipse' ? 'ellipse' : 'rect';
-                    this.setState({selection: {type: selType, c1: this._selStart.c, r1: this._selStart.r, c2: bc, r2: br}},
-                        function(){ self1.drawBoard(); });
-                    return;
-                }
-
-                // Update draw tool preview while dragging (rubber-band tools).
-                if(this._drawToolStart && this.state.drawMode === 'paint'){
-                    var drawTool = this.state.drawTool || 'cell';
-                    if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                        var tc = this.state.boundary === 'unbounded' ? c : Math.max(0, Math.min(this.state.cols - 1, c));
-                        var tr = this.state.boundary === 'unbounded' ? r : Math.max(0, Math.min(this.state.rows - 1, r));
-                        var ds = this._drawToolStart;
-                        if(drawTool === 'line'){
-                            this._drawPreviewCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
-                        } else if(drawTool === 'shape-rect'){
-                            var prCells = [];
-                            var rMin = Math.min(ds.r, tr), rMax = Math.max(ds.r, tr);
-                            var cMin = Math.min(ds.c, tc), cMax = Math.max(ds.c, tc);
-                            for(var pr = rMin; pr <= rMax; pr++)
-                                for(var pc = cMin; pc <= cMax; pc++)
-                                    prCells.push([pr, pc]);
-                            this._drawPreviewCells = prCells;
-                        } else if(drawTool === 'shape-circle'){
-                            this._drawPreviewCells = this.ellipseCells(ds.c, ds.r, tc, tr);
-                        }
-                        this.drawBoard();
-                        return;
-                    }
-                }
-
-                // Minimap drag: pan viewport continuously while dragging on minimap.
-                if(this._minimapDragging && this._minimapRect && this.state.showMinimap){
-                    var mm = this._minimapRect;
-                    var mmMouse = this.getMousePos(event);
-                    var frac_c = Math.max(0, Math.min(1, (mmMouse.x - mm.x) / mm.w));
-                    var frac_r = Math.max(0, Math.min(1, (mmMouse.y - mm.y) / mm.h));
-                    var mmWC2 = mm.worldCols || this.state.cols;
-                    var mmWR2 = mm.worldRows || this.state.rows;
-                    var mmOC2 = mm.originC || 0;
-                    var mmOR2 = mm.originR || 0;
-                    var newVX = Math.round(frac_c * mmWC2 + mmOC2 - (this._canvas.width  / this.state.cellSize) / 2);
-                    var newVY = Math.round(frac_r * mmWR2 + mmOR2 - (this._canvas.height / this.state.cellSize) / 2);
-                    var clampedMm = this.clampView(newVX, newVY, this.state.cols, this.state.rows, this.state.cellSize);
-                    var selfMm = this;
-                    this.setState({viewX: clampedMm.viewX, viewY: clampedMm.viewY}, function(){ selfMm.drawBoard(); });
-                    return;
-                }
-
-                if(this.state.drawMode === 'preset' && this.state.selectedPattern){
-                    var newPos = {c : c, r : r};
-                    var prev = this._previewPos;
-                    if(prev === newPos){ return; }
-                    if(prev && newPos && prev.c === newPos.c && prev.r === newPos.r){ return; }
-                    this._previewPos = newPos;
-                    this.drawBoard();
-                    return;
-                }
-                if(!this._dragging){ return; }
-                if(this.state.boundary !== 'unbounded' && (c < 0 || c >= this.state.cols || r < 0 || r >= this.state.rows)){ return; }
-                var paintKey = r + ',' + c;
-                if(this._paintedCells[paintKey] !== undefined){ return; }
-                this._paintedCells[paintKey] = this._dragStatus;
-                this.paintCellDirect(c, r);
+                InputHandler.onMouseMove(event, this);
             },
 
             onMouseUp : function(){
-                this._showStatsChipAfterDelay();
-                this._minimapDragging = false;
-                if(this._panDragging){
-                    this._panDragging = false;
-                    this._panStart = null;
-                }
-                if(this.state.drawMode === 'select' && this._selStart){
-                    var selectTool = this.state.selectTool || 'rect';
-                    if(selectTool === 'freeform'){
-                        // Compute polygon cells from lasso path.
-                        var path = this._lassoPath;
-                        if(path.length >= 3){
-                            var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-                            path.forEach(function(p){ if(p.r<minR)minR=p.r; if(p.r>maxR)maxR=p.r; if(p.c<minC)minC=p.c; if(p.c>maxC)maxC=p.c; });
-                            var fcells = [];
-                            var fcols = this.state.cols, frows = this.state.rows;
-                            var self = this;
-                            var isUnboundedSel = this.state.boundary === 'unbounded';
-                            for(var fr = minR; fr <= maxR; fr++)
-                                for(var fc = minC; fc <= maxC; fc++)
-                                    if((isUnboundedSel || (fc>=0 && fc<fcols && fr>=0 && fr<frows)) && self.pointInPolygon(fc, fr, path))
-                                        fcells.push([fr, fc]);
-                            this.setState({selection: {type:'freeform', path: path.slice(), cells: fcells}});
-                        } else {
-                            this.setState({selection: null});
-                        }
-                        this._selStart = null;
-                        this._lassoPath = [];
-                        this.drawBoard();
-                        return;
-                    }
-                    // rect / ellipse: normalise bounds.
-                    var sel = this.state.selection;
-                    if(sel){
-                        var normType = sel.type || 'rect';
-                        var self = this;
-                        this.setState({selection: {
-                            type: normType,
-                            r1: Math.min(sel.r1, sel.r2), c1: Math.min(sel.c1, sel.c2),
-                            r2: Math.max(sel.r1, sel.r2), c2: Math.max(sel.c1, sel.c2)
-                        }}, function(){ self.drawBoard(); });
-                    }
-                    this._selStart = null;
-                    return;
-                }
-                // Apply rubber-band draw tools on mouse up.
-                if(this._drawToolStart && this.state.drawMode === 'paint'){
-                    var drawTool = this.state.drawTool || 'cell';
-                    if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                        var previewCells = this._drawPreviewCells;
-                        this._drawToolStart = null;
-                        this._drawPreviewCells = [];
-                        this._minimapDirty = true;
-                        SimRunner.invalidate();
-                        var self2 = this;
-                        var erasing = this._drawErasing;
-                        this.setState(function(prevState){
-                            var newLiveCells = new Map(prevState.liveCells);
-                            previewCells.forEach(function(rc){
-                                if(erasing){ newLiveCells.delete(rc[0]+','+rc[1]); }
-                                else { newLiveCells.set(rc[0]+','+rc[1], 1); }
-                            });
-                            return {liveCells: newLiveCells, stable: false};
-                        }, function(){ self2.drawBoard(); });
-                        return;
-                    }
-                }
-                if(!this._dragging){ return; }
-                this._dragging = false;
-                var paintedCells = this._paintedCells;
-                var newLiveCells = new Map(this.state.liveCells);
-                Object.keys(paintedCells).forEach(function(k){
-                    if(paintedCells[k] === 1){ newLiveCells.set(k, 1); }
-                    else { newLiveCells.delete(k); }
-                });
-                this._paintedCells = {};
-                this._minimapDirty = true;
-                SimRunner.invalidate();
-                var self = this;
-                this.setState({liveCells: newLiveCells, stable: false}, function(){ self.drawBoard(); });
+                InputHandler.onMouseUp(null, this);
             },
 
             _startPanMomentum : function(vx, vy){
-                if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
-                var self = this;
-                var friction = 0.92;
-                var cellSize = this.state.cellSize;
-                function tick(){
-                    vx *= friction;
-                    vy *= friction;
-                    if(Math.abs(vx) < 0.05 && Math.abs(vy) < 0.05){ return; }
-                    var dCols = -vx * 16 / cellSize;
-                    var dRows = -vy * 16 / cellSize;
-                    var newVX = self.state.viewX + Math.round(dCols);
-                    var newVY = self.state.viewY + Math.round(dRows);
-                    var clamped = self.clampView(newVX, newVY,
-                        self.state.cols, self.state.rows, cellSize);
-                    if(clamped.viewX === self.state.viewX && clamped.viewY === self.state.viewY){ return; }
-                    self.setState({viewX: clamped.viewX, viewY: clamped.viewY},
-                        function(){ self.drawBoard(); });
-                    self._panMomentumFrame = requestAnimationFrame(tick);
-                }
-                this._panMomentumFrame = requestAnimationFrame(tick);
+                InputHandler._startPanMomentum(vx, vy, this);
             },
 
             onMouseLeave : function(){
-                if(this.state.hoverCell){ this.setState({hoverCell : null}); }
-                this._minimapDragging = false;
-                this._panDragging = false;
-                this._panStart = null;
-                if(this._drawToolStart){
-                    this.cancelDrawTool();
-                    return;
-                }
-                if(this.state.drawMode === 'preset' && this.state.selectedPattern){
-                    this._previewPos = null;
-                    this.drawBoard();
-                    return;
-                }
-                this.onMouseUp();
+                InputHandler.onMouseLeave(null, this);
             },
 
             onContextMenu : function(event){
-                event.preventDefault();
-                if(this._drawToolStart){ this.cancelDrawTool(); return; }
-                if(this.state.drawMode === 'preset' && this.state.selectedPattern){
-                    this._previewPos = null;
-                    var self = this;
-                    this.setState({selectedPattern : null, patternRotation : 0, drawMode : 'paint'},
-                        function(){ self.drawBoard(); });
-                }
+                InputHandler.onContextMenu(event, this);
             },
 
             // ── Zoom and pan ──────────────────────────────────────────────────
 
             onWheel : function(event){
-                event.preventDefault();
-                if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
-                var mouse = this.getMousePos(event);
-                var cellSize = this.state.cellSize;
-                var viewX = this.state.viewX;
-                var viewY = this.state.viewY;
-                // Cell under cursor before zoom.
-                var cellC = viewX + Math.floor(mouse.x / cellSize);
-                var cellR = viewY + Math.floor(mouse.y / cellSize);
-                var step  = Math.max(1, Math.round(cellSize / 8));
-                var newCS = event.deltaY < 0
-                    ? Math.min(32, cellSize + step)
-                    : Math.max(1, cellSize - step);
-                if(newCS === cellSize){ return; }
-                // Keep the cell under cursor in the same pixel position.
-                var newVX = Math.round(cellC - mouse.x / newCS);
-                var newVY = Math.round(cellR - mouse.y / newCS);
-                var clamped = this.clampView(newVX, newVY,
-                    this.state.cols, this.state.rows, newCS);
-                var self = this;
-                this.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
-                    function(){ self.drawBoard(); });
+                InputHandler.onWheel(event, this);
             },
+
 
             pan : function(dc, dr){
                 var clamped = this.clampView(
@@ -1976,112 +1565,16 @@ document.addEventListener('DOMContentLoaded', function(){
                     function(){ self.drawBoard(); });
             },
 
-            // ── Selection/draw helpers ────────────────────────────────────────
+            // ── Selection/draw helpers (delegated to InputHandler) ─────────────
 
-            // Returns [[r,c],...] for every cell in the selection (any type).
-            getSelectionCells : function(sel){
-                if(!sel){ return []; }
-                var type = sel.type || 'rect';
-                if(type === 'rect'){
-                    var cells = [];
-                    var r1 = Math.min(sel.r1, sel.r2), r2 = Math.max(sel.r1, sel.r2);
-                    var c1 = Math.min(sel.c1, sel.c2), c2 = Math.max(sel.c1, sel.c2);
-                    for(var r = r1; r <= r2; r++)
-                        for(var c = c1; c <= c2; c++)
-                            cells.push([r, c]);
-                    return cells;
-                }
-                if(type === 'ellipse'){
-                    var r1e = Math.min(sel.r1, sel.r2), r2e = Math.max(sel.r1, sel.r2);
-                    var c1e = Math.min(sel.c1, sel.c2), c2e = Math.max(sel.c1, sel.c2);
-                    var cx = (c1e + c2e) / 2, cy = (r1e + r2e) / 2;
-                    var rx = (c2e - c1e) / 2, ry = (r2e - r1e) / 2;
-                    var cells = [];
-                    for(var re = r1e; re <= r2e; re++)
-                        for(var ce = c1e; ce <= c2e; ce++){
-                            var ddx = (cx > 0 || rx > 0) ? (ce - cx) / (rx + 0.5) : 0;
-                            var ddy = (cy > 0 || ry > 0) ? (re - cy) / (ry + 0.5) : 0;
-                            if(ddx*ddx + ddy*ddy <= 1) cells.push([re, ce]);
-                        }
-                    return cells;
-                }
-                if(type === 'freeform' || type === 'all-visible'){
-                    return sel.cells || [];
-                }
-                return [];
-            },
-
-            // Ray-casting point-in-polygon test. polygon is array of {c,r} objects.
-            pointInPolygon : function(px, py, polygon){
-                var inside = false;
-                var n = polygon.length;
-                for(var i = 0, j = n - 1; i < n; j = i++){
-                    var xi = polygon[i].c, yi = polygon[i].r;
-                    var xj = polygon[j].c, yj = polygon[j].r;
-                    if(((yi > py) !== (yj > py)) &&
-                       (px < (xj - xi) * (py - yi) / (yj - yi) + xi)){
-                        inside = !inside;
-                    }
-                }
-                return inside;
-            },
-
-            // Bresenham line — returns [[r,c],...] cells from (r0,c0) to (r1,c1).
-            bresenhamLine : function(r0, c0, r1, c1){
-                var cells = [];
-                var dr = Math.abs(r1 - r0), dc = Math.abs(c1 - c0);
-                var sr = r0 < r1 ? 1 : -1, sc = c0 < c1 ? 1 : -1;
-                var err = dr - dc;
-                while(true){
-                    cells.push([r0, c0]);
-                    if(r0 === r1 && c0 === c1){ break; }
-                    var e2 = 2 * err;
-                    if(e2 > -dc){ err -= dc; r0 += sr; }
-                    if(e2 < dr) { err += dr; c0 += sc; }
-                }
-                return cells;
-            },
-
-            // BFS flood fill — returns [[r,c],...] of connected cells matching startAlive.
+            getSelectionCells : function(sel){ return InputHandler.getSelectionCells(sel); },
+            pointInPolygon : function(px, py, polygon){ return InputHandler.pointInPolygon(px, py, polygon); },
+            bresenhamLine : function(r0, c0, r1, c1){ return InputHandler.bresenhamLine(r0, c0, r1, c1); },
             floodFillCells : function(startC, startR, liveCells, cols, rows, startAlive){
-                var isUnbounded = this.state.boundary === 'unbounded';
-                var maxFlood = 100000; // safety limit for unbounded mode
-                var queue = [[startR, startC]];
-                var result = [];
-                var visited = new Set();
-                while(queue.length){
-                    if(result.length >= maxFlood){ break; }
-                    var cur = queue.pop();
-                    var key = cur[0] + ',' + cur[1];
-                    if(visited.has(key)){ continue; }
-                    visited.add(key);
-                    var rr = cur[0], cc = cur[1];
-                    if(!isUnbounded && (cc < 0 || cc >= cols || rr < 0 || rr >= rows)){ continue; }
-                    var isAlive = liveCells.has(key);
-                    if(isAlive !== startAlive){ continue; }
-                    result.push([rr, cc]);
-                    queue.push([rr+1, cc], [rr-1, cc], [rr, cc+1], [rr, cc-1]);
-                }
-                return result;
+                return InputHandler.floodFillCells(startC, startR, liveCells, cols, rows, this.state.boundary, startAlive);
             },
+            ellipseCells : function(c1, r1, c2, r2){ return InputHandler.ellipseCells(c1, r1, c2, r2); },
 
-            // Compute cells inside ellipse from bounding rect.
-            ellipseCells : function(c1, r1, c2, r2){
-                var cells = [];
-                var rr1 = Math.min(r1, r2), rr2 = Math.max(r1, r2);
-                var cc1 = Math.min(c1, c2), cc2 = Math.max(c1, c2);
-                var cx = (cc1 + cc2) / 2, cy = (rr1 + rr2) / 2;
-                var rx = (cc2 - cc1) / 2, ry = (rr2 - rr1) / 2;
-                for(var r = rr1; r <= rr2; r++)
-                    for(var c = cc1; c <= cc2; c++){
-                        var dx = rx > 0.001 ? (c - cx) / (rx + 0.5) : 0;
-                        var dy = ry > 0.001 ? (r - cy) / (ry + 0.5) : 0;
-                        if(dx*dx + dy*dy <= 1) cells.push([r, c]);
-                    }
-                return cells;
-            },
-
-            // Select all visible live cells immediately.
             selectAllVisible : function(){
                 var liveCells = this.state.liveCells;
                 var viewX = this.state.viewX, viewY = this.state.viewY;
@@ -2218,7 +1711,7 @@ document.addEventListener('DOMContentLoaded', function(){
             pasteAsPattern : function(){
                 if(!this.state.clipboard || this.state.clipboard.length === 0){ return; }
                 PATTERNS['Clipboard'] = this.state.clipboard;
-                this._previewPos = null;
+                InputHandler._previewPos = null;
                 var self = this;
                 this.setState({selectedPattern: 'Clipboard', patternRotation: 0,
                                drawMode: 'preset', selection: null},
@@ -2321,207 +1814,11 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             },
 
-            // ── Touch support ─────────────────────────────────────────────────
+            // ── Touch support (delegated to InputHandler) ─────────────────────
 
-            onTouchStart : function(event){
-                event.preventDefault();
-                if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
-                clearTimeout(this._longPressTimer);
-                if(!event.touches || event.touches.length === 0){ return; }
-                if(event.touches.length === 2){
-                    // Begin pinch-zoom + two-finger pan tracking.
-                    // Clear all mode-specific drag state to prevent conflicts.
-                    this._dragging = false;
-                    this._panDragging = false;
-                    this._panStart = null;
-                    this._panVelocity = null;
-                    this._selStart = null;
-                    this._lassoPath = [];
-                    if(this._drawToolStart){
-                        this._drawToolStart = null;
-                        this._drawPreviewCells = [];
-                    }
-                    this._previewPos = null;
-                    this._wasPinching = true;
-                    // Restore running state if the first touch paused the game.
-                    if(this._wasRunningBeforeTouch && !this.state.running){
-                        this.setState({running: true});
-                        this._startLoop();
-                    }
-                    this._wasRunningBeforeTouch = false;
-                    var t0 = event.touches[0], t1 = event.touches[1];
-                    var pMidX = (t0.clientX + t1.clientX) / 2;
-                    var pMidY = (t0.clientY + t1.clientY) / 2;
-                    // Compute the cell coordinate under the pinch center for stable anchoring.
-                    var pRect = this._canvas.getBoundingClientRect();
-                    var pScaleX = this._canvas.width / pRect.width;
-                    var pScaleY = this._canvas.height / pRect.height;
-                    this._pinchStart = {
-                        dist:     Math.sqrt(
-                                    (t1.clientX - t0.clientX) * (t1.clientX - t0.clientX) +
-                                    (t1.clientY - t0.clientY) * (t1.clientY - t0.clientY)),
-                        midX:     pMidX,
-                        midY:     pMidY,
-                        cellSize: this.state.cellSize,
-                        viewX:    this.state.viewX,
-                        viewY:    this.state.viewY,
-                        cellC:    this.state.viewX + (pMidX - pRect.left) * pScaleX / this.state.cellSize,
-                        cellR:    this.state.viewY + (pMidY - pRect.top) * pScaleY / this.state.cellSize
-                    };
-                    return;
-                }
-                this._pinchStart = null;
-                this._wasPinching = false;
-                var t = event.touches[0];
-                // Long-press: show cell coordinates in the stat bar.
-                var self = this;
-                var pos = this.getCellPos({clientX: t.clientX, clientY: t.clientY});
-                var touchInBounds = this.state.boundary === 'unbounded' || (pos.c >= 0 && pos.c < this.state.cols && pos.r >= 0 && pos.r < this.state.rows);
-                if(touchInBounds){
-                    this._longPressTimer = setTimeout(function(){
-                        self.setState({hoverCell: {c: pos.c, r: pos.r}});
-                        self._longPressTimer = setTimeout(function(){
-                            self.setState({hoverCell: null});
-                        }, 2000);
-                    }, 420);
-                }
-                // Pan mode takes priority over all drawing modes.
-                if(this.state.panMode){
-                    this._panDragging = true;
-                    this._panStart = {x: t.clientX, y: t.clientY,
-                                      vx: this.state.viewX, vy: this.state.viewY};
-                    return;
-                }
-                // Pattern placement: show a preview at the initial tap position instead of
-                // placing immediately. The pattern is placed on touchend at the final position.
-                if(this.state.drawMode === 'preset' && this.state.selectedPattern){
-                    if(touchInBounds){
-                        this._previewPos = {c: pos.c, r: pos.r};
-                        this.drawBoard();
-                    }
-                    return;
-                }
-                this._wasRunningBeforeTouch = this.state.running;
-                this.onMouseDown({preventDefault: function(){}, button: 0,
-                    clientX: t.clientX, clientY: t.clientY});
-            },
-
-            onTouchMove : function(event){
-                event.preventDefault();
-                clearTimeout(this._longPressTimer);
-                this._longPressTimer = null;
-                if(event.touches.length === 2 && this._pinchStart){
-                    var t0 = event.touches[0], t1 = event.touches[1];
-                    var newDist = Math.sqrt(
-                        (t1.clientX - t0.clientX) * (t1.clientX - t0.clientX) +
-                        (t1.clientY - t0.clientY) * (t1.clientY - t0.clientY));
-                    var newMidX = (t0.clientX + t1.clientX) / 2;
-                    var newMidY = (t0.clientY + t1.clientY) / 2;
-                    var scale = this._pinchStart.dist > 0 ? newDist / this._pinchStart.dist : 1;
-                    var newCS = Math.max(1, Math.min(128,
-                        Math.round(this._pinchStart.cellSize * scale)));
-                    // Anchor: keep the cell under the pinch center fixed on screen.
-                    var pzRect = this._canvas.getBoundingClientRect();
-                    var pzScaleX = this._canvas.width / pzRect.width;
-                    var pzScaleY = this._canvas.height / pzRect.height;
-                    var midCanvasX = (newMidX - pzRect.left) * pzScaleX;
-                    var midCanvasY = (newMidY - pzRect.top) * pzScaleY;
-                    var newVX = Math.round(this._pinchStart.cellC - midCanvasX / newCS);
-                    var newVY = Math.round(this._pinchStart.cellR - midCanvasY / newCS);
-                    var clamped = this.clampView(newVX, newVY,
-                        this.state.cols, this.state.rows, newCS);
-                    var self = this;
-                    this.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
-                        function(){ self.drawBoard(); });
-                    return;
-                }
-                if(event.touches.length !== 1){ return; }
-                // After a pinch ends (one finger lifted), ignore the remaining finger's movement.
-                if(this._wasPinching){ return; }
-                var t = event.touches[0];
-                // Pan mode: move viewport by finger delta
-                if(this.state.panMode && this._panDragging && this._panStart){
-                    var dx = t.clientX - this._panStart.x;
-                    var dy = t.clientY - this._panStart.y;
-                    var cs2 = this.state.cellSize;
-                    // Account for CSS display scale so pan speed matches visual cell size.
-                    var panRect = this._canvas.getBoundingClientRect();
-                    var displayCS = (panRect.width > 0 && this._canvas.width > 0)
-                        ? cs2 * (panRect.width / this._canvas.width) : cs2;
-                    var newVX = this._panStart.vx - Math.round(dx / displayCS);
-                    var newVY = this._panStart.vy - Math.round(dy / displayCS);
-                    var clamped = this.clampView(newVX, newVY,
-                        this.state.cols, this.state.rows, cs2);
-                    var self = this;
-                    this.setState({viewX: clamped.viewX, viewY: clamped.viewY},
-                        function(){ self.drawBoard(); });
-                    // Track velocity for momentum on release
-                    var now = Date.now();
-                    this._panVelocity = {
-                        vx: (dx - (this._panLastDx || 0)) / Math.max(1, now - (this._panLastTime || now)),
-                        vy: (dy - (this._panLastDy || 0)) / Math.max(1, now - (this._panLastTime || now))
-                    };
-                    this._panLastDx = dx;
-                    this._panLastDy = dy;
-                    this._panLastTime = now;
-                    return;
-                }
-                this.onMouseMove({clientX: t.clientX, clientY: t.clientY});
-            },
-
-            onTouchEnd : function(event){
-                event.preventDefault();
-                clearTimeout(this._longPressTimer);
-                this._longPressTimer = null;
-                if(event.touches.length < 2){ this._pinchStart = null; }
-                // When transitioning from 2 fingers to 1 (pinch ending but one finger remains),
-                // don't let the remaining finger start a new pan/draw/select action.
-                if(event.touches.length === 1 && this._wasPinching){
-                    return;
-                }
-                if(event.touches.length === 0){
-                    // If we were pinching, suppress all actions and just clean up.
-                    if(this._wasPinching){
-                        this._wasPinching = false;
-                        this._previewPos = null;
-                        this._panDragging = false;
-                        this._panStart = null;
-                        this._panVelocity = null;
-                        this.drawBoard();
-                        return;
-                    }
-                    // End pan mode drag — apply momentum if flicked
-                    if(this.state.panMode && this._panDragging){
-                        this._panDragging = false;
-                        this._panStart = null;
-                        if(this._panVelocity){
-                            var vel = this._panVelocity;
-                            var speed = Math.sqrt(vel.vx * vel.vx + vel.vy * vel.vy);
-                            if(speed > 0.15){
-                                this._startPanMomentum(vel.vx, vel.vy);
-                            }
-                        }
-                        this._panVelocity = null;
-                        this._panLastDx = 0;
-                        this._panLastDy = 0;
-                        this._panLastTime = 0;
-                        return;
-                    }
-                    // For pattern placement, place at the final preview position rather than
-                    // the initial tap position (which onMouseUp would have used).
-                    if(this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos){
-                        if(!this.state.livePaintMode){ this.setState({running: false}); }
-                        this.placePattern(this.state.selectedPattern, this._previewPos.c, this._previewPos.r);
-                        return;
-                    }
-                    // Clear stale preview if preset mode but no placement occurred.
-                    if(this.state.drawMode === 'preset' && this._previewPos){
-                        this._previewPos = null;
-                        this.drawBoard();
-                    }
-                    this.onMouseUp();
-                }
-            },
+            onTouchStart : function(event){ InputHandler.onTouchStart(event, this); },
+            onTouchMove : function(event){ InputHandler.onTouchMove(event, this); },
+            onTouchEnd : function(event){ InputHandler.onTouchEnd(event, this); },
 
             // ── Keyboard ──────────────────────────────────────────────────────
 
@@ -2605,10 +1902,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         e.preventDefault(); this.pan(0, 5);
                         break;
                     case 'Escape':
-                        if(this._drawToolStart){ this.cancelDrawTool(); break; }
+                        if(InputHandler._drawToolStart){ this.cancelDrawTool(); break; }
                         if(this.state.selection){ this.clearSelection(); break; }
                         if(this.state.drawMode === 'preset' && this.state.selectedPattern){
-                            this._previewPos = null;
+                            InputHandler._previewPos = null;
                             this.setState({selectedPattern : null, patternRotation : 0, drawMode : 'paint'},
                                 function(){ self.drawBoard(); });
                             break;
@@ -3150,7 +2447,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                     PATTERNS['Custom'] = result.cells;
                     var self = this;
-                    this._previewPos = null;
+                    InputHandler._previewPos = null;
                     this.setState({
                         selectedPattern : 'Custom',
                         patternRotation : 0,
@@ -3176,7 +2473,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
             selectPattern : function(e){
                 var name = e.target.value || null;
-                this._previewPos = null;
+                InputHandler._previewPos = null;
                 var self = this;
                 var newMode = name ? 'preset' : 'paint';
                 this.setState({selectedPattern: name, drawMode: newMode, patternRotation: 0},
@@ -3206,7 +2503,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         newLiveCells.set(pr + ',' + pc, 1);
                     }
                 }
-                this._previewPos = null;
+                InputHandler._previewPos = null;
                 this._minimapDirty = true;
                 SimRunner.invalidate();
                 var self = this;
