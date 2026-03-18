@@ -39,7 +39,10 @@ function computeTypedArray(inputCells, cols, rows, birth, survive, toroidal, tic
     var grid = new Uint16Array(totalCells);
     for (var i = 0; i < inputCells.length; i++) {
         var cell = inputCells[i];
-        grid[cell[0] * cols + cell[1]] = cell[2];
+        var cr = cell[0], cc = cell[1];
+        if (cr >= 0 && cr < rows && cc >= 0 && cc < cols) {
+            grid[cr * cols + cc] = cell[2];
+        }
     }
 
     // Build birth/survive lookup tables for O(1) rule checking.

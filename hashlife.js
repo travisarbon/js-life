@@ -179,6 +179,11 @@ var HashLife = (function () {
             return emptyTree(node.level - 1);
         }
 
+        // Guard: advance requires level >= 2.
+        if (node.level < 2) {
+            return node.level === 1 ? centeredSubnode(node) : node;
+        }
+
         var singleStep = (stepLimit <= 1);
 
         // Check caches

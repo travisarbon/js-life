@@ -1033,7 +1033,17 @@ document.addEventListener('DOMContentLoaded', function(){
                             Math.round(yB + (aB - yB) * pt) + ')';
                     }
                     this._colorPalette = colorPalette;
+                    this._trailPalette = null;
                     this._paletteTheme = this.state.theme;
+                }
+                var trailPalette = this._trailPalette;
+                if(!trailPalette){
+                    trailPalette = new Array(21);
+                    for(var ti = 0; ti <= 20; ti++){
+                        var talpha = (ti / 20) * 0.35;
+                        trailPalette[ti] = 'rgba(' + aR + ',' + aG + ',' + aB + ',' + talpha.toFixed(2) + ')';
+                    }
+                    this._trailPalette = trailPalette;
                 }
 
                 // Draw live cells: iterate live cells when sparse, viewport grid when dense.
@@ -1057,10 +1067,19 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                     }
                 } else {
-                    // Dense mode: iterate viewport grid.
+                    // Dense mode: build row lookup to avoid string allocation per viewport cell.
+                    var rowLookup = {};
+                    liveCells.forEach(function(age, key){
+                        var _rc = parseKey(key), r = _rc[0], c = _rc[1];
+                        if(r < startR || r >= endR || c < startC || c >= endC) return;
+                        if(!rowLookup[r]) rowLookup[r] = {};
+                        rowLookup[r][c] = age;
+                    });
                     for(var r = startR; r < endR; r++){
+                        var rowData = rowLookup[r];
+                        if(!rowData) continue;
                         for(var c = startC; c < endC; c++){
-                            var age = liveCells.get(r + ',' + c);
+                            var age = rowData[c];
                             if(age !== undefined){
                                 var ci2 = Math.min(Math.round(Math.min(age / 10, 1) * COLOR_STEPS), COLOR_STEPS);
                                 ctx.fillStyle = colorPalette[ci2];
@@ -1076,8 +1095,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     trailMap.forEach(function(val, key){
                         var _rc = parseKey(key), tr = _rc[0], tc = _rc[1];
                         if(tr >= startR && tr < endR && tc >= startC && tc < endC){
-                            var alpha = (val / 20) * 0.35;
-                            ctx.fillStyle = 'rgba(' + aR + ',' + aG + ',' + aB + ',' + alpha.toFixed(2) + ')';
+                            ctx.fillStyle = trailPalette[val] || trailPalette[20];
                             ctx.fillRect((tc - viewX) * cellSize, (tr - viewY) * cellSize, cellSize, cellSize);
                         }
                     });
@@ -1572,13 +1590,15 @@ document.addEventListener('DOMContentLoaded', function(){
                 // generation (which was computed from the pre-stroke snapshot).
                 if(this._dragging && this.state.livePaintMode){
                     var painted = this._paintedCells;
-                    var hasPainted = false;
-                    Object.keys(painted).forEach(function(k){
-                        if(painted[k] === 1){ newLiveCells.set(k, 1); }
-                        else { newLiveCells.delete(k); }
-                        hasPainted = true;
-                    });
-                    if(hasPainted){ this._hlStale = true; }
+                    var paintKeys = Object.keys(painted);
+                    if(paintKeys.length > 0){
+                        for(var pi = 0; pi < paintKeys.length; pi++){
+                            var k = paintKeys[pi];
+                            if(painted[k] === 1){ newLiveCells.set(k, 1); }
+                            else { newLiveCells.delete(k); }
+                        }
+                        this._hlStale = true;
+                    }
                 }
 
                 // Cell trail tracking: record recently-dead cells.
@@ -1603,11 +1623,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     for(var ti = 0; ti < toDelete.length; ti++){ trailMap.delete(toDelete[ti]); }
                     // Cap trail map size for performance.
                     if(trailMap.size > 50000){
-                        var excess = trailMap.size - 50000;
-                        var delKeys = [];
-                        var iter = trailMap.keys();
-                        for(var ei = 0; ei < excess; ei++){ var nk = iter.next(); if(nk.done) break; delKeys.push(nk.value); }
-                        for(var di = 0; di < delKeys.length; di++){ trailMap.delete(delKeys[di]); }
+                        trailMap.clear();
                     }
                 }
 
@@ -1630,8 +1646,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 var hitStable = this._stableCount >= 2;
 
                 var newPop = newLiveCells.size;
-                var newHistory = this.state.popHistory.concat([newPop]);
-                if(newHistory.length > 10000){ newHistory = newHistory.slice(newHistory.length - 10000); }
+                var newHistory = this.state.popHistory.slice();
+                newHistory.push(newPop);
+                if(newHistory.length > 10000){ newHistory.shift(); }
                 var newSessionPeak = Math.max(this.state.sessionPeakPop || 0, newPop);
                 // Store last measured GPS so it persists briefly after pausing.
                 this._gpsDisplayUntil = this._gpsDisplayUntil || 0;
@@ -1698,8 +1715,9 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                 }
                 var newPop = newLiveCells.size;
-                var newHistory = this.state.popHistory.concat([newPop]);
-                if(newHistory.length > 10000){ newHistory = newHistory.slice(newHistory.length - 10000); }
+                var newHistory = this.state.popHistory.slice();
+                newHistory.push(newPop);
+                if(newHistory.length > 10000){ newHistory.shift(); }
                 var newSessionPeakStep = Math.max(this.state.sessionPeakPop || 0, newPop);
                 this._minimapDirty = true;
                 var self = this;
@@ -2219,6 +2237,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             _startPanMomentum : function(vx, vy){
+                if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
                 var self = this;
                 var friction = 0.92;
                 var cellSize = this.state.cellSize;
@@ -2269,6 +2288,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
             onWheel : function(event){
                 event.preventDefault();
+                if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
                 var mouse = this.getMousePos(event);
                 var cellSize = this.state.cellSize;
                 var viewX = this.state.viewX;
@@ -3236,7 +3256,9 @@ document.addEventListener('DOMContentLoaded', function(){
 
             _pushGenHistory : function(){
                 this._genHistoryCounter++;
-                if(this._genHistoryCounter % this._genHistoryInterval !== 0){ return; }
+                var pop = this.state.liveCells.size;
+                var interval = pop > 50000 ? 10 : pop > 10000 ? 5 : this._genHistoryInterval;
+                if(this._genHistoryCounter % interval !== 0){ return; }
                 this._genHistory.push({
                     liveCells: new Map(this.state.liveCells),
                     generations: this.state.generations
