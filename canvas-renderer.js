@@ -12,6 +12,7 @@ var CanvasRenderer = {
     _colorPalette: null,
     _trailPalette: null,
     _paletteTheme: null,
+    _aliveRGB: null,
 
     _ensurePalette: function(theme, themeName){
         var aR = theme.aliveR, aG = theme.aliveG, aB = theme.aliveB;
@@ -26,6 +27,7 @@ var CanvasRenderer = {
                     Math.round(yG + (aG - yG) * t) + ',' +
                     Math.round(yB + (aB - yB) * t) + ')';
             }
+            this._aliveRGB = 'rgb(' + aR + ',' + aG + ',' + aB + ')';
             this._trailPalette = null;
             this._paletteTheme = themeName;
         }

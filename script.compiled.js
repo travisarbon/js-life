@@ -37,30 +37,6 @@ function parseKey(key) {
   return [parseInt(key.substring(0, i), 10) || 0, parseInt(key.substring(i + 1), 10) || 0];
 }
 
-// Build a "r,c" key from row, col integers.
-function makeKey(r, c) {
-  return r + ',' + c;
-}
-
-// ── Coordinate transformation utilities ──────────────────────────────────────
-// Three coordinate systems: screen pixels, board cells, HashLife internal.
-var CoordUtils = {
-  // Screen pixel → board cell
-  screenToCell: function (px, py, viewX, viewY, cellSize) {
-    return {
-      c: viewX + Math.floor(px / cellSize),
-      r: viewY + Math.floor(py / cellSize)
-    };
-  },
-  // Board cell → screen pixel (top-left corner of cell)
-  cellToScreen: function (c, r, viewX, viewY, cellSize) {
-    return {
-      x: (c - viewX) * cellSize,
-      y: (r - viewY) * cellSize
-    };
-  }
-};
-
 // ── Pattern data loaded from patterns.js ─────────────────────────────────────
 // Globals: PATTERN_GROUPS, PATTERNS, PATTERN_META
 
@@ -738,17 +714,13 @@ document.addEventListener('DOMContentLoaded', function () {
       };
     },
     shouldComponentUpdate: function (nextProps, nextState) {
-      // Skip render when only the generation counter or population changed
-      // (canvas is drawn imperatively via drawBoard, not via React render).
-      var dominated = this.state.running && nextState.running;
-      if (dominated) {
-        // During running simulation, only re-render if UI-relevant state changed.
-        var dominated_keys = ['popHistory', 'srAnnouncement', 'liveCells'];
+      // Skip render when only canvas-only state changed during animation.
+      // These keys are updated every tick but only affect the imperative
+      // canvas — the React DOM tree doesn't depend on them.
+      if (this.state.running && nextState.running) {
         var dominated_only = true;
-        var keys = Object.keys(nextState);
-        for (var i = 0; i < keys.length; i++) {
-          var k = keys[i];
-          if (this.state[k] !== nextState[k] && dominated_keys.indexOf(k) === -1) {
+        for (var k in nextState) {
+          if (nextState.hasOwnProperty(k) && k !== 'popHistory' && k !== 'srAnnouncement' && k !== 'liveCells' && this.state[k] !== nextState[k]) {
             dominated_only = false;
             break;
           }
@@ -1494,39 +1466,31 @@ document.addEventListener('DOMContentLoaded', function () {
       if (this._trailEnabled) {
         var trailMap = this._trailMap;
         var prevCells = this.state.liveCells;
-        var TRAIL_MAX = 20;
         // Cells that were alive but are now dead → add to trail.
         prevCells.forEach(function (age, key) {
           if (!newLiveCells.has(key)) {
-            trailMap.set(key, TRAIL_MAX);
+            trailMap.set(key, 20);
           }
         });
-        // Decay existing trail values.
+        // Single pass: decay values, collect expired/overwritten entries.
         var toDelete = [];
         trailMap.forEach(function (val, key) {
-          if (newLiveCells.has(key)) {
+          if (newLiveCells.has(key) || val <= 1) {
             toDelete.push(key);
           } else {
-            var nv = val - 1;
-            if (nv <= 0) {
-              toDelete.push(key);
-            } else {
-              trailMap.set(key, nv);
-            }
+            trailMap.set(key, val - 1);
           }
         });
         for (var ti = 0; ti < toDelete.length; ti++) {
           trailMap.delete(toDelete[ti]);
         }
-        // Cap trail map size: prune entries with lowest values first.
+        // Prune if over limit.
         if (trailMap.size > 50000) {
-          var pruneThreshold = 5;
           trailMap.forEach(function (val, key) {
-            if (val <= pruneThreshold) {
+            if (val <= 5) {
               trailMap.delete(key);
             }
           });
-          // If still too large, clear entirely as last resort.
           if (trailMap.size > 50000) {
             trailMap.clear();
           }
@@ -1557,10 +1521,10 @@ document.addEventListener('DOMContentLoaded', function () {
       this._stableCount = isStable ? this._stableCount + 1 : 0;
       var hitStable = this._stableCount >= 2 && this.state.autoPauseOnStable;
       var newPop = newLiveCells.size;
-      var newHistory = this.state.popHistory.slice();
+      var newHistory = this.state.popHistory;
       newHistory.push(newPop);
-      if (newHistory.length > 10000) {
-        newHistory = newHistory.slice(newHistory.length - 10000);
+      if (newHistory.length > 20000) {
+        newHistory = newHistory.slice(-10000);
       }
       var newSessionPeak = Math.max(this.state.sessionPeakPop || 0, newPop);
       // Store last measured GPS so it persists briefly after pausing.
@@ -1621,10 +1585,10 @@ document.addEventListener('DOMContentLoaded', function () {
       var boundary = this.state.boundary;
       var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary);
       var newPop = newLiveCells.size;
-      var newHistory = this.state.popHistory.slice();
+      var newHistory = this.state.popHistory;
       newHistory.push(newPop);
-      if (newHistory.length > 10000) {
-        newHistory = newHistory.slice(newHistory.length - 10000);
+      if (newHistory.length > 20000) {
+        newHistory = newHistory.slice(-10000);
       }
       var newSessionPeakStep = Math.max(this.state.sessionPeakPop || 0, newPop);
       this._minimapDirty = true;
@@ -2777,7 +2741,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var boundary = this.state.boundary;
       var self = this;
       var gen = this.state.generations;
-      var popHistory = this.state.popHistory.slice();
+      var popHistory = this.state.popHistory;
       var peak = this.state.sessionPeakPop || 0;
 
       // Fast path: unbounded — SimRunner handles HashLife batch internally
@@ -2785,8 +2749,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var batch = SimRunner.stepN(liveCells, cols, rows, birth, survive, boundary, n);
         for (var p = 0; p < batch.pops.length; p++) {
           popHistory.push(batch.pops[p]);
-          if (popHistory.length > 10000) {
-            popHistory = popHistory.slice(popHistory.length - 10000);
+          if (popHistory.length > 20000) {
+            popHistory = popHistory.slice(-10000);
           }
         }
         if (batch.peak > peak) {
@@ -2816,8 +2780,8 @@ document.addEventListener('DOMContentLoaded', function () {
           gen++;
           var pop = liveCells.size;
           popHistory.push(pop);
-          if (popHistory.length > 10000) {
-            popHistory = popHistory.slice(popHistory.length - 10000);
+          if (popHistory.length > 20000) {
+            popHistory = popHistory.slice(-10000);
           }
           if (pop > peak) {
             peak = pop;
@@ -3693,11 +3657,11 @@ document.addEventListener('DOMContentLoaded', function () {
         fontSize: "9"
       }, "Generation"), /*#__PURE__*/React.createElement("polyline", {
         fill: "none",
-        stroke: THEMES[this.state.theme] ? 'rgb(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ')' : '#70959A',
+        stroke: CanvasRenderer._aliveRGB || '#70959A',
         strokeWidth: "1.5",
         points: points
       }), /*#__PURE__*/React.createElement("polygon", {
-        fill: THEMES[this.state.theme] ? 'rgba(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ',0.2)' : 'rgba(112,149,154,0.2)',
+        fill: CanvasRenderer._aliveRGB ? CanvasRenderer._aliveRGB.replace('rgb', 'rgba').replace(')', ',0.2)') : 'rgba(112,149,154,0.2)',
         points: padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)
       })), /*#__PURE__*/React.createElement("button", {
         type: "button",
@@ -3713,16 +3677,20 @@ document.addEventListener('DOMContentLoaded', function () {
       var population = this.state.liveCells.size;
       var now2 = Date.now();
       var gpsText = this._measuredGps > 0 && (this.state.running || now2 < (this._gpsDisplayUntil || 0)) ? this._measuredGps.toFixed(1) + '\u00a0gen/s' : null;
-      var hist0 = this.state.popHistory;
+      var fullHist = this.state.popHistory;
       var trendArrow = '';
-      if (hist0.length >= 5) {
-        var recent = hist0.slice(-5);
-        var delta = recent[recent.length - 1] - recent[0];
+      if (fullHist.length >= 5) {
+        var delta = fullHist[fullHist.length - 1] - fullHist[fullHist.length - 5];
         trendArrow = delta > 2 ? '\u2009\u25b2' : delta < -2 ? '\u2009\u25bc' : '\u2009\u223c';
       }
-      var fullHist = this.state.popHistory;
-      var hist = fullHist.length > 60 ? fullHist.slice(fullHist.length - 60) : fullHist;
-      var maxPop = hist.length ? Math.max.apply(null, hist) : 0;
+      var histStart = Math.max(0, fullHist.length - 60);
+      var hist = histStart > 0 ? fullHist.slice(histStart) : fullHist;
+      var maxPop = 0;
+      for (var hi = 0; hi < hist.length; hi++) {
+        if (hist[hi] > maxPop) {
+          maxPop = hist[hi];
+        }
+      }
       if (hist.length <= 1) {
         return null;
       }
@@ -3775,7 +3743,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }), /*#__PURE__*/React.createElement("polyline", {
         points: sparkPts,
         fill: "none",
-        stroke: THEMES[this.state.theme] ? 'rgb(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ')' : '#70959A',
+        stroke: CanvasRenderer._aliveRGB || '#70959A',
         strokeWidth: "1.5",
         strokeLinejoin: "round",
         strokeLinecap: "round"
@@ -4081,17 +4049,25 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!this.state.bottomSheetOpen || this.state.bottomSheetClosing) {
         return null;
       }
-      switch (this.state.bottomSheetTab) {
+      return this._buildTabContent(this.state.bottomSheetTab, {
+        sectionTitle: true,
+        sparkline: true
+      });
+    },
+    // Shared tab content builder used by mobile sheet, desktop rail, and context tray.
+    _buildTabContent: function (tabId, options) {
+      options = options || {};
+      switch (tabId) {
         case 'simulate':
-          return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+          return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
             className: "sidebar-section-title"
           }, "Simulation"), /*#__PURE__*/React.createElement("label", {
             className: "control-group-label"
           }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
             className: "control-group-label"
-          }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
+          }, "View"), this.renderViewControls(), options.showMode !== false && /*#__PURE__*/React.createElement("label", {
             className: "control-group-label"
-          }, "Mode"), this.renderModeControls(), this.renderMobileSparkline());
+          }, "Mode"), options.showMode !== false && this.renderModeControls(), options.sparkline && this.renderMobileSparkline());
         case 'tools':
           return this.renderToolsContent();
         case 'board':
@@ -5225,63 +5201,12 @@ document.addEventListener('DOMContentLoaded', function () {
       var railW = this.state.railHidden ? 0 : this.state.railCollapsed ? 40 : dc === 'tablet' ? 200 : 240;
       var railSide = this.state.railSide;
       var railClass = 'rail' + (this.state.railCollapsed ? ' rail-collapsed' : '') + (this.state.railHidden ? ' rail-hidden' : '') + (' rail-' + railSide);
-      var tabContent = null;
-      switch (this.state.railTab) {
-        case 'simulate':
-          tabContent = /*#__PURE__*/React.createElement("div", {
-            className: "rail-tab-content"
-          }, /*#__PURE__*/React.createElement("div", {
-            className: "sidebar-section-title"
-          }, "Simulation"), /*#__PURE__*/React.createElement("label", {
-            className: "control-group-label"
-          }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
-            className: "control-group-label"
-          }, "View"), this.renderViewControls(), /*#__PURE__*/React.createElement("label", {
-            className: "control-group-label"
-          }, "Mode"), this.renderModeControls());
-          break;
-        case 'tools':
-          tabContent = /*#__PURE__*/React.createElement("div", {
-            className: "rail-tab-content"
-          }, this.renderToolsContent());
-          break;
-        case 'board':
-          tabContent = /*#__PURE__*/React.createElement("div", {
-            className: "rail-tab-content"
-          }, this.renderSliders());
-          break;
-        case 'rules':
-          tabContent = /*#__PURE__*/React.createElement("div", {
-            className: "rail-tab-content"
-          }, this.renderRulesSection());
-          break;
-        case 'export':
-          tabContent = /*#__PURE__*/React.createElement("div", {
-            className: "rail-tab-content"
-          }, this.renderExportContent());
-          break;
-      }
-      var tabs = [{
-        id: 'simulate',
-        icon: 'fa-play',
-        label: 'Simulate'
-      }, {
-        id: 'tools',
-        icon: 'fa-pencil',
-        label: 'Tools'
-      }, {
-        id: 'board',
-        icon: 'fa-th',
-        label: 'Board'
-      }, {
-        id: 'rules',
-        icon: 'fa-cog',
-        label: 'Rules'
-      }, {
-        id: 'export',
-        icon: 'fa-download',
-        label: 'Export'
-      }];
+      var tabContent = /*#__PURE__*/React.createElement("div", {
+        className: "rail-tab-content"
+      }, this._buildTabContent(this.state.railTab, {
+        sectionTitle: true
+      }));
+      var tabs = this._MOBILE_TABS;
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-cartographer"
       }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
@@ -5375,28 +5300,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if (isMobile) {
         return this.renderSpecimenMobile(cs);
       }
-      var trayContent = null;
-      switch (this.state.contextTrayContent) {
-        case 'simulate':
-          trayContent = /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-            className: "control-group-label"
-          }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
-            className: "control-group-label"
-          }, "View"), this.renderViewControls());
-          break;
-        case 'tools':
-          trayContent = this.renderToolsContent();
-          break;
-        case 'board':
-          trayContent = this.renderSliders();
-          break;
-        case 'rules':
-          trayContent = this.renderRulesSection();
-          break;
-        case 'export':
-          trayContent = this.renderExportContent();
-          break;
-      }
+      var trayContent = this._buildTabContent(this.state.contextTrayContent, {
+        showMode: false
+      });
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-specimen"
       }, this.renderCanvas(cs), /*#__PURE__*/React.createElement("div", {
