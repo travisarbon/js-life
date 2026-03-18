@@ -69,7 +69,7 @@
   --z-tour: 115;
   --z-analysis: 150;
   --z-overlay: 200;
-  --z-modal: 9999;
+  --z-modal: 300;
 
   /* Panel chrome */
   --panel-bg: var(--content-bg);
@@ -115,6 +115,9 @@ html.dark-mode {
 }
 
 body {
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
   color: var(--body-color);
   background-color: var(--body-bg); }
 
@@ -2162,3 +2165,58 @@ canvas.display {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0; }
+
+/* C10 / A20 — Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* C11 / A24 — High contrast / forced colors support */
+@media (forced-colors: active) {
+  .btn { border: 1px solid ButtonText; }
+  .stats-chip { border: 1px solid ButtonText; }
+  canvas { border: 2px solid CanvasText; }
+}
+
+/* C12 — Print stylesheet */
+@media print {
+  body > *:not(#content) { display: none; }
+  .mobile-transport-bar,
+  .bottom-sheet-backdrop,
+  .bottom-sheet,
+  .rail,
+  .rail-collapsed,
+  .specimen-top-bar,
+  .stats-chip,
+  .float-panel { display: none !important; }
+  canvas { border: 1px solid #000; }
+}
+
+/* C19 — Drop active styling */
+.drop-active {
+  outline: 3px dashed var(--accent);
+  outline-offset: -3px;
+}
+
+/* C15 — Overflow handling on narrow screens */
+.pattern-filter,
+.rule-input,
+.sparkline-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* U21 / A21 — Status icon alongside text */
+.status-icon .fa {
+  margin-right: 2px;
+  font-size: 0.85em;
+}
+
+/* C14 — Float panel collapsed state alignment */
+.float-panel-collapsed .float-panel-body {
+  display: none; }

@@ -2,11 +2,61 @@
  * Conway's Game of Life
  */
 
+// ── Constants ────────────────────────────────────────────────────────────────
+var MAX_UNDO_STACK = 30;
+var MAX_POP_HISTORY = 10000;
+var MAX_GEN_HISTORY = 200;
+var MAX_TRAIL_MAP = 50000;
+var TRAIL_MAX_VALUE = 20;
+var TRAIL_PRUNE_THRESHOLD = 5;
+var MAX_CELL_IMPORT = 100000;
+var MAX_FILE_SIZE = 500000;
+var HL_GC_THRESHOLD = 2000000;
+var STABLE_COUNT_THRESHOLD = 2;
+var GPS_DISPLAY_DURATION = 3000;
+var LONG_PRESS_DELAY = 420;
+var MAX_STEP_COUNT = 10000;
+var MAX_ZOOM_WHEEL = 32;
+var MAX_ZOOM_PINCH = 128;
+var COLOR_STEPS = 63;
+var MAX_AGE = 65535;
+var MAX_FLOOD_FILL = 100000;
+var ANALYSIS_TIMEOUT = 10000;
+var STATS_CHIP_REAPPEAR_DELAY = 1500;
+
+// ── Board key utilities ──────────────────────────────────────────────────────
+// Encapsulates the "r,c" string key format used by the cell Map.
+
 // Parse a "r,c" map key into [row, col] integers.
 function parseKey(key) {
     var i = key.indexOf(',');
-    return [parseInt(key.substring(0, i), 10), parseInt(key.substring(i + 1), 10)];
+    if(i < 0) return [0, 0];
+    return [parseInt(key.substring(0, i), 10) || 0, parseInt(key.substring(i + 1), 10) || 0];
 }
+
+// Build a "r,c" key from row, col integers.
+function makeKey(r, c) {
+    return r + ',' + c;
+}
+
+// ── Coordinate transformation utilities ──────────────────────────────────────
+// Three coordinate systems: screen pixels, board cells, HashLife internal.
+var CoordUtils = {
+    // Screen pixel → board cell
+    screenToCell: function(px, py, viewX, viewY, cellSize) {
+        return {
+            c: viewX + Math.floor(px / cellSize),
+            r: viewY + Math.floor(py / cellSize)
+        };
+    },
+    // Board cell → screen pixel (top-left corner of cell)
+    cellToScreen: function(c, r, viewX, viewY, cellSize) {
+        return {
+            x: (c - viewX) * cellSize,
+            y: (r - viewY) * cellSize
+        };
+    }
+};
 
 // ── Preset patterns ───────────────────────────────────────────────────────────
 // All cells are [row, col] offsets (0-indexed from top-left of bounding box).
@@ -198,6 +248,22 @@ var THEMES = {
     }
 };
 
+// ── Format detection helper (shared between file drop and manual import) ─────
+// R21: Extracted to avoid duplication between _handleFileDrop and loadRle.
+function detectAndParsePattern(text) {
+    var result;
+    if(/^#Life\s+1\.06/m.test(text)){
+        result = SimEngine.parseLife106(text);
+    } else if(/^#Life\s+1\.05/m.test(text)){
+        result = SimEngine.parseLife105(text);
+    } else if(/x\s*=/i.test(text) || (/[bo\$]/.test(text) && /!/.test(text))){
+        result = SimEngine.parseRLE(text);
+    } else {
+        result = SimEngine.parsePlaintext(text);
+    }
+    return result;
+}
+
 // ── Age overlay for HashLife ──────────────────────────────────────────────────
 // Computes cell ages by diffing old Map (key→age) against new cell list [[r,c],...].
 function overlayAges(oldLiveCells, newCellList, ageIncrement) {
@@ -206,7 +272,7 @@ function overlayAges(oldLiveCells, newCellList, ageIncrement) {
     for (var i = 0; i < newCellList.length; i++) {
         var key = newCellList[i][0] + ',' + newCellList[i][1];
         var oldAge = oldLiveCells.get(key);
-        newMap.set(key, oldAge !== undefined ? Math.min(oldAge + inc, 65535) : 1);
+        newMap.set(key, oldAge !== undefined ? Math.min(oldAge + inc, MAX_AGE) : 1);
     }
     return newMap;
 }
@@ -310,7 +376,7 @@ var SimEngine = {
             var wasAlive = liveCells.has(key);
             var alive = wasAlive ? surviveLut[count] : birthLut[count];
             if(alive){
-                newLiveCells.set(key, wasAlive ? Math.min((liveCells.get(key) || 0) + 1, 65535) : 1);
+                newLiveCells.set(key, wasAlive ? Math.min((liveCells.get(key) || 0) + 1, MAX_AGE) : 1);
             }
         });
         return newLiveCells;
@@ -358,6 +424,12 @@ var SimEngine = {
         for(var i = 0; i < dataLines.length; i++){
             if(/x\s*=/i.test(dataLines[i])){ headerIdx = i; break; }
         }
+        // Extract rule from header if present.
+        var parsedRule = null;
+        if(headerIdx >= 0){
+            var ruleMatch = dataLines[headerIdx].match(/rule\s*=\s*([^\s,]+)/i);
+            if(ruleMatch){ parsedRule = ruleMatch[1]; }
+        }
         var dataStart = headerIdx >= 0 ? headerIdx + 1 : 0;
         var data = dataLines.slice(dataStart).join('').replace(/\s/g, '');
         var cells = [];
@@ -369,9 +441,10 @@ var SimEngine = {
                 countStr += ch;
             } else if(ch === 'b' || ch === 'o'){
                 var n = countStr ? parseInt(countStr, 10) : 1;
+                if(isNaN(n) || n < 1){ n = 1; }
                 if(n > MAX_COORD){ n = MAX_COORD; }
                 if(ch === 'o'){
-                    for(var j = 0; j < n && cells.length < 100000; j++){ cells.push([row, col + j]); }
+                    for(var j = 0; j < n && cells.length < MAX_CELL_IMPORT; j++){ cells.push([row, col + j]); }
                 }
                 col += n;
                 countStr = '';
@@ -384,9 +457,9 @@ var SimEngine = {
             } else if(ch === '!'){ break; }
             if(row > MAX_COORD || col > MAX_COORD){ break; }
         }
-        var truncated = cells.length > 100000;
-        if(truncated){ cells.length = 100000; }
-        return {cells : cells, truncated: truncated};
+        var truncated = cells.length > MAX_CELL_IMPORT;
+        if(truncated){ cells.length = MAX_CELL_IMPORT; }
+        return {cells : cells, truncated: truncated, rule: parsedRule};
     },
 
     // Parses LifeWiki plaintext (.cells) format into [[row, col], ...].
@@ -405,8 +478,8 @@ var SimEngine = {
             }
             row++;
         }
-        var truncated = cells.length > 100000;
-        if(truncated){ cells.length = 100000; }
+        var truncated = cells.length > MAX_CELL_IMPORT;
+        if(truncated){ cells.length = MAX_CELL_IMPORT; }
         return {cells : cells, truncated: truncated};
     },
 
@@ -426,8 +499,8 @@ var SimEngine = {
                 }
             }
         }
-        var truncated = cells.length > 100000;
-        if(truncated){ cells.length = 100000; }
+        var truncated = cells.length > MAX_CELL_IMPORT;
+        if(truncated){ cells.length = MAX_CELL_IMPORT; }
         return {cells : cells, truncated: truncated};
     },
 
@@ -469,8 +542,8 @@ var SimEngine = {
                 }
             }
         }
-        var truncated = cells.length > 100000;
-        if(truncated){ cells.length = 100000; }
+        var truncated = cells.length > MAX_CELL_IMPORT;
+        if(truncated){ cells.length = MAX_CELL_IMPORT; }
         return {cells : cells, truncated: truncated};
     },
 
@@ -491,7 +564,6 @@ var SimEngine = {
 };
 
 document.addEventListener('DOMContentLoaded', function(){
-    (function(){
 
         var LifeBoard = React.createClass({
 
@@ -593,7 +665,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     recording :       false,
                     showMobileTools : false,
                     showTrails :      true,
-                    darkModePref :    'system',
+                    darkModePref :    (function(){ try { return localStorage.getItem('life-dark-mode-pref') || 'system'; } catch(e){ return 'system'; } })(),
                     stepCount :       1,
                     shareTooltip :    false,
                     showPopGraph :    false,
@@ -613,7 +685,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     contextTrayPinned: false,
                     // Observatory state
                     zenMode :          false,
-                    _panelMenuOpen :   false,
+                    panelMenuOpen :   false,
                     panelStates :      savedLayout.panelStates || {
                         transport: { open: true, x: -1, y: -1, collapsed: false },
                         view:      { open: true, x: -1, y: -1, collapsed: false },
@@ -631,7 +703,8 @@ document.addEventListener('DOMContentLoaded', function(){
                     bottomSheetClosing: false,
                     bottomSheetTab :   'simulate',
                     panMode :          false,
-                    srAnnouncement :   ''
+                    srAnnouncement :   '',
+                    autoPauseOnStable : true
                 };
             },
 
@@ -641,7 +714,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var dominated = this.state.running && nextState.running;
                 if(dominated){
                     // During running simulation, only re-render if UI-relevant state changed.
-                    var dominated_keys = ['generations', 'popHistory', 'srAnnouncement'];
+                    var dominated_keys = ['generations', 'popHistory', 'srAnnouncement', 'liveCells'];
                     var dominated_only = true;
                     var keys = Object.keys(nextState);
                     for(var i = 0; i < keys.length; i++){
@@ -672,6 +745,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._loopRunning = false;
                 this._tickId = 0;
                 this._undoStack = [];
+                this._redoStack = [];
                 this._prevBoardHash = null;
                 this._stableCount = 0;
                 this._genTimestamps = [];
@@ -699,6 +773,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._pinchStart = null;
                 this._wasPinching = false;
                 this._longPressTimer = null;
+                this._statsChipHidden = false;
+                this._statsChipTimer = null;
                 this._canvas = document.getElementById("life-canvas");
                 // Attach wheel listener as non-passive so preventDefault works.
                 this._canvas.addEventListener('wheel', this.onWheel, {passive: false});
@@ -816,8 +892,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 var pendingRows = this.state.pendingRows;
                 // Use stable viewport dimensions from resize handler to prevent
                 // minor iOS address-bar fluctuations from resizing the canvas.
-                var winW = typeof window !== 'undefined' ? (this._lastResizeW || window.innerWidth) : 846;
-                var winH = typeof window !== 'undefined' ? (this._lastResizeH || window.innerHeight) : 900;
+                var winW = this._lastResizeW || window.innerWidth;
+                var winH = this._lastResizeH || window.innerHeight;
                 // Memoization: return cached result if inputs haven't changed.
                 var cacheKey = cellSize + ',' + pendingCols + ',' + pendingRows + ',' +
                     this.state.deviceClass + ',' + this.state.layoutMode + ',' +
@@ -831,10 +907,6 @@ document.addEventListener('DOMContentLoaded', function(){
                 var layout = this.state.layoutMode;
                 var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
                 var maxW, maxH;
-
-                if(typeof window === 'undefined'){
-                    maxW = 846; maxH = 900;
-                } else {
 
                     if(layout === 'cartographer'){
                         // Desktop/tablet: subtract rail width if not collapsed/hidden
@@ -863,15 +935,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         var hFrac = isMobile ? (isMobileToolsOpen ? 0.36 : 0.82) : 0.90;
                         maxH = Math.min(Math.round(winH * hFrac), 1400);
                     }
-                }
 
                 // Infinite canvas: always fill the available space regardless of boundary mode.
-                var isUnbounded = this.state.boundary === 'unbounded';
                 var w = maxW, h = maxH;
-                var displayScale = 1;
-                var displayW = Math.round(w * displayScale);
-                var displayH = Math.round(h * displayScale);
-                var result = {w: w, h: h, displayW: displayW, displayH: displayH};
+                var result = {w: w, h: h, displayW: w, displayH: h};
                 this._canvasSizeCacheKey = cacheKey;
                 this._canvasSizeCache = result;
                 return result;
@@ -932,6 +999,14 @@ document.addEventListener('DOMContentLoaded', function(){
                     this.setState({rleError: 'File too large (max 500 KB).'});
                     return;
                 }
+                // Basic file type validation.
+                var fileName = file.name || '';
+                var ext = fileName.split('.').pop().toLowerCase();
+                var allowedExts = ['rle', 'cells', 'lif', 'life', 'txt', 'mc', 'l'];
+                if(file.type && file.type !== 'text/plain' && file.type !== 'application/octet-stream' && allowedExts.indexOf(ext) === -1){
+                    this.setState({rleError: 'Unsupported file type. Use .rle, .cells, or .lif files.'});
+                    return;
+                }
                 var self = this;
                 var reader = new FileReader();
                 reader.onerror = function(){
@@ -942,16 +1017,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     // Strip non-printable control characters (keep tabs, newlines, CR).
                     text = text.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '');
                     try {
-                        var result;
-                        if(/^#Life\s+1\.06/m.test(text)){
-                            result = SimEngine.parseLife106(text);
-                        } else if(/^#Life\s+1\.05/m.test(text)){
-                            result = SimEngine.parseLife105(text);
-                        } else if(/[bo\$]/.test(text) && /!/.test(text)){
-                            result = SimEngine.parseRLE(text);
-                        } else {
-                            result = SimEngine.parsePlaintext(text);
-                        }
+                        var result = detectAndParsePattern(text);
                         if(result.cells.length === 0){
                             self.setState({rleError: 'No live cells found in file.'});
                             return;
@@ -963,8 +1029,11 @@ document.addEventListener('DOMContentLoaded', function(){
                             patternRotation : 0,
                             drawMode :        'preset',
                             showRle :         false,
-                            rleError :        result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
-                        }, function(){ self.drawBoard(); });
+                            rleError :        result.truncated ? 'Pattern truncated to ' + MAX_CELL_IMPORT.toLocaleString() + ' cells.' : ''
+                        }, function(){
+                            self.drawBoard();
+                            self._announce('Pattern imported. Click on the canvas to place it.');
+                        });
                     } catch(ex){
                         self.setState({rleError: 'Could not parse file: ' + (ex.message || 'unknown error')});
                     }
@@ -975,9 +1044,7 @@ document.addEventListener('DOMContentLoaded', function(){
             // ── Dark mode ──────────────────────────────────────────────────────
 
             _applyDarkMode : function(dark){
-                var el = document.documentElement;
-                if(dark){ el.classList.add('dark-mode'); }
-                else { el.classList.remove('dark-mode'); }
+                document.documentElement.classList.toggle('dark-mode', !!dark);
             },
 
             setDarkModePref : function(e){
@@ -988,6 +1055,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 else { dark = this._darkModeQuery && this._darkModeQuery.matches; }
                 this._applyDarkMode(dark);
                 this.setState({darkModePref: pref});
+                try { localStorage.setItem('life-dark-mode-pref', pref); } catch(ex){}
             },
 
             // ── Board construction ─────────────────────────────────────────────
@@ -1233,7 +1301,13 @@ document.addEventListener('DOMContentLoaded', function(){
 
                 // Pattern placement preview.
                 if(this.state.drawMode === 'preset' && this.state.selectedPattern && this._previewPos && PATTERNS[this.state.selectedPattern]){
-                    var pattern = SimEngine.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
+                    // Cache rotated pattern to avoid recomputing every frame.
+                    var ppCacheKey = this.state.selectedPattern + ':' + this.state.patternRotation;
+                    if(this._rotatedPatternKey !== ppCacheKey){
+                        this._rotatedPatternCache = SimEngine.rotatePattern(PATTERNS[this.state.selectedPattern], this.state.patternRotation);
+                        this._rotatedPatternKey = ppCacheKey;
+                    }
+                    var pattern = this._rotatedPatternCache;
                     var maxPR = 0, maxPC = 0;
                     for(var pi = 0; pi < pattern.length; pi++){
                         if(pattern[pi][0] > maxPR){ maxPR = pattern[pi][0]; }
@@ -1484,8 +1558,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 // 2. Rebuild quadtree from Map if stale
                 if(this._hlStale || !this._hlRoot){
                     var cells = [];
-                    var MAX_HL_COORD = 1000000;
-                    liveCells.forEach(function(age, key){
+                                        liveCells.forEach(function(age, key){
                         var _rc = parseKey(key), r = _rc[0], c = _rc[1];
                         if(r > -MAX_HL_COORD && r < MAX_HL_COORD && c > -MAX_HL_COORD && c < MAX_HL_COORD){
                             cells.push([r, c]);
@@ -1527,7 +1600,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var result = overlayAges(liveCells, newCells);
 
                 // 5. GC check
-                if(HashLife.poolSize() > 2000000){
+                if(HashLife.poolSize() > HL_GC_THRESHOLD){
                     HashLife.gc(this._hlRoot);
                 }
                 return result;
@@ -1546,8 +1619,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 // 2. Rebuild quadtree from Map if stale
                 if(this._hlStale || !this._hlRoot){
                     var cells = [];
-                    var MAX_HL_COORD = 1000000;
-                    liveCells.forEach(function(age, key){
+                                        liveCells.forEach(function(age, key){
                         var _rc = parseKey(key), r = _rc[0], c = _rc[1];
                         if(r > -MAX_HL_COORD && r < MAX_HL_COORD && c > -MAX_HL_COORD && c < MAX_HL_COORD){
                             cells.push([r, c]);
@@ -1594,7 +1666,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
                 var result = overlayAges(liveCells, newCells, numGens);
                 // 5. GC check
-                if(HashLife.poolSize() > 2000000){
+                if(HashLife.poolSize() > HL_GC_THRESHOLD){
                     HashLife.gc(this._hlRoot);
                 }
                 return { liveCells: result, pops: pops, peak: peak };
@@ -1687,34 +1759,40 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                     });
                     for(var ti = 0; ti < toDelete.length; ti++){ trailMap.delete(toDelete[ti]); }
-                    // Cap trail map size for performance.
+                    // Cap trail map size: prune entries with lowest values first.
                     if(trailMap.size > 50000){
-                        trailMap.clear();
+                        var pruneThreshold = 5;
+                        trailMap.forEach(function(val, key){
+                            if(val <= pruneThreshold){ trailMap.delete(key); }
+                        });
+                        // If still too large, clear entirely as last resort.
+                        if(trailMap.size > 50000){ trailMap.clear(); }
                     }
                 }
 
                 // Generation history snapshot for step-backward.
                 this._pushGenHistory();
 
-                // Stability detection via O(n) order-independent hash.
-                var _h1 = 0, _h2 = 0, _hCount = 0;
+                // Stability detection via O(n) order-independent hash (FNV-1a inspired).
+                var _h1 = 0, _h2 = 0x811c9dc5, _h3 = 0, _hCount = 0;
                 newLiveCells.forEach(function(age, key){
                     var _krc = parseKey(key), kr = _krc[0], kc = _krc[1];
                     var paired = kr >= kc ? kr * kr + kr + kc : kc * kc + kr;
                     _h1 = (_h1 + paired) | 0;
-                    _h2 = (_h2 ^ Math.imul(paired, 2654435761)) | 0;
+                    _h2 = Math.imul(_h2 ^ paired, 16777619) | 0;
+                    _h3 = (_h3 + Math.imul(paired, 2654435761)) | 0;
                     _hCount++;
                 });
-                var boardHash = _hCount + '|' + _h1 + '|' + _h2;
+                var boardHash = _hCount + '|' + _h1 + '|' + _h2 + '|' + _h3;
                 var isStable  = (boardHash === this._prevBoardHash);
                 this._prevBoardHash = boardHash;
                 this._stableCount = isStable ? this._stableCount + 1 : 0;
-                var hitStable = this._stableCount >= 2;
+                var hitStable = this._stableCount >= 2 && this.state.autoPauseOnStable;
 
                 var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory.slice();
                 newHistory.push(newPop);
-                if(newHistory.length > 10000){ newHistory.shift(); }
+                if(newHistory.length > 10000){ newHistory = newHistory.slice(newHistory.length - 10000); }
                 var newSessionPeak = Math.max(this.state.sessionPeakPop || 0, newPop);
                 // Store last measured GPS so it persists briefly after pausing.
                 this._gpsDisplayUntil = this._gpsDisplayUntil || 0;
@@ -1746,8 +1824,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 }, function(){
                     if(!self._mounted){ return; }
                     self.drawBoard();
-                    if(hitStable){ self._loopRunning = false; return; }
-                    var delay = SPEED_DELAYS[self.state.speed - 1];
+                    if(hitStable){ self._loopRunning = false; self._announce('Stable pattern detected \u2014 simulation paused'); return; }
+                    var delay = SPEED_DELAYS[Math.max(0, Math.min(9, (self.state.speed || 1) - 1))] || 0;
                     self._loopTimeout = setTimeout(function(){
                         self._rafId = requestAnimationFrame(function(){ self.findNewStates(myTickId); });
                     }, delay);
@@ -1756,7 +1834,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
             stepGame : function(){
                 this.pushUndo();
-                this._pushGenHistory();
                 var liveCells = this.state.liveCells;
                 var cols      = this.state.cols;
                 var rows      = this.state.rows;
@@ -1783,7 +1860,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory.slice();
                 newHistory.push(newPop);
-                if(newHistory.length > 10000){ newHistory.shift(); }
+                if(newHistory.length > 10000){ newHistory = newHistory.slice(newHistory.length - 10000); }
                 var newSessionPeakStep = Math.max(this.state.sessionPeakPop || 0, newPop);
                 this._minimapDirty = true;
                 var self = this;
@@ -1804,13 +1881,15 @@ document.addEventListener('DOMContentLoaded', function(){
                     liveCells :   new Map(this.state.liveCells),
                     generations : this.state.generations
                 });
-                if(this._undoStack.length > 30){ this._undoStack.shift(); }
+                if(this._undoStack.length > MAX_UNDO_STACK){ this._undoStack.shift(); }
+                this._redoStack = [];
             },
 
             popUndo : function(){
                 if(this._undoStack && this._undoStack.length > 0){
-                    this._undoStack.pop();
+                    return this._undoStack.pop();
                 }
+                return null;
             },
 
             cancelDrawTool : function(){
@@ -1822,8 +1901,37 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             undo : function(){
-                if(this._undoStack.length === 0){ return; }
+                if(this._undoStack.length === 0){ this._announce('Nothing to undo'); return; }
+                // Save current state for redo before restoring.
+                this._redoStack.push({
+                    liveCells: new Map(this.state.liveCells),
+                    generations: this.state.generations
+                });
+                if(this._redoStack.length > MAX_UNDO_STACK){ this._redoStack.shift(); }
                 var entry = this._undoStack.pop();
+                this._tickId++;
+                this._loopRunning = false;
+                this._prevBoardHash = null;
+                this._stableCount = 0;
+                this._minimapDirty = true;
+                var self = this;
+                this._hlStale = true;
+                this.setState({
+                    liveCells :   entry.liveCells,
+                    generations : entry.generations,
+                    running :     false,
+                    stable :      false
+                }, function(){ self.drawBoard(); });
+            },
+
+            redo : function(){
+                if(this._redoStack.length === 0){ this._announce('Nothing to redo'); return; }
+                // Save current state for undo before applying redo.
+                this._undoStack.push({
+                    liveCells: new Map(this.state.liveCells),
+                    generations: this.state.generations
+                });
+                var entry = this._redoStack.pop();
                 this._tickId++;
                 this._loopRunning = false;
                 this._prevBoardHash = null;
@@ -1854,9 +1962,14 @@ document.addEventListener('DOMContentLoaded', function(){
                 var rle = SimEngine.boardToRLE(this.state.liveCells, this.state.ruleString);
                 if(!rle){ return; }
                 var self = this;
+                var self2 = this;
                 this.setState({showRle: true, rleInput: rle, rleError: ''}, function(){
                     if(navigator.clipboard && navigator.clipboard.writeText){
-                        navigator.clipboard.writeText(rle);
+                        navigator.clipboard.writeText(rle).then(function(){
+                            self2._announce('RLE copied to clipboard');
+                        }).catch(function(){
+                            self2._announce('Could not copy to clipboard. Select and copy manually.');
+                        });
                     }
                 });
             },
@@ -1876,12 +1989,13 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Check total length — use compression for large patterns if available.
                 if(params.length > 4000){
                     // Too large for URL; fall back to copying RLE.
+                    this._announce('Pattern too large for URL sharing, copied RLE instead.');
                     this.copyRLE();
                     return;
                 }
                 var url = window.location.origin + window.location.pathname + '#' + params;
                 if(navigator.clipboard && navigator.clipboard.writeText){
-                    navigator.clipboard.writeText(url);
+                    navigator.clipboard.writeText(url).catch(function(){});
                 }
                 // Brief visual feedback.
                 var self = this;
@@ -1918,9 +2032,12 @@ document.addEventListener('DOMContentLoaded', function(){
                         updates.rulePreset = rule.toUpperCase();
                         this._hlStale = true;
                     }
-                    this.setState(updates, function(){ self.drawBoard(); });
+                    this.setState(updates, function(){
+                        self.drawBoard();
+                        self._announce('Pattern loaded from URL. Click on the canvas to place it.');
+                    });
                     // Clear hash so reloads don't re-import.
-                    if(history.replaceState){ history.replaceState(null, '', window.location.pathname); }
+                    try { if(history.replaceState){ history.replaceState(null, '', window.location.pathname); } } catch(ex2){}
                 } catch(ex){}
             },
 
@@ -2038,6 +2155,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                       vx: this.state.viewX, vy: this.state.viewY};
                     return;
                 }
+
+                // Hide stats chip during interactive drawing actions.
+                this._hideStatsChip();
 
                 // Selection mode: begin drag-select.
                 if(this.state.drawMode === 'select'){
@@ -2222,6 +2342,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             onMouseUp : function(){
+                this._showStatsChipAfterDelay();
                 this._minimapDragging = false;
                 if(this._panDragging){
                     this._panDragging = false;
@@ -2238,9 +2359,10 @@ document.addEventListener('DOMContentLoaded', function(){
                             var fcells = [];
                             var fcols = this.state.cols, frows = this.state.rows;
                             var self = this;
+                            var isUnboundedSel = this.state.boundary === 'unbounded';
                             for(var fr = minR; fr <= maxR; fr++)
                                 for(var fc = minC; fc <= maxC; fc++)
-                                    if(fc>=0 && fc<fcols && fr>=0 && fr<frows && self.pointInPolygon(fc, fr, path))
+                                    if((isUnboundedSel || (fc>=0 && fc<fcols && fr>=0 && fr<frows)) && self.pointInPolygon(fc, fr, path))
                                         fcells.push([fr, fc]);
                             this.setState({selection: {type:'freeform', path: path.slice(), cells: fcells}});
                         } else {
@@ -2330,7 +2452,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 this._minimapDragging = false;
                 this._panDragging = false;
                 this._panStart = null;
-                this.cancelDrawTool();
+                if(this._drawToolStart){
+                    this.cancelDrawTool();
+                    return;
+                }
                 if(this.state.drawMode === 'preset' && this.state.selectedPattern){
                     this._previewPos = null;
                     this.drawBoard();
@@ -2484,8 +2609,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 var rx = (cc2 - cc1) / 2, ry = (rr2 - rr1) / 2;
                 for(var r = rr1; r <= rr2; r++)
                     for(var c = cc1; c <= cc2; c++){
-                        var dx = (cx > 0 || rx > 0) ? (c - cx) / (rx + 0.5) : 0;
-                        var dy = (cy > 0 || ry > 0) ? (r - cy) / (ry + 0.5) : 0;
+                        var dx = rx > 0.001 ? (c - cx) / (rx + 0.5) : 0;
+                        var dy = ry > 0.001 ? (r - cy) / (ry + 0.5) : 0;
                         if(dx*dx + dy*dy <= 1) cells.push([r, c]);
                     }
                 return cells;
@@ -2501,8 +2626,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cells = [];
                 var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
                 liveCells.forEach(function(_, key){
-                    var parts = key.split(',');
-                    var r = +parts[0], c = +parts[1];
+                    var rc = parseKey(key);
+                    var r = rc[0], c = rc[1];
                     if(c >= viewX && c < viewX + viewCols && r >= viewY && r < viewY + viewRows){
                         cells.push([r, c]);
                         if(r < minR) minR = r; if(r > maxR) maxR = r;
@@ -2529,7 +2654,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
                 var contentPad = isMobile ? 24 : 40;
                 var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
-                var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
+
                 var isMobileToolsOpen = typeof window !== 'undefined'
                     && window.innerWidth <= 620 && this.state.bottomSheetOpen;
                 var hFrac = isMobile ? (isMobileToolsOpen ? 0.36 : 0.82) : 0.90;
@@ -2561,8 +2686,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(liveCells.size === 0){ this.fitView(); return; }
                 var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
                 liveCells.forEach(function(_, key){
-                    var parts = key.split(',');
-                    var r = parseInt(parts[0], 10), c = parseInt(parts[1], 10);
+                    var rc = parseKey(key);
+                    var r = rc[0], c = rc[1];
                     if(r < minR){ minR = r; } if(r > maxR){ maxR = r; }
                     if(c < minC){ minC = c; } if(c > maxC){ maxC = c; }
                 });
@@ -2574,7 +2699,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
                 var contentPad = isMobile ? 24 : 40;
                 var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
-                var isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
+
                 var isMobileToolsOpen = typeof window !== 'undefined'
                     && window.innerWidth <= 620 && this.state.bottomSheetOpen;
                 var hFrac = isMobile ? (isMobileToolsOpen ? 0.36 : 0.82) : 0.90;
@@ -2695,8 +2820,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             toggleMobileTools : function(){
-                var self = this;
-                this.setState({showMobileTools: !this.state.bottomSheetOpen}, function(){ self.drawBoard(); });
+                this.toggleBottomSheet();
             },
 
             // ── GIF recording ─────────────────────────────────────────────────
@@ -2709,7 +2833,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 } else {
                     // Start recording (requires gif.js loaded).
                     if(typeof GIF === 'undefined'){
-                        alert('gif.js is not loaded. Add it to index.html to enable GIF export.');
+                        this._announce('gif.js is not loaded. Add it to index.html to enable GIF export.');
                         return;
                     }
                     var delay = Math.max(20, SPEED_DELAYS[this.state.speed - 1] || 50);
@@ -2725,7 +2849,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         link.href = url;
                         link.download = 'life-gen' + self.state.generations + '.gif';
                         link.click();
-                        setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
+                        setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
                         self._gif = null;
                     });
                     this.setState({recording: true});
@@ -2967,13 +3091,17 @@ document.addEventListener('DOMContentLoaded', function(){
                         this.emptyBoard();
                         break;
                     case 'z': case 'Z':
-                        if(e.ctrlKey || e.metaKey){ e.preventDefault(); this.undo(); }
+                        if((e.ctrlKey || e.metaKey) && e.shiftKey){ e.preventDefault(); this.redo(); }
+                        else if(e.ctrlKey || e.metaKey){ e.preventDefault(); this.undo(); }
                         else if(this.state.layoutMode === 'observatory'){ this.toggleZenMode(); }
                         break;
                     case 'c': case 'C':
                         if((e.ctrlKey || e.metaKey) && this.state.selection){
                             e.preventDefault(); this.copySelection();
                         }
+                        break;
+                    case 'y': case 'Y':
+                        if(e.ctrlKey || e.metaKey){ e.preventDefault(); this.redo(); }
                         break;
                     case 'v': case 'V':
                         if((e.ctrlKey || e.metaKey) && this.state.clipboard){
@@ -2990,6 +3118,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         if(!e.ctrlKey && !e.metaKey){ e.preventDefault(); this.copyRLE(); }
                         break;
                     case 'f': case 'F':
+                        e.preventDefault();
                         this.fitView();
                         break;
                     case '[':
@@ -3244,6 +3373,20 @@ document.addEventListener('DOMContentLoaded', function(){
 
             // ── Toggles ───────────────────────────────────────────────────────
 
+            _hideStatsChip : function(){
+                this._statsChipHidden = true;
+                clearTimeout(this._statsChipTimer);
+            },
+
+            _showStatsChipAfterDelay : function(){
+                var self = this;
+                clearTimeout(this._statsChipTimer);
+                this._statsChipTimer = setTimeout(function(){
+                    self._statsChipHidden = false;
+                    self.forceUpdate();
+                }, STATS_CHIP_REAPPEAR_DELAY);
+            },
+
             toggleTrails : function(){
                 var newVal = !this.state.showTrails;
                 this._trailEnabled = newVal;
@@ -3253,7 +3396,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             setStepCount : function(e){
-                this.setState({stepCount: parseInt(e.target.value) || 1});
+                this.setState({stepCount: Math.min(10000, Math.max(1, parseInt(e.target.value, 10) || 1))});
             },
 
             // Advance N generations at once.
@@ -3418,7 +3561,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var newLiveCells = new Map();
                 oldLiveCells.forEach(function(age, key){
                     var _krc = parseKey(key), kr = _krc[0], kc = _krc[1];
-                    if(kr < newRows && kc < newCols){ newLiveCells.set(key, age); }
+                    if(kr >= 0 && kc >= 0 && kr < newRows && kc < newCols){ newLiveCells.set(key, age); }
                 });
                 var clamped = this.clampView(
                     this.state.viewX, this.state.viewY, newCols, newRows, this.state.cellSize);
@@ -3483,7 +3626,7 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             setDensity : function(e){
-                this.setState({sparseness : 9 - parseInt(e.target.value)});
+                this.setState({sparseness : 9 - (parseInt(e.target.value, 10) || 0)});
             },
 
             setSpeed : function(e){
@@ -3545,16 +3688,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 text = text.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '');
                 try {
                     // Auto-detect format.
-                    var result;
-                    if(/^#Life\s+1\.06/m.test(text)){
-                        result = SimEngine.parseLife106(text);
-                    } else if(/^#Life\s+1\.05/m.test(text)){
-                        result = SimEngine.parseLife105(text);
-                    } else if(/[bo\$]/.test(text) && /!/.test(text)){
-                        result = SimEngine.parseRLE(text);
-                    } else {
-                        result = SimEngine.parsePlaintext(text);
-                    }
+                    var result = detectAndParsePattern(text);
                     if(result.cells.length === 0){
                         this.setState({rleError : 'No live cells found in pattern.'}); return;
                     }
@@ -3565,7 +3699,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         selectedPattern : 'Custom',
                         patternRotation : 0,
                         showRle :         false,
-                        rleError :        result.truncated ? 'Pattern truncated to 100,000 cells.' : ''
+                        rleError :        result.truncated ? 'Pattern truncated to ' + MAX_CELL_IMPORT.toLocaleString() + ' cells.' : ''
                     }, function(){ self.drawBoard(); });
                 } catch(ex){
                     this.setState({rleError : 'Could not parse pattern: ' + ex.message});
@@ -3721,16 +3855,16 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <tr><td>Esc</td><td>Cancel / close</td></tr>
                                     <tr><td>M</td><td>Toggle minimap</td></tr>
                                     <tr><td>?</td><td>Show / hide this help</td></tr>
-                                    <tr><td colSpan="2" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em'}}>Touch gestures</td></tr>
+                                    <tr><th colSpan="2" scope="colgroup" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:'normal',textAlign:'left'}}>Touch gestures</th></tr>
                                     <tr><td>Tap</td><td>Paint / place cell</td></tr>
                                     <tr><td>Pinch</td><td>Zoom in / out</td></tr>
                                     <tr><td>2-finger drag</td><td>Pan viewport</td></tr>
                                     <tr><td>Long press</td><td>Show cell coordinates</td></tr>
-                                    <tr><td colSpan="2" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em'}}>File import</td></tr>
+                                    <tr><th colSpan="2" scope="colgroup" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:'normal',textAlign:'left'}}>File import</th></tr>
                                     <tr><td>Drag &amp; drop</td><td>Drop .rle/.cells file on canvas</td></tr>
                                 </tbody>
                             </table>
-                            <button className="btn help-close" onClick={this.toggleHelp} title="Close" aria-label="Close help dialog">Close</button>
+                            <button type="button" className="btn help-close" onClick={this.toggleHelp} title="Close" aria-label="Close help dialog">Close</button>
                         </div>
                     </div>
                 );
@@ -3801,9 +3935,9 @@ document.addEventListener('DOMContentLoaded', function(){
 
                 // Build a local HashLife tree for analysis (separate from main sim state).
                 var aRuleKey = birth.join(',') + '/' + survive.join(',');
+                var savedHlRuleKey = self._hlRuleKey;
                 if(aRuleKey !== self._hlRuleKey){
                     HashLife.init(birth, survive);
-                    self._hlRuleKey = aRuleKey;
                     self._hlStale = true;
                 }
                 var aCells = [];
@@ -3814,6 +3948,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 var aRoot = aTree.root, aOffR = aTree.offR, aOffC = aTree.offC;
 
                 function finishAnalysis(msg, duration){
+                    // Restore main simulation's rule key that may have been overwritten.
+                    self._hlRuleKey = savedHlRuleKey;
                     self.setState({analysisResult: msg, analyzing: false});
                     setTimeout(function(){ self.setState({analysisResult: null}); }, duration || 5000);
                 }
@@ -3970,7 +4106,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {/* Area fill */}
                                 <polygon fill={THEMES[this.state.theme] ? 'rgba(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ',0.2)' : 'rgba(112,149,154,0.2)'} points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
                             </svg>
-                            <button className="btn help-close" onClick={this.togglePopGraph} title="Close" aria-label="Close population graph">Close</button>
+                            <button type="button" className="btn help-close" onClick={this.togglePopGraph} title="Close" aria-label="Close population graph">Close</button>
                         </div>
                     </div>
                 );
@@ -4111,11 +4247,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         this._mmUnboundedRegion = {minR: newMinR, minC: newMinC, maxR: newMaxR, maxC: newMaxC};
                         mmMobOriginR = newMinR;
                         mmMobOriginC = newMinC;
-                        rows = newMaxR - newMinR + 1;
-                        cols = newMaxC - newMinC + 1;
+                        var mmRegionRows = newMaxR - newMinR + 1;
+                        var mmRegionCols = newMaxC - newMinC + 1;
                     } else {
                         mmMobOriginR = viewY - 50; mmMobOriginC = viewX - 50;
-                        rows = 100; cols = 100;
+                        var mmRegionRows = 100; var mmRegionCols = 100;
                     }
                 } else {
                     // Bounded modes: fixed world region = bounding box + live cells + static padding.
@@ -4130,11 +4266,11 @@ document.addEventListener('DOMContentLoaded', function(){
                     var pad2m = Math.max(5, Math.round(Math.max(mmMXR - mmMR, mmMXC - mmMC) * 0.1));
                     mmMobOriginR = mmMR - pad2m;
                     mmMobOriginC = mmMC - pad2m;
-                    rows = mmMXR - mmMR + pad2m * 2;
-                    cols = mmMXC - mmMC + pad2m * 2;
+                    var mmRegionRows = mmMXR - mmMR + pad2m * 2;
+                    var mmRegionCols = mmMXC - mmMC + pad2m * 2;
                 }
                 var MOBILE_MM_CSS_W = 160;
-                var mmAspect = cols / Math.max(1, rows);
+                var mmAspect = mmRegionCols / Math.max(1, mmRegionRows);
                 var mmH_css = Math.round(MOBILE_MM_CSS_W / mmAspect);
                 var mmW_css = MOBILE_MM_CSS_W;
 
@@ -4150,15 +4286,15 @@ document.addEventListener('DOMContentLoaded', function(){
                 mmCtx.fillStyle = 'rgba(10,14,26,0.85)';
                 mmCtx.fillRect(0, 0, mmW_css, mmH_css);
 
-                var cellW = mmW_css / cols;
-                var cellH = mmH_css / rows;
+                var cellW = mmW_css / mmRegionCols;
+                var cellH = mmH_css / mmRegionRows;
                 mmCtx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
 
-                var _mmMOR = mmMobOriginR, _mmMOC = mmMobOriginC, _mmMCols = cols, _mmMRows = rows;
+                var _mmMOR = mmMobOriginR, _mmMOC = mmMobOriginC, _mmMCols = mmRegionCols, _mmMRows = mmRegionRows;
                 liveCells.forEach(function(_, key){
-                    var parts = key.split(',');
-                    var kr = parseInt(parts[0], 10) - _mmMOR;
-                    var kc = parseInt(parts[1], 10) - _mmMOC;
+                    var rc = parseKey(key);
+                    var kr = rc[0] - _mmMOR;
+                    var kc = rc[1] - _mmMOC;
                     if(kr < 0 || kr >= _mmMRows || kc < 0 || kc >= _mmMCols) return;
                     var px = Math.floor(kc * cellW);
                     var py = Math.floor(kr * cellH);
@@ -4204,10 +4340,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Off-screen viewport indicator arrow.
                 var vpCenterCm = viewX + vpVisColsM / 2;
                 var vpCenterRm = viewY + vpVisRowsM / 2;
-                var vpOutsideM = vpCenterCm < mmMobOriginC || vpCenterCm > mmMobOriginC + cols ||
-                                 vpCenterRm < mmMobOriginR || vpCenterRm > mmMobOriginR + rows;
+                var vpOutsideM = vpCenterCm < mmMobOriginC || vpCenterCm > mmMobOriginC + mmRegionCols ||
+                                 vpCenterRm < mmMobOriginR || vpCenterRm > mmMobOriginR + mmRegionRows;
                 if(vpOutsideM){
-                    var mmCCm = mmMobOriginC + cols / 2, mmCRm = mmMobOriginR + rows / 2;
+                    var mmCCm = mmMobOriginC + mmRegionCols / 2, mmCRm = mmMobOriginR + mmRegionRows / 2;
                     var aaM = Math.atan2(vpCenterRm - mmCRm, vpCenterCm - mmCCm);
                     var apxM = mmW_css / 2 + Math.cos(aaM) * (mmW_css / 2 - 8);
                     var apyM = mmH_css / 2 + Math.sin(aaM) * (mmH_css / 2 - 8);
@@ -4234,7 +4370,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var mobileCtx = this._mobileMinimap.getContext('2d');
                 mobileCtx.drawImage(this._minimapCanvas, 0, 0);
                 // Store world dims for mobile minimap panning.
-                this._mmMobileWorld = {originC: mmMobOriginC, originR: mmMobOriginR, cols: cols, rows: rows};
+                this._mmMobileWorld = {originC: mmMobOriginC, originR: mmMobOriginR, cols: mmRegionCols, rows: mmRegionRows};
             },
 
             renderStats : function(){
@@ -4278,11 +4414,11 @@ document.addEventListener('DOMContentLoaded', function(){
                     <div className="mobile-context-panel">
                         {showRotation &&
                             <div className="rotation-btns">
-                                <button className="btn btn-rotate" onClick={this.rotateCCW}
+                                <button type="button" className="btn btn-rotate" onClick={this.rotateCCW}
                                     title="Rotate 90° counter-clockwise"><i className="fa fa-undo" aria-hidden="true"></i></button>
-                                <button className="btn btn-rotate" onClick={this.rotateCW}
+                                <button type="button" className="btn btn-rotate" onClick={this.rotateCW}
                                     title="Rotate 90° clockwise"><i className="fa fa-repeat" aria-hidden="true"></i></button>
-                                <button className="btn" onClick={function(){
+                                <button type="button" className="btn" onClick={function(){
                                     self._previewPos = null;
                                     self.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
                                         function(){ self.drawBoard(); });
@@ -4293,11 +4429,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                         {showSelection &&
                             <div className="buttons buttons-selection">
-                                <button className="btn" onClick={this.copySelection}
+                                <button type="button" className="btn" onClick={this.copySelection}
                                     disabled={!this.state.selection} title="Copy selected cells" aria-label="Copy selected cells">Copy</button>
-                                <button className="btn" onClick={this.pasteAsPattern}
+                                <button type="button" className="btn" onClick={this.pasteAsPattern}
                                     disabled={!this.state.clipboard || this.state.clipboard.length === 0} title="Paste copied cells" aria-label="Paste copied cells">Paste</button>
-                                <button className="btn" onClick={this.deleteSelection}
+                                <button type="button" className="btn" onClick={this.deleteSelection}
                                     disabled={!this.state.selection} title="Delete selected cells" aria-label="Delete selected cells">Delete</button>
                             </div>
                         }
@@ -4341,9 +4477,9 @@ document.addEventListener('DOMContentLoaded', function(){
                         <span className="toolbar-title">{"Conway's\nGame of Life"}</span>
                         <div className="toolbar-groups">
                             <div className="toolbar-group">
-                                <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Start or pause the simulation (Space)">{this.state.running ? "Pause" : "Play"}</button>
-                                <button className="btn" onClick={this.stepGame} title="Advance one generation (Enter)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
-                                <button className="btn" onClick={this.stepBack} title="Step backward to a previous generation (,)" disabled={this._genHistory.length === 0}>Back</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Start or pause the simulation (Space)">{this.state.running ? "Pause" : "Play"}</button>
+                                <button type="button" className="btn" onClick={this.stepGame} title="Advance one generation (Enter)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
+                                <button type="button" className="btn" onClick={this.stepBack} title="Step backward to a previous generation (,)" disabled={this._genHistory.length === 0}>Back</button>
                                 <select className="toolbar-step-select" value={this.state.stepCount} onChange={this.setStepCount} title="Advance N generations at once (Shift+.)">
                                     <option value="1">+1</option>
                                     <option value="10">+10</option>
@@ -4351,36 +4487,35 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <option value="100">+100</option>
                                     <option value="500">+500</option>
                                 </select>
-                                <button className="btn" onClick={function(){ self.stepN(self.state.stepCount); }} title="Advance multiple generations (Shift+.)">Go</button>
+                                <button type="button" className="btn" onClick={function(){ self.stepN(self.state.stepCount); }} title="Advance multiple generations (Shift+.)">Go</button>
                             </div>
                             <div className="toolbar-group">
-                                <button className="btn" onClick={this.resetGame} title="Randomize the board (R)"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
-                                <button className="btn" onClick={this.emptyBoard} title="Clear all cells (E)">Empty</button>
-                                <button className="btn" onClick={this.undo} title="Undo last edit (Ctrl+Z)">Undo</button>
+                                <button type="button" className="btn" onClick={this.resetGame} title="Randomize the board (R)"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
+                                <button type="button" className="btn" onClick={this.emptyBoard} title="Clear all cells (E)">Empty</button>
+                                <button type="button" className="btn" onClick={this.undo} title="Undo last edit (Ctrl+Z)">Undo</button>
                             </div>
                             <div className="toolbar-group">
-                                <button className="btn" onClick={this.fitView} title="Zoom to fit entire grid">Fit Grid</button>
-                                <button className="btn" onClick={this.fitLiveCells} title="Zoom to fit live cells">Fit Cells</button>
-                                <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines} title="Toggle grid lines (G)">Grid</button>
-                                <button className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails of recently-dead cells">Trails</button>
-                                <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)">Minimap</button>
+                                <button type="button" className="btn" onClick={this.fitView} title="Zoom to fit entire grid">Fit Grid</button>
+                                <button type="button" className="btn" onClick={this.fitLiveCells} title="Zoom to fit live cells">Fit Cells</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines} title="Toggle grid lines (G)">Grid</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails of recently-dead cells">Trails</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)">Minimap</button>
                             </div>
                             <div className="toolbar-group">
-                                <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode} title="Freehand draw mode (D)">Draw</button>
-                                <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode} title="Place preset patterns (P)">Preset</button>
-                                <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode} title="Select and move cells (S)">Select</button>
-                                <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
-                                <button className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary: Wrap → Hard → Infinite">{this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode} title="Freehand draw mode (D)">Draw</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode} title="Place preset patterns (P)">Preset</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode} title="Select and move cells (S)">Select</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary: Wrap → Hard → Infinite">{this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
                             </div>
                             <div className="toolbar-group">
-                                <button className="btn" onClick={this.analyzePattern} disabled={this.state.analyzing} title="Detect oscillator period or spaceship velocity">Analyze</button>
+                                <button type="button" className="btn" onClick={this.analyzePattern} disabled={this.state.analyzing} title="Detect oscillator period or spaceship velocity">Analyze</button>
                             </div>
                         </div>
                     </div>
                 );
             },
 
-            /* renderButtons removed — dead code, replaced by rail/bottom-sheet rendering */
 
             renderRulesSection : function(){
                 var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
@@ -4389,6 +4524,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div className="sidebar-section-title">Rules &amp; Display</div>
                         <div className="presets-col">
                             <select className="rule-preset-select"
+                                aria-label="Rule preset"
                                 value={this.state.rulePreset}
                                 onChange={this.setRulePreset}>
                                 <option value="">Rule preset...</option>
@@ -4397,6 +4533,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 })}
                             </select>
                             <select className="rule-preset-select"
+                                aria-label="Color theme"
                                 value={this.state.theme}
                                 onChange={this.setTheme}>
                                 {Object.keys(THEMES).map(function(t){
@@ -4404,6 +4541,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 })}
                             </select>
                             <select className="rule-preset-select"
+                                aria-label="Dark mode preference"
                                 value={this.state.darkModePref}
                                 onChange={this.setDarkModePref}
                                 title="UI dark mode preference">
@@ -4433,6 +4571,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <label className="slider-title">{"Width: " + this.state.pendingCols}</label>
                             <div className="slider-row">
                                 <input type="range" min="20" max="2000" step="10"
+                                    aria-label="Grid width"
                                     value={this.state.pendingCols}
                                     onChange={this.setWidth}
                                     onMouseUp={this.applyWidth}
@@ -4444,6 +4583,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <label className="slider-title">{"Height: " + this.state.pendingRows}</label>
                             <div className="slider-row">
                                 <input type="range" min="20" max="2000" step="10"
+                                    aria-label="Grid height"
                                     value={this.state.pendingRows}
                                     onChange={this.setHeight}
                                     onMouseUp={this.applyHeight}
@@ -4454,11 +4594,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         {!isUnbounded && <div className="sliders">
                             <label className="slider-title">Grid presets</label>
                             <div className="grid-presets">
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(100,100)}.bind(this)} title="Set grid to 100×100">100²</button>
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(200,200)}.bind(this)} title="Set grid to 200×200">200²</button>
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(400,400)}.bind(this)} title="Set grid to 400×400">400²</button>
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(1000,1000)}.bind(this)} title="Set grid to 1000×1000">1000²</button>
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(2000,2000)}.bind(this)} title="Set grid to 2000×2000">2000²</button>
+                                <button type="button" className="btn btn-xs" onClick={function(){this.applyGridPreset(100,100)}.bind(this)} title="Set grid to 100×100">100²</button>
+                                <button type="button" className="btn btn-xs" onClick={function(){this.applyGridPreset(200,200)}.bind(this)} title="Set grid to 200×200">200²</button>
+                                <button type="button" className="btn btn-xs" onClick={function(){this.applyGridPreset(400,400)}.bind(this)} title="Set grid to 400×400">400²</button>
+                                <button type="button" className="btn btn-xs" onClick={function(){this.applyGridPreset(1000,1000)}.bind(this)} title="Set grid to 1000×1000">1000²</button>
+                                <button type="button" className="btn btn-xs" onClick={function(){this.applyGridPreset(2000,2000)}.bind(this)} title="Set grid to 2000×2000">2000²</button>
                             </div>
                         </div>}
                         {isUnbounded && <div className="sliders">
@@ -4468,6 +4608,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <label className="slider-title">Fill Density (on Reset)</label>
                             <div className="slider-row">
                                 <input type="range" min="2" max="7"
+                                    aria-label="Fill density"
                                     value={9 - this.state.sparseness}
                                     onChange={this.setDensity} />
                             </div>
@@ -4477,6 +4618,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <label className="slider-title">{"Speed: " + speedLabel}</label>
                             <div className="slider-row">
                                 <input type="range" min="1" max="10"
+                                    aria-label="Simulation speed"
                                     value={this.state.speed}
                                     onChange={this.setSpeed} />
                             </div>
@@ -4485,6 +4627,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             <label className="slider-title">{"Zoom: " + this.state.cellSize + "\u00a0px/cell"}</label>
                             <div className="slider-row">
                                 <input type="range" min="1" max="32" step="1"
+                                    aria-label="Zoom level"
                                     value={this.state.cellSize}
                                     onChange={this.setZoom} />
                             </div>
@@ -4499,7 +4642,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div className="sidebar-section-title">Import / Export</div>
                         <div className="rle-section">
                             <div className="buttons rle-toggle-row">
-                                <button className={"btn btn-rle-toggle btn-block" + (this.state.showRle ? " active" : "")}
+                                <button type="button" className={"btn btn-rle-toggle btn-block" + (this.state.showRle ? " active" : "")}
                                     onClick={this.toggleRle}>Import RLE / Plaintext</button>
                             </div>
                             {this.state.showRle &&
@@ -4509,7 +4652,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                         placeholder={"Paste RLE or plaintext pattern\n(from LifeWiki or Golly)"}
                                         value={this.state.rleInput}
                                         onChange={this.setRleInput} />
-                                    <button className="btn btn-block" onClick={this.loadRle} title="Load the RLE or plaintext pattern">Load pattern</button>
+                                    <button type="button" className="btn btn-block" onClick={this.loadRle} title="Load the RLE or plaintext pattern">Load pattern</button>
                                     {this.state.rleError &&
                                         <p className="rle-error">{this.state.rleError}</p>
                                     }
@@ -4530,9 +4673,9 @@ document.addEventListener('DOMContentLoaded', function(){
                             height = {cs.h}
                             style  = {{width: cs.displayW + 'px', height: cs.displayH + 'px', display: 'block', margin: '0 auto'}}
                             id = "life-canvas"
-                            role = "img"
+                            role = "application"
                             aria-roledescription = "Game of Life grid"
-                            aria-label = {"Conway's Game of Life simulation canvas. Generation " + this.state.generations + ", population " + this.state.liveCells.size + ", " + (this.state.running ? "running" : "paused")}
+                            aria-label = "Conway's Game of Life simulation canvas"
                             draggable     = {false}
                             onMouseDown   = {this.onMouseDown}
                             onMouseMove   = {this.onMouseMove}
@@ -4542,7 +4685,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             onTouchStart  = {this.onTouchStart}
                             onTouchMove   = {this.onTouchMove}
                             onTouchEnd    = {this.onTouchEnd}></canvas>
-                        {this.state.analysisResult ? <button className={"analysis-result" + (this.state.analyzing ? " analysis-cancellable" : "")} onClick={this.state.analyzing ? this.cancelAnalysis : null} aria-live="assertive">{this.state.analysisResult}</button> : null}
+                        {this.state.analysisResult ? <button type="button" className={"analysis-result" + (this.state.analyzing ? " analysis-cancellable" : "")} onClick={this.state.analyzing ? this.cancelAnalysis : null} aria-live="assertive">{this.state.analysisResult}</button> : null}
                     </div>
                 );
             },
@@ -4552,17 +4695,17 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(compact){
                     return (
                         <div className="transport-controls transport-compact">
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Play/Pause (Space)"><i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i></button>
-                            <button className="btn" onClick={this.stepGame} title="Step (.)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
+                            <button type="button" className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Play/Pause (Space)"><i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i></button>
+                            <button type="button" className="btn" onClick={this.stepGame} title="Step (.)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
                             <span className="transport-speed-label">{"Gen " + this.state.generations.toLocaleString()}</span>
                         </div>
                     );
                 }
                 return (
                     <div className="transport-controls">
-                        <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Start or pause the simulation (Space)"><i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i> {this.state.running ? "Pause" : "Play"}</button>
-                        <button className="btn" onClick={this.stepGame} title="Advance one generation (Enter)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
-                        <button className="btn" onClick={this.stepBack} title="Step backward (,)" disabled={this._genHistory && this._genHistory.length === 0}><i className="fa fa-step-backward" aria-hidden="true"></i> Back</button>
+                        <button type="button" className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Start or pause the simulation (Space)"><i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i> {this.state.running ? "Pause" : "Play"}</button>
+                        <button type="button" className="btn" onClick={this.stepGame} title="Advance one generation (Enter)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
+                        <button type="button" className="btn" onClick={this.stepBack} title="Step backward (,)" disabled={this._genHistory && this._genHistory.length === 0}><i className="fa fa-step-backward" aria-hidden="true"></i> Back</button>
                         <select className="toolbar-step-select" value={this.state.stepCount} onChange={this.setStepCount} title="Advance N generations">
                             <option value="1">+1</option>
                             <option value="10">+10</option>
@@ -4570,10 +4713,10 @@ document.addEventListener('DOMContentLoaded', function(){
                             <option value="100">+100</option>
                             <option value="500">+500</option>
                         </select>
-                        <button className="btn" onClick={function(){ self.stepN(self.state.stepCount); }} title="Advance multiple generations"><i className="fa fa-fast-forward" aria-hidden="true"></i> Go</button>
-                        <button className="btn" onClick={this.resetGame} title="Randomize the board (R)"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
-                        <button className="btn" onClick={this.emptyBoard} title="Clear all cells (E)"><i className="fa fa-eraser" aria-hidden="true"></i> Empty</button>
-                        <button className="btn" onClick={this.undo} title="Undo last edit (Ctrl+Z)"><i className="fa fa-undo" aria-hidden="true"></i> Undo</button>
+                        <button type="button" className="btn" onClick={function(){ self.stepN(self.state.stepCount); }} title="Advance multiple generations"><i className="fa fa-fast-forward" aria-hidden="true"></i> Go</button>
+                        <button type="button" className="btn" onClick={this.resetGame} title="Randomize the board (R)"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
+                        <button type="button" className="btn" onClick={this.emptyBoard} title="Clear all cells (E)"><i className="fa fa-eraser" aria-hidden="true"></i> Empty</button>
+                        <button type="button" className="btn" onClick={this.undo} title="Undo last edit (Ctrl+Z)"><i className="fa fa-undo" aria-hidden="true"></i> Undo</button>
                     </div>
                 );
             },
@@ -4581,11 +4724,11 @@ document.addEventListener('DOMContentLoaded', function(){
             renderViewControls : function(){
                 return (
                     <div className="view-controls">
-                        <button className="btn" onClick={this.fitView} title="Zoom to fit entire grid"><i className="fa fa-arrows-alt" aria-hidden="true"></i> Fit Grid</button>
-                        <button className="btn" onClick={this.fitLiveCells} title="Zoom to fit live cells"><i className="fa fa-compress" aria-hidden="true"></i> Fit Cells</button>
-                        <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines} title="Toggle grid lines (G)"><i className="fa fa-th" aria-hidden="true"></i> Grid</button>
-                        <button className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails"><i className="fa fa-eye" aria-hidden="true"></i> Trails</button>
-                        <button className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap (M)"><i className="fa fa-map-o" aria-hidden="true"></i> Minimap</button>
+                        <button type="button" className="btn" onClick={this.fitView} title="Zoom to fit entire grid"><i className="fa fa-arrows-alt" aria-hidden="true"></i> Fit Grid</button>
+                        <button type="button" className="btn" onClick={this.fitLiveCells} title="Zoom to fit live cells"><i className="fa fa-compress" aria-hidden="true"></i> Fit Cells</button>
+                        <button type="button" className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines} title="Toggle grid lines (G)"><i className="fa fa-th" aria-hidden="true"></i> Grid</button>
+                        <button type="button" className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails"><i className="fa fa-eye" aria-hidden="true"></i> Trails</button>
+                        <button type="button" className={"btn btn-toggle" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap (M)"><i className="fa fa-map-o" aria-hidden="true"></i> Minimap</button>
                     </div>
                 );
             },
@@ -4593,12 +4736,12 @@ document.addEventListener('DOMContentLoaded', function(){
             renderModeControls : function(){
                 return (
                     <div className="mode-controls">
-                        <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode} title="Freehand draw mode (D)"><i className="fa fa-pencil" aria-hidden="true"></i> Draw</button>
-                        <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode} title="Place preset patterns (P)"><i className="fa fa-puzzle-piece" aria-hidden="true"></i> Preset</button>
-                        <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode} title="Select and move cells (S)"><i className="fa fa-mouse-pointer" aria-hidden="true"></i> Select</button>
-                        <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint while running"><i className="fa fa-paint-brush" aria-hidden="true"></i> Live Paint</button>
-                        <button className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary"><i className="fa fa-repeat" aria-hidden="true"></i> {this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
-                        <button className="btn" onClick={this.analyzePattern} disabled={this.state.analyzing} title="Detect oscillator/spaceship"><i className="fa fa-crosshairs" aria-hidden="true"></i> Analyze</button>
+                        <button type="button" className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode} title="Freehand draw mode (D)"><i className="fa fa-pencil" aria-hidden="true"></i> Draw</button>
+                        <button type="button" className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode} title="Place preset patterns (P)"><i className="fa fa-puzzle-piece" aria-hidden="true"></i> Preset</button>
+                        <button type="button" className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode} title="Select and move cells (S)"><i className="fa fa-mouse-pointer" aria-hidden="true"></i> Select</button>
+                        <button type="button" className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint while running"><i className="fa fa-paint-brush" aria-hidden="true"></i> Live Paint</button>
+                        <button type="button" className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary"><i className="fa fa-repeat" aria-hidden="true"></i> {this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
+                        <button type="button" className="btn" onClick={this.analyzePattern} disabled={this.state.analyzing} title="Detect oscillator/spaceship"><i className="fa fa-crosshairs" aria-hidden="true"></i> Analyze</button>
                     </div>
                 );
             },
@@ -4665,7 +4808,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                 </select>
                             </div>
                             <input className="pattern-filter-input"
-                                type="text" placeholder="Filter patterns..."
+                                type="search" placeholder="Filter patterns..."
+                                aria-label="Filter patterns"
                                 value={this.state.patternFilter}
                                 onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
                             {this.state.drawMode === 'preset' && this.state.selectedPattern &&
@@ -4674,9 +4818,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                         role="img" aria-label="Pattern rotation preview"
                                         ref={function(c){ self._previewCanvas = c; if(c) requestAnimationFrame(function(){ self.drawRotationPreview(); }); }} />
                                     <div className="rotation-btns">
-                                        <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise"><i className="fa fa-undo" aria-hidden="true"></i></button>
-                                        <button className="btn btn-rotate" onClick={this.rotateCW} title="Rotate 90° clockwise"><i className="fa fa-repeat" aria-hidden="true"></i></button>
-                                        <button className="btn" onClick={function(){
+                                        <button type="button" className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise"><i className="fa fa-undo" aria-hidden="true"></i></button>
+                                        <button type="button" className="btn btn-rotate" onClick={this.rotateCW} title="Rotate 90° clockwise"><i className="fa fa-repeat" aria-hidden="true"></i></button>
+                                        <button type="button" className="btn" onClick={function(){
                                             self._previewPos = null;
                                             self.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
                                                 function(){ self.drawBoard(); });
@@ -4688,10 +4832,10 @@ document.addEventListener('DOMContentLoaded', function(){
                             }
                             {this.state.selection &&
                                 <div className="buttons buttons-selection">
-                                    <button className="btn" onClick={this.copySelection} title="Copy selected cells" aria-label="Copy selected cells">Copy</button>
-                                    <button className="btn" onClick={this.pasteAsPattern}
+                                    <button type="button" className="btn" onClick={this.copySelection} title="Copy selected cells" aria-label="Copy selected cells">Copy</button>
+                                    <button type="button" className="btn" onClick={this.pasteAsPattern}
                                         disabled={!this.state.clipboard || this.state.clipboard.length === 0} title="Paste copied cells" aria-label="Paste copied cells">Paste</button>
-                                    <button className="btn" onClick={this.deleteSelection} title="Delete selected cells" aria-label="Delete selected cells">Delete</button>
+                                    <button type="button" className="btn" onClick={this.deleteSelection} title="Delete selected cells" aria-label="Delete selected cells">Delete</button>
                                 </div>
                             }
                         </div>
@@ -4705,10 +4849,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div className="sidebar-section-title">Import / Export</div>
                         <div className="btn-section">
                             <div className="buttons buttons-export">
-                                <button className="btn" onClick={this.exportPNG} title="Save as PNG"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
-                                <button className="btn" onClick={this.copyRLE} title="Copy board as RLE"><i className="fa fa-clipboard" aria-hidden="true"></i> Copy RLE</button>
-                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF" aria-label={this.state.recording ? "Stop recording" : "Record GIF"}><i className={"fa " + (this.state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {this.state.recording ? "Stop" : "Record"}</button>
-                                <button className="btn" onClick={this.shareURL} title="Copy shareable URL to clipboard" aria-label="Share simulation URL"><i className="fa fa-share-alt" aria-hidden="true"></i> {this.state.shareTooltip ? "Copied!" : "Share"}</button>
+                                <button type="button" className="btn" onClick={this.exportPNG} title="Save as PNG"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
+                                <button type="button" className="btn" onClick={this.copyRLE} title="Copy board as RLE"><i className="fa fa-clipboard" aria-hidden="true"></i> Copy RLE</button>
+                                <button type="button" className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF" aria-label={this.state.recording ? "Stop recording" : "Record GIF"}><i className={"fa " + (this.state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {this.state.recording ? "Stop" : "Record"}</button>
+                                <button type="button" className="btn" onClick={this.shareURL} title="Copy shareable URL to clipboard" aria-label="Share simulation URL"><i className="fa fa-share-alt" aria-hidden="true"></i> {this.state.shareTooltip ? "Copied!" : "Share"}</button>
                             </div>
                             {this.renderRLESection()}
                         </div>
@@ -4721,19 +4865,19 @@ document.addEventListener('DOMContentLoaded', function(){
                 var mode = this.state.layoutMode;
                 return (
                     <div className="layout-switcher">
-                        <button className={"btn btn-toggle" + (mode === 'cartographer' ? " active" : "")}
+                        <button type="button" className={"btn btn-toggle" + (mode === 'cartographer' ? " active" : "")}
                             onClick={function(){ self.setLayoutMode('cartographer'); }}
                             title="Cartographer: Edge rail with tabs"
                             aria-label="Cartographer layout: edge rail with tabs">
                             <i className="fa fa-columns"></i>
                         </button>
-                        <button className={"btn btn-toggle" + (mode === 'specimen' ? " active" : "")}
+                        <button type="button" className={"btn btn-toggle" + (mode === 'specimen' ? " active" : "")}
                             onClick={function(){ self.setLayoutMode('specimen'); }}
                             title="Specimen: Contextual toolbar"
                             aria-label="Specimen layout: contextual toolbar">
                             <i className="fa fa-window-maximize"></i>
                         </button>
-                        <button className={"btn btn-toggle" + (mode === 'observatory' ? " active" : "")}
+                        <button type="button" className={"btn btn-toggle" + (mode === 'observatory' ? " active" : "")}
                             onClick={function(){ self.setLayoutMode('observatory'); }}
                             title="Observatory: Floating panels"
                             aria-label="Observatory layout: floating panels">
@@ -4811,10 +4955,10 @@ document.addEventListener('DOMContentLoaded', function(){
                             <div className="rail-header">
                                 <span className="rail-title">{"Conway's Game of Life"}</span>
                                 <div className="rail-header-controls">
-                                    <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                    <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                         <i className="fa fa-question-circle" aria-hidden="true"></i>
                                     </button>
-                                    <button className="btn rail-collapse-btn" onClick={this.toggleRailCollapsed}
+                                    <button type="button" className="btn rail-collapse-btn" onClick={this.toggleRailCollapsed}
                                         aria-expanded={!this.state.railCollapsed}
                                         aria-label={this.state.railCollapsed ? "Expand controls panel" : "Collapse controls panel"}>
                                         {this.state.railCollapsed ? <i className="fa fa-chevron-left" aria-hidden="true"></i> : <i className="fa fa-chevron-right" aria-hidden="true"></i>}
@@ -4911,15 +5055,16 @@ document.addEventListener('DOMContentLoaded', function(){
                 return (
                     <div className="layout-cartographer layout-mobile">
                         {this.renderCanvas(cs)}
-                        {/* Stats overlay chip — hide when bottom sheet is open to avoid overlap */}
-                        {!this.state.bottomSheetOpen &&
+                        {/* Stats overlay chip — hide when bottom sheet open or during interactive actions */}
+                        {!this.state.bottomSheetOpen && !this._statsChipHidden &&
                             <div className="stats-chip" onClick={this.togglePopGraph}
                                 role="button" tabIndex="0" aria-atomic="true" aria-live="off"
                                 onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
                                 <span>{"Gen " + this.state.generations.toLocaleString()}</span>
                                 <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
-                                <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
-                                    {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
+                                <span className={"status-indicator status-icon " + (this.state.running ? "status-running" : "status-paused")}>
+                                    <i className={"fa " + (this.state.stable ? "fa-check-circle" : (this.state.running ? "fa-play" : "fa-pause"))} />
+                                    {" "}{this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
                                 </span>
                             </div>
                         }
@@ -4928,13 +5073,13 @@ document.addEventListener('DOMContentLoaded', function(){
                         {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {/* Bottom transport bar */}
                         <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
+                            <button type="button" className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
-                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
-                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
-                            <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
+                            <button type="button" className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
+                            <button type="button" className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
+                            <button type="button" className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                                 onClick={this.togglePanMode}
                                 aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
                                 aria-pressed={this.state.panMode}>
@@ -4946,10 +5091,10 @@ document.addEventListener('DOMContentLoaded', function(){
                                     ? this.state.selectedPattern
                                     : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
                             </span>
-                            <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                            <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
-                            <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                            <button type="button" className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
                                 aria-label="Open controls panel"><i className="fa fa-ellipsis-h" aria-hidden="true"></i></button>
@@ -5043,23 +5188,23 @@ document.addEventListener('DOMContentLoaded', function(){
                                     {this.renderModeControls()}
                                 </div>
                                 <div className="toolbar-group" role="group" aria-label="Settings and navigation">
-                                    <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                    <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                         <i className="fa fa-question-circle" aria-hidden="true"></i>
                                     </button>
                                     <div className="top-bar-more" role="group" aria-label="Settings panels">
-                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen ? " active" : "")}
+                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'simulate' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('simulate'); }}
                                         aria-expanded={this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen}><i className="fa fa-play" aria-hidden="true"></i> Simulate</button>
-                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : "")}
+                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools'); }}
                                         aria-expanded={this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen}><i className="fa fa-pencil" aria-hidden="true"></i> Tools</button>
-                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'board' && this.state.contextTrayOpen ? " active" : "")}
+                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'board' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'board' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('board'); }}
                                         aria-expanded={this.state.contextTrayContent === 'board' && this.state.contextTrayOpen}><i className="fa fa-th" aria-hidden="true"></i> Board</button>
-                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen ? " active" : "")}
+                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'rules' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('rules'); }}
                                         aria-expanded={this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen}><i className="fa fa-cog" aria-hidden="true"></i> Rules</button>
-                                    <button className={"btn btn-toggle" + (this.state.contextTrayContent === 'export' && this.state.contextTrayOpen ? " active" : "")}
+                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'export' && this.state.contextTrayOpen ? " active" : "")}
                                         onClick={function(){ self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export'); }}
                                         aria-expanded={this.state.contextTrayContent === 'export' && this.state.contextTrayOpen}><i className="fa fa-download" aria-hidden="true"></i> Export</button>
                                     </div>
@@ -5072,13 +5217,13 @@ document.addEventListener('DOMContentLoaded', function(){
                             <div className={"context-tray" + (this.state.contextTrayPinned ? " pinned" : "")}
                                 role="region" aria-label={this.state.contextTrayContent + " settings"}>
                                 <div className="context-tray-header">
-                                    <button className={"btn btn-toggle" + (this.state.contextTrayPinned ? " active" : "")}
+                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayPinned ? " active" : "")}
                                         onClick={this.toggleContextTrayPin}
                                         aria-pressed={this.state.contextTrayPinned}
                                         aria-label="Pin tray open">
                                         <i className="fa fa-thumb-tack" aria-hidden="true"></i>
                                     </button>
-                                    <button className="btn" onClick={function(){ self.setState({contextTrayOpen: false, contextTrayContent: null, contextTrayPinned: false}); }}
+                                    <button type="button" className="btn" onClick={function(){ self.setState({contextTrayOpen: false, contextTrayContent: null, contextTrayPinned: false}); }}
                                         aria-label="Close settings tray">&times;</button>
                                 </div>
                                 <div className="context-tray-body">
@@ -5088,7 +5233,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                         {/* HUD overlay */}
                         <div className="hud-overlay" onClick={this.togglePopGraph}
-                            role="status" aria-live="polite" aria-label="Simulation statistics"
+                            role="status" aria-live="off" aria-label="Simulation statistics"
                             tabIndex="0"
                             onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
                             <span>{"Gen " + this.state.generations.toLocaleString()}</span>
@@ -5152,13 +5297,13 @@ document.addEventListener('DOMContentLoaded', function(){
                                     {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
                                 </span>
                             </span>
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
+                            <button type="button" className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
-                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
-                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
-                            <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
+                            <button type="button" className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
+                            <button type="button" className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
+                            <button type="button" className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                                 onClick={this.togglePanMode}
                                 aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
                                 aria-pressed={this.state.panMode}>
@@ -5170,10 +5315,10 @@ document.addEventListener('DOMContentLoaded', function(){
                                     ? this.state.selectedPattern
                                     : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
                             </span>
-                            <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                            <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
-                            <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                            <button type="button" className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
                                 aria-label="Open controls panel"><i className="fa fa-ellipsis-h" aria-hidden="true"></i></button>
@@ -5252,16 +5397,16 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent())}
                                 {/* Panel menu */}
                                 <div className="panel-menu" role="group" aria-label="Panel visibility">
-                                    <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                                    <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                         <i className="fa fa-question-circle" aria-hidden="true"></i>
                                     </button>
-                                    <button className="btn panel-menu-toggle"
-                                        onClick={function(){ self.setState({_panelMenuOpen: !self.state._panelMenuOpen}); }}
-                                        aria-expanded={!!this.state._panelMenuOpen}
+                                    <button type="button" className="btn panel-menu-toggle"
+                                        onClick={function(){ self.setState({panelMenuOpen: !self.state.panelMenuOpen}); }}
+                                        aria-expanded={!!this.state.panelMenuOpen}
                                         aria-label="Toggle panel visibility menu">
                                         <i className="fa fa-th" aria-hidden="true"></i>
                                     </button>
-                                    {this.state._panelMenuOpen &&
+                                    {this.state.panelMenuOpen &&
                                         <div className="panel-menu-list" role="group" aria-label="Panel toggles">
                                             {['transport','view','mode','tools','board','rules','stats','importExport'].map(function(id){
                                                 var label = id === 'importExport' ? 'Import / Export' : id.charAt(0).toUpperCase() + id.slice(1);
@@ -5325,13 +5470,13 @@ document.addEventListener('DOMContentLoaded', function(){
                         {this.renderCanvas(cs)}
                         {/* Bottom transport bar */}
                         <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
-                            <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
+                            <button type="button" className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
                                 <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
                             </button>
-                            <button className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
-                            <button className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
-                            <button className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
+                            <button type="button" className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
+                            <button type="button" className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
+                            <button type="button" className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
                                 onClick={this.togglePanMode}
                                 aria-label={this.state.panMode ? "Switch to draw mode" : "Switch to pan mode"}
                                 aria-pressed={this.state.panMode}>
@@ -5343,10 +5488,10 @@ document.addEventListener('DOMContentLoaded', function(){
                                     ? this.state.selectedPattern
                                     : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
                             </span>
-                            <button className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
+                            <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                 <i className="fa fa-question-circle" aria-hidden="true"></i>
                             </button>
-                            <button className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
+                            <button type="button" className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
                                 onClick={this.toggleBottomSheet}
                                 aria-expanded={this.state.bottomSheetOpen}
                                 aria-label="Open controls panel"><i className="fa fa-ellipsis-h" aria-hidden="true"></i></button>
@@ -5422,13 +5567,13 @@ document.addEventListener('DOMContentLoaded', function(){
                             onMouseDown={function(e){ self._startPanelDrag(panelId, e); }}
                             onTouchStart={function(e){ self._startPanelDrag(panelId, e); }}>
                             <span className="float-panel-title" id={"panel-title-" + panelId}>{label}</span>
-                            <button className="btn float-panel-collapse"
+                            <button type="button" className="btn float-panel-collapse"
                                 onClick={function(){ self._togglePanelCollapse(panelId); }}
                                 aria-expanded={!ps.collapsed}
                                 aria-label={ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"}>
                                 {ps.collapsed ? "+" : "\u2013"}
                             </button>
-                            <button className="btn float-panel-close"
+                            <button type="button" className="btn float-panel-close"
                                 onClick={function(){ self._togglePanelOpen(panelId); }}
                                 aria-label={"Close " + label + " panel"}>&times;</button>
                         </div>
@@ -5554,7 +5699,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 return (
                     <div className={"app-root layout-" + layout} role="application"
                         aria-label="Conway's Game of Life">
-                        <a className="skip-to-content" href="#life-canvas">Skip to canvas</a>
+                        <a className="skip-to-content" href="#life-canvas">Skip to simulation</a>
                         <div className="sr-only" aria-live="polite" aria-atomic="true">
                             {this.state.srAnnouncement}
                         </div>
@@ -5567,5 +5712,4 @@ document.addEventListener('DOMContentLoaded', function(){
         });
 
         ReactDOM.render(<div><LifeBoard/></div>, document.getElementById("content"));
-    })();
 });
