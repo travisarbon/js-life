@@ -3642,7 +3642,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <tr><td>Drag &amp; drop</td><td>Drop .rle/.cells file on canvas</td></tr>
                                 </tbody>
                             </table>
-                            <button className="btn help-close" onClick={this.toggleHelp}>Close</button>
+                            <button className="btn help-close" onClick={this.toggleHelp} title="Close" aria-label="Close help dialog">Close</button>
                         </div>
                     </div>
                 );
@@ -3882,7 +3882,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {/* Area fill */}
                                 <polygon fill={THEMES[this.state.theme] ? 'rgba(' + THEMES[this.state.theme].aliveR + ',' + THEMES[this.state.theme].aliveG + ',' + THEMES[this.state.theme].aliveB + ',0.2)' : 'rgba(112,149,154,0.2)'} points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
                             </svg>
-                            <button className="btn help-close" onClick={this.togglePopGraph}>Close</button>
+                            <button className="btn help-close" onClick={this.togglePopGraph} title="Close" aria-label="Close population graph">Close</button>
                         </div>
                     </div>
                 );
@@ -4191,9 +4191,9 @@ document.addEventListener('DOMContentLoaded', function(){
                         {showRotation &&
                             <div className="rotation-btns">
                                 <button className="btn btn-rotate" onClick={this.rotateCCW}
-                                    title="Rotate 90° counter-clockwise">&#8634;</button>
+                                    title="Rotate 90° counter-clockwise"><i className="fa fa-undo" aria-hidden="true"></i></button>
                                 <button className="btn btn-rotate" onClick={this.rotateCW}
-                                    title="Rotate 90° clockwise">&#8635;</button>
+                                    title="Rotate 90° clockwise"><i className="fa fa-repeat" aria-hidden="true"></i></button>
                                 <button className="btn" onClick={function(){
                                     self._previewPos = null;
                                     self.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
@@ -4206,11 +4206,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         {showSelection &&
                             <div className="buttons buttons-selection">
                                 <button className="btn" onClick={this.copySelection}
-                                    disabled={!this.state.selection}>Copy</button>
+                                    disabled={!this.state.selection} title="Copy selected cells" aria-label="Copy selected cells">Copy</button>
                                 <button className="btn" onClick={this.pasteAsPattern}
-                                    disabled={!this.state.clipboard || this.state.clipboard.length === 0}>Paste</button>
+                                    disabled={!this.state.clipboard || this.state.clipboard.length === 0} title="Paste copied cells" aria-label="Paste copied cells">Paste</button>
                                 <button className="btn" onClick={this.deleteSelection}
-                                    disabled={!this.state.selection}>Delete</button>
+                                    disabled={!this.state.selection} title="Delete selected cells" aria-label="Delete selected cells">Delete</button>
                             </div>
                         }
                     </div>
@@ -4292,157 +4292,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 );
             },
 
-            renderButtons : function(){
-                var self = this;
-                var filterLc = this.state.patternFilter.toLowerCase();
-                var patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
-                    var names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
-                        return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
-                    });
-                    if(names.length === 0){ return null; }
-                    var opts = names.map(function(name){
-                        var meta = PATTERN_META[name];
-                        var title = '';
-                        if(meta){
-                            if(meta.type === 'Still life'){
-                                title = 'Still life \xB7 ' + meta.cells + ' cells';
-                            } else if(meta.type === 'Oscillator'){
-                                title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-                            } else if(meta.type === 'Spaceship'){
-                                title = 'Spaceship \xB7 Period\u00a0' + meta.period +
-                                    (meta.note ? ' \xB7 ' + meta.note : '');
-                            } else if(meta.type === 'Methuselah'){
-                                title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';
-                            } else if(meta.type === 'Gun'){
-                                title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-                            }
-                        }
-                        return <option key={name} value={name} title={title}>{name}</option>;
-                    });
-                    return <optgroup key={group} label={group}>{opts}</optgroup>;
-                }).filter(function(x){ return x !== null; });
-                if(PATTERNS['Custom']){
-                    patternOptions = patternOptions.concat(
-                        <optgroup key="custom" label="Custom">
-                            <option value="Custom">Custom</option>
-                        </optgroup>
-                    );
-                }
-                return (
-                    <div className="buttons-container">
-                        {/* Simulation buttons: shown in sidebar on mobile only.
-                            On desktop/tablet these live in the toolbar. */}
-                        <div className="sidebar-section sidebar-btn-groups">
-                            <div className="sidebar-section-title">Simulation</div>
-                            <div className="btn-section">
-                                <div className="buttons">
-                                    <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame} title="Start or pause the simulation (Space)">{this.state.running ? "Pause" : "Play"}</button>
-                                    <button className="btn" onClick={this.stepGame} title="Advance one generation (Enter)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
-                                    <button className="btn" onClick={this.stepBack} disabled={this._genHistory.length === 0} title="Step backward to a previous generation (,)">Back</button>
-                                    <button className="btn" onClick={this.resetGame} title="Randomize the board (R)"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
-                                    <button className="btn" onClick={this.emptyBoard} title="Clear all cells (E)">Empty</button>
-                                    <button className="btn" onClick={this.undo} title="Undo last edit (Ctrl+Z)">Undo</button>
-                                </div>
-                                <div className="buttons buttons-secondary" style={{gridTemplateColumns:'1fr 1fr'}}>
-                                    <select className="btn" value={this.state.stepCount} onChange={this.setStepCount} title="Advance N generations at once (Shift+.)">
-                                        <option value="1">+1 gen</option>
-                                        <option value="10">+10 gen</option>
-                                        <option value="50">+50 gen</option>
-                                        <option value="100">+100 gen</option>
-                                        <option value="500">+500 gen</option>
-                                    </select>
-                                    <button className="btn" onClick={function(){ self.stepN(self.state.stepCount); }} title="Advance multiple generations (Shift+.)">Go</button>
-                                </div>
-                                <div className="buttons buttons-secondary">
-                                    <button className="btn" onClick={this.fitView} title="Zoom to fit entire grid">Fit Grid</button>
-                                    <button className="btn" onClick={this.fitLiveCells} title="Zoom to fit live cells">Fit Cells</button>
-                                    <button className={"btn btn-toggle" + (this.state.gridLines ? " active" : "")} onClick={this.toggleGridLines} title="Toggle grid lines (G)">Grid</button>
-                                    <button className={"btn btn-toggle" + (this.state.showTrails ? " active" : "")} onClick={this.toggleTrails} title="Show ghost trails of recently-dead cells">Trails</button>
-                                    <button className={"btn btn-toggle btn-minimap-full" + (this.state.showMinimap ? " active" : "")} onClick={this.toggleMinimap} title="Show/hide minimap overview (M)">Minimap</button>
-                                </div>
-                                <div className="buttons buttons-secondary">
-                                    <button className={"btn btn-toggle" + (this.state.drawMode === 'paint' ? " active" : "")} onClick={this.toggleDrawMode} title="Freehand draw mode (D)">Draw</button>
-                                    <button className={"btn btn-toggle" + (this.state.drawMode === 'preset' ? " active" : "")} onClick={this.togglePresetMode} title="Place preset patterns (P)">Preset</button>
-                                    <button className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode} title="Select and move cells (S)">Select</button>
-                                    <button className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint cells while the simulation is running">Live Paint</button>
-                                    <button className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary: Wrap → Hard → Infinite">{this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
-                                    <button className="btn" onClick={this.analyzePattern} disabled={this.state.analyzing} title="Detect oscillator period or spaceship velocity">Analyze</button>
-                                </div>
-                            </div>
-                        </div>
-                        {/* Tool controls: always in sidebar on all screen sizes. */}
-                        <div className="sidebar-section sidebar-tools-section">
-                            <div className="sidebar-section-title">Tools</div>
-                            <div className="btn-section">
-                                <div className="tool-subtype-row">
-                                    <label className="tool-label">Draw:</label>
-                                    <select value={this.state.drawTool}
-                                            onChange={function(e){ self.setState({drawTool: e.target.value, drawMode: 'paint', selection: null}); }}>
-                                        <option value="cell">Cell paint</option>
-                                        <option value="line">Line</option>
-                                        <option value="fill">Flood fill</option>
-                                        <option value="shape-rect">Rectangle</option>
-                                        <option value="shape-circle">Circle</option>
-                                    </select>
-                                </div>
-                                <div className="tool-subtype-row">
-                                    <label className="tool-label">Select:</label>
-                                    <select value={this.state.selectTool}
-                                            onChange={function(e){ self.setState({selectTool: e.target.value, drawMode: 'select', selection: null}); }}>
-                                        <option value="rect">Rectangle</option>
-                                        <option value="ellipse">Ellipse</option>
-                                        <option value="freeform">Freeform</option>
-                                        <option value="all-visible">All visible</option>
-                                    </select>
-                                </div>
-                                <div className="tool-subtype-row">
-                                    <label className="tool-label">Preset:</label>
-                                    <select className={"preset-select" + (this.state.drawMode === 'preset' && this.state.selectedPattern ? " active" : "")}
-                                        value={this.state.selectedPattern || ""}
-                                        onChange={this.selectPattern}>
-                                        <option value="">Choose preset...</option>
-                                        {patternOptions}
-                                    </select>
-                                </div>
-                                <input className="pattern-filter-input"
-                                    type="text"
-                                    placeholder="Filter patterns..."
-                                    value={this.state.patternFilter}
-                                    onChange={function(e){ self.setState({patternFilter: e.target.value}); }} />
-                                {this.state.drawMode === 'preset' && this.state.selectedPattern &&
-                                    <div className="rotation-row">
-                                        <canvas className="rotation-preview"
-                                            width="96" height="96"
-                                            role="img" aria-label="Pattern rotation preview"
-                                            ref={function(c){ self._previewCanvas = c; }} />
-                                        <div className="rotation-btns">
-                                            <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise">&#8634;</button>
-                                            <button className="btn btn-rotate" onClick={this.rotateCW}  title="Rotate 90° clockwise">&#8635;</button>
-                                        </div>
-                                    </div>
-                                }
-                                {this.state.selection &&
-                                    <div className="buttons buttons-selection">
-                                        <button className="btn" onClick={this.copySelection} title="Copy selected cells">Copy</button>
-                                        <button className="btn" onClick={this.pasteAsPattern}
-                                            disabled={!this.state.clipboard || this.state.clipboard.length === 0} title="Paste copied cells">Paste</button>
-                                        <button className="btn" onClick={this.deleteSelection} title="Delete selected cells (Delete)">Delete</button>
-                                    </div>
-                                }
-                                <div className="buttons buttons-export">
-                                    <button className="btn" onClick={this.exportPNG} title="Save the current board as a PNG image">Export PNG</button>
-                                    <button className="btn" onClick={this.copyRLE} title="Copy board state as RLE to clipboard">Copy RLE</button>
-                                    <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF of the simulation">{this.state.recording ? "Stop" : "Record"}</button>
-                                    <button className="btn" onClick={this.shareURL} title="Copy a shareable URL to clipboard">{this.state.shareTooltip ? "Copied!" : "Share"}</button>
-                                </div>
-                                <div className="buttons buttons-help">
-                                    <button className="btn" onClick={this.toggleHelp} title="Show keyboard shortcuts and help (?)">Help</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            },
+            /* renderButtons removed — dead code, replaced by rail/bottom-sheet rendering */
 
             renderRulesSection : function(){
                 var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
@@ -4516,11 +4366,11 @@ document.addEventListener('DOMContentLoaded', function(){
                         {!isUnbounded && <div className="sliders">
                             <label className="slider-title">Grid presets</label>
                             <div className="grid-presets">
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(100,100)}.bind(this)}>100²</button>
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(200,200)}.bind(this)}>200²</button>
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(400,400)}.bind(this)}>400²</button>
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(1000,1000)}.bind(this)}>1000²</button>
-                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(2000,2000)}.bind(this)}>2000²</button>
+                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(100,100)}.bind(this)} title="Set grid to 100×100">100²</button>
+                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(200,200)}.bind(this)} title="Set grid to 200×200">200²</button>
+                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(400,400)}.bind(this)} title="Set grid to 400×400">400²</button>
+                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(1000,1000)}.bind(this)} title="Set grid to 1000×1000">1000²</button>
+                                <button className="btn btn-xs" onClick={function(){this.applyGridPreset(2000,2000)}.bind(this)} title="Set grid to 2000×2000">2000²</button>
                             </div>
                         </div>}
                         {isUnbounded && <div className="sliders">
@@ -4571,7 +4421,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                         placeholder={"Paste RLE or plaintext pattern\n(from LifeWiki or Golly)"}
                                         value={this.state.rleInput}
                                         onChange={this.setRleInput} />
-                                    <button className="btn btn-block" onClick={this.loadRle}>Load pattern</button>
+                                    <button className="btn btn-block" onClick={this.loadRle} title="Load the RLE or plaintext pattern">Load pattern</button>
                                     {this.state.rleError &&
                                         <p className="rle-error">{this.state.rleError}</p>
                                     }
@@ -4736,8 +4586,8 @@ document.addEventListener('DOMContentLoaded', function(){
                                         role="img" aria-label="Pattern rotation preview"
                                         ref={function(c){ self._previewCanvas = c; }} />
                                     <div className="rotation-btns">
-                                        <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° CCW">&#8634;</button>
-                                        <button className="btn btn-rotate" onClick={this.rotateCW} title="Rotate 90° CW">&#8635;</button>
+                                        <button className="btn btn-rotate" onClick={this.rotateCCW} title="Rotate 90° counter-clockwise"><i className="fa fa-undo" aria-hidden="true"></i></button>
+                                        <button className="btn btn-rotate" onClick={this.rotateCW} title="Rotate 90° clockwise"><i className="fa fa-repeat" aria-hidden="true"></i></button>
                                         <button className="btn" onClick={function(){
                                             self._previewPos = null;
                                             self.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
@@ -4750,10 +4600,10 @@ document.addEventListener('DOMContentLoaded', function(){
                             }
                             {this.state.selection &&
                                 <div className="buttons buttons-selection">
-                                    <button className="btn" onClick={this.copySelection}>Copy</button>
+                                    <button className="btn" onClick={this.copySelection} title="Copy selected cells" aria-label="Copy selected cells">Copy</button>
                                     <button className="btn" onClick={this.pasteAsPattern}
-                                        disabled={!this.state.clipboard || this.state.clipboard.length === 0}>Paste</button>
-                                    <button className="btn" onClick={this.deleteSelection}>Delete</button>
+                                        disabled={!this.state.clipboard || this.state.clipboard.length === 0} title="Paste copied cells" aria-label="Paste copied cells">Paste</button>
+                                    <button className="btn" onClick={this.deleteSelection} title="Delete selected cells" aria-label="Delete selected cells">Delete</button>
                                 </div>
                             }
                         </div>
@@ -4769,8 +4619,8 @@ document.addEventListener('DOMContentLoaded', function(){
                             <div className="buttons buttons-export">
                                 <button className="btn" onClick={this.exportPNG} title="Save as PNG"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
                                 <button className="btn" onClick={this.copyRLE} title="Copy board as RLE"><i className="fa fa-clipboard" aria-hidden="true"></i> Copy RLE</button>
-                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording}><i className={"fa " + (this.state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {this.state.recording ? "Stop" : "Record"}</button>
-                                <button className="btn" onClick={this.shareURL}><i className="fa fa-share-alt" aria-hidden="true"></i> {this.state.shareTooltip ? "Copied!" : "Share"}</button>
+                                <button className={"btn btn-toggle" + (this.state.recording ? " active btn-record" : "")} onClick={this.toggleRecording} title="Record an animated GIF" aria-label={this.state.recording ? "Stop recording" : "Record GIF"}><i className={"fa " + (this.state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {this.state.recording ? "Stop" : "Record"}</button>
+                                <button className="btn" onClick={this.shareURL} title="Copy shareable URL to clipboard" aria-label="Share simulation URL"><i className="fa fa-share-alt" aria-hidden="true"></i> {this.state.shareTooltip ? "Copied!" : "Share"}</button>
                             </div>
                             {this.renderRLESection()}
                         </div>
@@ -4879,7 +4729,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <button className="btn rail-collapse-btn" onClick={this.toggleRailCollapsed}
                                         aria-expanded={!this.state.railCollapsed}
                                         aria-label={this.state.railCollapsed ? "Expand controls panel" : "Collapse controls panel"}>
-                                        {this.state.railCollapsed ? "\u25C0" : "\u25B6"}
+                                        {this.state.railCollapsed ? <i className="fa fa-chevron-left" aria-hidden="true"></i> : <i className="fa fa-chevron-right" aria-hidden="true"></i>}
                                     </button>
                                 </div>
                             </div>
@@ -5205,6 +5055,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div className="top-bar top-bar-mobile" role="toolbar" aria-label="Simulation transport">
                             <span className="stats-chip-inline">
                                 {"Gen " + this.state.generations.toLocaleString() + "\u2002Pop " + this.state.liveCells.size.toLocaleString()}
+                                {" "}
+                                <span className={"status-indicator " + (this.state.stable ? "status-stable" : (this.state.running ? "status-running" : "status-paused"))}>
+                                    {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
+                                </span>
                             </span>
                             <button className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
                                 aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
