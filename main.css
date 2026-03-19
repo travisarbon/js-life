@@ -577,7 +577,8 @@ canvas.display {
 
 /* ── Mobile minimap area ──────────────────────────────────────────────────── */
 .mobile-minimap-area {
-  display: none; }
+  display: none;
+  transition: right var(--transition-normal), left var(--transition-normal); }
 
 /* ── Sidebar overflow fixes ───────────────────────────────────────────────── */
 #content .rule-preset-select,
@@ -1475,13 +1476,24 @@ canvas.display {
     bottom: 60px;
     right: var(--space-md);
     left: auto;
-    z-index: calc(var(--z-panels) + 2);
+    z-index: var(--z-panels);
     padding: 0; }
   .mobile-minimap-canvas {
     border: 1px solid var(--separator-strong);
     border-radius: var(--radius-sm);
     cursor: crosshair;
     touch-action: none; }
+  /* Shift minimap away from Cartographer rail */
+  .rail-right:not(.rail-hidden) ~ .mobile-minimap-area {
+    right: calc(var(--space-md) + 240px); }
+  .rail-right.rail-collapsed ~ .mobile-minimap-area {
+    right: calc(var(--space-md) + 44px); }
+  .rail-left:not(.rail-hidden) ~ .mobile-minimap-area {
+    left: calc(var(--space-md) + 240px);
+    right: auto; }
+  .rail-left.rail-collapsed ~ .mobile-minimap-area {
+    left: calc(var(--space-md) + 44px);
+    right: auto; }
 }
 
 /* ── Tablet (621px–900px) ─────────────────────────────────────────────── */
@@ -1514,13 +1526,24 @@ canvas.display {
     bottom: 60px;
     right: var(--space-md);
     left: auto;
-    z-index: calc(var(--z-panels) + 2);
+    z-index: var(--z-panels);
     padding: 0; }
   .mobile-minimap-canvas {
     border: 1px solid var(--separator-strong);
     border-radius: var(--radius-sm);
     cursor: crosshair;
     touch-action: none; }
+  /* Shift minimap away from Cartographer rail on tablets */
+  .rail-right:not(.rail-hidden) ~ .mobile-minimap-area {
+    right: calc(var(--space-md) + 220px); }
+  .rail-right.rail-collapsed ~ .mobile-minimap-area {
+    right: calc(var(--space-md) + 44px); }
+  .rail-left:not(.rail-hidden) ~ .mobile-minimap-area {
+    left: calc(var(--space-md) + 220px);
+    right: auto; }
+  .rail-left.rail-collapsed ~ .mobile-minimap-area {
+    left: calc(var(--space-md) + 44px);
+    right: auto; }
 }
 
 /* ── Phone portrait (<=620px) ─────────────────────────────────────────── */

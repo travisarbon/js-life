@@ -712,8 +712,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Memoization: return cached result if inputs haven't changed.
                 var cacheKey = cellSize + ',' + pendingCols + ',' + pendingRows + ',' +
                     this.state.deviceClass + ',' + this.state.layoutMode + ',' +
-                    this.state.boundary + ',' + this.state.railCollapsed + ',' +
-                    this.state.railHidden + ',' + this.state.bottomSheetOpen + ',' +
+                    this.state.boundary + ',' + this.state.bottomSheetOpen + ',' +
                     winW + ',' + winH;
                 if(this._canvasSizeCacheKey === cacheKey && this._canvasSizeCache){
                     return this._canvasSizeCache;
@@ -723,28 +722,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
                 var maxW, maxH;
 
-                    if(layout === 'cartographer'){
-                        // Desktop/tablet: subtract rail width if not collapsed/hidden
-                        var railW = 0;
-                        if(!isMobile && !this.state.railHidden){
-                            railW = this.state.railCollapsed ? 40 : (dc === 'tablet' ? 200 : 240);
-                        }
-                        maxW = Math.max(1, winW - railW);
-                        // Reserve space for transport strip at bottom
-                        var transportH = isMobile ? 56 : 50;
-                        maxH = Math.max(1, winH - transportH);
-                    } else if(layout === 'observatory'){
-                        maxW = winW;
-                        maxH = winH;
-                    } else {
-                        // Fallback: legacy mode
-                        var contentPad = isMobile ? 24 : 40;
-                        var sidebarW = isMobile ? 0 : (dc === 'tablet' ? 160 : 180) + 14;
-                        maxW = Math.max(1, Math.min(winW, 1100) - contentPad - sidebarW);
-                        var isMobileToolsOpen = isMobile && this.state.bottomSheetOpen;
-                        var hFrac = isMobile ? (isMobileToolsOpen ? 0.36 : 0.82) : 0.90;
-                        maxH = Math.min(Math.round(winH * hFrac), 1400);
-                    }
+                    // All layouts: canvas fills full viewport
+                    maxW = winW;
+                    maxH = winH;
 
                 // Infinite canvas: always fill the available space regardless of boundary mode.
                 var w = maxW, h = maxH;
