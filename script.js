@@ -4049,7 +4049,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 </div>
                             }
                             {!this.state.railCollapsed &&
-                                <div style={{padding:'8px 12px', borderTop:'1px solid var(--panel-border)'}}>
+                                <div style={{padding:'8px 12px', borderTop:'1px solid var(--panel-border)', flexShrink:0}}>
                                     {this.renderLayoutSwitcher()}
                                 </div>
                             }
