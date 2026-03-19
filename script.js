@@ -416,8 +416,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         // Validate schema version — if missing or mismatched, discard.
                         if(parsed && typeof parsed === 'object'){
                             // Validate layoutMode is a known value.
-                            if(parsed.layoutMode && ['cartographer','specimen','observatory'].indexOf(parsed.layoutMode) !== -1){
+                            if(parsed.layoutMode && ['cartographer','observatory'].indexOf(parsed.layoutMode) !== -1){
                                 savedLayout.layoutMode = parsed.layoutMode;
+                            } else if(parsed.layoutMode === 'specimen'){
+                                savedLayout.layoutMode = 'cartographer';
                             }
                             if(typeof parsed.railCollapsed === 'boolean'){
                                 savedLayout.railCollapsed = parsed.railCollapsed;
@@ -511,10 +513,6 @@ document.addEventListener('DOMContentLoaded', function(){
                     railHidden :       false,
                     railTab :          savedLayout.railTab || 'simulate',
                     railSide :         savedLayout.railSide || 'right',
-                    // Specimen state
-                    contextTrayOpen :  false,
-                    contextTrayContent: null,
-                    contextTrayPinned: false,
                     // Observatory state
                     zenMode :          false,
                     panelMenuOpen :   false,
@@ -735,11 +733,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         // Reserve space for transport strip at bottom
                         var transportH = isMobile ? 56 : 50;
                         maxH = Math.max(1, winH - transportH);
-                    } else if(layout === 'specimen'){
-                        maxW = winW;
-                        // Reserve top bar height
-                        var topBarH = 44;
-                        maxH = Math.max(1, winH - topBarH);
                     } else if(layout === 'observatory'){
                         maxW = winW;
                         maxH = winH;
@@ -1887,7 +1880,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                         // Close layout elements
                         if(this.state.bottomSheetOpen){ this.setState({bottomSheetOpen: false}); break; }
-                        if(this.state.contextTrayOpen){ this.setState({contextTrayOpen: false, contextTrayContent: null, contextTrayPinned: false}); break; }
                         if(this.state.zenMode){ this.setState({zenMode: false}); break; }
                         break;
                     case '?':
@@ -2000,21 +1992,6 @@ document.addEventListener('DOMContentLoaded', function(){
                 });
             },
 
-            openContextTray : function(content){
-                var self = this;
-                this.setState({contextTrayOpen: true, contextTrayContent: content}, function(){ self.drawBoard(); });
-            },
-
-            closeContextTray : function(){
-                if(!this.state.contextTrayPinned){
-                    var self = this;
-                    this.setState({contextTrayOpen: false, contextTrayContent: null}, function(){ self.drawBoard(); });
-                }
-            },
-
-            toggleContextTrayPin : function(){
-                this.setState({contextTrayPinned: !this.state.contextTrayPinned});
-            },
 
             toggleZenMode : function(){
                 var self = this;
@@ -3724,6 +3701,9 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
             renderLayoutSwitcher : function(){
+                var dc = this.state.deviceClass;
+                var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+                if(isMobile){ return null; }
                 var self = this;
                 var mode = this.state.layoutMode;
                 return (
@@ -3733,12 +3713,6 @@ document.addEventListener('DOMContentLoaded', function(){
                             title="Cartographer: Edge rail with tabs"
                             aria-label="Cartographer layout: edge rail with tabs">
                             <i className="fa fa-columns"></i>
-                        </button>
-                        <button type="button" className={"btn btn-toggle" + (mode === 'specimen' ? " active" : "")}
-                            onClick={function(){ self.setLayoutMode('specimen'); }}
-                            title="Specimen: Contextual toolbar"
-                            aria-label="Specimen layout: contextual toolbar">
-                            <i className="fa fa-window-maximize"></i>
                         </button>
                         <button type="button" className={"btn btn-toggle" + (mode === 'observatory' ? " active" : "")}
                             onClick={function(){ self.setLayoutMode('observatory'); }}
@@ -3787,6 +3761,11 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <div className="rail-header-controls">
                                     <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                         <i className="fa fa-question-circle" aria-hidden="true"></i>
+                                    </button>
+                                    <button type="button" className="btn" onClick={this.toggleRailSide}
+                                        aria-label={this.state.railSide === 'right' ? "Move panel to left" : "Move panel to right"}
+                                        title={this.state.railSide === 'right' ? "Move panel to left" : "Move panel to right"}>
+                                        <i className={"fa " + (this.state.railSide === 'right' ? "fa-indent" : "fa-dedent")} aria-hidden="true"></i>
                                     </button>
                                     <button type="button" className="btn rail-collapse-btn" onClick={this.toggleRailCollapsed}
                                         aria-expanded={!this.state.railCollapsed}
@@ -3849,148 +3828,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         {!this.state.bottomSheetOpen && this.renderMobileContextPanel()}
                         {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {this._renderMobileTransportBar()}
-                        {this.state.bottomSheetOpen && this._renderBottomSheet(sheetContent)}
-                    </div>
-                );
-            },
-
-            // ── Specimen layout ──────────────────────────────────────────────
-
-            renderSpecimen : function(cs){
-                var self = this;
-                var dc = this.state.deviceClass;
-                var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
-
-                if(isMobile){
-                    return this.renderSpecimenMobile(cs);
-                }
-
-                var trayContent = this._buildTabContent(this.state.contextTrayContent, {showMode: false});
-
-                return (
-                    <div className="layout-specimen">
-                        {this.renderCanvas(cs)}
-                        {/* Top bar */}
-                        <div className="top-bar" role="toolbar" aria-label="Main toolbar">
-                            <div className="top-bar-left">
-                                <span className="top-bar-title">{"Conway's Game of Life"}</span>
-                            </div>
-                            <div className="top-bar-center">
-                                {!(this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen) &&
-                                    this.renderTransportControls(true)}
-                            </div>
-                            <div className="top-bar-right">
-                                <div className="toolbar-group" role="group" aria-label="Interaction modes">
-                                    {this.renderModeControls()}
-                                </div>
-                                <div className="toolbar-group" role="group" aria-label="Settings and navigation">
-                                    <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
-                                        <i className="fa fa-question-circle" aria-hidden="true"></i>
-                                    </button>
-                                    <div className="top-bar-more" role="group" aria-label="Settings panels">
-                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen ? " active" : "")}
-                                        onClick={function(){ self.state.contextTrayContent === 'simulate' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('simulate'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'simulate' && this.state.contextTrayOpen}><i className="fa fa-play" aria-hidden="true"></i> Simulate</button>
-                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen ? " active" : "")}
-                                        onClick={function(){ self.state.contextTrayContent === 'tools' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('tools'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'tools' && this.state.contextTrayOpen}><i className="fa fa-pencil" aria-hidden="true"></i> Tools</button>
-                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'board' && this.state.contextTrayOpen ? " active" : "")}
-                                        onClick={function(){ self.state.contextTrayContent === 'board' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('board'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'board' && this.state.contextTrayOpen}><i className="fa fa-th" aria-hidden="true"></i> Board</button>
-                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen ? " active" : "")}
-                                        onClick={function(){ self.state.contextTrayContent === 'rules' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('rules'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'rules' && this.state.contextTrayOpen}><i className="fa fa-cog" aria-hidden="true"></i> Rules</button>
-                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayContent === 'export' && this.state.contextTrayOpen ? " active" : "")}
-                                        onClick={function(){ self.state.contextTrayContent === 'export' && self.state.contextTrayOpen ? self.closeContextTray() : self.openContextTray('export'); }}
-                                        aria-expanded={this.state.contextTrayContent === 'export' && this.state.contextTrayOpen}><i className="fa fa-download" aria-hidden="true"></i> Export</button>
-                                    </div>
-                                    {this.renderLayoutSwitcher()}
-                                </div>
-                            </div>
-                        </div>
-                        {/* Context tray */}
-                        {this.state.contextTrayOpen &&
-                            <div className={"context-tray" + (this.state.contextTrayPinned ? " pinned" : "")}
-                                role="region" aria-label={this.state.contextTrayContent + " settings"}>
-                                <div className="context-tray-header">
-                                    <button type="button" className={"btn btn-toggle" + (this.state.contextTrayPinned ? " active" : "")}
-                                        onClick={this.toggleContextTrayPin}
-                                        aria-pressed={this.state.contextTrayPinned}
-                                        aria-label="Pin tray open">
-                                        <i className="fa fa-thumb-tack" aria-hidden="true"></i>
-                                    </button>
-                                    <button type="button" className="btn" onClick={function(){ self.setState({contextTrayOpen: false, contextTrayContent: null, contextTrayPinned: false}); }}
-                                        aria-label="Close settings tray">&times;</button>
-                                </div>
-                                <div className="context-tray-body">
-                                    {trayContent}
-                                </div>
-                            </div>
-                        }
-                        {/* HUD overlay */}
-                        <div className="hud-overlay" onClick={this.togglePopGraph}
-                            role="status" aria-live="off" aria-label="Simulation statistics"
-                            tabIndex="0"
-                            onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
-                            <span>{"Gen " + this.state.generations.toLocaleString()}</span>
-                            <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
-                            <span className={"status-indicator " + (this.state.running ? "status-running" : "status-paused")}>
-                                {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
-                            </span>
-                            {this.state.hoverCell &&
-                                <span className="coord-display">{"Col\u00a0" + this.state.hoverCell.c + "\u2002Row\u00a0" + this.state.hoverCell.r}</span>
-                            }
-                        </div>
-                        {/* Mobile minimap element for tablet/medium screens */}
-                        {this.renderMobileMinimapArea()}
-                    </div>
-                );
-            },
-
-            renderSpecimenMobile : function(cs){
-                var sheetContent = this._buildSheetContent();
-                return (
-                    <div className="layout-specimen layout-mobile">
-                        {this.renderCanvas(cs)}
-                        {/* Compact top bar — unique to Specimen mobile */}
-                        <div className="top-bar top-bar-mobile" role="toolbar" aria-label="Simulation transport">
-                            <span className="stats-chip-inline">
-                                {"Gen " + this.state.generations.toLocaleString() + "\u2002Pop " + this.state.liveCells.size.toLocaleString()}
-                                {" "}
-                                <span className={"status-indicator " + (this.state.stable ? "status-stable" : (this.state.running ? "status-running" : "status-paused"))}>
-                                    {this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
-                                </span>
-                            </span>
-                            <button type="button" className={"btn btn-toggle" + (this.state.running ? " active" : "")} onClick={this.toggleGame}
-                                aria-label={this.state.running ? "Pause simulation" : "Play simulation"}>
-                                <i className={"fa " + (this.state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
-                            </button>
-                            <button type="button" className="btn" onClick={this.stepGame} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
-                            <button type="button" className="btn" onClick={this.resetGame} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
-                            <button type="button" className={"btn btn-toggle" + (this.state.panMode ? " active" : "")}
-                                onClick={this.togglePanMode}
-                                aria-label={this.state.panMode ? "Switch to " + (this.state.drawMode === 'select' ? "select" : this.state.drawMode === 'preset' ? "preset" : "draw") + " mode" : "Switch to pan mode"}
-                                aria-pressed={this.state.panMode}>
-                                <i className={"fa " + (this.state.panMode
-                                    ? (this.state.drawMode === 'select' ? "fa-crosshairs" : this.state.drawMode === 'preset' ? "fa-puzzle-piece" : "fa-pencil")
-                                    : "fa-hand-paper-o")} aria-hidden="true"></i>
-                            </button>
-                            <span className="mobile-transport-mode" aria-live="polite">
-                                {this.state.panMode ? 'Pan'
-                                    : (this.state.drawMode === 'preset' && this.state.selectedPattern
-                                    ? this.state.selectedPattern
-                                    : (this.state.drawMode === 'select' ? 'Select' : 'Draw'))}
-                            </span>
-                            <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
-                                <i className="fa fa-question-circle" aria-hidden="true"></i>
-                            </button>
-                            <button type="button" className={"btn btn-toggle btn-sheet-toggle" + (this.state.bottomSheetOpen ? " active" : "")}
-                                onClick={this.toggleBottomSheet}
-                                aria-expanded={this.state.bottomSheetOpen}
-                                aria-label="Open controls panel"><i className="fa fa-ellipsis-h" aria-hidden="true"></i></button>
-                        </div>
-                        {!this.state.bottomSheetOpen && this.renderMobileContextPanel()}
-                        {!this.state.bottomSheetOpen && this.renderMobileMinimapArea()}
                         {this.state.bottomSheetOpen && this._renderBottomSheet(sheetContent)}
                     </div>
                 );
@@ -4200,15 +4037,12 @@ document.addEventListener('DOMContentLoaded', function(){
             render : function(){
                 var cs = this.getCanvasSize();
                 var layout = this.state.layoutMode;
+                var dc = this.state.deviceClass;
+                var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+                if(isMobile){ layout = 'observatory'; }
                 var layoutContent;
 
                 switch(layout){
-                    case 'cartographer':
-                        layoutContent = this.renderCartographer(cs);
-                        break;
-                    case 'specimen':
-                        layoutContent = this.renderSpecimen(cs);
-                        break;
                     case 'observatory':
                         layoutContent = this.renderObservatory(cs);
                         break;
