@@ -133,10 +133,6 @@ body {
   align-items: center;
   justify-content: center; }
 
-/* Specimen mobile: push canvas below top bar */
-.layout-specimen.layout-mobile .app-canvas-container {
-  top: 44px; }
-
 canvas.display {
   display: block;
   background-color: transparent;
@@ -581,7 +577,8 @@ canvas.display {
 
 /* ── Mobile minimap area ──────────────────────────────────────────────────── */
 .mobile-minimap-area {
-  display: none; }
+  display: none;
+  transition: right var(--transition-normal), left var(--transition-normal); }
 
 /* ── Sidebar overflow fixes ───────────────────────────────────────────────── */
 #content .rule-preset-select,
@@ -765,11 +762,8 @@ canvas.display {
 /* Backdrop blur support */
 @supports (backdrop-filter: blur(1px)) {
   .rail,
-  .top-bar,
-  .context-tray,
   .float-panel,
   .transport-strip,
-  .hud-overlay,
   .bottom-sheet {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); }
@@ -777,11 +771,8 @@ canvas.display {
 
 /* ── GPU compositing for all panel chrome ─────────────────────────────── */
 .rail,
-.top-bar,
-.context-tray,
 .float-panel,
 .transport-strip,
-.hud-overlay,
 .bottom-sheet {
   contain: layout style paint;
   will-change: transform; }
@@ -931,103 +922,11 @@ canvas.display {
   color: var(--accent-text);
   border-color: var(--accent); }
 
-/* ════════════════════════════════════════════════════════════════════════════
-   SPECIMEN LAYOUT
-   Contextual toolbar at top + HUD overlay at bottom-left.
-   ════════════════════════════════════════════════════════════════════════════ */
-
-.layout-specimen {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden; }
-
-/* ── Top bar ──────────────────────────────────────────────────────────── */
-.top-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  min-height: 44px;
-  background: var(--panel-bg-blur);
-  border-bottom: 1px solid var(--panel-border);
-  box-shadow: var(--panel-shadow);
-  z-index: calc(var(--z-panels) + 1);
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: var(--space-sm) var(--space-lg);
-  gap: var(--space-md); }
-
-.top-bar .mode-controls,
-.top-bar .view-controls {
-  margin-top: 0; }
-
 /* Toolbar groups with visual separator */
 .toolbar-group {
   display: flex;
   align-items: center;
   gap: var(--space-sm); }
-.top-bar-right > .toolbar-group + .toolbar-group {
-  margin-left: var(--space-md);
-  padding-left: var(--space-md);
-  border-left: 1px solid var(--separator-color); }
-
-.top-bar-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  flex-shrink: 0; }
-
-.top-bar-center {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-md);
-  min-width: 0; }
-
-.top-bar-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  flex-shrink: 0; }
-
-/* ── HUD overlay ──────────────────────────────────────────────────────── */
-.hud-overlay {
-  position: fixed;
-  bottom: var(--space-xl);
-  left: var(--space-xl);
-  padding: var(--space-md) var(--space-lg);
-  background: var(--panel-bg-blur);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--panel-shadow);
-  z-index: calc(var(--z-panels) + 1);
-  font-size: var(--text-sm);
-  color: var(--panel-header-color);
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: filter var(--transition-fast); }
-.hud-overlay:hover {
-  filter: brightness(var(--hover-brightness)); }
-
-/* ── Context tray ─────────────────────────────────────────────────────── */
-.context-tray {
-  position: fixed;
-  top: 44px;
-  left: 0;
-  right: 0;
-  min-height: 160px;
-  max-height: 40vh;
-  background: var(--panel-bg-blur);
-  border-bottom: 1px solid var(--panel-border);
-  box-shadow: var(--panel-shadow);
-  z-index: var(--z-panels);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: var(--space-lg) var(--space-xl); }
 
 /* ════════════════════════════════════════════════════════════════════════════
    OBSERVATORY LAYOUT
@@ -1170,10 +1069,6 @@ canvas.display {
   padding: var(--space-lg) var(--space-xl) calc(var(--space-xl) + 60px + env(safe-area-inset-bottom, 0px));
   animation: sheet-slide-up var(--transition-normal) ease-out; }
 
-/* Specimen mobile uses a top bar, not a bottom transport bar — no 60px clearance needed */
-.layout-specimen .bottom-sheet {
-  padding-bottom: calc(var(--space-xl) + env(safe-area-inset-bottom, 0px)); }
-
 .bottom-sheet.sheet-closing {
   animation: sheet-slide-down var(--transition-normal) ease-in forwards;
   overflow: hidden; }
@@ -1254,10 +1149,6 @@ canvas.display {
   transition: background-color var(--transition-fast),
               border-color var(--transition-fast),
               filter var(--transition-fast); }
-
-#content .top-bar-mobile .btn,
-.top-bar-mobile .btn {
-  width: auto; }
 
 .btn-sheet-toggle {
   white-space: nowrap; }
@@ -1367,55 +1258,6 @@ canvas.display {
 #content .view-controls .btn {
   width: auto;
   min-width: 0; }
-
-/* ── Top bar sub-elements ────────────────────────────────────────────── */
-.top-bar-title {
-  font-size: var(--text-sm);
-  font-weight: bold;
-  opacity: var(--opacity-primary);
-  white-space: nowrap; }
-
-.top-bar-more {
-  display: flex;
-  gap: var(--space-sm); }
-
-.top-bar-more .btn {
-  width: auto;
-  min-width: 0;
-  padding: var(--space-xs) var(--space-md);
-  min-height: 28px;
-  font-size: var(--text-sm); }
-
-.top-bar-mobile {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  justify-content: space-between; }
-
-.top-bar-mobile .btn {
-  width: auto;
-  min-width: 0;
-  padding: var(--space-sm) var(--space-lg);
-  min-height: var(--touch-desktop); }
-
-/* ── Context tray sub-elements ───────────────────────────────────────── */
-.context-tray-header {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md); }
-
-.context-tray-header .btn {
-  width: auto;
-  min-width: 0;
-  padding: var(--space-xs) var(--space-md);
-  min-height: 28px;
-  font-size: var(--text-sm); }
-
-.context-tray-body {
-  overflow-y: auto;
-  max-height: calc(40vh - 44px);
-  padding-bottom: var(--space-xl); }
 
 /* ── Tools/export content containers ─────────────────────────────────── */
 .tools-content,
@@ -1544,7 +1386,7 @@ canvas.display {
 .rail {
   transition: transform var(--transition-normal), width var(--transition-normal); }
 
-/* Context tray and bottom sheet are conditionally rendered (mount/unmount),
+/* Bottom sheet is conditionally rendered (mount/unmount),
    so CSS transitions on transform are not applicable. */
 
 /* Float panel drag: no transition (instant via JS transform) */
@@ -1612,31 +1454,12 @@ canvas.display {
 @media (min-width: 901px) {
   .layout-cartographer .rail {
     width: 260px; }
-  .layout-specimen .top-bar {
-    min-height: 44px; }
   .layout-observatory .float-panel {
     max-width: 400px; }
 }
 
 /* ── Medium screens / large tablets (901px–1200px) ───────────────────── */
 @media (min-width: 901px) and (max-width: 1200px) {
-  /* Prevent top bar wrapping and vertical text on tab buttons */
-  .layout-specimen .top-bar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch; }
-  .layout-specimen .top-bar-more .btn {
-    min-width: 44px;
-    white-space: nowrap; }
-  .layout-specimen .mode-controls {
-    flex-wrap: nowrap; }
-
-  /* Reduce context tray canvas coverage */
-  .context-tray {
-    max-height: 30vh; }
-  .context-tray-body {
-    max-height: calc(30vh - 44px); }
-
   /* Prevent observatory panel overlap */
   .layout-observatory .float-panel {
     max-width: 300px; }
@@ -1653,13 +1476,24 @@ canvas.display {
     bottom: 60px;
     right: var(--space-md);
     left: auto;
-    z-index: calc(var(--z-panels) + 2);
+    z-index: var(--z-panels);
     padding: 0; }
   .mobile-minimap-canvas {
     border: 1px solid var(--separator-strong);
     border-radius: var(--radius-sm);
     cursor: crosshair;
     touch-action: none; }
+  /* Shift minimap away from Cartographer rail */
+  .rail-right:not(.rail-hidden) ~ .mobile-minimap-area {
+    right: calc(var(--space-md) + 240px); }
+  .rail-right.rail-collapsed ~ .mobile-minimap-area {
+    right: calc(var(--space-md) + 44px); }
+  .rail-left:not(.rail-hidden) ~ .mobile-minimap-area {
+    left: calc(var(--space-md) + 240px);
+    right: auto; }
+  .rail-left.rail-collapsed ~ .mobile-minimap-area {
+    left: calc(var(--space-md) + 44px);
+    right: auto; }
 }
 
 /* ── Tablet (621px–900px) ─────────────────────────────────────────────── */
@@ -1668,14 +1502,6 @@ canvas.display {
     width: 220px; }
   .layout-cartographer .rail-tab-label {
     font-size: var(--text-xs); }
-  .layout-specimen .top-bar {
-    min-height: 44px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch; }
-  .layout-specimen .top-bar-more .btn {
-    min-width: 44px;
-    white-space: nowrap; }
   .layout-observatory .float-panel {
     max-width: 260px; }
   /* Redistribute observatory panel default positions to avoid overlap on tablet */
@@ -1700,13 +1526,24 @@ canvas.display {
     bottom: 60px;
     right: var(--space-md);
     left: auto;
-    z-index: calc(var(--z-panels) + 2);
+    z-index: var(--z-panels);
     padding: 0; }
   .mobile-minimap-canvas {
     border: 1px solid var(--separator-strong);
     border-radius: var(--radius-sm);
     cursor: crosshair;
     touch-action: none; }
+  /* Shift minimap away from Cartographer rail on tablets */
+  .rail-right:not(.rail-hidden) ~ .mobile-minimap-area {
+    right: calc(var(--space-md) + 220px); }
+  .rail-right.rail-collapsed ~ .mobile-minimap-area {
+    right: calc(var(--space-md) + 44px); }
+  .rail-left:not(.rail-hidden) ~ .mobile-minimap-area {
+    left: calc(var(--space-md) + 220px);
+    right: auto; }
+  .rail-left.rail-collapsed ~ .mobile-minimap-area {
+    left: calc(var(--space-md) + 44px);
+    right: auto; }
 }
 
 /* ── Phone portrait (<=620px) ─────────────────────────────────────────── */
@@ -1716,13 +1553,6 @@ canvas.display {
   .mobile-quickbar .btn,
   .mobile-transport-bar .btn {
     min-height: var(--touch-min); }
-
-  /* Specimen phone: compressed top bar */
-  .layout-specimen .top-bar {
-    min-height: 40px;
-    padding: var(--space-xs) var(--space-md); }
-  .layout-specimen .top-bar-center {
-    font-size: var(--text-sm); }
 
   /* Hide desktop transport strip on mobile phones */
   .transport-strip {
@@ -1852,12 +1682,6 @@ canvas.display {
     right: 56px;
     left: auto; }
 
-  /* Specimen landscape: single thin row */
-  .layout-specimen .top-bar {
-    min-height: var(--touch-desktop); }
-  .layout-specimen .context-tray {
-    max-height: 120px; }
-
   /* Observatory landscape */
   .layout-observatory .float-panel {
     max-height: 50vh; }
@@ -1908,11 +1732,8 @@ canvas.display {
 /* ── prefers-contrast: boost borders, remove transparency ────────────── */
 @media (prefers-contrast: more) {
   .rail,
-  .top-bar,
-  .context-tray,
   .float-panel,
   .transport-strip,
-  .hud-overlay,
   .bottom-sheet,
   .stats-chip {
     background: var(--content-bg) !important;
@@ -1939,8 +1760,6 @@ canvas.display {
     border: 1px solid ButtonText; }
   .float-panel,
   .rail,
-  .top-bar,
-  .context-tray,
   .bottom-sheet {
     border: 2px solid ButtonText; }
 }
@@ -1948,11 +1767,8 @@ canvas.display {
 /* ── Reduce transparency preference ──────────────────────────────────── */
 @media (prefers-reduced-transparency: reduce) {
   .rail,
-  .top-bar,
-  .context-tray,
   .float-panel,
   .transport-strip,
-  .hud-overlay,
   .bottom-sheet,
   .stats-chip {
     background: var(--content-bg) !important;
@@ -1967,22 +1783,15 @@ canvas.display {
 .transport-strip button:focus-visible,
 .mobile-transport-bar .btn:focus-visible,
 .layout-switcher .btn:focus-visible,
-.context-tray-header .btn:focus-visible,
-.top-bar .btn:focus-visible,
-.top-bar-more .btn:focus-visible,
-.hud-overlay:focus-visible,
 .stats-chip:focus-visible,
 .bottom-sheet-tabs .rail-tab:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   z-index: 1; }
 
-/* ── Smooth open/close for context tray, rail, bottom sheet ──────────── */
+/* ── Smooth open/close for rail, bottom sheet ────────────────────────── */
 .rail {
   transition: transform var(--transition-normal), width var(--transition-normal), opacity var(--transition-fast); }
-
-.context-tray {
-  transition: transform var(--transition-normal), opacity var(--transition-fast); }
 
 /* ── Float panel appear animation (when not dragging) ────────────────── */
 .float-panel {
@@ -2005,7 +1814,6 @@ canvas.display {
 /* ── Touch-action for scrollable panels ──────────────────────────────── */
 .bottom-sheet-content,
 .float-panel-body,
-.context-tray-body,
 .rail-tab-content,
 .panel-menu-list {
   touch-action: auto; }
@@ -2032,31 +1840,26 @@ canvas.display {
 .skip-to-content:focus {
   top: 0; }
 
-/* ── Cross-browser: scrollbar styling for rail/tray/sheet ────────────── */
+/* ── Cross-browser: scrollbar styling for rail/sheet ─────────────────── */
 .rail-tab-content::-webkit-scrollbar,
-.context-tray-body::-webkit-scrollbar,
 .bottom-sheet-content::-webkit-scrollbar {
   width: 6px; }
 
 .rail-tab-content::-webkit-scrollbar-track,
-.context-tray-body::-webkit-scrollbar-track,
 .bottom-sheet-content::-webkit-scrollbar-track {
   background: transparent; }
 
 .rail-tab-content::-webkit-scrollbar-thumb,
-.context-tray-body::-webkit-scrollbar-thumb,
 .bottom-sheet-content::-webkit-scrollbar-thumb {
   background: rgba(128,128,128,0.3);
   border-radius: 3px; }
 
 .rail-tab-content::-webkit-scrollbar-thumb:hover,
-.context-tray-body::-webkit-scrollbar-thumb:hover,
 .bottom-sheet-content::-webkit-scrollbar-thumb:hover {
   background: rgba(128,128,128,0.5); }
 
 /* Firefox scrollbar */
 .rail-tab-content,
-.context-tray-body,
 .bottom-sheet-content {
   scrollbar-width: thin;
   scrollbar-color: rgba(128,128,128,0.3) transparent; }
@@ -2110,10 +1913,6 @@ canvas.display {
 .transport-strip button:focus,
 .mobile-transport-bar .btn:focus,
 .layout-switcher .btn:focus,
-.context-tray-header .btn:focus,
-.top-bar .btn:focus,
-.top-bar-more .btn:focus,
-.hud-overlay:focus,
 .stats-chip:focus,
 .bottom-sheet-tabs .rail-tab:focus {
   outline: 2px solid var(--accent);
@@ -2137,10 +1936,6 @@ canvas.display {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis; }
-
-/* #82 — HUD overlay base cursor (in case hover is missed) */
-.hud-overlay {
-  cursor: pointer; }
 
 /* #61 — Placeholder contrast boost */
 ::placeholder {
@@ -2190,7 +1985,6 @@ canvas.display {
   .bottom-sheet,
   .rail,
   .rail-collapsed,
-  .specimen-top-bar,
   .stats-chip,
   .float-panel { display: none !important; }
   canvas { border: 1px solid #000; }
