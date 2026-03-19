@@ -244,9 +244,6 @@ var InputHandler = {
         if(event.button !== 0){ return; }
         var pos = this.getCellPos(event, canvas, host.state.viewX, host.state.viewY, host.state.cellSize);
         var c = pos.c, r = pos.r;
-        // Region mode allows clicking outside current bounds to expand the region.
-        if(host.state.drawMode !== 'region' && host.state.boundary !== 'unbounded' &&
-           (c < 0 || c >= host.state.cols || r < 0 || r >= host.state.rows)){ return; }
 
         // Pan mode.
         if(host.state.panMode){
@@ -386,8 +383,7 @@ var InputHandler = {
 
         // Selection drag.
         if(host.state.drawMode === 'select' && this._selStart){
-            var bc = host.state.boundary === 'unbounded' ? c : Math.max(0, Math.min(host.state.cols - 1, c));
-            var br = host.state.boundary === 'unbounded' ? r : Math.max(0, Math.min(host.state.rows - 1, r));
+            var bc = c, br = r;
             var selectTool = host.state.selectTool || 'rect';
             if(selectTool === 'freeform'){
                 var path = this._lassoPath;
@@ -411,8 +407,7 @@ var InputHandler = {
         if(this._drawToolStart && host.state.drawMode === 'paint'){
             var drawTool = host.state.drawTool || 'cell';
             if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                var tc = host.state.boundary === 'unbounded' ? c : Math.max(0, Math.min(host.state.cols - 1, c));
-                var tr = host.state.boundary === 'unbounded' ? r : Math.max(0, Math.min(host.state.rows - 1, r));
+                var tc = c, tr = r;
                 var ds = this._drawToolStart;
                 if(drawTool === 'line'){
                     this._drawPreviewCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
@@ -487,14 +482,6 @@ var InputHandler = {
 
         // Cell painting.
         if(!this._dragging){ return; }
-        if(host.state.boundary !== 'unbounded'){
-            var mask = host.state.regionMask;
-            if(mask && mask.size > 0){
-                if(!mask.has(r + ',' + c)){ return; }
-            } else if(c < 0 || c >= host.state.cols || r < 0 || r >= host.state.rows){
-                return;
-            }
-        }
         var paintKey = r + ',' + c;
         if(this._paintedCells[paintKey] !== undefined){ return; }
         this._paintedCells[paintKey] = this._dragStatus;
@@ -749,8 +736,8 @@ var InputHandler = {
         var self = this;
         var pos = this.getCellPos({clientX: t.clientX, clientY: t.clientY}, canvas,
             host.state.viewX, host.state.viewY, host.state.cellSize);
-        var touchInBounds = host.state.boundary === 'unbounded' || (pos.c >= 0 && pos.c < host.state.cols && pos.r >= 0 && pos.r < host.state.rows);
-        if(touchInBounds){
+        // Always allow interaction — region mask handles boundary enforcement.
+        {
             this._longPressTimer = setTimeout(function(){
                 host.setState({hoverCell: {c: pos.c, r: pos.r}});
                 self._longPressTimer = setTimeout(function(){
@@ -765,10 +752,8 @@ var InputHandler = {
             return;
         }
         if(host.state.drawMode === 'preset' && host.state.selectedPattern){
-            if(touchInBounds){
-                this._previewPos = {c: pos.c, r: pos.r};
-                host.drawBoard();
-            }
+            this._previewPos = {c: pos.c, r: pos.r};
+            host.drawBoard();
             host._hideStatsChip();
             return;
         }

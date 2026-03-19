@@ -1192,8 +1192,17 @@ document.addEventListener('DOMContentLoaded', function () {
       var isUnbounded = this.state.boundary === 'unbounded';
 
       // Clear canvas.
+      // In bounded mode, pre-darken the entire canvas so that out-of-region
+      // areas are uniformly dimmed with no edge gaps.  Region cells are then
+      // restored to the clean bg before cells/trails/grid are drawn.
       ctx.fillStyle = theme.bg;
       ctx.fillRect(0, 0, canvasW, canvasH);
+      if (!isUnbounded && this.state.regionMask && this.state.regionMask.size > 0) {
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fillRect(0, 0, canvasW, canvasH);
+        // Restore clean bg for in-region cells.
+        CanvasRenderer.clearRegionCells(ctx, this.state.regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, theme.bg);
+      }
 
       // Visible cell range.
       var startC = viewX,
@@ -4355,15 +4364,15 @@ document.addEventListener('DOMContentLoaded', function () {
         type: "button",
         className: "btn btn-toggle" + (this.state.panMode ? " active" : ""),
         onClick: this.togglePanMode,
-        "aria-label": this.state.panMode ? "Switch to " + (this.state.drawMode === 'select' ? "select" : this.state.drawMode === 'preset' ? "preset" : "draw") + " mode" : "Switch to pan mode",
+        "aria-label": this.state.panMode ? "Switch to " + (this.state.drawMode === 'select' ? "select" : this.state.drawMode === 'preset' ? "preset" : this.state.drawMode === 'region' ? "region" : "draw") + " mode" : "Switch to pan mode",
         "aria-pressed": this.state.panMode
       }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (this.state.panMode ? this.state.drawMode === 'select' ? "fa-crosshairs" : this.state.drawMode === 'preset' ? "fa-puzzle-piece" : "fa-pencil" : "fa-hand-paper-o"),
+        className: "fa " + (this.state.panMode ? this.state.drawMode === 'select' ? "fa-crosshairs" : this.state.drawMode === 'preset' ? "fa-puzzle-piece" : this.state.drawMode === 'region' ? "fa-th" : "fa-pencil" : "fa-hand-paper-o"),
         "aria-hidden": "true"
       })), /*#__PURE__*/React.createElement("span", {
         className: "mobile-transport-mode",
         "aria-live": "polite"
-      }, this.state.panMode ? 'Pan' : this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : 'Draw'), /*#__PURE__*/React.createElement("button", {
+      }, this.state.panMode ? 'Pan' : this.state.drawMode === 'preset' && this.state.selectedPattern ? this.state.selectedPattern : this.state.drawMode === 'select' ? 'Select' : this.state.drawMode === 'region' ? 'Region' : 'Draw'), /*#__PURE__*/React.createElement("button", {
         type: "button",
         className: "btn",
         onClick: this.toggleHelp,
