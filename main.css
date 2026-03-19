@@ -131,7 +131,10 @@ body {
   z-index: var(--z-canvas);
   display: flex;
   align-items: center;
-  justify-content: center; }
+  justify-content: center;
+  background-color: #d5d5d5; }
+html.dark-mode .app-canvas-container {
+  background-color: #0a0b10; }
 
 canvas.display {
   display: block;

@@ -130,6 +130,11 @@ var CanvasRenderer = {
      * regionMask: Set<string> of "r,c" keys.
      * boundary: 'finite' | 'toroidal'.
      */
+    /**
+     * Draw region border edges where region meets non-region.
+     * Darkening is handled by drawBoard's pre-darkened background; this
+     * function only draws the perimeter lines.
+     */
     drawRegionOverlay: function(ctx, regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, canvasW, canvasH, theme, boundary){
         if(!regionMask || regionMask.size === 0){ return; }
 
@@ -139,34 +144,6 @@ var CanvasRenderer = {
             this._regionBitmapMaskSize = regionMask.size;
         }
         var bm = this._regionBitmapCache;
-
-        // Darken out-of-region cells in the visible range.
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        for(var r = startR; r < endR; r++){
-            var px_y = (r - viewY) * cellSize;
-            if(px_y >= canvasH) break;
-            if(px_y + cellSize <= 0) continue;
-            // Scan row for contiguous out-of-region runs for batch filling.
-            var runStart = -1;
-            for(var c = startC; c <= endC; c++){
-                var inRegion = (c < endC) && RegionUtil.bitmapHas(bm, r, c);
-                if(!inRegion){
-                    if(runStart < 0) runStart = c;
-                } else {
-                    if(runStart >= 0){
-                        var px_x = (runStart - viewX) * cellSize;
-                        var px_w = (c - runStart) * cellSize;
-                        ctx.fillRect(px_x, px_y, px_w, cellSize);
-                        runStart = -1;
-                    }
-                }
-            }
-            if(runStart >= 0){
-                var px_x2 = (runStart - viewX) * cellSize;
-                var px_w2 = (endC - runStart) * cellSize;
-                ctx.fillRect(px_x2, px_y, px_w2, cellSize);
-            }
-        }
 
         // Draw border edges where region meets non-region.
         ctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.6)';
@@ -207,6 +184,39 @@ var CanvasRenderer = {
         }
         ctx.stroke();
         ctx.setLineDash([]);
+    },
+
+    /**
+     * Restore clean background for in-region cells (undoing the pre-darkened
+     * canvas fill).  Uses run-length row scanning for efficiency.
+     */
+    clearRegionCells: function(ctx, regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, bgColor){
+        if(!regionMask || regionMask.size === 0) return;
+        if(!this._regionBitmapCache || this._regionBitmapMaskSize !== regionMask.size){
+            this._regionBitmapCache = RegionUtil.toBitmap(regionMask);
+            this._regionBitmapMaskSize = regionMask.size;
+        }
+        var bm = this._regionBitmapCache;
+        ctx.fillStyle = bgColor;
+        for(var r = startR; r < endR; r++){
+            var runStart = -1;
+            for(var c = startC; c <= endC; c++){
+                var inRegion = (c < endC) && RegionUtil.bitmapHas(bm, r, c);
+                if(inRegion){
+                    if(runStart < 0) runStart = c;
+                } else {
+                    if(runStart >= 0){
+                        ctx.fillRect((runStart - viewX) * cellSize, (r - viewY) * cellSize,
+                            (c - runStart) * cellSize, cellSize);
+                        runStart = -1;
+                    }
+                }
+            }
+            if(runStart >= 0){
+                ctx.fillRect((runStart - viewX) * cellSize, (r - viewY) * cellSize,
+                    (endC - runStart) * cellSize, cellSize);
+            }
+        }
     },
 
     /** Invalidate region bitmap cache (call when regionMask changes). */
