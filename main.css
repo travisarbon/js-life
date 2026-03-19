@@ -1496,17 +1496,13 @@ canvas.display {
     border-radius: var(--radius-sm);
     cursor: crosshair;
     touch-action: none; }
-  /* Shift minimap away from Cartographer rail */
-  .rail-right:not(.rail-hidden) ~ .mobile-minimap-area {
-    right: calc(var(--space-md) + 240px); }
-  .rail-right.rail-collapsed ~ .mobile-minimap-area {
-    right: calc(var(--space-md) + 44px); }
-  .rail-left:not(.rail-hidden) ~ .mobile-minimap-area {
-    left: calc(var(--space-md) + 240px);
-    right: auto; }
-  .rail-left.rail-collapsed ~ .mobile-minimap-area {
-    left: calc(var(--space-md) + 44px);
-    right: auto; }
+  /* Place minimap on the opposite side from the Cartographer rail */
+  .rail-right ~ .mobile-minimap-area {
+    right: auto;
+    left: var(--space-md); }
+  .rail-left ~ .mobile-minimap-area {
+    left: auto;
+    right: var(--space-md); }
 }
 
 /* ── Tablet (621px–900px) ─────────────────────────────────────────────── */
@@ -1546,17 +1542,13 @@ canvas.display {
     border-radius: var(--radius-sm);
     cursor: crosshair;
     touch-action: none; }
-  /* Shift minimap away from Cartographer rail on tablets */
-  .rail-right:not(.rail-hidden) ~ .mobile-minimap-area {
-    right: calc(var(--space-md) + 220px); }
-  .rail-right.rail-collapsed ~ .mobile-minimap-area {
-    right: calc(var(--space-md) + 44px); }
-  .rail-left:not(.rail-hidden) ~ .mobile-minimap-area {
-    left: calc(var(--space-md) + 220px);
-    right: auto; }
-  .rail-left.rail-collapsed ~ .mobile-minimap-area {
-    left: calc(var(--space-md) + 44px);
-    right: auto; }
+  /* Place minimap on the opposite side from the Cartographer rail on tablets */
+  .rail-right ~ .mobile-minimap-area {
+    right: auto;
+    left: var(--space-md); }
+  .rail-left ~ .mobile-minimap-area {
+    left: auto;
+    right: var(--space-md); }
 }
 
 /* ── Phone portrait (<=620px) ─────────────────────────────────────────── */
