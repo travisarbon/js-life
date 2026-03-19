@@ -1107,7 +1107,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 // In Cartographer mode, offset minimap upward to clear the fixed transport strip.
                 var isMobileView2 = this.state.deviceClass === 'phone-portrait' || this.state.deviceClass === 'phone-landscape';
                 var transportPad = (this.state.layoutMode === 'cartographer' && !isMobileView2) ? Math.round(60 / ds) : 0;
-                var mmX = canvasW - mmW - marginBuf, mmY = canvasH - mmH - marginBuf - transportPad;
+                // In Cartographer, place minimap on the opposite side from the rail.
+                var mmOnLeft = (this.state.layoutMode === 'cartographer' && this.state.railSide === 'right');
+                var mmX = mmOnLeft ? marginBuf : (canvasW - mmW - marginBuf);
+                var mmY = canvasH - mmH - marginBuf - transportPad;
 
                 // Redraw minimap off-screen canvas only when marked dirty.
                 if(this._minimapDirty){
@@ -4051,7 +4054,8 @@ document.addEventListener('DOMContentLoaded', function(){
                             </div>
                             {!this.state.railCollapsed &&
                                 <div id={"rail-panel-" + this.state.railTab} role="tabpanel"
-                                    aria-label={this.state.railTab + " controls"}>
+                                    aria-label={this.state.railTab + " controls"}
+                                    style={{flex:1, minHeight:0, overflow:'hidden', display:'flex', flexDirection:'column'}}>
                                     {tabContent}
                                 </div>
                             }
