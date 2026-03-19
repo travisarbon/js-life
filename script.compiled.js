@@ -276,6 +276,71 @@ var SimEngine = {
     });
     return newLiveCells;
   },
+  /**
+   * Toroidal simulation with a region mask. Like computeNextGeneration but
+   * uses modulo wrapping on the bounding rect and restricts candidates to
+   * cells that are in the mask.  The mask uses local (0-based) coordinates.
+   */
+  computeNextGenerationMasked: function (liveCells, cols, rows, birth, survive, mask) {
+    if (rows <= 0 || cols <= 0) {
+      return new Map();
+    }
+    var birthLut = new Uint8Array(9);
+    var surviveLut = new Uint8Array(9);
+    for (var bi = 0; bi < birth.length; bi++) {
+      birthLut[birth[bi]] = 1;
+    }
+    for (var si = 0; si < survive.length; si++) {
+      surviveLut[survive[si]] = 1;
+    }
+    var candidates = new Map();
+    liveCells.forEach(function (age, key) {
+      var _krc = parseKey(key),
+        kr = _krc[0],
+        kc = _krc[1];
+      candidates.set(key, _krc);
+      for (var dr = -1; dr <= 1; dr++) {
+        for (var dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) {
+            continue;
+          }
+          var nr = (kr + dr + rows) % rows;
+          var nc = (kc + dc + cols) % cols;
+          var nk = nr + ',' + nc;
+          if (!candidates.has(nk) && mask.has(nk)) {
+            candidates.set(nk, [nr, nc]);
+          }
+        }
+      }
+    });
+    var newLiveCells = new Map();
+    candidates.forEach(function (pos, key) {
+      if (!mask.has(key)) {
+        return;
+      }
+      var r = pos[0],
+        c = pos[1];
+      var count = 0;
+      for (var dr = -1; dr <= 1; dr++) {
+        for (var dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) {
+            continue;
+          }
+          var nr = (r + dr + rows) % rows;
+          var nc = (c + dc + cols) % cols;
+          if (liveCells.has(nr + ',' + nc)) {
+            count++;
+          }
+        }
+      }
+      var wasAlive = liveCells.has(key);
+      var alive = wasAlive ? surviveLut[count] : birthLut[count];
+      if (alive) {
+        newLiveCells.set(key, wasAlive ? Math.min((liveCells.get(key) || 0) + 1, MAX_AGE) : 1);
+      }
+    });
+    return newLiveCells;
+  },
   // Serialises live cells to RLE string (header + wrapped body).
   boardToRLE: function (liveCells, ruleString) {
     var bb = SimEngine.getBoundingBox(liveCells);
@@ -528,9 +593,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Lifecycle ─────────────────────────────────────────────────────
 
     getInitialState: function () {
-      var cellSize = 5;
       var cols = 100;
       var rows = 100;
+      // On mobile, default to 8px/cell; on desktop, 5px/cell.
+      // Center the view on the grid for all screen sizes.
+      var isMobileInit = window.innerWidth <= 620 || window.matchMedia && window.matchMedia('(orientation: landscape) and (max-height: 550px)').matches;
+      var cellSize = isMobileInit ? 8 : 5;
+      var initViewX = Math.round(cols / 2 - window.innerWidth / (2 * cellSize));
+      var initViewY = Math.round(rows / 2 - window.innerHeight / (2 * cellSize));
       // Load persisted layout preferences from localStorage.
       // Schema v1: {layoutMode, railCollapsed, railTab, railSide, panelStates}
       var LAYOUT_SCHEMA_VERSION = 1;
@@ -587,13 +657,21 @@ document.addEventListener('DOMContentLoaded', function () {
           localStorage.removeItem('life-layout-prefs');
         } catch (e2) {}
       }
+      var initRegionMask = RegionUtil.buildRect(cols, rows);
+      var initRegionComponents = [{
+        cells: initRegionMask,
+        minR: 0,
+        maxR: rows - 1,
+        minC: 0,
+        maxC: cols - 1
+      }];
       return {
         running: true,
         cellSize: cellSize,
         cols: cols,
         rows: rows,
-        viewX: 0,
-        viewY: 0,
+        viewX: initViewX,
+        viewY: initViewY,
         sparseness: 2,
         liveCells: SimEngine.buildLiveCells(cols, rows, 2),
         generations: 0,
@@ -601,6 +679,14 @@ document.addEventListener('DOMContentLoaded', function () {
         speed: 5,
         gridLines: true,
         boundary: 'toroidal',
+        regionMask: initRegionMask,
+        regionComponents: initRegionComponents,
+        regionBounds: {
+          minR: 0,
+          maxR: rows - 1,
+          minC: 0,
+          maxC: cols - 1
+        },
         birthRule: [3],
         surviveRule: [2, 3],
         ruleString: 'B3/S23',
@@ -622,6 +708,7 @@ document.addEventListener('DOMContentLoaded', function () {
         drawMode: 'paint',
         selectTool: 'rect',
         drawTool: 'cell',
+        regionTool: 'shape-rect',
         selection: null,
         clipboard: null,
         showMinimap: true,
@@ -1130,16 +1217,32 @@ document.addEventListener('DOMContentLoaded', function () {
         CanvasRenderer.drawGrid(ctx, startR, startC, endR, endC, viewX, viewY, cellSize, canvasW, canvasH, theme.grid);
       }
 
-      // Bounding box.
+      // Region overlay (replaces single bounding box).
       if (!isUnbounded) {
-        CanvasRenderer.drawBoundingBox(ctx, cols, rows, viewX, viewY, cellSize, canvasW, canvasH, theme);
+        CanvasRenderer.drawRegionOverlay(ctx, this.state.regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, canvasW, canvasH, theme, this.state.boundary);
       }
 
       // Selection.
       CanvasRenderer.drawSelection(ctx, this.state.selection, viewX, viewY, cellSize, theme);
 
-      // Tool preview.
+      // Tool preview (paint mode).
       CanvasRenderer.drawToolPreview(ctx, InputHandler._drawPreviewCells, InputHandler._drawErasing, viewX, viewY, cellSize, theme);
+
+      // Region tool preview.
+      if (this.state.drawMode === 'region') {
+        // Show rubber-band shape preview.
+        if (InputHandler._regionPreviewKeys.length > 0) {
+          CanvasRenderer.drawRegionPreview(ctx, InputHandler._regionPreviewKeys, InputHandler._regionErasing, viewX, viewY, cellSize);
+        }
+        // Show cell-by-cell painting preview.
+        if (InputHandler._regionDragging) {
+          var rgPainted = InputHandler._regionPaintedKeys;
+          var rgKeys = Object.keys(rgPainted);
+          if (rgKeys.length > 0) {
+            CanvasRenderer.drawRegionPreview(ctx, rgKeys, InputHandler._regionErasing, viewX, viewY, cellSize);
+          }
+        }
+      }
 
       // Pattern preview.
       if (this.state.drawMode === 'preset') {
@@ -1180,8 +1283,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var isUnbounded = this.state.boundary === 'unbounded';
       var mmOriginR = 0,
         mmOriginC = 0;
-      var mmBBCols = cols,
-        mmBBRows = rows; // original bounding box dims for overlay
+      // regionBounds and regionComponents used instead of mmBBCols/mmBBRows
       if (isUnbounded) {
         var bb = SimEngine.getBoundingBox(liveCells);
         if (bb) {
@@ -1216,12 +1318,13 @@ document.addEventListener('DOMContentLoaded', function () {
           this._mmUnboundedRegion = null;
         }
       } else {
-        // Bounded modes: fixed world region = bounding box + live cells + static padding.
+        // Bounded modes: fixed world region = region bounds + live cells + static padding.
         // Does NOT expand to follow viewport — arrow indicators show off-screen viewport.
-        var mmMinR = 0,
-          mmMinC = 0,
-          mmMaxR = rows,
-          mmMaxC = cols;
+        var rb = this.state.regionBounds;
+        var mmMinR = rb ? rb.minR : 0;
+        var mmMinC = rb ? rb.minC : 0;
+        var mmMaxR = rb ? rb.maxR + 1 : rows;
+        var mmMaxC = rb ? rb.maxC + 1 : cols;
         var bbLive = SimEngine.getBoundingBox(liveCells);
         if (bbLive) {
           mmMinR = Math.min(mmMinR, bbLive.minR);
@@ -1288,17 +1391,34 @@ document.addEventListener('DOMContentLoaded', function () {
             mctx.fillRect(Math.floor(kc / _mmCols * mmW), Math.floor(kr / _mmRows * mmH), 1, 1);
           }
         });
-        // Bounding box indicator on minimap (bounded modes only).
-        if (!isUnbounded) {
-          var bbMmX = Math.round((0 - mmOriginC) / cols * mmW);
-          var bbMmY = Math.round((0 - mmOriginR) / rows * mmH);
-          var bbMmW = Math.round(mmBBCols / cols * mmW);
-          var bbMmH = Math.round(mmBBRows / rows * mmH);
-          mctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.5)';
-          mctx.lineWidth = 1;
-          mctx.setLineDash([3, 2]);
-          mctx.strokeRect(bbMmX + 0.5, bbMmY + 0.5, bbMmW, bbMmH);
-          mctx.setLineDash([]);
+        // Region indicator on minimap (bounded modes only).
+        if (!isUnbounded && this.state.regionMask) {
+          var _regionMask = this.state.regionMask;
+          mctx.fillStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.12)';
+          _regionMask.forEach(function (key) {
+            var _i = key.indexOf(',');
+            var _rr = parseInt(key.substring(0, _i), 10) - _mmOR;
+            var _cc = parseInt(key.substring(_i + 1), 10) - _mmOC;
+            if (_rr >= 0 && _rr < _mmRows && _cc >= 0 && _cc < _mmCols) {
+              mctx.fillRect(Math.floor(_cc / _mmCols * mmW), Math.floor(_rr / _mmRows * mmH), 1, 1);
+            }
+          });
+          // Draw component bounding rects as dashed outlines.
+          var _comps = this.state.regionComponents;
+          if (_comps && _comps.length > 0) {
+            mctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.5)';
+            mctx.lineWidth = 1;
+            mctx.setLineDash([3, 2]);
+            for (var _ci = 0; _ci < _comps.length; _ci++) {
+              var _comp = _comps[_ci];
+              var _cx = Math.round((_comp.minC - _mmOC) / _mmCols * mmW);
+              var _cy = Math.round((_comp.minR - _mmOR) / _mmRows * mmH);
+              var _cw = Math.round((_comp.maxC - _comp.minC + 1) / _mmCols * mmW);
+              var _ch = Math.round((_comp.maxR - _comp.minR + 1) / _mmRows * mmH);
+              mctx.strokeRect(_cx + 0.5, _cy + 0.5, _cw, _ch);
+            }
+            mctx.setLineDash([]);
+          }
         }
         // Border.
         mctx.strokeStyle = 'rgba(255,255,255,0.2)';
@@ -1404,7 +1524,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var birth = this.state.birthRule;
       var survive = this.state.surviveRule;
       var boundary = this.state.boundary;
-      var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary);
+      var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary, this.state.regionMask, this.state.regionComponents);
       this._applyNewStates(newLiveCells, tickId);
     },
     // Called by the worker response handler and the sync path.
@@ -1558,7 +1678,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var birth = this.state.birthRule;
       var survive = this.state.surviveRule;
       var boundary = this.state.boundary;
-      var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary);
+      var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary, this.state.regionMask, this.state.regionComponents);
       var newPop = newLiveCells.size;
       var newHistory = this.state.popHistory;
       newHistory.push(newPop);
@@ -1584,7 +1704,8 @@ document.addEventListener('DOMContentLoaded', function () {
     pushUndo: function () {
       this._undoStack.push({
         liveCells: new Map(this.state.liveCells),
-        generations: this.state.generations
+        generations: this.state.generations,
+        regionMask: new Set(this.state.regionMask)
       });
       if (this._undoStack.length > MAX_UNDO_STACK) {
         this._undoStack.shift();
@@ -1614,7 +1735,8 @@ document.addEventListener('DOMContentLoaded', function () {
       // Save current state for redo before restoring.
       this._redoStack.push({
         liveCells: new Map(this.state.liveCells),
-        generations: this.state.generations
+        generations: this.state.generations,
+        regionMask: new Set(this.state.regionMask)
       });
       if (this._redoStack.length > MAX_UNDO_STACK) {
         this._redoStack.shift();
@@ -1627,13 +1749,21 @@ document.addEventListener('DOMContentLoaded', function () {
       this._minimapDirty = true;
       var self = this;
       SimRunner.invalidate();
-      this.setState({
+      var stateUpdate = {
         liveCells: entry.liveCells,
         generations: entry.generations,
         running: false,
         stable: false
-      }, function () {
-        self.drawBoard();
+      };
+      if (entry.regionMask) {
+        stateUpdate.regionMask = entry.regionMask;
+      }
+      this.setState(stateUpdate, function () {
+        if (entry.regionMask) {
+          self._recomputeRegion();
+        } else {
+          self.drawBoard();
+        }
       });
     },
     redo: function () {
@@ -1644,7 +1774,8 @@ document.addEventListener('DOMContentLoaded', function () {
       // Save current state for undo before applying redo.
       this._undoStack.push({
         liveCells: new Map(this.state.liveCells),
-        generations: this.state.generations
+        generations: this.state.generations,
+        regionMask: new Set(this.state.regionMask)
       });
       var entry = this._redoStack.pop();
       this._tickId++;
@@ -1654,13 +1785,21 @@ document.addEventListener('DOMContentLoaded', function () {
       this._minimapDirty = true;
       var self = this;
       SimRunner.invalidate();
-      this.setState({
+      var stateUpdate = {
         liveCells: entry.liveCells,
         generations: entry.generations,
         running: false,
         stable: false
-      }, function () {
-        self.drawBoard();
+      };
+      if (entry.regionMask) {
+        stateUpdate.regionMask = entry.regionMask;
+      }
+      this.setState(stateUpdate, function () {
+        if (entry.regionMask) {
+          self._recomputeRegion();
+        } else {
+          self.drawBoard();
+        }
       });
     },
     // ── Export ─────────────────────────────────────────────────────────
@@ -1862,7 +2001,7 @@ document.addEventListener('DOMContentLoaded', function () {
       return InputHandler.bresenhamLine(r0, c0, r1, c1);
     },
     floodFillCells: function (startC, startR, liveCells, cols, rows, startAlive) {
-      return InputHandler.floodFillCells(startC, startR, liveCells, cols, rows, this.state.boundary, startAlive);
+      return InputHandler.floodFillCells(startC, startR, liveCells, cols, rows, this.state.boundary, startAlive, this.state.regionMask);
     },
     ellipseCells: function (c1, r1, c2, r2) {
       return InputHandler.ellipseCells(c1, r1, c2, r2);
@@ -1918,8 +2057,12 @@ document.addEventListener('DOMContentLoaded', function () {
         this.fitLiveCells();
         return;
       }
-      var cols = this.state.cols;
-      var rows = this.state.rows;
+      // Use regionBounds to determine the area to fit.
+      var rb = this.state.regionBounds;
+      var originC = rb ? rb.minC : 0;
+      var originR = rb ? rb.minR : 0;
+      var cols = rb ? rb.maxC - rb.minC + 1 : this.state.cols;
+      var rows = rb ? rb.maxR - rb.minR + 1 : this.state.rows;
       if (cols <= 0 || rows <= 0) {
         return;
       }
@@ -1948,8 +2091,8 @@ document.addEventListener('DOMContentLoaded', function () {
       var self = this;
       this.setState({
         cellSize: newCS,
-        viewX: -padCols,
-        viewY: -padRows
+        viewX: originC - padCols,
+        viewY: originR - padRows
       }, function () {
         self.drawBoard();
       });
@@ -2404,6 +2547,9 @@ document.addEventListener('DOMContentLoaded', function () {
       this._registerShortcut('p', 'Switch to Preset mode', function () {
         self.togglePresetMode();
       });
+      this._registerShortcut('b', 'Switch to Region mode', function () {
+        self.toggleRegionMode();
+      });
       this._registerShortcut('g', 'Toggle grid lines', function () {
         self.toggleGridLines();
       });
@@ -2688,7 +2834,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // Fast path: unbounded — SimRunner handles HashLife batch internally
       if (boundary === 'unbounded') {
-        var batch = SimRunner.stepN(liveCells, cols, rows, birth, survive, boundary, n);
+        var batch = SimRunner.stepN(liveCells, cols, rows, birth, survive, boundary, n, this.state.regionMask, this.state.regionComponents);
         for (var p = 0; p < batch.pops.length; p++) {
           popHistory.push(batch.pops[p]);
           if (popHistory.length > 20000) {
@@ -2717,8 +2863,10 @@ document.addEventListener('DOMContentLoaded', function () {
       var CHUNK = 50;
       var doChunk = function () {
         var limit = Math.min(done + CHUNK, n);
+        var _regionMask = self.state.regionMask;
+        var _regionComponents = self.state.regionComponents;
         for (var i = done; i < limit; i++) {
-          liveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary);
+          liveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary, _regionMask, _regionComponents);
           gen++;
           var pop = liveCells.size;
           popHistory.push(pop);
@@ -2799,16 +2947,112 @@ document.addEventListener('DOMContentLoaded', function () {
         self.drawBoard();
       });
     },
+    // ── Region mask helpers ────────────────────────────────────────
+
+    /**
+     * Recompute regionComponents and regionBounds from current regionMask,
+     * kill any liveCells outside the mask, and update cols/rows/pendingCols/pendingRows.
+     * Optionally accepts a callback.
+     */
+    _recomputeRegion: function (callback) {
+      var mask = this.state.regionMask;
+      var components = RegionUtil.findComponents(mask);
+      var bounds = RegionUtil.getBounds(mask);
+      CanvasRenderer.invalidateRegionCache();
+      // Derive cols/rows from bounds for backward compat.
+      var newCols = bounds ? bounds.maxC - bounds.minC + 1 : this.state.cols;
+      var newRows = bounds ? bounds.maxR - bounds.minR + 1 : this.state.rows;
+      // Kill live cells outside the region when in bounded mode.
+      var clippedLiveCells = this.state.liveCells;
+      if (this.state.boundary !== 'unbounded' && mask.size > 0) {
+        var dirty = false;
+        clippedLiveCells = new Map();
+        var liveCells = this.state.liveCells;
+        liveCells.forEach(function (age, key) {
+          if (mask.has(key)) {
+            clippedLiveCells.set(key, age);
+          } else {
+            dirty = true;
+          }
+        });
+        if (!dirty) {
+          clippedLiveCells = this.state.liveCells;
+        }
+      }
+      this._minimapDirty = true;
+      SimRunner.invalidate();
+      var self = this;
+      this.setState({
+        regionComponents: components,
+        regionBounds: bounds || {
+          minR: 0,
+          maxR: newRows - 1,
+          minC: 0,
+          maxC: newCols - 1
+        },
+        cols: newCols,
+        rows: newRows,
+        pendingCols: newCols,
+        pendingRows: newRows,
+        liveCells: clippedLiveCells,
+        stable: false
+      }, function () {
+        self.drawBoard();
+        if (callback) callback();
+      });
+    },
+    /**
+     * Apply region mask mutations (add/remove keys), then recompute.
+     * addKeys: array of "r,c" strings to add.
+     * removeKeys: array of "r,c" strings to remove.
+     */
+    _mutateRegion: function (addKeys, removeKeys, callback) {
+      var newMask = new Set(this.state.regionMask);
+      if (addKeys) {
+        for (var ai = 0; ai < addKeys.length; ai++) {
+          newMask.add(addKeys[ai]);
+        }
+      }
+      if (removeKeys) {
+        for (var ri = 0; ri < removeKeys.length; ri++) {
+          newMask.delete(removeKeys[ri]);
+        }
+      }
+      var self = this;
+      this.setState({
+        regionMask: newMask
+      }, function () {
+        self._recomputeRegion(callback);
+      });
+    },
+    /**
+     * Switch to region draw mode.
+     */
+    toggleRegionMode: function () {
+      var self = this;
+      var newMode = this.state.drawMode === 'region' ? 'paint' : 'region';
+      this.setState({
+        drawMode: newMode
+      }, function () {
+        self.drawBoard();
+      });
+    },
     toggleBoundary: function () {
       var cur = this.state.boundary;
       var next = cur === 'toroidal' ? 'finite' : cur === 'finite' ? 'unbounded' : 'toroidal';
       SimRunner.invalidate();
       this._minimapDirty = true;
       this._mmUnboundedRegion = null;
+      CanvasRenderer.invalidateRegionCache();
       var self = this;
-      this.setState({
+      var stateUpdate = {
         boundary: next
-      }, function () {
+      };
+      // Exit region mode when switching to unbounded.
+      if (next === 'unbounded' && this.state.drawMode === 'region') {
+        stateUpdate.drawMode = 'paint';
+      }
+      this.setState(stateUpdate, function () {
         self.drawBoard();
       });
     },
@@ -2834,20 +3078,27 @@ document.addEventListener('DOMContentLoaded', function () {
     resizeBoard: function (newCols, newRows) {
       newCols = Math.max(1, Math.round(newCols || 1));
       newRows = Math.max(1, Math.round(newRows || 1));
+      // Replace region mask with a fresh rectangle of the new dimensions.
+      var newRegionMask = RegionUtil.buildRect(newCols, newRows);
+      var newRegionComponents = [{
+        cells: newRegionMask,
+        minR: 0,
+        maxR: newRows - 1,
+        minC: 0,
+        maxC: newCols - 1
+      }];
       // Keep only cells that still fall within the new bounds.
       var oldLiveCells = this.state.liveCells;
       var newLiveCells = new Map();
       oldLiveCells.forEach(function (age, key) {
-        var _krc = parseKey(key),
-          kr = _krc[0],
-          kc = _krc[1];
-        if (kr >= 0 && kc >= 0 && kr < newRows && kc < newCols) {
+        if (newRegionMask.has(key)) {
           newLiveCells.set(key, age);
         }
       });
       var clamped = this.clampView(this.state.viewX, this.state.viewY, newCols, newRows, this.state.cellSize);
       this._minimapDirty = true;
       SimRunner.invalidate();
+      CanvasRenderer.invalidateRegionCache();
       var self = this;
       this.setState({
         cols: newCols,
@@ -2859,7 +3110,15 @@ document.addEventListener('DOMContentLoaded', function () {
         viewY: clamped.viewY,
         selection: null,
         popHistory: [],
-        sessionPeakPop: 0
+        sessionPeakPop: 0,
+        regionMask: newRegionMask,
+        regionComponents: newRegionComponents,
+        regionBounds: {
+          minR: 0,
+          maxR: newRows - 1,
+          minC: 0,
+          maxC: newCols - 1
+        }
       }, function () {
         self.drawBoard();
       });
@@ -3079,11 +3338,14 @@ document.addEventListener('DOMContentLoaded', function () {
       var offsetR = centerR - Math.floor(maxR / 2);
       var offsetC = centerC - Math.floor(maxC / 2);
       var newLiveCells = new Map(this.state.liveCells);
+      var regionMask = this.state.regionMask;
+      var isUnbounded = this.state.boundary === 'unbounded';
       for (var i = 0; i < pattern.length; i++) {
         var pr = pattern[i][0] + offsetR;
         var pc = pattern[i][1] + offsetC;
-        if (this.state.boundary === 'unbounded' || pr >= 0 && pr < rows && pc >= 0 && pc < cols) {
-          newLiveCells.set(pr + ',' + pc, 1);
+        var pkey = pr + ',' + pc;
+        if (isUnbounded || regionMask.has(pkey)) {
+          newLiveCells.set(pkey, 1);
         }
       }
       InputHandler._previewPos = null;
@@ -3123,9 +3385,11 @@ document.addEventListener('DOMContentLoaded', function () {
     },
     resetGame: function () {
       this.pushUndo();
+      var mask = this.state.regionMask;
+      var useMask = this.state.boundary !== 'unbounded' && mask && mask.size > 0;
       var resetCols = this.state.boundary === 'unbounded' ? 100 : this.state.cols;
       var resetRows = this.state.boundary === 'unbounded' ? 100 : this.state.rows;
-      var totalCells = resetCols * resetRows;
+      var totalCells = useMask ? mask.size : resetCols * resetRows;
       var sparseness = this.state.sparseness;
       // Cap density for very large boards to prevent browser crash.
       if (totalCells > 1000000) {
@@ -3161,7 +3425,16 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         });
       };
-      if (totalCells > 250000) {
+      if (useMask) {
+        // Generate random cells only within the region mask.
+        var newLiveCells = new Map();
+        mask.forEach(function (key) {
+          if (Math.random() < 1 / sparseness) {
+            newLiveCells.set(key, 1);
+          }
+        });
+        applyReset(newLiveCells);
+      } else if (totalCells > 250000) {
         // Large board: generate cells asynchronously to avoid UI freeze.
         this.setState({
           running: false
@@ -3774,8 +4047,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var isUnbounded = this.state.boundary === 'unbounded';
       var mmMobOriginR = 0,
         mmMobOriginC = 0;
-      var mmMobBBCols = cols,
-        mmMobBBRows = rows;
+      // regionBounds used for mobile minimap bounding indicator
       if (isUnbounded) {
         var bb = SimEngine.getBoundingBox(liveCells);
         if (bb) {
@@ -3809,11 +4081,12 @@ document.addEventListener('DOMContentLoaded', function () {
           var mmRegionCols = 100;
         }
       } else {
-        // Bounded modes: fixed world region = bounding box + live cells + static padding.
-        var mmMR = 0,
-          mmMC = 0,
-          mmMXR = rows,
-          mmMXC = cols;
+        // Bounded modes: fixed world region = region bounds + live cells + static padding.
+        var rbm = this.state.regionBounds;
+        var mmMR = rbm ? rbm.minR : 0;
+        var mmMC = rbm ? rbm.minC : 0;
+        var mmMXR = rbm ? rbm.maxR + 1 : rows;
+        var mmMXC = rbm ? rbm.maxC + 1 : cols;
         var bbMob = SimEngine.getBoundingBox(liveCells);
         if (bbMob) {
           mmMR = Math.min(mmMR, bbMob.minR);
@@ -3862,17 +4135,23 @@ document.addEventListener('DOMContentLoaded', function () {
         mmCtx.fillRect(px, py, pw, ph);
       });
 
-      // Bounding box indicator on mobile minimap (bounded modes only).
-      if (!isUnbounded) {
-        var bbMmMX = Math.round((0 - mmMobOriginC) * cellW);
-        var bbMmMY = Math.round((0 - mmMobOriginR) * cellH);
-        var bbMmMW = Math.round(mmMobBBCols * cellW);
-        var bbMmMH = Math.round(mmMobBBRows * cellH);
-        mmCtx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.5)';
-        mmCtx.lineWidth = 1;
-        mmCtx.setLineDash([3, 2]);
-        mmCtx.strokeRect(bbMmMX + 0.5, bbMmMY + 0.5, bbMmMW, bbMmMH);
-        mmCtx.setLineDash([]);
+      // Region indicator on mobile minimap (bounded modes only).
+      if (!isUnbounded && this.state.regionComponents) {
+        var _compsM = this.state.regionComponents;
+        if (_compsM.length > 0) {
+          mmCtx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.5)';
+          mmCtx.lineWidth = 1;
+          mmCtx.setLineDash([3, 2]);
+          for (var _ciM = 0; _ciM < _compsM.length; _ciM++) {
+            var _compM = _compsM[_ciM];
+            var _cxM = Math.round((_compM.minC - mmMobOriginC) * cellW);
+            var _cyM = Math.round((_compM.minR - mmMobOriginR) * cellH);
+            var _cwM = Math.round((_compM.maxC - _compM.minC + 1) * cellW);
+            var _chM = Math.round((_compM.maxR - _compM.minR + 1) * cellH);
+            mmCtx.strokeRect(_cxM + 0.5, _cyM + 0.5, _cwM, _chM);
+          }
+          mmCtx.setLineDash([]);
+        }
       }
 
       // Border.
@@ -3988,7 +4267,7 @@ document.addEventListener('DOMContentLoaded', function () {
       label: 'Export'
     }],
     _buildSheetContent: function () {
-      if (!this.state.bottomSheetOpen || this.state.bottomSheetClosing) {
+      if (!this.state.bottomSheetOpen) {
         return null;
       }
       return this._buildTabContent(this.state.bottomSheetTab, {
@@ -4107,6 +4386,7 @@ document.addEventListener('DOMContentLoaded', function () {
     _renderBottomSheet: function (sheetContent) {
       var self = this;
       var tabs = this._MOBILE_TABS;
+      var layoutSwitcher = this.renderLayoutSwitcher();
       return /*#__PURE__*/React.createElement("div", {
         className: "bottom-sheet-container",
         onKeyDown: function (e) {
@@ -4160,12 +4440,12 @@ document.addEventListener('DOMContentLoaded', function () {
         id: "sheet-panel-" + this.state.bottomSheetTab,
         role: "tabpanel",
         "aria-label": this.state.bottomSheetTab + " controls"
-      }, sheetContent, /*#__PURE__*/React.createElement("div", {
+      }, sheetContent, layoutSwitcher && /*#__PURE__*/React.createElement("div", {
         style: {
           padding: '8px 12px 0',
           borderTop: '1px solid var(--panel-border)'
         }
-      }, this.renderLayoutSwitcher()))));
+      }, layoutSwitcher))));
     },
     renderMobileContextPanel: function () {
       var self = this;
@@ -4391,7 +4671,12 @@ document.addEventListener('DOMContentLoaded', function () {
         className: "btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : ""),
         onClick: this.toggleSelectMode,
         title: "Select and move cells (S)"
-      }, "Select"), /*#__PURE__*/React.createElement("button", {
+      }, "Select"), this.state.boundary !== 'unbounded' && /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn btn-toggle" + (this.state.drawMode === 'region' ? " active" : ""),
+        onClick: this.toggleRegionMode,
+        title: "Draw/erase region bounds (B)"
+      }, "Region"), /*#__PURE__*/React.createElement("button", {
         type: "button",
         className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
         onClick: this.toggleLivePaint,
@@ -4841,7 +5126,15 @@ document.addEventListener('DOMContentLoaded', function () {
       }, /*#__PURE__*/React.createElement("i", {
         className: "fa fa-mouse-pointer",
         "aria-hidden": "true"
-      }), " Select"), /*#__PURE__*/React.createElement("button", {
+      }), " Select"), this.state.boundary !== 'unbounded' && /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn btn-toggle" + (this.state.drawMode === 'region' ? " active" : ""),
+        onClick: this.toggleRegionMode,
+        title: "Draw/erase region bounds (B)"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa fa-th",
+        "aria-hidden": "true"
+      }), " Region"), /*#__PURE__*/React.createElement("button", {
         type: "button",
         className: "btn btn-toggle" + (this.state.livePaintMode ? " active" : ""),
         onClick: this.toggleLivePaint,
@@ -4955,7 +5248,29 @@ document.addEventListener('DOMContentLoaded', function () {
         value: "freeform"
       }, "Freeform"), /*#__PURE__*/React.createElement("option", {
         value: "all-visible"
-      }, "All visible"))), /*#__PURE__*/React.createElement("div", {
+      }, "All visible"))), this.state.boundary !== 'unbounded' && /*#__PURE__*/React.createElement("div", {
+        className: "tool-subtype-row"
+      }, /*#__PURE__*/React.createElement("label", {
+        className: "tool-label"
+      }, "Region:"), /*#__PURE__*/React.createElement("select", {
+        value: this.state.regionTool,
+        onChange: function (e) {
+          self.setState({
+            regionTool: e.target.value,
+            drawMode: 'region'
+          });
+        }
+      }, /*#__PURE__*/React.createElement("option", {
+        value: "cell"
+      }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
+        value: "line"
+      }, "Line"), /*#__PURE__*/React.createElement("option", {
+        value: "fill"
+      }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
+        value: "shape-rect"
+      }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+        value: "shape-circle"
+      }, "Circle"))), /*#__PURE__*/React.createElement("div", {
         className: "tool-subtype-row"
       }, /*#__PURE__*/React.createElement("label", {
         className: "tool-label"

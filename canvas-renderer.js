@@ -117,31 +117,117 @@ var CanvasRenderer = {
         ctx.stroke();
     },
 
-    // ── Bounding box overlay ─────────────────────────────────────────────────
+    // ── Region overlay (replaces single-rectangle bounding box) ─────────────
 
-    drawBoundingBox: function(ctx, cols, rows, viewX, viewY, cellSize, canvasW, canvasH, theme){
-        var bbX1 = (0 - viewX) * cellSize;
-        var bbY1 = (0 - viewY) * cellSize;
-        var bbW = cols * cellSize;
-        var bbH = rows * cellSize;
+    // Cache for region bitmap (invalidated when regionMask changes).
+    _regionBitmapCache: null,
+    _regionBitmapMaskSize: -1,
+
+    /**
+     * Draw the region overlay: darken cells outside the region, draw border
+     * edges where region meets non-region. Supports arbitrary region shapes.
+     *
+     * regionMask: Set<string> of "r,c" keys.
+     * boundary: 'finite' | 'toroidal'.
+     */
+    drawRegionOverlay: function(ctx, regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, canvasW, canvasH, theme, boundary){
+        if(!regionMask || regionMask.size === 0){ return; }
+
+        // Build/cache bitmap for fast lookup during rendering.
+        if(!this._regionBitmapCache || this._regionBitmapMaskSize !== regionMask.size){
+            this._regionBitmapCache = RegionUtil.toBitmap(regionMask);
+            this._regionBitmapMaskSize = regionMask.size;
+        }
+        var bm = this._regionBitmapCache;
+
+        // Darken out-of-region cells in the visible range.
         ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        if(bbY1 > 0) ctx.fillRect(0, 0, canvasW, Math.min(bbY1, canvasH));
-        var bbBot = bbY1 + bbH;
-        if(bbBot < canvasH) ctx.fillRect(0, Math.max(0, bbBot), canvasW, canvasH - Math.max(0, bbBot));
-        var clipTop = Math.max(0, bbY1);
-        var clipBot = Math.min(canvasH, bbBot);
-        if(clipBot > clipTop && bbX1 > 0){
-            ctx.fillRect(0, clipTop, Math.min(bbX1, canvasW), clipBot - clipTop);
+        for(var r = startR; r < endR; r++){
+            var px_y = (r - viewY) * cellSize;
+            if(px_y >= canvasH) break;
+            if(px_y + cellSize <= 0) continue;
+            // Scan row for contiguous out-of-region runs for batch filling.
+            var runStart = -1;
+            for(var c = startC; c <= endC; c++){
+                var inRegion = (c < endC) && RegionUtil.bitmapHas(bm, r, c);
+                if(!inRegion){
+                    if(runStart < 0) runStart = c;
+                } else {
+                    if(runStart >= 0){
+                        var px_x = (runStart - viewX) * cellSize;
+                        var px_w = (c - runStart) * cellSize;
+                        ctx.fillRect(px_x, px_y, px_w, cellSize);
+                        runStart = -1;
+                    }
+                }
+            }
+            if(runStart >= 0){
+                var px_x2 = (runStart - viewX) * cellSize;
+                var px_w2 = (endC - runStart) * cellSize;
+                ctx.fillRect(px_x2, px_y, px_w2, cellSize);
+            }
         }
-        var bbRight = bbX1 + bbW;
-        if(clipBot > clipTop && bbRight < canvasW){
-            ctx.fillRect(Math.max(0, bbRight), clipTop, canvasW - Math.max(0, bbRight), clipBot - clipTop);
-        }
+
+        // Draw border edges where region meets non-region.
         ctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.6)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([8, 4]);
-        ctx.strokeRect(bbX1 + 0.5, bbY1 + 0.5, bbW, bbH);
+        if(boundary === 'finite'){
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+        } else {
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 3]);
+        }
+        ctx.beginPath();
+        for(var br = startR; br < endR; br++){
+            for(var bc = startC; bc < endC; bc++){
+                if(!RegionUtil.bitmapHas(bm, br, bc)) continue;
+                var bx = (bc - viewX) * cellSize;
+                var by = (br - viewY) * cellSize;
+                // Top edge: no region cell above.
+                if(!RegionUtil.bitmapHas(bm, br - 1, bc)){
+                    ctx.moveTo(bx, by + 0.5);
+                    ctx.lineTo(bx + cellSize, by + 0.5);
+                }
+                // Bottom edge: no region cell below.
+                if(!RegionUtil.bitmapHas(bm, br + 1, bc)){
+                    ctx.moveTo(bx, by + cellSize - 0.5);
+                    ctx.lineTo(bx + cellSize, by + cellSize - 0.5);
+                }
+                // Left edge: no region cell to the left.
+                if(!RegionUtil.bitmapHas(bm, br, bc - 1)){
+                    ctx.moveTo(bx + 0.5, by);
+                    ctx.lineTo(bx + 0.5, by + cellSize);
+                }
+                // Right edge: no region cell to the right.
+                if(!RegionUtil.bitmapHas(bm, br, bc + 1)){
+                    ctx.moveTo(bx + cellSize - 0.5, by);
+                    ctx.lineTo(bx + cellSize - 0.5, by + cellSize);
+                }
+            }
+        }
+        ctx.stroke();
         ctx.setLineDash([]);
+    },
+
+    /** Invalidate region bitmap cache (call when regionMask changes). */
+    invalidateRegionCache: function(){
+        this._regionBitmapCache = null;
+        this._regionBitmapMaskSize = -1;
+    },
+
+    /** Draw preview overlay for region drawing tool (cells being added/removed). */
+    drawRegionPreview: function(ctx, previewKeys, erasing, viewX, viewY, cellSize){
+        if(!previewKeys || previewKeys.length === 0) return;
+        ctx.fillStyle = erasing
+            ? 'rgba(200,80,80,0.35)'
+            : 'rgba(80,140,220,0.35)';
+        for(var i = 0; i < previewKeys.length; i++){
+            var key = previewKeys[i];
+            var idx = key.indexOf(',');
+            var r = parseInt(key.substring(0, idx), 10) || 0;
+            var c = parseInt(key.substring(idx + 1), 10) || 0;
+            ctx.fillRect((c - viewX) * cellSize, (r - viewY) * cellSize, cellSize, cellSize);
+        }
     },
 
     // ── Selection overlay ────────────────────────────────────────────────────

@@ -35,6 +35,14 @@ var InputHandler = {
     _wasRunningBeforeTouch: false,
     _longPressTimer: null,
 
+    // ── Region drawing state ──────────────────────────────────────────────
+    _regionDragging: false,
+    _regionDragStatus: null,  // 1 = adding, 0 = erasing
+    _regionPaintedKeys: {},
+    _regionToolStart: null,
+    _regionPreviewKeys: [],
+    _regionErasing: false,
+
     // ── Pure geometry helpers (no state dependencies) ─────────────────────────
 
     /** Bresenham line: returns [[r,c],...] from (r0,c0) to (r1,c1). */
@@ -118,7 +126,7 @@ var InputHandler = {
     },
 
     /** BFS flood fill: returns [[r,c],...] of connected cells matching startAlive. */
-    floodFillCells: function(startC, startR, liveCells, cols, rows, boundary, startAlive){
+    floodFillCells: function(startC, startR, liveCells, cols, rows, boundary, startAlive, regionMask){
         var isUnbounded = boundary === 'unbounded';
         var maxFlood = 100000;
         var queue = [[startR, startC]];
@@ -131,7 +139,14 @@ var InputHandler = {
             if(visited.has(key)){ continue; }
             visited.add(key);
             var rr = cur[0], cc = cur[1];
-            if(!isUnbounded && (cc < 0 || cc >= cols || rr < 0 || rr >= rows)){ continue; }
+            // Use region mask for bounds checking if available.
+            if(!isUnbounded){
+                if(regionMask && regionMask.size > 0){
+                    if(!regionMask.has(key)){ continue; }
+                } else if(cc < 0 || cc >= cols || rr < 0 || rr >= rows){
+                    continue;
+                }
+            }
             var isAlive = liveCells.has(key);
             if(isAlive !== startAlive){ continue; }
             result.push([rr, cc]);
@@ -229,7 +244,9 @@ var InputHandler = {
         if(event.button !== 0){ return; }
         var pos = this.getCellPos(event, canvas, host.state.viewX, host.state.viewY, host.state.cellSize);
         var c = pos.c, r = pos.r;
-        if(host.state.boundary !== 'unbounded' && (c < 0 || c >= host.state.cols || r < 0 || r >= host.state.rows)){ return; }
+        // Region mode allows clicking outside current bounds to expand the region.
+        if(host.state.drawMode !== 'region' && host.state.boundary !== 'unbounded' &&
+           (c < 0 || c >= host.state.cols || r < 0 || r >= host.state.rows)){ return; }
 
         // Pan mode.
         if(host.state.panMode){
@@ -260,6 +277,45 @@ var InputHandler = {
             return;
         }
 
+        // Region drawing mode.
+        if(host.state.drawMode === 'region'){
+            host.setState({running: false});
+            var regionTool = host.state.regionTool || 'shape-rect';
+            var regionKey = r + ',' + c;
+            var startInRegion = host.state.regionMask.has(regionKey);
+
+            if(regionTool === 'fill'){
+                // Flood fill on region mask.
+                host.pushUndo();
+                var fillKeys = RegionUtil.floodFillRegion(r, c, host.state.regionMask, 100000);
+                this._regionErasing = startInRegion;
+                if(startInRegion){
+                    host._mutateRegion(null, fillKeys);
+                } else {
+                    host._mutateRegion(fillKeys, null);
+                }
+                CanvasRenderer.invalidateRegionCache();
+                return;
+            }
+            if(regionTool === 'line' || regionTool === 'shape-rect' || regionTool === 'shape-circle'){
+                this._regionErasing = startInRegion;
+                host.pushUndo();
+                this._regionToolStart = {c: c, r: r};
+                this._regionPreviewKeys = [regionKey];
+                host.drawBoard();
+                return;
+            }
+            // Default: cell-by-cell region painting.
+            host.pushUndo();
+            this._regionDragging = true;
+            this._regionDragStatus = startInRegion ? 0 : 1;
+            this._regionPaintedKeys = {};
+            this._regionPaintedKeys[regionKey] = this._regionDragStatus;
+            this._regionErasing = startInRegion;
+            host.drawBoard();
+            return;
+        }
+
         // Paint mode.
         if(!host.state.livePaintMode){ host.setState({running: false}); }
         var drawTool = host.state.drawTool || 'cell';
@@ -267,7 +323,7 @@ var InputHandler = {
             var startAlive = host.state.liveCells.has(r + ',' + c);
             this._drawErasing = startAlive;
             host.pushUndo();
-            var fillCells = this.floodFillCells(c, r, host.state.liveCells, host.state.cols, host.state.rows, host.state.boundary, startAlive);
+            var fillCells = this.floodFillCells(c, r, host.state.liveCells, host.state.cols, host.state.rows, host.state.boundary, startAlive, host.state.regionMask);
             host._minimapDirty = true;
             SimRunner.invalidate();
             host.setState(function(prevState){
@@ -376,6 +432,33 @@ var InputHandler = {
             }
         }
 
+        // Region tool preview (rubber-band shapes).
+        if(this._regionToolStart && host.state.drawMode === 'region'){
+            var regionTool = host.state.regionTool || 'shape-rect';
+            if(regionTool === 'line' || regionTool === 'shape-rect' || regionTool === 'shape-circle'){
+                var rds = this._regionToolStart;
+                if(regionTool === 'line'){
+                    this._regionPreviewKeys = RegionUtil.lineKeys(rds.r, rds.c, r, c);
+                } else if(regionTool === 'shape-rect'){
+                    this._regionPreviewKeys = RegionUtil.rectKeys(rds.r, rds.c, r, c);
+                } else if(regionTool === 'shape-circle'){
+                    this._regionPreviewKeys = RegionUtil.ellipseKeys(rds.r, rds.c, r, c);
+                }
+                host.drawBoard();
+                return;
+            }
+        }
+
+        // Region cell-by-cell painting drag.
+        if(this._regionDragging && host.state.drawMode === 'region'){
+            var rgKey = r + ',' + c;
+            if(this._regionPaintedKeys[rgKey] === undefined){
+                this._regionPaintedKeys[rgKey] = this._regionDragStatus;
+                host.drawBoard();
+            }
+            return;
+        }
+
         // Minimap drag.
         if(this._minimapDragging && host._minimapRect && host.state.showMinimap){
             var mm = host._minimapRect;
@@ -404,7 +487,14 @@ var InputHandler = {
 
         // Cell painting.
         if(!this._dragging){ return; }
-        if(host.state.boundary !== 'unbounded' && (c < 0 || c >= host.state.cols || r < 0 || r >= host.state.rows)){ return; }
+        if(host.state.boundary !== 'unbounded'){
+            var mask = host.state.regionMask;
+            if(mask && mask.size > 0){
+                if(!mask.has(r + ',' + c)){ return; }
+            } else if(c < 0 || c >= host.state.cols || r < 0 || r >= host.state.rows){
+                return;
+            }
+        }
         var paintKey = r + ',' + c;
         if(this._paintedCells[paintKey] !== undefined){ return; }
         this._paintedCells[paintKey] = this._dragStatus;
@@ -454,6 +544,38 @@ var InputHandler = {
             this._selStart = null;
             return;
         }
+        // Apply region rubber-band tools.
+        if(this._regionToolStart && host.state.drawMode === 'region'){
+            var regionPreview = this._regionPreviewKeys;
+            this._regionToolStart = null;
+            this._regionPreviewKeys = [];
+            var regionErasing = this._regionErasing;
+            CanvasRenderer.invalidateRegionCache();
+            if(regionErasing){
+                host._mutateRegion(null, regionPreview);
+            } else {
+                host._mutateRegion(regionPreview, null);
+            }
+            return;
+        }
+        // Apply region cell-by-cell painting.
+        if(this._regionDragging && host.state.drawMode === 'region'){
+            this._regionDragging = false;
+            var rPainted = this._regionPaintedKeys;
+            var addKeys = [], removeKeys = [];
+            var rKeys = Object.keys(rPainted);
+            for(var rki = 0; rki < rKeys.length; rki++){
+                if(rPainted[rKeys[rki]] === 1){ addKeys.push(rKeys[rki]); }
+                else { removeKeys.push(rKeys[rki]); }
+            }
+            this._regionPaintedKeys = {};
+            CanvasRenderer.invalidateRegionCache();
+            host._mutateRegion(
+                addKeys.length > 0 ? addKeys : null,
+                removeKeys.length > 0 ? removeKeys : null
+            );
+            return;
+        }
         // Apply rubber-band tools.
         if(this._drawToolStart && host.state.drawMode === 'paint'){
             var drawTool = host.state.drawTool || 'cell';
@@ -494,6 +616,13 @@ var InputHandler = {
         this._minimapDragging = false;
         this._panDragging = false;
         this._panStart = null;
+        if(this._regionToolStart){
+            this._regionToolStart = null;
+            this._regionPreviewKeys = [];
+            host.popUndo();
+            host.drawBoard();
+            return;
+        }
         if(this._drawToolStart){
             host.cancelDrawTool();
             host.drawBoard();
@@ -508,6 +637,13 @@ var InputHandler = {
 
     onContextMenu: function(event, host){
         event.preventDefault();
+        if(this._regionToolStart){
+            this._regionToolStart = null;
+            this._regionPreviewKeys = [];
+            host.popUndo();
+            host.drawBoard();
+            return;
+        }
         if(this._drawToolStart){
             host.cancelDrawTool();
             host.drawBoard();
@@ -633,6 +769,7 @@ var InputHandler = {
                 this._previewPos = {c: pos.c, r: pos.r};
                 host.drawBoard();
             }
+            host._hideStatsChip();
             return;
         }
         this._wasRunningBeforeTouch = host.state.running;
@@ -723,6 +860,7 @@ var InputHandler = {
             if(host.state.drawMode === 'preset' && host.state.selectedPattern && this._previewPos){
                 if(!host.state.livePaintMode){ host.setState({running: false}); }
                 host.placePattern(host.state.selectedPattern, this._previewPos.c, this._previewPos.r);
+                host._showStatsChipAfterDelay();
                 return;
             }
             if(host.state.drawMode === 'preset' && this._previewPos){
@@ -756,5 +894,11 @@ var InputHandler = {
         this._wasRunningBeforeTouch = false;
         clearTimeout(this._longPressTimer);
         this._longPressTimer = null;
+        this._regionDragging = false;
+        this._regionDragStatus = null;
+        this._regionPaintedKeys = {};
+        this._regionToolStart = null;
+        this._regionPreviewKeys = [];
+        this._regionErasing = false;
     }
 };
