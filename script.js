@@ -402,9 +402,14 @@ document.addEventListener('DOMContentLoaded', function(){
             // ── Lifecycle ─────────────────────────────────────────────────────
 
             getInitialState : function(){
-                var cellSize = 5;
                 var cols = 100;
                 var rows = 100;
+                // On mobile, default to 8px/cell and center the view on the grid.
+                var isMobileInit = window.innerWidth <= 620 ||
+                    (window.matchMedia && window.matchMedia('(orientation: landscape) and (max-height: 550px)').matches);
+                var cellSize = isMobileInit ? 8 : 5;
+                var initViewX = isMobileInit ? Math.round((cols / 2) - (window.innerWidth / (2 * cellSize))) : 0;
+                var initViewY = isMobileInit ? Math.round((rows / 2) - (window.innerHeight / (2 * cellSize))) : 0;
                 // Load persisted layout preferences from localStorage.
                 // Schema v1: {layoutMode, railCollapsed, railTab, railSide, panelStates}
                 var LAYOUT_SCHEMA_VERSION = 1;
@@ -463,8 +468,8 @@ document.addEventListener('DOMContentLoaded', function(){
                     cellSize :       cellSize,
                     cols :           cols,
                     rows :           rows,
-                    viewX :          0,
-                    viewY :          0,
+                    viewX :          initViewX,
+                    viewY :          initViewY,
                     sparseness :     2,
                     liveCells :      SimEngine.buildLiveCells(cols, rows, 2),
                     generations :    0,
@@ -895,7 +900,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
                 // Bounding box.
                 if(!isUnbounded){
-                    CanvasRenderer.drawBoundingBox(ctx, cols, rows, viewX, viewY, cellSize, canvasW, canvasH, theme);
+                    CanvasRenderer.drawBoundingBox(ctx, cols, rows, viewX, viewY, cellSize, canvasW, canvasH, theme, this.state.boundary);
                 }
 
                 // Selection.
@@ -3096,7 +3101,7 @@ document.addEventListener('DOMContentLoaded', function(){
             ],
 
             _buildSheetContent : function(){
-                if(!this.state.bottomSheetOpen || this.state.bottomSheetClosing){ return null; }
+                if(!this.state.bottomSheetOpen){ return null; }
                 return this._buildTabContent(this.state.bottomSheetTab, {sectionTitle: true, sparkline: true});
             },
 
@@ -3178,6 +3183,7 @@ document.addEventListener('DOMContentLoaded', function(){
             _renderBottomSheet : function(sheetContent){
                 var self = this;
                 var tabs = this._MOBILE_TABS;
+                var layoutSwitcher = this.renderLayoutSwitcher();
                 return (
                     <div className="bottom-sheet-container"
                         onKeyDown={function(e){ self._onSheetKeyDown(e); }}>
@@ -3209,9 +3215,11 @@ document.addEventListener('DOMContentLoaded', function(){
                                 role="tabpanel"
                                 aria-label={this.state.bottomSheetTab + " controls"}>
                                 {sheetContent}
-                                <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
-                                    {this.renderLayoutSwitcher()}
-                                </div>
+                                {layoutSwitcher &&
+                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                                        {layoutSwitcher}
+                                    </div>
+                                }
                             </div>
                         </div>
                     </div>

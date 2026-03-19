@@ -119,7 +119,7 @@ var CanvasRenderer = {
 
     // ── Bounding box overlay ─────────────────────────────────────────────────
 
-    drawBoundingBox: function(ctx, cols, rows, viewX, viewY, cellSize, canvasW, canvasH, theme){
+    drawBoundingBox: function(ctx, cols, rows, viewX, viewY, cellSize, canvasW, canvasH, theme, boundary){
         var bbX1 = (0 - viewX) * cellSize;
         var bbY1 = (0 - viewY) * cellSize;
         var bbW = cols * cellSize;
@@ -138,8 +138,15 @@ var CanvasRenderer = {
             ctx.fillRect(Math.max(0, bbRight), clipTop, canvasW - Math.max(0, bbRight), clipBot - clipTop);
         }
         ctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.6)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([8, 4]);
+        if(boundary === 'finite'){
+            // Solid line for hard border
+            ctx.lineWidth = 3;
+            ctx.setLineDash([]);
+        } else {
+            // Dashed line for toroidal (wrapping) boundary
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+        }
         ctx.strokeRect(bbX1 + 0.5, bbY1 + 0.5, bbW, bbH);
         ctx.setLineDash([]);
     },
