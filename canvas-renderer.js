@@ -326,7 +326,7 @@ var CanvasRenderer = {
     _rotatedPatternCache: null,
     _rotatedPatternKey: null,
 
-    drawPatternPreview: function(ctx, patternName, rotation, previewPos, viewX, viewY, cellSize, theme){
+    drawPatternPreview: function(ctx, patternName, rotation, previewPos, viewX, viewY, cellSize, theme, regionMask){
         if(!patternName || !previewPos || !PATTERNS[patternName]) return;
         var aR = theme.aliveR, aG = theme.aliveG, aB = theme.aliveB;
         var cacheKey = patternName + ':' + rotation;
@@ -342,10 +342,12 @@ var CanvasRenderer = {
         }
         var offsetPR = previewPos.r - Math.floor(maxPR / 2);
         var offsetPC = previewPos.c - Math.floor(maxPC / 2);
+        var hasRegion = regionMask && regionMask.size > 0;
         ctx.fillStyle = 'rgba(' + aR + ',' + aG + ',' + aB + ',0.55)';
         for(var pj = 0; pj < pattern.length; pj++){
             var pvR = pattern[pj][0] + offsetPR;
             var pvC = pattern[pj][1] + offsetPC;
+            if(hasRegion && !regionMask.has(pvR + ',' + pvC)) continue;
             ctx.fillRect((pvC - viewX) * cellSize, (pvR - viewY) * cellSize, cellSize, cellSize);
         }
     },

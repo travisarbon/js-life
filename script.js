@@ -996,7 +996,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
                 // Pattern preview.
                 if(this.state.drawMode === 'preset'){
-                    CanvasRenderer.drawPatternPreview(ctx, this.state.selectedPattern, this.state.patternRotation, InputHandler._previewPos, viewX, viewY, cellSize, theme);
+                    var previewMask = (!isUnbounded && this.state.regionMask && this.state.regionMask.size > 0) ? this.state.regionMask : null;
+                    CanvasRenderer.drawPatternPreview(ctx, this.state.selectedPattern, this.state.patternRotation, InputHandler._previewPos, viewX, viewY, cellSize, theme, previewMask);
                 }
 
                 // Minimap overlay (bottom-right corner on large desktop; separate element elsewhere).
@@ -1637,7 +1638,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
             // ── Selection/draw helpers (delegated to InputHandler) ─────────────
 
-            getSelectionCells : function(sel){ return InputHandler.getSelectionCells(sel); },
+            getSelectionCells : function(sel){
+                var mask = this.state.boundary !== 'unbounded' ? this.state.regionMask : null;
+                return InputHandler.getSelectionCells(sel, mask);
+            },
             pointInPolygon : function(px, py, polygon){ return InputHandler.pointInPolygon(px, py, polygon); },
             bresenhamLine : function(r0, c0, r1, c1){ return InputHandler.bresenhamLine(r0, c0, r1, c1); },
             floodFillCells : function(startC, startR, liveCells, cols, rows, startAlive){
@@ -1651,12 +1655,15 @@ document.addEventListener('DOMContentLoaded', function(){
                 var cs = this.getCanvasSize();
                 var viewCols = Math.ceil(cs.w / this.state.cellSize);
                 var viewRows = Math.ceil(cs.h / this.state.cellSize);
+                var isUnbounded = this.state.boundary === 'unbounded';
+                var rMask = (!isUnbounded && this.state.regionMask && this.state.regionMask.size > 0) ? this.state.regionMask : null;
                 var cells = [];
                 var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
                 liveCells.forEach(function(_, key){
                     var rc = parseKey(key);
                     var r = rc[0], c = rc[1];
-                    if(c >= viewX && c < viewX + viewCols && r >= viewY && r < viewY + viewRows){
+                    if(c >= viewX && c < viewX + viewCols && r >= viewY && r < viewY + viewRows &&
+                       (!rMask || rMask.has(key))){
                         cells.push([r, c]);
                         if(r < minR) minR = r; if(r > maxR) maxR = r;
                         if(c < minC) minC = c; if(c > maxC) maxC = c;

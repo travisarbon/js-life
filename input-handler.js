@@ -43,6 +43,15 @@ var InputHandler = {
     _regionPreviewKeys: [],
     _regionErasing: false,
 
+    /** Check whether a cell at (r,c) is inside the active region.
+     *  Returns true if the cell is allowed (unbounded mode, no region, or in-region). */
+    _cellInRegion: function(r, c, host){
+        if(host.state.boundary === 'unbounded') return true;
+        var mask = host.state.regionMask;
+        if(!mask || mask.size === 0) return true;
+        return mask.has(r + ',' + c);
+    },
+
     // ── Pure geometry helpers (no state dependencies) ─────────────────────────
 
     /** Bresenham line: returns [[r,c],...] from (r0,c0) to (r1,c1). */
@@ -92,9 +101,11 @@ var InputHandler = {
         return inside;
     },
 
-    /** Returns [[r,c],...] for every cell in the selection (any type). */
-    getSelectionCells: function(sel){
+    /** Returns [[r,c],...] for every cell in the selection (any type).
+     *  If regionMask is provided (and non-empty), cells outside it are excluded. */
+    getSelectionCells: function(sel, regionMask){
         if(!sel){ return []; }
+        var hasRegion = regionMask && regionMask.size > 0;
         var type = sel.type || 'rect';
         if(type === 'rect'){
             var cells = [];
@@ -102,7 +113,8 @@ var InputHandler = {
             var c1 = Math.min(sel.c1, sel.c2), c2 = Math.max(sel.c1, sel.c2);
             for(var r = r1; r <= r2; r++)
                 for(var c = c1; c <= c2; c++)
-                    cells.push([r, c]);
+                    if(!hasRegion || regionMask.has(r + ',' + c))
+                        cells.push([r, c]);
             return cells;
         }
         if(type === 'ellipse'){
@@ -115,12 +127,15 @@ var InputHandler = {
                 for(var ce = c1e; ce <= c2e; ce++){
                     var ddx = (cxe > 0 || rxe > 0) ? (ce - cxe) / (rxe + 0.5) : 0;
                     var ddy = (cye > 0 || rye > 0) ? (re - cye) / (rye + 0.5) : 0;
-                    if(ddx*ddx + ddy*ddy <= 1) ecells.push([re, ce]);
+                    if(ddx*ddx + ddy*ddy <= 1 && (!hasRegion || regionMask.has(re + ',' + ce)))
+                        ecells.push([re, ce]);
                 }
             return ecells;
         }
         if(type === 'freeform' || type === 'all-visible'){
-            return sel.cells || [];
+            var raw = sel.cells || [];
+            if(!hasRegion) return raw;
+            return raw.filter(function(rc){ return regionMask.has(rc[0] + ',' + rc[1]); });
         }
         return [];
     },
@@ -317,6 +332,7 @@ var InputHandler = {
         if(!host.state.livePaintMode){ host.setState({running: false}); }
         var drawTool = host.state.drawTool || 'cell';
         if(drawTool === 'fill'){
+            if(!this._cellInRegion(r, c, host)){ return; }
             var startAlive = host.state.liveCells.has(r + ',' + c);
             this._drawErasing = startAlive;
             host.pushUndo();
@@ -334,6 +350,7 @@ var InputHandler = {
             return;
         }
         if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
+            if(!this._cellInRegion(r, c, host)){ return; }
             this._drawErasing = host.state.liveCells.has(r + ',' + c);
             host.pushUndo();
             this._drawToolStart = {c: c, r: r};
@@ -342,6 +359,7 @@ var InputHandler = {
             return;
         }
         // Default: single-cell paint.
+        if(!this._cellInRegion(r, c, host)){ return; }
         var key = r + ',' + c;
         host.pushUndo();
         this._dragging = true;
@@ -409,19 +427,22 @@ var InputHandler = {
             if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
                 var tc = c, tr = r;
                 var ds = this._drawToolStart;
+                var rawCells;
                 if(drawTool === 'line'){
-                    this._drawPreviewCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
+                    rawCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
                 } else if(drawTool === 'shape-rect'){
-                    var prCells = [];
+                    rawCells = [];
                     var rMin = Math.min(ds.r, tr), rMax = Math.max(ds.r, tr);
                     var cMin = Math.min(ds.c, tc), cMax = Math.max(ds.c, tc);
                     for(var pr = rMin; pr <= rMax; pr++)
                         for(var pc = cMin; pc <= cMax; pc++)
-                            prCells.push([pr, pc]);
-                    this._drawPreviewCells = prCells;
-                } else if(drawTool === 'shape-circle'){
-                    this._drawPreviewCells = this.ellipseCells(ds.c, ds.r, tc, tr);
+                            rawCells.push([pr, pc]);
+                } else {
+                    rawCells = this.ellipseCells(ds.c, ds.r, tc, tr);
                 }
+                // Filter to region bounds.
+                var selfDT = this;
+                this._drawPreviewCells = rawCells.filter(function(rc){ return selfDT._cellInRegion(rc[0], rc[1], host); });
                 host.drawBoard();
                 return;
             }
@@ -482,6 +503,7 @@ var InputHandler = {
 
         // Cell painting.
         if(!this._dragging){ return; }
+        if(!this._cellInRegion(r, c, host)){ return; }
         var paintKey = r + ',' + c;
         if(this._paintedCells[paintKey] !== undefined){ return; }
         this._paintedCells[paintKey] = this._dragStatus;
@@ -506,9 +528,12 @@ var InputHandler = {
                     var fcols = host.state.cols, frows = host.state.rows;
                     var self = this;
                     var isUnboundedSel = host.state.boundary === 'unbounded';
+                    var fMask = (!isUnboundedSel && host.state.regionMask && host.state.regionMask.size > 0) ? host.state.regionMask : null;
                     for(var fr = minR; fr <= maxR; fr++)
                         for(var fc = minC; fc <= maxC; fc++)
-                            if((isUnboundedSel || (fc>=0 && fc<fcols && fr>=0 && fr<frows)) && self.pointInPolygon(fc, fr, path))
+                            if((isUnboundedSel || (fc>=0 && fc<fcols && fr>=0 && fr<frows)) &&
+                               (!fMask || fMask.has(fr + ',' + fc)) &&
+                               self.pointInPolygon(fc, fr, path))
                                 fcells.push([fr, fc]);
                     host.setState({selection: {type:'freeform', path: path.slice(), cells: fcells}});
                 } else {
