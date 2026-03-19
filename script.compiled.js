@@ -711,7 +711,7 @@ document.addEventListener('DOMContentLoaded', function () {
         regionTool: 'shape-rect',
         selection: null,
         clipboard: null,
-        showMinimap: true,
+        showMinimap: !isMobileInit,
         recording: false,
         showMobileTools: false,
         showTrails: true,
@@ -1191,6 +1191,12 @@ document.addEventListener('DOMContentLoaded', function () {
       var liveCells = this.state.liveCells;
       var isUnbounded = this.state.boundary === 'unbounded';
 
+      // Visible cell range.
+      var startC = viewX,
+        startR = viewY;
+      var endC = viewX + Math.ceil(canvasW / cellSize) + 1;
+      var endR = viewY + Math.ceil(canvasH / cellSize) + 1;
+
       // Clear canvas.
       // In bounded mode, pre-darken the entire canvas so that out-of-region
       // areas are uniformly dimmed with no edge gaps.  Region cells are then
@@ -1203,12 +1209,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // Restore clean bg for in-region cells.
         CanvasRenderer.clearRegionCells(ctx, this.state.regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, theme.bg);
       }
-
-      // Visible cell range.
-      var startC = viewX,
-        startR = viewY;
-      var endC = viewX + Math.ceil(canvasW / cellSize) + 1;
-      var endR = viewY + Math.ceil(canvasH / cellSize) + 1;
 
       // Palette.
       var palettes = CanvasRenderer._ensurePalette(theme, this.state.theme);
