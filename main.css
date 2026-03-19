@@ -1180,7 +1180,17 @@ canvas.display {
 
 .rail-stats {
   padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--panel-border); }
+  border-bottom: 1px solid var(--panel-border);
+  flex-shrink: 0; }
+
+/* The tabpanel wrapper must fill remaining rail space so rail-tab-content scrolls */
+.rail > [role="tabpanel"] {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column; }
+
 
 .rail-collapse-btn {
   padding: var(--space-xs) var(--space-md) !important;

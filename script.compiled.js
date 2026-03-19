@@ -5544,7 +5544,8 @@ document.addEventListener('DOMContentLoaded', function () {
       }, tabContent), !this.state.railCollapsed && /*#__PURE__*/React.createElement("div", {
         style: {
           padding: '8px 12px',
-          borderTop: '1px solid var(--panel-border)'
+          borderTop: '1px solid var(--panel-border)',
+          flexShrink: 0
         }
       }, this.renderLayoutSwitcher())), /*#__PURE__*/React.createElement("div", {
         className: "transport-strip",
