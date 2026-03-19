@@ -3,8 +3,10 @@
  * Provides a unified interface for both SimEngine (toroidal) and HashLife
  * (finite/unbounded) backends.
  *
+ * Supports multi-region bounding boxes via regionMask / regionComponents.
+ *
  * Global exposed: SimRunner
- * Dependencies: HashLife, SimEngine, parseKey, overlayAges, MAX_HL_COORD, HL_GC_THRESHOLD
+ * Dependencies: HashLife, SimEngine, RegionUtil, parseKey, overlayAges, MAX_HL_COORD, HL_GC_THRESHOLD
  */
 
 var SimRunner = {
@@ -34,25 +36,107 @@ var SimRunner = {
      * Advance simulation by 1 generation.
      * Returns a new Map<"r,c", age> representing the next board state.
      * Dispatches to SimEngine (toroidal) or HashLife (finite/unbounded).
+     *
+     * regionMask: Set<string> of in-bounds cells (used for finite clipping).
+     * regionComponents: array of {cells, minR, maxR, minC, maxC} (used for toroidal).
      */
-    step: function(liveCells, cols, rows, birth, survive, boundary){
+    step: function(liveCells, cols, rows, birth, survive, boundary, regionMask, regionComponents){
         if(boundary === 'toroidal'){
-            return SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
+            return this._toroidalStep(liveCells, cols, rows, birth, survive, regionMask, regionComponents);
         }
         // HashLife path.
         var newLiveCells = this._hashLifeStep(liveCells, birth, survive);
         if(boundary === 'finite'){
-            var clipped = new Map();
+            // Clip to region mask (or fall back to rectangular bounds).
+            if(regionMask && regionMask.size > 0){
+                var clipped = new Map();
+                newLiveCells.forEach(function(age, key){
+                    if(regionMask.has(key)){
+                        clipped.set(key, age);
+                    }
+                });
+                this._hlStale = true;
+                return clipped;
+            }
+            var clippedRect = new Map();
             newLiveCells.forEach(function(age, key){
                 var _rc = parseKey(key), r = _rc[0], c = _rc[1];
                 if(r >= 0 && r < rows && c >= 0 && c < cols){
-                    clipped.set(key, age);
+                    clippedRect.set(key, age);
                 }
             });
             this._hlStale = true;
-            return clipped;
+            return clippedRect;
         }
         return newLiveCells;
+    },
+
+    /**
+     * Toroidal step: run each connected component independently with its own
+     * bounding rect for modulo wrapping. Cells outside the region mask within
+     * each component's bounding rect are treated as dead walls.
+     */
+    _toroidalStep: function(liveCells, cols, rows, birth, survive, regionMask, regionComponents){
+        // Fast path: single rectangular component matching cols×rows — use original SimEngine.
+        if(!regionComponents || regionComponents.length <= 1){
+            if(!regionMask || RegionUtil.isSimpleRect(regionMask, cols, rows)){
+                return SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, 'toroidal');
+            }
+        }
+
+        // Multi-component or non-rectangular: per-component toroidal simulation.
+        var result = new Map();
+        var components = regionComponents || [{
+            cells: regionMask,
+            minR: 0, maxR: rows - 1, minC: 0, maxC: cols - 1
+        }];
+
+        for(var ci = 0; ci < components.length; ci++){
+            var comp = components[ci];
+            var compCols = comp.maxC - comp.minC + 1;
+            var compRows = comp.maxR - comp.minR + 1;
+            if(compCols <= 0 || compRows <= 0) continue;
+
+            // Extract live cells belonging to this component.
+            var compLive = new Map();
+            liveCells.forEach(function(age, key){
+                if(comp.cells.has(key)){
+                    // Translate to local coordinates (0-based within component bounding rect).
+                    var _rc = parseKey(key);
+                    var localR = _rc[0] - comp.minR;
+                    var localC = _rc[1] - comp.minC;
+                    compLive.set(localR + ',' + localC, age);
+                }
+            });
+
+            // Build a local mask for the component (translated to 0-based).
+            var localMask = new Set();
+            comp.cells.forEach(function(key){
+                var i = key.indexOf(',');
+                var r = parseInt(key.substring(0, i), 10) - comp.minR;
+                var c = parseInt(key.substring(i + 1), 10) - comp.minC;
+                localMask.add(r + ',' + c);
+            });
+
+            // Run toroidal simulation within component bounding rect.
+            var compNext = SimEngine.computeNextGenerationMasked(
+                compLive, compCols, compRows, birth, survive, localMask
+            );
+
+            // Translate results back to global coordinates and add to result.
+            compNext.forEach(function(age, key){
+                var _rc = parseKey(key);
+                var globalR = _rc[0] + comp.minR;
+                var globalC = _rc[1] + comp.minC;
+                var globalKey = globalR + ',' + globalC;
+                // Only keep if in the component's region mask.
+                if(comp.cells.has(globalKey)){
+                    result.set(globalKey, age);
+                }
+            });
+        }
+
+        return result;
     },
 
     /**
@@ -61,30 +145,15 @@ var SimRunner = {
      * For toroidal/finite: per-step loop.
      * Returns { liveCells, pops: number[], peak: number }.
      */
-    stepN: function(liveCells, cols, rows, birth, survive, boundary, n){
+    stepN: function(liveCells, cols, rows, birth, survive, boundary, n, regionMask, regionComponents){
         if(boundary === 'unbounded'){
             return this._hashLifeBatchStep(liveCells, birth, survive, n);
         }
         // Toroidal / finite: per-step loop.
-        var gen = 0;
         var pops = [];
         var peak = 0;
-        var isToroidal = boundary === 'toroidal';
         for(var i = 0; i < n; i++){
-            if(isToroidal){
-                liveCells = SimEngine.computeNextGeneration(liveCells, cols, rows, birth, survive, boundary);
-            } else {
-                liveCells = this._hashLifeStep(liveCells, birth, survive);
-                var clipped = new Map();
-                liveCells.forEach(function(age, key){
-                    var _rc = parseKey(key), r = _rc[0], c = _rc[1];
-                    if(r >= 0 && r < rows && c >= 0 && c < cols){
-                        clipped.set(key, age);
-                    }
-                });
-                liveCells = clipped;
-                this._hlStale = true;
-            }
+            liveCells = this.step(liveCells, cols, rows, birth, survive, boundary, regionMask, regionComponents);
             var pop = liveCells.size;
             pops.push(pop);
             if(pop > peak){ peak = pop; }

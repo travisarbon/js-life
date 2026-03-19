@@ -13,6 +13,7 @@
     "SimRunner": "writable",
     "CanvasRenderer": "readonly",
     "InputHandler": "writable",
+    "RegionUtil": "readonly",
     "parseKey": "readonly",
     "detectAndParsePattern": "readonly",
     "overlayAges": "readonly",
