@@ -530,11 +530,12 @@ document.addEventListener('DOMContentLoaded', function () {
     getInitialState: function () {
       var cols = 100;
       var rows = 100;
-      // On mobile, default to 8px/cell and center the view on the grid.
+      // On mobile, default to 8px/cell; on desktop, 5px/cell.
+      // Center the view on the grid for all screen sizes.
       var isMobileInit = window.innerWidth <= 620 || window.matchMedia && window.matchMedia('(orientation: landscape) and (max-height: 550px)').matches;
       var cellSize = isMobileInit ? 8 : 5;
-      var initViewX = isMobileInit ? Math.round(cols / 2 - window.innerWidth / (2 * cellSize)) : 0;
-      var initViewY = isMobileInit ? Math.round(rows / 2 - window.innerHeight / (2 * cellSize)) : 0;
+      var initViewX = Math.round(cols / 2 - window.innerWidth / (2 * cellSize));
+      var initViewY = Math.round(rows / 2 - window.innerHeight / (2 * cellSize));
       // Load persisted layout preferences from localStorage.
       // Schema v1: {layoutMode, railCollapsed, railTab, railSide, panelStates}
       var LAYOUT_SCHEMA_VERSION = 1;

@@ -633,6 +633,7 @@ var InputHandler = {
                 this._previewPos = {c: pos.c, r: pos.r};
                 host.drawBoard();
             }
+            host._hideStatsChip();
             return;
         }
         this._wasRunningBeforeTouch = host.state.running;
@@ -723,6 +724,7 @@ var InputHandler = {
             if(host.state.drawMode === 'preset' && host.state.selectedPattern && this._previewPos){
                 if(!host.state.livePaintMode){ host.setState({running: false}); }
                 host.placePattern(host.state.selectedPattern, this._previewPos.c, this._previewPos.r);
+                host._showStatsChipAfterDelay();
                 return;
             }
             if(host.state.drawMode === 'preset' && this._previewPos){
