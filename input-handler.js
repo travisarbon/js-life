@@ -284,6 +284,7 @@ var InputHandler = {
 
         // Pattern placement.
         if(host.state.drawMode === 'preset' && host.state.selectedPattern){
+            if(!this._cellInRegion(r, c, host)){ return; }
             if(!host.state.livePaintMode){ host.setState({running: false}); }
             host.placePattern(host.state.selectedPattern, c, r);
             return;
@@ -329,10 +330,11 @@ var InputHandler = {
         }
 
         // Paint mode.
-        if(!host.state.livePaintMode){ host.setState({running: false}); }
         var drawTool = host.state.drawTool || 'cell';
+        // Check region bounds before pausing the simulation.
+        if(!this._cellInRegion(r, c, host)){ return; }
+        if(!host.state.livePaintMode){ host.setState({running: false}); }
         if(drawTool === 'fill'){
-            if(!this._cellInRegion(r, c, host)){ return; }
             var startAlive = host.state.liveCells.has(r + ',' + c);
             this._drawErasing = startAlive;
             host.pushUndo();
@@ -350,7 +352,6 @@ var InputHandler = {
             return;
         }
         if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-            if(!this._cellInRegion(r, c, host)){ return; }
             this._drawErasing = host.state.liveCells.has(r + ',' + c);
             host.pushUndo();
             this._drawToolStart = {c: c, r: r};
@@ -359,7 +360,6 @@ var InputHandler = {
             return;
         }
         // Default: single-cell paint.
-        if(!this._cellInRegion(r, c, host)){ return; }
         var key = r + ',' + c;
         host.pushUndo();
         this._dragging = true;
@@ -868,6 +868,7 @@ var InputHandler = {
                 return;
             }
             if(host.state.drawMode === 'preset' && host.state.selectedPattern && this._previewPos){
+                if(!this._cellInRegion(this._previewPos.r, this._previewPos.c, host)){ return; }
                 if(!host.state.livePaintMode){ host.setState({running: false}); }
                 host.placePattern(host.state.selectedPattern, this._previewPos.c, this._previewPos.r);
                 host._showStatsChipAfterDelay();
