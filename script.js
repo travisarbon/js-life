@@ -31,7 +31,10 @@ var STATS_CHIP_REAPPEAR_DELAY = 1500;
 // Parse a "r,c" map key into [row, col] integers.
 function parseKey(key) {
     var i = key.indexOf(',');
-    if(i < 0) return [0, 0];
+    if(i < 0){
+        console.warn('parseKey: malformed key "' + key + '"');
+        return [0, 0];
+    }
     return [parseInt(key.substring(0, i), 10) || 0, parseInt(key.substring(i + 1), 10) || 0];
 }
 
@@ -159,10 +162,10 @@ var SimEngine = {
         return {minR: minR, maxR: maxR, minC: minC, maxC: maxC};
     },
 
-    // Returns next-generation sparse Map in O(k) where k = live cell count.
-    computeNextGeneration : function(liveCells, cols, rows, birth, survive, boundary){
+    // Shared next-generation core. toroidal controls wrapping; mask (optional)
+    // restricts candidates and results to region membership.
+    _computeNext : function(liveCells, cols, rows, birth, survive, toroidal, mask){
         if(rows <= 0 || cols <= 0){ return new Map(); }
-        var toroidal = boundary === 'toroidal';
         var birthLut = new Uint8Array(9);
         var surviveLut = new Uint8Array(9);
         for(var bi = 0; bi < birth.length; bi++){ birthLut[birth[bi]] = 1; }
@@ -183,12 +186,15 @@ var SimEngine = {
                         if(nr < 0 || nr >= rows || nc < 0 || nc >= cols){ continue; }
                     }
                     var nk = nr + ',' + nc;
-                    if(!candidates.has(nk)){ candidates.set(nk, [nr, nc]); }
+                    if(!candidates.has(nk) && (!mask || mask.has(nk))){
+                        candidates.set(nk, [nr, nc]);
+                    }
                 }
             }
         });
         var newLiveCells = new Map();
         candidates.forEach(function(pos, key){
+            if(mask && !mask.has(key)){ return; }
             var r = pos[0], c = pos[1];
             var count = 0;
             for(var dr = -1; dr <= 1; dr++){
@@ -214,53 +220,18 @@ var SimEngine = {
         return newLiveCells;
     },
 
+    // Returns next-generation sparse Map in O(k) where k = live cell count.
+    computeNextGeneration : function(liveCells, cols, rows, birth, survive, boundary){
+        return this._computeNext(liveCells, cols, rows, birth, survive, boundary === 'toroidal', null);
+    },
+
     /**
      * Toroidal simulation with a region mask. Like computeNextGeneration but
      * uses modulo wrapping on the bounding rect and restricts candidates to
      * cells that are in the mask.  The mask uses local (0-based) coordinates.
      */
     computeNextGenerationMasked : function(liveCells, cols, rows, birth, survive, mask){
-        if(rows <= 0 || cols <= 0){ return new Map(); }
-        var birthLut = new Uint8Array(9);
-        var surviveLut = new Uint8Array(9);
-        for(var bi = 0; bi < birth.length; bi++){ birthLut[birth[bi]] = 1; }
-        for(var si = 0; si < survive.length; si++){ surviveLut[survive[si]] = 1; }
-        var candidates = new Map();
-        liveCells.forEach(function(age, key){
-            var _krc = parseKey(key), kr = _krc[0], kc = _krc[1];
-            candidates.set(key, _krc);
-            for(var dr = -1; dr <= 1; dr++){
-                for(var dc = -1; dc <= 1; dc++){
-                    if(dr === 0 && dc === 0){ continue; }
-                    var nr = (kr + dr + rows) % rows;
-                    var nc = (kc + dc + cols) % cols;
-                    var nk = nr + ',' + nc;
-                    if(!candidates.has(nk) && mask.has(nk)){
-                        candidates.set(nk, [nr, nc]);
-                    }
-                }
-            }
-        });
-        var newLiveCells = new Map();
-        candidates.forEach(function(pos, key){
-            if(!mask.has(key)){ return; }
-            var r = pos[0], c = pos[1];
-            var count = 0;
-            for(var dr = -1; dr <= 1; dr++){
-                for(var dc = -1; dc <= 1; dc++){
-                    if(dr === 0 && dc === 0){ continue; }
-                    var nr = (r + dr + rows) % rows;
-                    var nc = (c + dc + cols) % cols;
-                    if(liveCells.has(nr + ',' + nc)){ count++; }
-                }
-            }
-            var wasAlive = liveCells.has(key);
-            var alive = wasAlive ? surviveLut[count] : birthLut[count];
-            if(alive){
-                newLiveCells.set(key, wasAlive ? Math.min((liveCells.get(key) || 0) + 1, MAX_AGE) : 1);
-            }
-        });
-        return newLiveCells;
+        return this._computeNext(liveCells, cols, rows, birth, survive, true, mask);
     },
 
     // Serialises live cells to RLE string (header + wrapped body).
@@ -290,10 +261,18 @@ var SimEngine = {
             rleData += rowStr;
         }
         rleData += '!';
+        // Wrap lines at ~70 chars, breaking only after a complete token
+        // (after 'o', 'b', '$', or '!') to avoid splitting run-length numbers.
         var wrapped = '';
-        for(var k = 0; k < rleData.length; k += 70){
-            wrapped += rleData.slice(k, k + 70) + '\n';
+        var line = '';
+        for(var k = 0; k < rleData.length; k++){
+            line += rleData[k];
+            if(line.length >= 70 && /[ob$!]/.test(rleData[k])){
+                wrapped += line + '\n';
+                line = '';
+            }
         }
+        if(line){ wrapped += line + '\n'; }
         return header + wrapped;
     },
 
@@ -659,6 +638,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Attach wheel listener as non-passive so preventDefault works.
                 this._canvas.addEventListener('wheel', this.onWheel, {passive: false});
                 document.addEventListener('keydown', this.handleKeyDown);
+                // System clipboard paste: import RLE/pattern text from clipboard.
+                this._onPaste = this._handleClipboardPaste.bind(this);
+                document.addEventListener('paste', this._onPaste);
                 // Drag-and-drop file import (desktop).
                 var canvasContainer = this._canvas.parentNode;
                 this._onDragOver = function(e){ e.preventDefault(); e.stopPropagation(); canvasContainer.classList.add('drop-active'); };
@@ -803,6 +785,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(!this._canvas){ return; }
                 this._canvas.removeEventListener('wheel', this.onWheel);
                 document.removeEventListener('keydown', this.handleKeyDown);
+                document.removeEventListener('paste', this._onPaste);
                 window.removeEventListener('resize', this._onResize);
                 window.removeEventListener('orientationchange', this._onOrientationChange);
                 var container = this._canvas.parentNode;
@@ -896,6 +879,40 @@ document.addEventListener('DOMContentLoaded', function(){
                 reader.readAsText(file);
             },
 
+            // ── System clipboard paste (RLE/pattern text) ──────────────────────
+
+            _handleClipboardPaste : function(e){
+                // Skip if focus is in a text input or textarea.
+                var tag = (e.target.tagName || '').toLowerCase();
+                if(tag === 'input' || tag === 'textarea' || tag === 'select'){ return; }
+                // Skip if internal clipboard paste already handled this.
+                if(this.state.clipboard && this.state.clipboard.length > 0){ return; }
+                var text = (e.clipboardData || window.clipboardData || {}).getData('text');
+                if(!text || text.length < 2){ return; }
+                // Quick check: does it look like a pattern format?
+                var looksLikePattern = /^#|x\s*=/im.test(text) || (/[bo$]/.test(text) && /!/.test(text)) || /^[.*O]+$/m.test(text);
+                if(!looksLikePattern){ return; }
+                e.preventDefault();
+                try {
+                    var result = detectAndParsePattern(text);
+                    if(result.cells.length === 0){ return; }
+                    PATTERNS['Custom'] = result.cells;
+                    var self = this;
+                    InputHandler._previewPos = null;
+                    this.setState({
+                        selectedPattern : 'Custom',
+                        patternRotation : 0,
+                        drawMode :        'preset',
+                        rleError :        result.truncated ? 'Pattern truncated to ' + MAX_CELL_IMPORT.toLocaleString() + ' cells.' : ''
+                    }, function(){
+                        self.drawBoard();
+                        self._announce('Pattern pasted from clipboard. Click on the canvas to place it.');
+                    });
+                } catch(ex){
+                    // Not a valid pattern — ignore silently.
+                }
+            },
+
             // ── Dark mode ──────────────────────────────────────────────────────
 
             _applyDarkMode : function(dark){
@@ -958,7 +975,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 CanvasRenderer.drawCells(ctx, liveCells, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.color);
 
                 // Trails.
-                if(this._trailEnabled && this._trailMap.size > 0){
+                if(this._trailEnabled && this._trailMap && this._trailMap.size > 0){
                     CanvasRenderer.drawTrails(ctx, this._trailMap, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.trail);
                 }
 
@@ -1278,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     var prevCells = this.state.liveCells;
                     // Cells that were alive but are now dead → add to trail.
                     prevCells.forEach(function(age, key){
-                        if(!newLiveCells.has(key)){ trailMap.set(key, 20); }
+                        if(!newLiveCells.has(key)){ trailMap.set(key, TRAIL_MAX_VALUE); }
                     });
                     // Single pass: decay values, collect expired/overwritten entries.
                     var toDelete = [];
@@ -1288,11 +1305,11 @@ document.addEventListener('DOMContentLoaded', function(){
                     });
                     for(var ti = 0; ti < toDelete.length; ti++){ trailMap.delete(toDelete[ti]); }
                     // Prune if over limit.
-                    if(trailMap.size > 50000){
+                    if(trailMap.size > MAX_TRAIL_MAP){
                         trailMap.forEach(function(val, key){
-                            if(val <= 5){ trailMap.delete(key); }
+                            if(val <= TRAIL_PRUNE_THRESHOLD){ trailMap.delete(key); }
                         });
-                        if(trailMap.size > 50000){ trailMap.clear(); }
+                        if(trailMap.size > MAX_TRAIL_MAP){ trailMap.clear(); }
                     }
                 }
 
@@ -1318,7 +1335,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory;
                 newHistory.push(newPop);
-                if(newHistory.length > 20000){ newHistory = newHistory.slice(-10000); }
+                if(newHistory.length > MAX_POP_HISTORY * 2){ newHistory = newHistory.slice(-MAX_POP_HISTORY); }
                 var newSessionPeak = Math.max(this.state.sessionPeakPop || 0, newPop);
                 // Store last measured GPS so it persists briefly after pausing.
                 this._gpsDisplayUntil = this._gpsDisplayUntil || 0;
@@ -1371,7 +1388,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 var newPop = newLiveCells.size;
                 var newHistory = this.state.popHistory;
                 newHistory.push(newPop);
-                if(newHistory.length > 20000){ newHistory = newHistory.slice(-10000); }
+                if(newHistory.length > MAX_POP_HISTORY * 2){ newHistory = newHistory.slice(-MAX_POP_HISTORY); }
                 var newSessionPeakStep = Math.max(this.state.sessionPeakPop || 0, newPop);
                 this._minimapDirty = true;
                 var self = this;
@@ -2259,7 +2276,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         this.state.regionMask, this.state.regionComponents);
                     for(var p = 0; p < batch.pops.length; p++){
                         popHistory.push(batch.pops[p]);
-                        if(popHistory.length > 20000){ popHistory = popHistory.slice(-10000); }
+                        if(popHistory.length > MAX_POP_HISTORY * 2){ popHistory = popHistory.slice(-MAX_POP_HISTORY); }
                     }
                     if(batch.peak > peak){ peak = batch.peak; }
                     this._minimapDirty = true;
@@ -2287,7 +2304,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         gen++;
                         var pop = liveCells.size;
                         popHistory.push(pop);
-                        if(popHistory.length > 20000){ popHistory = popHistory.slice(-10000); }
+                        if(popHistory.length > MAX_POP_HISTORY * 2){ popHistory = popHistory.slice(-MAX_POP_HISTORY); }
                         if(pop > peak){ peak = pop; }
                     }
                     done = limit;
@@ -2784,6 +2801,11 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <tr><td>Ctrl+V</td><td>Paste selection</td></tr>
                                     <tr><td>Del</td><td>Delete selection</td></tr>
                                     <tr><td>Esc</td><td>Cancel / close</td></tr>
+                                    <tr><td>D</td><td>Switch to Draw mode</td></tr>
+                                    <tr><td>P</td><td>Switch to Preset mode</td></tr>
+                                    <tr><td>B</td><td>Switch to Region mode</td></tr>
+                                    <tr><td>G</td><td>Toggle grid lines</td></tr>
+                                    <tr><td>T</td><td>Toggle trails</td></tr>
                                     <tr><td>M</td><td>Toggle minimap</td></tr>
                                     <tr><td>?</td><td>Show / hide this help</td></tr>
                                     <tr><th colSpan="2" scope="colgroup" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:'normal',textAlign:'left'}}>Touch gestures</th></tr>
@@ -2793,6 +2815,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <tr><td>Long press</td><td>Show cell coordinates</td></tr>
                                     <tr><th colSpan="2" scope="colgroup" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:'normal',textAlign:'left'}}>File import</th></tr>
                                     <tr><td>Drag &amp; drop</td><td>Drop .rle/.cells file on canvas</td></tr>
+                                    <tr><td>Ctrl+V</td><td>Paste RLE text from clipboard</td></tr>
                                 </tbody>
                             </table>
                             <button type="button" className="btn help-close" onClick={this.toggleHelp} title="Close" aria-label="Close help dialog">Close</button>
@@ -3389,6 +3412,29 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             },
 
+            _drawSparkline : function(canvas){
+                if(!canvas) return;
+                var hist = this.state.popHistory;
+                var W = canvas.width, H = canvas.height;
+                var ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, W, H);
+                if(hist.length < 2) return;
+                // Show last 100 data points.
+                var slice = hist.length > 100 ? hist.slice(-100) : hist;
+                var max = 0;
+                for(var i = 0; i < slice.length; i++){ if(slice[i] > max) max = slice[i]; }
+                if(max === 0) return;
+                var stepX = W / (slice.length - 1);
+                ctx.strokeStyle = 'rgba(120,180,220,0.8)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, H - (slice[0] / max) * H);
+                for(var j = 1; j < slice.length; j++){
+                    ctx.lineTo(j * stepX, H - (slice[j] / max) * H);
+                }
+                ctx.stroke();
+            },
+
             _renderStatsChip : function(){
                 var self = this;
                 return (
@@ -3397,6 +3443,9 @@ document.addEventListener('DOMContentLoaded', function(){
                         onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
                         <span>{"Gen " + this.state.generations.toLocaleString()}</span>
                         <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
+                        <canvas className="sparkline" width="80" height="20"
+                            ref={function(c){ if(c) self._drawSparkline(c); }}
+                            aria-hidden="true" />
                         <span className={"status-indicator status-icon " + (this.state.running ? "status-running" : "status-paused")}>
                             <i className={"fa " + (this.state.stable ? "fa-check-circle" : (this.state.running ? "fa-play" : "fa-pause"))} />
                             {" "}{this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}

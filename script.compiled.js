@@ -33,7 +33,10 @@ var STATS_CHIP_REAPPEAR_DELAY = 1500;
 // Parse a "r,c" map key into [row, col] integers.
 function parseKey(key) {
   var i = key.indexOf(',');
-  if (i < 0) return [0, 0];
+  if (i < 0) {
+    console.warn('parseKey: malformed key "' + key + '"');
+    return [0, 0];
+  }
   return [parseInt(key.substring(0, i), 10) || 0, parseInt(key.substring(i + 1), 10) || 0];
 }
 
@@ -199,12 +202,12 @@ var SimEngine = {
       maxC: maxC
     };
   },
-  // Returns next-generation sparse Map in O(k) where k = live cell count.
-  computeNextGeneration: function (liveCells, cols, rows, birth, survive, boundary) {
+  // Shared next-generation core. toroidal controls wrapping; mask (optional)
+  // restricts candidates and results to region membership.
+  _computeNext: function (liveCells, cols, rows, birth, survive, toroidal, mask) {
     if (rows <= 0 || cols <= 0) {
       return new Map();
     }
-    var toroidal = boundary === 'toroidal';
     var birthLut = new Uint8Array(9);
     var surviveLut = new Uint8Array(9);
     for (var bi = 0; bi < birth.length; bi++) {
@@ -236,7 +239,7 @@ var SimEngine = {
             }
           }
           var nk = nr + ',' + nc;
-          if (!candidates.has(nk)) {
+          if (!candidates.has(nk) && (!mask || mask.has(nk))) {
             candidates.set(nk, [nr, nc]);
           }
         }
@@ -244,6 +247,9 @@ var SimEngine = {
     });
     var newLiveCells = new Map();
     candidates.forEach(function (pos, key) {
+      if (mask && !mask.has(key)) {
+        return;
+      }
       var r = pos[0],
         c = pos[1];
       var count = 0;
@@ -276,70 +282,17 @@ var SimEngine = {
     });
     return newLiveCells;
   },
+  // Returns next-generation sparse Map in O(k) where k = live cell count.
+  computeNextGeneration: function (liveCells, cols, rows, birth, survive, boundary) {
+    return this._computeNext(liveCells, cols, rows, birth, survive, boundary === 'toroidal', null);
+  },
   /**
    * Toroidal simulation with a region mask. Like computeNextGeneration but
    * uses modulo wrapping on the bounding rect and restricts candidates to
    * cells that are in the mask.  The mask uses local (0-based) coordinates.
    */
   computeNextGenerationMasked: function (liveCells, cols, rows, birth, survive, mask) {
-    if (rows <= 0 || cols <= 0) {
-      return new Map();
-    }
-    var birthLut = new Uint8Array(9);
-    var surviveLut = new Uint8Array(9);
-    for (var bi = 0; bi < birth.length; bi++) {
-      birthLut[birth[bi]] = 1;
-    }
-    for (var si = 0; si < survive.length; si++) {
-      surviveLut[survive[si]] = 1;
-    }
-    var candidates = new Map();
-    liveCells.forEach(function (age, key) {
-      var _krc = parseKey(key),
-        kr = _krc[0],
-        kc = _krc[1];
-      candidates.set(key, _krc);
-      for (var dr = -1; dr <= 1; dr++) {
-        for (var dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) {
-            continue;
-          }
-          var nr = (kr + dr + rows) % rows;
-          var nc = (kc + dc + cols) % cols;
-          var nk = nr + ',' + nc;
-          if (!candidates.has(nk) && mask.has(nk)) {
-            candidates.set(nk, [nr, nc]);
-          }
-        }
-      }
-    });
-    var newLiveCells = new Map();
-    candidates.forEach(function (pos, key) {
-      if (!mask.has(key)) {
-        return;
-      }
-      var r = pos[0],
-        c = pos[1];
-      var count = 0;
-      for (var dr = -1; dr <= 1; dr++) {
-        for (var dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) {
-            continue;
-          }
-          var nr = (r + dr + rows) % rows;
-          var nc = (c + dc + cols) % cols;
-          if (liveCells.has(nr + ',' + nc)) {
-            count++;
-          }
-        }
-      }
-      var wasAlive = liveCells.has(key);
-      var alive = wasAlive ? surviveLut[count] : birthLut[count];
-      if (alive) {
-        newLiveCells.set(key, wasAlive ? Math.min((liveCells.get(key) || 0) + 1, MAX_AGE) : 1);
-      }
-    });
-    return newLiveCells;
+    return this._computeNext(liveCells, cols, rows, birth, survive, true, mask);
   },
   // Serialises live cells to RLE string (header + wrapped body).
   boardToRLE: function (liveCells, ruleString) {
@@ -380,9 +333,19 @@ var SimEngine = {
       rleData += rowStr;
     }
     rleData += '!';
+    // Wrap lines at ~70 chars, breaking only after a complete token
+    // (after 'o', 'b', '$', or '!') to avoid splitting run-length numbers.
     var wrapped = '';
-    for (var k = 0; k < rleData.length; k += 70) {
-      wrapped += rleData.slice(k, k + 70) + '\n';
+    var line = '';
+    for (var k = 0; k < rleData.length; k++) {
+      line += rleData[k];
+      if (line.length >= 70 && /[ob$!]/.test(rleData[k])) {
+        wrapped += line + '\n';
+        line = '';
+      }
+    }
+    if (line) {
+      wrapped += line + '\n';
     }
     return header + wrapped;
   },
@@ -853,6 +816,9 @@ document.addEventListener('DOMContentLoaded', function () {
         passive: false
       });
       document.addEventListener('keydown', this.handleKeyDown);
+      // System clipboard paste: import RLE/pattern text from clipboard.
+      this._onPaste = this._handleClipboardPaste.bind(this);
+      document.addEventListener('paste', this._onPaste);
       // Drag-and-drop file import (desktop).
       var canvasContainer = this._canvas.parentNode;
       this._onDragOver = function (e) {
@@ -1022,6 +988,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       this._canvas.removeEventListener('wheel', this.onWheel);
       document.removeEventListener('keydown', this.handleKeyDown);
+      document.removeEventListener('paste', this._onPaste);
       window.removeEventListener('resize', this._onResize);
       window.removeEventListener('orientationchange', this._onOrientationChange);
       var container = this._canvas.parentNode;
@@ -1144,6 +1111,49 @@ document.addEventListener('DOMContentLoaded', function () {
       };
       reader.readAsText(file);
     },
+    // ── System clipboard paste (RLE/pattern text) ──────────────────────
+
+    _handleClipboardPaste: function (e) {
+      // Skip if focus is in a text input or textarea.
+      var tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        return;
+      }
+      // Skip if internal clipboard paste already handled this.
+      if (this.state.clipboard && this.state.clipboard.length > 0) {
+        return;
+      }
+      var text = (e.clipboardData || window.clipboardData || {}).getData('text');
+      if (!text || text.length < 2) {
+        return;
+      }
+      // Quick check: does it look like a pattern format?
+      var looksLikePattern = /^#|x\s*=/im.test(text) || /[bo$]/.test(text) && /!/.test(text) || /^[.*O]+$/m.test(text);
+      if (!looksLikePattern) {
+        return;
+      }
+      e.preventDefault();
+      try {
+        var result = detectAndParsePattern(text);
+        if (result.cells.length === 0) {
+          return;
+        }
+        PATTERNS['Custom'] = result.cells;
+        var self = this;
+        InputHandler._previewPos = null;
+        this.setState({
+          selectedPattern: 'Custom',
+          patternRotation: 0,
+          drawMode: 'preset',
+          rleError: result.truncated ? 'Pattern truncated to ' + MAX_CELL_IMPORT.toLocaleString() + ' cells.' : ''
+        }, function () {
+          self.drawBoard();
+          self._announce('Pattern pasted from clipboard. Click on the canvas to place it.');
+        });
+      } catch (ex) {
+        // Not a valid pattern — ignore silently.
+      }
+    },
     // ── Dark mode ──────────────────────────────────────────────────────
 
     _applyDarkMode: function (dark) {
@@ -1217,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', function () {
       CanvasRenderer.drawCells(ctx, liveCells, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.color);
 
       // Trails.
-      if (this._trailEnabled && this._trailMap.size > 0) {
+      if (this._trailEnabled && this._trailMap && this._trailMap.size > 0) {
         CanvasRenderer.drawTrails(ctx, this._trailMap, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.trail);
       }
 
@@ -1576,7 +1586,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Cells that were alive but are now dead → add to trail.
         prevCells.forEach(function (age, key) {
           if (!newLiveCells.has(key)) {
-            trailMap.set(key, 20);
+            trailMap.set(key, TRAIL_MAX_VALUE);
           }
         });
         // Single pass: decay values, collect expired/overwritten entries.
@@ -1592,13 +1602,13 @@ document.addEventListener('DOMContentLoaded', function () {
           trailMap.delete(toDelete[ti]);
         }
         // Prune if over limit.
-        if (trailMap.size > 50000) {
+        if (trailMap.size > MAX_TRAIL_MAP) {
           trailMap.forEach(function (val, key) {
-            if (val <= 5) {
+            if (val <= TRAIL_PRUNE_THRESHOLD) {
               trailMap.delete(key);
             }
           });
-          if (trailMap.size > 50000) {
+          if (trailMap.size > MAX_TRAIL_MAP) {
             trailMap.clear();
           }
         }
@@ -1630,8 +1640,8 @@ document.addEventListener('DOMContentLoaded', function () {
       var newPop = newLiveCells.size;
       var newHistory = this.state.popHistory;
       newHistory.push(newPop);
-      if (newHistory.length > 20000) {
-        newHistory = newHistory.slice(-10000);
+      if (newHistory.length > MAX_POP_HISTORY * 2) {
+        newHistory = newHistory.slice(-MAX_POP_HISTORY);
       }
       var newSessionPeak = Math.max(this.state.sessionPeakPop || 0, newPop);
       // Store last measured GPS so it persists briefly after pausing.
@@ -1694,8 +1704,8 @@ document.addEventListener('DOMContentLoaded', function () {
       var newPop = newLiveCells.size;
       var newHistory = this.state.popHistory;
       newHistory.push(newPop);
-      if (newHistory.length > 20000) {
-        newHistory = newHistory.slice(-10000);
+      if (newHistory.length > MAX_POP_HISTORY * 2) {
+        newHistory = newHistory.slice(-MAX_POP_HISTORY);
       }
       var newSessionPeakStep = Math.max(this.state.sessionPeakPop || 0, newPop);
       this._minimapDirty = true;
@@ -2852,8 +2862,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var batch = SimRunner.stepN(liveCells, cols, rows, birth, survive, boundary, n, this.state.regionMask, this.state.regionComponents);
         for (var p = 0; p < batch.pops.length; p++) {
           popHistory.push(batch.pops[p]);
-          if (popHistory.length > 20000) {
-            popHistory = popHistory.slice(-10000);
+          if (popHistory.length > MAX_POP_HISTORY * 2) {
+            popHistory = popHistory.slice(-MAX_POP_HISTORY);
           }
         }
         if (batch.peak > peak) {
@@ -2885,8 +2895,8 @@ document.addEventListener('DOMContentLoaded', function () {
           gen++;
           var pop = liveCells.size;
           popHistory.push(pop);
-          if (popHistory.length > 20000) {
-            popHistory = popHistory.slice(-10000);
+          if (popHistory.length > MAX_POP_HISTORY * 2) {
+            popHistory = popHistory.slice(-MAX_POP_HISTORY);
           }
           if (pop > peak) {
             peak = pop;
@@ -3502,7 +3512,7 @@ document.addEventListener('DOMContentLoaded', function () {
         id: "help-dialog-title"
       }, "Keyboard Shortcuts"), /*#__PURE__*/React.createElement("table", {
         className: "help-table"
-      }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Space"), /*#__PURE__*/React.createElement("td", null, "Play / Pause")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "."), /*#__PURE__*/React.createElement("td", null, "Step one generation")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Shift+."), /*#__PURE__*/React.createElement("td", null, "Step N generations")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, ","), /*#__PURE__*/React.createElement("td", null, "Step backward")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+      }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Space"), /*#__PURE__*/React.createElement("td", null, "Play / Pause")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "."), /*#__PURE__*/React.createElement("td", null, "Step one generation")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Shift+."), /*#__PURE__*/React.createElement("td", null, "Step N generations")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, ","), /*#__PURE__*/React.createElement("td", null, "Step backward")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "D"), /*#__PURE__*/React.createElement("td", null, "Switch to Draw mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "P"), /*#__PURE__*/React.createElement("td", null, "Switch to Preset mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "B"), /*#__PURE__*/React.createElement("td", null, "Switch to Region mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "G"), /*#__PURE__*/React.createElement("td", null, "Toggle grid lines")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "T"), /*#__PURE__*/React.createElement("td", null, "Toggle trails")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
         colSpan: "2",
         scope: "colgroup",
         style: {
@@ -3526,7 +3536,7 @@ document.addEventListener('DOMContentLoaded', function () {
           fontWeight: 'normal',
           textAlign: 'left'
         }
-      }, "File import")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Drag & drop"), /*#__PURE__*/React.createElement("td", null, "Drop .rle/.cells file on canvas")))), /*#__PURE__*/React.createElement("button", {
+      }, "File import")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Drag & drop"), /*#__PURE__*/React.createElement("td", null, "Drop .rle/.cells file on canvas")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste RLE text from clipboard")))), /*#__PURE__*/React.createElement("button", {
         type: "button",
         className: "btn help-close",
         onClick: this.toggleHelp,
@@ -4316,6 +4326,31 @@ document.addEventListener('DOMContentLoaded', function () {
           return null;
       }
     },
+    _drawSparkline: function (canvas) {
+      if (!canvas) return;
+      var hist = this.state.popHistory;
+      var W = canvas.width,
+        H = canvas.height;
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+      if (hist.length < 2) return;
+      // Show last 100 data points.
+      var slice = hist.length > 100 ? hist.slice(-100) : hist;
+      var max = 0;
+      for (var i = 0; i < slice.length; i++) {
+        if (slice[i] > max) max = slice[i];
+      }
+      if (max === 0) return;
+      var stepX = W / (slice.length - 1);
+      ctx.strokeStyle = 'rgba(120,180,220,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, H - slice[0] / max * H);
+      for (var j = 1; j < slice.length; j++) {
+        ctx.lineTo(j * stepX, H - slice[j] / max * H);
+      }
+      ctx.stroke();
+    },
     _renderStatsChip: function () {
       var self = this;
       return /*#__PURE__*/React.createElement("div", {
@@ -4331,7 +4366,15 @@ document.addEventListener('DOMContentLoaded', function () {
             self.togglePopGraph();
           }
         }
-      }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
+      }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("canvas", {
+        className: "sparkline",
+        width: "80",
+        height: "20",
+        ref: function (c) {
+          if (c) self._drawSparkline(c);
+        },
+        "aria-hidden": "true"
+      }), /*#__PURE__*/React.createElement("span", {
         className: "status-indicator status-icon " + (this.state.running ? "status-running" : "status-paused")
       }, /*#__PURE__*/React.createElement("i", {
         className: "fa " + (this.state.stable ? "fa-check-circle" : this.state.running ? "fa-play" : "fa-pause")
