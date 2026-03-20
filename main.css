@@ -1114,11 +1114,6 @@ canvas.display {
 .stats-chip:hover {
   filter: brightness(var(--hover-brightness)); }
 
-.stats-chip .sparkline {
-  display: inline-block;
-  vertical-align: middle;
-  border-radius: 2px;
-  opacity: 0.85; }
 
 .stats-chip-inline {
   font-size: var(--text-sm);

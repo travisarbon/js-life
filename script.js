@@ -3412,28 +3412,6 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             },
 
-            _drawSparkline : function(canvas){
-                if(!canvas) return;
-                var hist = this.state.popHistory;
-                var W = canvas.width, H = canvas.height;
-                var ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, W, H);
-                if(hist.length < 2) return;
-                // Show last 100 data points.
-                var slice = hist.length > 100 ? hist.slice(-100) : hist;
-                var max = 0;
-                for(var i = 0; i < slice.length; i++){ if(slice[i] > max) max = slice[i]; }
-                if(max === 0) return;
-                var stepX = W / (slice.length - 1);
-                ctx.strokeStyle = 'rgba(120,180,220,0.8)';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(0, H - (slice[0] / max) * H);
-                for(var j = 1; j < slice.length; j++){
-                    ctx.lineTo(j * stepX, H - (slice[j] / max) * H);
-                }
-                ctx.stroke();
-            },
 
             _renderStatsChip : function(){
                 var self = this;
@@ -3443,9 +3421,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
                         <span>{"Gen " + this.state.generations.toLocaleString()}</span>
                         <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
-                        <canvas className="sparkline" width="80" height="20"
-                            ref={function(c){ if(c) self._drawSparkline(c); }}
-                            aria-hidden="true" />
                         <span className={"status-indicator status-icon " + (this.state.running ? "status-running" : "status-paused")}>
                             <i className={"fa " + (this.state.stable ? "fa-check-circle" : (this.state.running ? "fa-play" : "fa-pause"))} />
                             {" "}{this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
