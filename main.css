@@ -1114,6 +1114,12 @@ canvas.display {
 .stats-chip:hover {
   filter: brightness(var(--hover-brightness)); }
 
+.stats-chip .sparkline {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 2px;
+  opacity: 0.85; }
+
 .stats-chip-inline {
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
@@ -1954,26 +1960,7 @@ canvas.display {
 .pop-graph-close:hover {
   opacity: var(--opacity-secondary); }
 
-/* #99 — Screen reader only utility class */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0; }
-
-/* C10 / A20 — Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
+/* NOTE: .sr-only and prefers-reduced-motion rules defined earlier (lines 727, 1727) */
 
 /* C11 / A24 — High contrast / forced colors support */
 @media (forced-colors: active) {

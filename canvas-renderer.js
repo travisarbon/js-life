@@ -121,7 +121,8 @@ var CanvasRenderer = {
 
     // Cache for region bitmap (invalidated when regionMask changes).
     _regionBitmapCache: null,
-    _regionBitmapMaskSize: -1,
+    _regionCacheGen: 0,
+    _regionCacheGenSeen: -1,
 
     /**
      * Draw the region overlay: darken cells outside the region, draw border
@@ -139,9 +140,9 @@ var CanvasRenderer = {
         if(!regionMask || regionMask.size === 0){ return; }
 
         // Build/cache bitmap for fast lookup during rendering.
-        if(!this._regionBitmapCache || this._regionBitmapMaskSize !== regionMask.size){
+        if(!this._regionBitmapCache || this._regionCacheGenSeen !== this._regionCacheGen){
             this._regionBitmapCache = RegionUtil.toBitmap(regionMask);
-            this._regionBitmapMaskSize = regionMask.size;
+            this._regionCacheGenSeen = this._regionCacheGen;
         }
         var bm = this._regionBitmapCache;
 
@@ -192,9 +193,9 @@ var CanvasRenderer = {
      */
     clearRegionCells: function(ctx, regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, bgColor){
         if(!regionMask || regionMask.size === 0) return;
-        if(!this._regionBitmapCache || this._regionBitmapMaskSize !== regionMask.size){
+        if(!this._regionBitmapCache || this._regionCacheGenSeen !== this._regionCacheGen){
             this._regionBitmapCache = RegionUtil.toBitmap(regionMask);
-            this._regionBitmapMaskSize = regionMask.size;
+            this._regionCacheGenSeen = this._regionCacheGen;
         }
         var bm = this._regionBitmapCache;
         ctx.fillStyle = bgColor;
@@ -222,7 +223,7 @@ var CanvasRenderer = {
     /** Invalidate region bitmap cache (call when regionMask changes). */
     invalidateRegionCache: function(){
         this._regionBitmapCache = null;
-        this._regionBitmapMaskSize = -1;
+        this._regionCacheGen++;
     },
 
     /** Draw preview overlay for region drawing tool (cells being added/removed). */
