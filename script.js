@@ -1925,8 +1925,12 @@ document.addEventListener('DOMContentLoaded', function(){
 
             handleKeyDown : function(e){
                 var tag = e.target.tagName;
-                if(e.key !== 'Escape' && (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || e.target.isContentEditable)){ return; }
+                // Allow Escape everywhere; allow single-key shortcuts even when a
+                // button is focused (buttons capture Enter/Space but not letter keys).
+                var inTextInput = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+                if(e.key !== 'Escape' && inTextInput){ return; }
                 var self = this;
+                var handled = true;
                 switch(e.key){
                     case ' ':
                         e.preventDefault();
@@ -2029,6 +2033,16 @@ document.addEventListener('DOMContentLoaded', function(){
                     case 'm': case 'M':
                         this.toggleMinimap();
                         break;
+                    default:
+                        handled = false;
+                }
+                // Dispatch registered shortcuts (d, p, b, g, t, …).
+                if(!handled && !e.ctrlKey && !e.metaKey && !e.altKey){
+                    var entry = this._shortcuts[e.key.toLowerCase()];
+                    if(entry){
+                        e.preventDefault();
+                        entry.handler();
+                    }
                 }
             },
 
@@ -2793,8 +2807,10 @@ document.addEventListener('DOMContentLoaded', function(){
                                     <tr><td>S</td><td>Export PNG</td></tr>
                                     <tr><td>X</td><td>Copy board as RLE</td></tr>
                                     <tr><td>F</td><td>Fit live cells in view</td></tr>
-                                    <tr><td>Wheel</td><td>Zoom in / out</td></tr>
+                                    <tr><td>Ctrl+Wheel</td><td>Zoom in / out</td></tr>
+                                    <tr><td>Scroll / Trackpad</td><td>Pan viewport</td></tr>
                                     <tr><td>Arrows</td><td>Pan viewport</td></tr>
+                                    <tr><td>Right-drag</td><td>Pan viewport</td></tr>
                                     <tr><td>[</td><td>Rotate pattern CCW</td></tr>
                                     <tr><td>]</td><td>Rotate pattern CW</td></tr>
                                     <tr><td>Ctrl+C</td><td>Copy selection</td></tr>
