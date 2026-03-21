@@ -383,6 +383,7 @@ canvas.display {
 #content .btn-rotate {
   padding: var(--space-sm) var(--space-lg);
   font-size: var(--text-lg);
+  min-height: var(--touch-desktop);
   color: var(--btn-color);
   line-height: 1; }
 /* Mobile context panel: larger touch targets for rotation buttons. */
@@ -523,7 +524,7 @@ canvas.display {
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.5;
+  opacity: var(--opacity-muted);
   margin-top: var(--space-md);
   margin-bottom: var(--space-xs); }
 .control-group-label:first-of-type {
@@ -544,31 +545,9 @@ canvas.display {
 .mobile-quickbar {
   display: none; }
 .mobile-quickbar .btn {
-  background-color: var(--btn-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  text-align: center;
   padding: var(--space-sm);
-  color: var(--btn-color);
   white-space: nowrap;
-  min-height: var(--touch-desktop);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: background-color var(--transition-fast),
-              border-color var(--transition-fast),
-              filter var(--transition-fast); }
-.mobile-quickbar .btn:hover {
-  filter: brightness(var(--hover-brightness));
-  border-color: var(--accent); }
-.mobile-quickbar .btn:active {
-  filter: brightness(var(--active-brightness)); }
-.mobile-quickbar .btn.active {
-  background-color: var(--accent);
-  color: var(--accent-text);
-  border-color: var(--accent); }
+  width: auto; }
 
 /* ── Mobile bottom sheet backdrop ────────────────────────────────────────── */
 .mobile-sheet-backdrop {
@@ -669,8 +648,8 @@ canvas.display {
 
 /* ── Toolbar step select ─────────────────────────────────────────────── */
 .toolbar-step-select {
-  padding: var(--space-xs) var(--space-sm);
-  min-height: 24px;
+  padding: var(--space-sm) var(--space-md);
+  min-height: var(--touch-desktop);
   font-size: var(--text-sm);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -1272,6 +1251,11 @@ canvas.display {
 #content .view-controls .btn {
   width: auto;
   min-width: 0; }
+
+/* ── Display settings & boundary controls (View / Board tabs) ────────── */
+.display-settings,
+.boundary-controls {
+  margin-top: var(--space-md); }
 
 /* ── Tools/export content containers ─────────────────────────────────── */
 .tools-content,
