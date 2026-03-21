@@ -1182,7 +1182,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         return (
                             <div>
                                 {options.sectionTitle && <div className="sidebar-section-title">Tools</div>}
-                                <label className="control-group-label">Mode</label>
                                 {this.renderModeControls()}
                                 {this.renderToolsContent()}
                             </div>
