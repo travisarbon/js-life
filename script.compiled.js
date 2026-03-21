@@ -1440,9 +1440,7 @@ document.addEventListener('DOMContentLoaded', function () {
         case 'tools':
           return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
             className: "sidebar-section-title"
-          }, "Tools"), /*#__PURE__*/React.createElement("label", {
-            className: "control-group-label"
-          }, "Mode"), this.renderModeControls(), this.renderToolsContent());
+          }, "Tools"), this.renderModeControls(), this.renderToolsContent());
         case 'rules':
           return this.renderRulesSection();
         case 'export':
