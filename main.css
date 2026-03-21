@@ -179,7 +179,7 @@ canvas.display {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--space-sm); }
+  gap: var(--space-md); }
 #content .board-dims {
   font-size: var(--text-xs);
   opacity: var(--opacity-muted);
@@ -192,7 +192,7 @@ canvas.display {
   white-space: nowrap; }
 #content .status-badges {
   display: flex;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   flex-wrap: wrap;
   align-items: center; }
 #content .status-indicator {
@@ -265,9 +265,11 @@ canvas.display {
               border-color var(--transition-fast),
               filter var(--transition-fast);
   word-break: break-word; }
-/* Icon spacing inside buttons */
+/* Icon spacing inside buttons — use gap instead of margin for centered alignment */
 .btn > .fa,
-#content .btn > .fa { margin-right: 4px; }
+#content .btn > .fa { margin-right: 0; }
+#content .btn {
+  gap: var(--space-sm); }
 #content .btn:hover {
   filter: brightness(var(--hover-brightness));
   border-color: var(--accent); }
@@ -281,41 +283,41 @@ canvas.display {
 #content .btn-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   overflow: hidden; }
 #content .buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   width: 100%;
   box-sizing: border-box; }
 /* Secondary button row: 3-column grid for view/mode toggles. */
 #content .buttons-secondary {
   grid-template-columns: repeat(3, 1fr);
-  padding-top: var(--space-sm);
+  padding-top: var(--space-md);
   border-top: 1px solid var(--separator-color); }
 /* Selection action row: 3-column grid (Copy, Paste, Delete). */
 #content .buttons-selection {
   grid-template-columns: repeat(3, 1fr);
-  padding-top: var(--space-sm);
+  padding-top: var(--space-md);
   border-top: 1px solid var(--separator-color); }
 /* Export row: 2x2 grid (Export PNG, Copy RLE, Record, Share). */
 #content .buttons-export {
   grid-template-columns: repeat(2, 1fr);
-  padding-top: var(--space-sm);
+  padding-top: var(--space-md);
   border-top: 1px solid var(--separator-color); }
 /* Help button: full-width standalone below export. */
 #content .buttons-help {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   width: 100%;
-  margin-top: var(--space-sm); }
+  margin-top: var(--space-md); }
 /* Tool subtype dropdown row. */
 #content .tool-subtype-row {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   padding-top: var(--space-sm); }
 #content .tool-subtype-row select {
   flex: 1;
@@ -341,7 +343,7 @@ canvas.display {
 #content .presets-col {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md); }
+  gap: var(--space-lg); }
 #content .rule-preset-select,
 #content .preset-select,
 #content .rule-input,
@@ -379,13 +381,17 @@ canvas.display {
   background: var(--input-bg); }
 #content .rotation-btns {
   display: flex;
-  gap: var(--space-md); }
+  gap: var(--space-md);
+  align-items: center; }
 #content .btn-rotate {
   padding: var(--space-sm) var(--space-lg);
   font-size: var(--text-lg);
   min-height: var(--touch-desktop);
   color: var(--btn-color);
-  line-height: 1; }
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center; }
 /* Mobile context panel: larger touch targets for rotation buttons. */
 .mobile-context-panel .btn-rotate {
   padding: var(--space-md) var(--space-xl);
@@ -406,16 +412,18 @@ canvas.display {
 
 /* ── Sliders ──────────────────────────────────────────────────────────────── */
 #content .sliders {
-  margin-bottom: var(--space-md); }
+  margin-bottom: var(--space-lg); }
+#content .sliders:last-child {
+  margin-bottom: 0; }
 #content .slider-title {
   display: block;
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-sm);
   font-size: var(--text-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis; }
 #content .rule-label {
-  margin-top: var(--space-xs); }
+  margin-top: var(--space-sm); }
 #content .slider-row input[type="range"] {
   width: 100%;
   margin: 0; }
@@ -424,7 +432,7 @@ canvas.display {
 #content .rle-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md); }
+  gap: var(--space-lg); }
 #content .btn-rle-toggle {
   text-align: center;
   font-size: var(--text-sm); }
@@ -510,13 +518,13 @@ canvas.display {
 /* ── Sidebar sections ─────────────────────────────────────────────────────── */
 #content .sidebar-section {
   border-top: 1px solid var(--separator-color);
-  padding-top: var(--space-sm); }
+  padding-top: var(--space-md); }
 #content .sidebar-section-title {
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   opacity: var(--opacity-muted);
-  padding: var(--space-xs) 0 var(--space-sm); }
+  padding: var(--space-xs) 0 var(--space-md); }
 
 /* Control group sub-labels (e.g. Transport / View / Mode within Simulate tab) */
 .control-group-label {
@@ -525,8 +533,8 @@ canvas.display {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   opacity: var(--opacity-muted);
-  margin-top: var(--space-md);
-  margin-bottom: var(--space-xs); }
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-sm); }
 .control-group-label:first-of-type {
   margin-top: 0; }
 
@@ -678,7 +686,8 @@ canvas.display {
   margin-top: var(--space-sm); }
 .grid-presets .btn-xs {
   font-size: var(--text-xs);
-  padding: var(--space-xs) var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  min-height: 24px;
   min-width: auto;
   width: auto; }
 
@@ -834,9 +843,12 @@ canvas.display {
   font-weight: 600; }
 .rail-tab-icon {
   font-size: var(--text-lg);
-  width: 18px;
+  width: 20px;
   text-align: center;
-  flex-shrink: 0; }
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center; }
 .rail-tab-label {
   white-space: nowrap;
   overflow: hidden;
@@ -873,7 +885,7 @@ canvas.display {
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   padding: var(--space-md) var(--space-xl);
   background: var(--panel-bg-blur);
   border: 1px solid var(--panel-border);
@@ -891,6 +903,11 @@ canvas.display {
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  line-height: 1;
   transition: background-color var(--transition-fast),
               border-color var(--transition-fast),
               filter var(--transition-fast); }
@@ -908,7 +925,8 @@ canvas.display {
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: var(--space-sm); }
+  gap: var(--space-sm);
+  flex-wrap: wrap; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    OBSERVATORY LAYOUT
@@ -1067,7 +1085,7 @@ canvas.display {
   height: 5px;
   background: var(--border-color);
   border-radius: 3px;
-  margin: var(--space-xs) auto var(--space-lg);
+  margin: var(--space-sm) auto var(--space-lg);
   opacity: var(--opacity-secondary);
   cursor: grab; }
 
@@ -1113,7 +1131,7 @@ canvas.display {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-md);
+  gap: var(--space-lg);
   padding: 0 var(--space-lg);
   padding-bottom: env(safe-area-inset-bottom, 0px); }
 
@@ -1129,6 +1147,11 @@ canvas.display {
   width: auto;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  line-height: 1;
   transition: background-color var(--transition-fast),
               border-color var(--transition-fast),
               filter var(--transition-fast); }
@@ -1159,7 +1182,7 @@ canvas.display {
   text-overflow: ellipsis; }
 
 .rail-stats {
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-lg) var(--space-lg);
   border-bottom: 1px solid var(--panel-border);
   flex-shrink: 0; }
 
@@ -1173,17 +1196,23 @@ canvas.display {
 
 
 .rail-collapse-btn {
-  padding: var(--space-xs) var(--space-md) !important;
+  padding: var(--space-xs) var(--space-sm) !important;
   min-height: 24px !important;
   min-width: 24px !important;
   font-size: var(--text-xs) !important;
   width: auto !important;
   background: transparent !important;
-  border: none !important; }
+  border: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important; }
 
 .rail-header-controls {
   display: flex;
-  gap: var(--space-sm); }
+  gap: var(--space-sm);
+  align-items: center;
+  flex-shrink: 0; }
 
 .rail-reveal {
   position: fixed;
@@ -1205,7 +1234,7 @@ canvas.display {
 .transport-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   align-items: center; }
 
 .transport-controls .btn {
@@ -1234,7 +1263,7 @@ canvas.display {
 .mode-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   margin-top: var(--space-md); }
 
 .view-controls .btn,
@@ -1255,21 +1284,24 @@ canvas.display {
 /* ── Display settings & boundary controls (View / Board tabs) ────────── */
 .display-settings,
 .boundary-controls {
-  margin-top: var(--space-md); }
+  margin-top: var(--space-lg); }
 
 /* ── Tools/export content containers ─────────────────────────────────── */
 .tools-content,
 .export-content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm); }
+  gap: var(--space-md); }
 
 /* ── Panel menu sub-elements ─────────────────────────────────────────── */
 .panel-menu-toggle {
   width: auto !important;
   min-width: 0 !important;
   padding: var(--space-sm) var(--space-md) !important;
-  min-height: 28px !important; }
+  min-height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important; }
 
 .panel-menu-list {
   margin-top: var(--space-md);
@@ -1309,11 +1341,15 @@ canvas.display {
 .float-panel-close {
   width: auto !important;
   min-width: 0 !important;
-  min-height: 28px !important;
-  padding: var(--space-sm) var(--space-md) !important;
+  min-height: 24px !important;
+  padding: var(--space-xs) var(--space-sm) !important;
   font-size: var(--text-sm) !important;
   background: transparent !important;
-  border: none !important; }
+  border: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important; }
 
 /* ── Bottom sheet sub-elements ───────────────────────────────────────── */
 .bottom-sheet-container {
@@ -1323,7 +1359,7 @@ canvas.display {
 
 .bottom-sheet-tabs {
   display: flex;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   border-bottom: 1px solid var(--panel-border);
   margin-bottom: var(--space-md);
   overflow-x: auto; }
@@ -1334,7 +1370,7 @@ canvas.display {
   text-align: center;
   border-left: none;
   border-bottom: 2px solid transparent;
-  padding: var(--space-md) var(--space-xs);
+  padding: var(--space-md) var(--space-sm);
   font-size: var(--text-xs);
   min-width: 0; }
 
@@ -1357,8 +1393,8 @@ canvas.display {
 /* ── Layout switcher ─────────────────────────────────────────────────── */
 .layout-switcher {
   display: flex;
-  gap: var(--space-sm);
-  margin-top: var(--space-sm); }
+  gap: var(--space-md);
+  margin-top: var(--space-md); }
 
 .layout-switcher .btn {
   flex: 1;
@@ -1427,15 +1463,15 @@ canvas.display {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0; }
+    gap: var(--space-sm); }
   .toolbar-group + .toolbar-group {
-    margin-left: var(--space-sm);
-    padding-left: var(--space-sm);
+    margin-left: 0;
+    padding-left: var(--space-md);
     border-left: 1px solid var(--separator-color); }
   #content .toolbar-strip .btn,
   #content .toolbar-groups .btn {
-    padding: var(--space-xs) var(--space-md);
-    min-height: 26px;
+    padding: var(--space-sm) var(--space-md);
+    min-height: 28px;
     min-width: 0;
     font-size: var(--text-sm);
     white-space: nowrap;
@@ -1583,7 +1619,7 @@ canvas.display {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--space-sm) var(--space-xs) 1px;
+    padding: var(--space-sm) var(--space-sm) var(--space-xs);
     font-size: var(--text-sm);
     gap: var(--space-md); }
   .mobile-stats-bar .msb-left,
@@ -1603,7 +1639,7 @@ canvas.display {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: var(--space-md);
-    padding: var(--space-sm) 0 var(--space-xs); }
+    padding: var(--space-sm) 0 var(--space-sm); }
   .mobile-sparkline {
     display: block;
     padding: var(--space-xs) 0 var(--space-sm); }
@@ -1613,7 +1649,7 @@ canvas.display {
     display: flex;
     justify-content: center;
     position: fixed;
-    bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
     left: auto;
     right: var(--space-md);
     z-index: calc(var(--z-panels) + 2);
@@ -1798,7 +1834,7 @@ canvas.display {
 
 .layout-mobile .stats-chip {
   top: auto;
-  bottom: 62px;
+  bottom: calc(62px + env(safe-area-inset-bottom, 0px));
   left: var(--space-md); }
 
 /* ── Touch-action for scrollable panels ──────────────────────────────── */
@@ -1978,8 +2014,9 @@ canvas.display {
 
 /* U21 / A21 — Status icon alongside text */
 .status-icon .fa {
-  margin-right: 2px;
+  margin-right: var(--space-xs);
   font-size: 0.85em;
+  vertical-align: middle;
 }
 
 /* C14 — Float panel collapsed state alignment */
