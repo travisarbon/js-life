@@ -43,6 +43,10 @@ var InputHandler = {
     _regionPreviewKeys: [],
     _regionErasing: false,
 
+    // ── Wheel/trackpad scroll accumulator ────────────────────────────────
+    _wheelAccX: 0,
+    _wheelAccY: 0,
+
     /** Check whether a cell at (r,c) is inside the active region.
      *  Returns true if the cell is allowed (unbounded mode, no region, or in-region). */
     _cellInRegion: function(r, c, host){
@@ -249,11 +253,18 @@ var InputHandler = {
                               vx: host.state.viewX, vy: host.state.viewY};
             return;
         }
-        // Right-click exits pattern mode.
-        if(event.button === 2 && host.state.drawMode === 'preset' && host.state.selectedPattern){
-            this._previewPos = null;
-            host.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
-                function(){ host.drawBoard(); });
+        // Right-click: exit pattern mode, or start pan drag.
+        if(event.button === 2){
+            if(host.state.drawMode === 'preset' && host.state.selectedPattern){
+                this._previewPos = null;
+                host.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
+                    function(){ host.drawBoard(); });
+                return;
+            }
+            // Right-click drag to pan (complements middle-click pan above).
+            this._panDragging = true;
+            this._panStart = {x: event.clientX, y: event.clientY,
+                              vx: host.state.viewX, vy: host.state.viewY};
             return;
         }
         if(event.button !== 0){ return; }
@@ -690,25 +701,58 @@ var InputHandler = {
         }
     },
 
-    // ── Zoom ─────────────────────────────────────────────────────────────────
+    // ── Wheel / trackpad ────────────────────────────────────────────────────
+    //
+    // Ctrl+wheel (or trackpad pinch, which browsers report as ctrlKey+wheel)
+    // zooms toward the cursor.  Plain wheel/trackpad two-finger scroll pans
+    // the viewport.
 
     onWheel: function(event, host){
         event.preventDefault();
         if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
         var canvas = host._canvas;
-        var mouse = this.getMousePos(event, canvas);
         var cellSize = host.state.cellSize;
-        var delta = event.deltaY > 0 ? -1 : 1;
-        var newCS = Math.max(1, Math.min(32, cellSize + delta));
-        if(newCS === cellSize){ return; }
-        // Zoom toward cursor: adjust view so the cell under the cursor stays fixed.
-        var cellC = host.state.viewX + mouse.x / cellSize;
-        var cellR = host.state.viewY + mouse.y / cellSize;
-        var newVX = Math.round(cellC - mouse.x / newCS);
-        var newVY = Math.round(cellR - mouse.y / newCS);
-        var clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, newCS);
-        host.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
-            function(){ host.drawBoard(); });
+
+        // ── Zoom (Ctrl+wheel or trackpad pinch) ──────────────────────
+        if(event.ctrlKey || event.metaKey){
+            var mouse = this.getMousePos(event, canvas);
+            var delta = event.deltaY > 0 ? -1 : 1;
+            var newCS = Math.max(1, Math.min(32, cellSize + delta));
+            if(newCS === cellSize){ return; }
+            // Zoom toward cursor: keep the cell under the pointer fixed.
+            var cellC = host.state.viewX + mouse.x / cellSize;
+            var cellR = host.state.viewY + mouse.y / cellSize;
+            var newVX = Math.round(cellC - mouse.x / newCS);
+            var newVY = Math.round(cellR - mouse.y / newCS);
+            var clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, newCS);
+            host.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
+                function(){ host.drawBoard(); });
+            return;
+        }
+
+        // ── Pan (plain scroll / trackpad two-finger drag) ────────────
+        var rect = canvas.getBoundingClientRect();
+        var displayCellSize = (rect.width > 0 && canvas.width > 0)
+            ? cellSize * (rect.width / canvas.width) : cellSize;
+        // Convert pixel deltas to cell offsets.
+        var dc = Math.round(event.deltaX / displayCellSize);
+        var dr = Math.round(event.deltaY / displayCellSize);
+        if(dc === 0 && dr === 0){
+            // Sub-cell scroll — accumulate fractional remainder so slow
+            // trackpad drags still register.
+            this._wheelAccX = (this._wheelAccX || 0) + event.deltaX / displayCellSize;
+            this._wheelAccY = (this._wheelAccY || 0) + event.deltaY / displayCellSize;
+            dc = Math.trunc(this._wheelAccX);
+            dr = Math.trunc(this._wheelAccY);
+            this._wheelAccX -= dc;
+            this._wheelAccY -= dr;
+        } else {
+            this._wheelAccX = 0;
+            this._wheelAccY = 0;
+        }
+        if(dc !== 0 || dr !== 0){
+            host.pan(dc, dr);
+        }
     },
 
     // ── Touch event handlers ─────────────────────────────────────────────────
@@ -911,5 +955,7 @@ var InputHandler = {
         this._regionToolStart = null;
         this._regionPreviewKeys = [];
         this._regionErasing = false;
+        this._wheelAccX = 0;
+        this._wheelAccY = 0;
     }
 };
