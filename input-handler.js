@@ -1,3 +1,4 @@
+/* global SimRunner, THEMES, RegionUtil, CanvasRenderer */
 /**
  * Input handling module for Game of Life (R08, R19).
  * Extracts mouse, touch, and drawing logic from the monolithic component.
@@ -7,10 +8,9 @@
  * to access state and call component methods.
  *
  * Global exposed: InputHandler
- * Dependencies: parseKey, SimRunner, THEMES, PATTERNS, SimEngine (loaded before this file)
  */
 
-var InputHandler = {
+var InputHandler = { // eslint-disable-line no-unused-vars
 
     // ── Internal drag/interaction state ──────────────────────────────────────
     _dragging: false,

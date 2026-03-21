@@ -1,3 +1,4 @@
+/* global HashLife, SimEngine, RegionUtil, parseKey, overlayAges, MAX_HL_COORD, HL_GC_THRESHOLD */
 /**
  * Simulation runner module for Game of Life (R04, R07).
  * Provides a unified interface for both SimEngine (toroidal) and HashLife
@@ -6,10 +7,9 @@
  * Supports multi-region bounding boxes via regionMask / regionComponents.
  *
  * Global exposed: SimRunner
- * Dependencies: HashLife, SimEngine, RegionUtil, parseKey, overlayAges, MAX_HL_COORD, HL_GC_THRESHOLD
  */
 
-var SimRunner = {
+var SimRunner = { // eslint-disable-line no-unused-vars
 
     // ── Internal HashLife state ──────────────────────────────────────────────
     _hlRoot: null,
