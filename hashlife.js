@@ -9,7 +9,7 @@
 */
 
 // Constructor: creates an independent HashLife engine instance.
-function HashLifeEngine(birth, survive) {
+function HashLifeEngine(birth, survive) { // eslint-disable-line no-unused-vars
     this._nextId = 0;
     this._pool = new Map();
     this._poolSize = 0;
@@ -23,7 +23,7 @@ function HashLifeEngine(birth, survive) {
 // Instance methods are defined in the prototype below.
 // The backward-compatible HashLife singleton delegates to a default instance.
 
-var HashLife = (function () {
+var HashLife = (function () { // eslint-disable-line no-unused-vars
     'use strict';
 
     var _nextId = 0;
@@ -110,7 +110,7 @@ var HashLife = (function () {
         var birthSet = new Uint8Array(9);
         var surviveSet = new Uint8Array(9);
         for (var i = 0; i < birth.length; i++) birthSet[birth[i]] = 1;
-        for (var i = 0; i < survive.length; i++) surviveSet[survive[i]] = 1;
+        for (var j = 0; j < survive.length; j++) surviveSet[survive[j]] = 1;
 
         for (var bits = 0; bits < 65536; bits++) {
             var res = 0;
@@ -352,8 +352,8 @@ var HashLife = (function () {
 
         // Convert to internal coords and build tree recursively (bulk-build).
         var internalized = new Array(cells.length);
-        for (var i = 0; i < cells.length; i++) {
-            internalized[i] = [cells[i][1] + offC, cells[i][0] + offR]; // [ix, iy]
+        for (var j = 0; j < cells.length; j++) {
+            internalized[j] = [cells[j][1] + offC, cells[j][0] + offR]; // [ix, iy]
         }
         var root = _buildRecursive(internalized, 0, internalized.length, level, 0, 0);
         return { root: root, offR: offR, offC: offC };
@@ -371,27 +371,28 @@ var HashLife = (function () {
         // NW: ix < midX && iy < midY  NE: ix >= midX && iy < midY
         // SW: ix < midX && iy >= midY SE: ix >= midX && iy >= midY
         // First split by Y (top vs bottom), then by X within each half.
+        var i, tmp;
         var topEnd = lo;
-        for (var i = lo; i < hi; i++) {
+        for (i = lo; i < hi; i++) {
             if (cells[i][1] < midY) {
                 // Top row — swap to front
-                var tmp = cells[topEnd]; cells[topEnd] = cells[i]; cells[i] = tmp;
+                tmp = cells[topEnd]; cells[topEnd] = cells[i]; cells[i] = tmp;
                 topEnd++;
             }
         }
         // topEnd is the boundary: [lo, topEnd) = top (NW+NE), [topEnd, hi) = bottom (SW+SE)
         var nwEnd = lo;
-        for (var i = lo; i < topEnd; i++) {
+        for (i = lo; i < topEnd; i++) {
             if (cells[i][0] < midX) {
-                var tmp = cells[nwEnd]; cells[nwEnd] = cells[i]; cells[i] = tmp;
+                tmp = cells[nwEnd]; cells[nwEnd] = cells[i]; cells[i] = tmp;
                 nwEnd++;
             }
         }
         // [lo, nwEnd) = NW, [nwEnd, topEnd) = NE
         var swEnd = topEnd;
-        for (var i = topEnd; i < hi; i++) {
+        for (i = topEnd; i < hi; i++) {
             if (cells[i][0] < midX) {
-                var tmp = cells[swEnd]; cells[swEnd] = cells[i]; cells[i] = tmp;
+                tmp = cells[swEnd]; cells[swEnd] = cells[i]; cells[i] = tmp;
                 swEnd++;
             }
         }

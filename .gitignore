@@ -53,5 +53,7 @@ node_modules/
 .idea/
 
 # Build artifacts
-script.compiled.js
 *.map
+
+# Test coverage
+coverage/

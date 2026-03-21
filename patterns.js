@@ -6,7 +6,7 @@
  * Globals exposed: PATTERN_GROUPS, PATTERNS, PATTERN_META
  */
 
-var PATTERN_GROUPS = {
+var PATTERN_GROUPS = { // eslint-disable-line no-unused-vars
     'Still lifes': {
         'Block':     [[0,0],[0,1],[1,0],[1,1]],
         'Beehive':   [[0,1],[0,2],[1,0],[1,3],[2,1],[2,2]],
@@ -108,7 +108,7 @@ var PATTERN_GROUPS = {
 };
 
 // Flat lookup keyed by pattern name for O(1) access.
-var PATTERNS = {};
+var PATTERNS = {}; // eslint-disable-line no-unused-vars
 Object.keys(PATTERN_GROUPS).forEach(function(group){
     Object.keys(PATTERN_GROUPS[group]).forEach(function(name){
         PATTERNS[name] = PATTERN_GROUPS[group][name];
@@ -116,7 +116,7 @@ Object.keys(PATTERN_GROUPS).forEach(function(group){
 });
 
 // Metadata for pattern tooltips (period, type, cell count, notes).
-var PATTERN_META = {
+var PATTERN_META = { // eslint-disable-line no-unused-vars
     'Block':               { type: 'Still life',  cells: 4 },
     'Beehive':             { type: 'Still life',  cells: 6 },
     'Loaf':                { type: 'Still life',  cells: 7 },

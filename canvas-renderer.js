@@ -1,12 +1,12 @@
+/* global parseKey, SimEngine, PATTERNS, RegionUtil */
 /**
  * Canvas rendering module for Game of Life (R02, R05).
  * Decouples imperative canvas drawing from the React component.
  *
  * Global exposed: CanvasRenderer
- * Dependencies: parseKey, SimEngine, PATTERNS, THEMES (loaded before this file)
  */
 
-var CanvasRenderer = {
+var CanvasRenderer = { // eslint-disable-line no-unused-vars
 
     // ── Palette caching ──────────────────────────────────────────────────────
     _colorPalette: null,
