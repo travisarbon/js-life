@@ -5,8 +5,8 @@
   "scripts": {
     "build": "npm run lint:quiet && babel script.js --source-maps -o script.compiled.js",
     "start": "npx serve .",
-    "lint": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js",
-    "lint:quiet": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js --quiet",
+    "lint": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-mixin.js life-io-mixin.js life-input-mixin.js life-view-mixin.js life-board-mixin.js life-analysis-mixin.js",
+    "lint:quiet": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-mixin.js life-io-mixin.js life-input-mixin.js life-view-mixin.js life-board-mixin.js life-analysis-mixin.js --quiet",
     "test": "jest",
     "test:watch": "jest --watch",
     "prebuild": "npm test -- --passWithNoTests"
