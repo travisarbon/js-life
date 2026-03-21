@@ -583,7 +583,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (typeof parsed.railCollapsed === 'boolean') {
               savedLayout.railCollapsed = parsed.railCollapsed;
             }
-            if (parsed.railTab && ['simulate', 'tools', 'board', 'rules', 'export'].indexOf(parsed.railTab) !== -1) {
+            if (parsed.railTab && ['simulate', 'board', 'view', 'tools', 'rules', 'export'].indexOf(parsed.railTab) !== -1) {
               savedLayout.railTab = parsed.railTab;
             }
             if (parsed.railSide && ['left', 'right'].indexOf(parsed.railSide) !== -1) {
@@ -4275,13 +4275,17 @@ document.addEventListener('DOMContentLoaded', function () {
       icon: 'fa-play',
       label: 'Simulate'
     }, {
-      id: 'tools',
-      icon: 'fa-pencil',
-      label: 'Tools'
-    }, {
       id: 'board',
       icon: 'fa-th',
       label: 'Board'
+    }, {
+      id: 'view',
+      icon: 'fa-eye',
+      label: 'View'
+    }, {
+      id: 'tools',
+      icon: 'fa-pencil',
+      label: 'Tools'
     }, {
       id: 'rules',
       icon: 'fa-cog',
@@ -4307,17 +4311,21 @@ document.addEventListener('DOMContentLoaded', function () {
         case 'simulate':
           return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
             className: "sidebar-section-title"
-          }, "Simulation"), /*#__PURE__*/React.createElement("label", {
-            className: "control-group-label"
-          }, "Transport"), this.renderTransportControls(false), /*#__PURE__*/React.createElement("label", {
-            className: "control-group-label"
-          }, "View"), this.renderViewControls(), options.showMode !== false && /*#__PURE__*/React.createElement("label", {
-            className: "control-group-label"
-          }, "Mode"), options.showMode !== false && this.renderModeControls(), options.sparkline && this.renderMobileSparkline());
-        case 'tools':
-          return this.renderToolsContent();
+          }, "Simulate"), this.renderTransportControls(false), this.renderSpeedSlider(), options.sparkline && this.renderMobileSparkline());
         case 'board':
-          return this.renderSliders();
+          return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
+            className: "sidebar-section-title"
+          }, "Board"), this.renderBoardSliders(), this.renderBoundaryControls());
+        case 'view':
+          return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
+            className: "sidebar-section-title"
+          }, "View"), this.renderViewControls(), this.renderZoomSlider(), this.renderDisplaySettings());
+        case 'tools':
+          return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
+            className: "sidebar-section-title"
+          }, "Tools"), /*#__PURE__*/React.createElement("label", {
+            className: "control-group-label"
+          }, "Mode"), this.renderModeControls(), this.renderToolsContent());
         case 'rules':
           return this.renderRulesSection();
         case 'export':
@@ -4325,31 +4333,6 @@ document.addEventListener('DOMContentLoaded', function () {
         default:
           return null;
       }
-    },
-    _drawSparkline: function (canvas) {
-      if (!canvas) return;
-      var hist = this.state.popHistory;
-      var W = canvas.width,
-        H = canvas.height;
-      var ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, W, H);
-      if (hist.length < 2) return;
-      // Show last 100 data points.
-      var slice = hist.length > 100 ? hist.slice(-100) : hist;
-      var max = 0;
-      for (var i = 0; i < slice.length; i++) {
-        if (slice[i] > max) max = slice[i];
-      }
-      if (max === 0) return;
-      var stepX = W / (slice.length - 1);
-      ctx.strokeStyle = 'rgba(120,180,220,0.8)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, H - slice[0] / max * H);
-      for (var j = 1; j < slice.length; j++) {
-        ctx.lineTo(j * stepX, H - slice[j] / max * H);
-      }
-      ctx.stroke();
     },
     _renderStatsChip: function () {
       var self = this;
@@ -4366,15 +4349,7 @@ document.addEventListener('DOMContentLoaded', function () {
             self.togglePopGraph();
           }
         }
-      }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("canvas", {
-        className: "sparkline",
-        width: "80",
-        height: "20",
-        ref: function (c) {
-          if (c) self._drawSparkline(c);
-        },
-        "aria-hidden": "true"
-      }), /*#__PURE__*/React.createElement("span", {
+      }, /*#__PURE__*/React.createElement("span", null, "Gen " + this.state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + this.state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
         className: "status-indicator status-icon " + (this.state.running ? "status-running" : "status-paused")
       }, /*#__PURE__*/React.createElement("i", {
         className: "fa " + (this.state.stable ? "fa-check-circle" : this.state.running ? "fa-play" : "fa-pause")
@@ -4754,27 +4729,14 @@ document.addEventListener('DOMContentLoaded', function () {
         title: "Detect oscillator period or spaceship velocity"
       }, "Analyze"))));
     },
-    renderRulesSection: function () {
-      var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
+    renderDisplaySettings: function () {
       return /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-section"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-section-title"
-      }, "Rules & Display"), /*#__PURE__*/React.createElement("div", {
+        className: "display-settings"
+      }, /*#__PURE__*/React.createElement("label", {
+        className: "control-group-label"
+      }, "Display"), /*#__PURE__*/React.createElement("div", {
         className: "presets-col"
       }, /*#__PURE__*/React.createElement("select", {
-        className: "rule-preset-select",
-        "aria-label": "Rule preset",
-        value: this.state.rulePreset,
-        onChange: this.setRulePreset
-      }, /*#__PURE__*/React.createElement("option", {
-        value: ""
-      }, "Rule preset..."), RULE_PRESETS.map(function (p) {
-        return /*#__PURE__*/React.createElement("option", {
-          key: p.rule,
-          value: p.rule
-        }, p.name);
-      })), /*#__PURE__*/React.createElement("select", {
         className: "rule-preset-select",
         "aria-label": "Color theme",
         value: this.state.theme,
@@ -4796,7 +4758,29 @@ document.addEventListener('DOMContentLoaded', function () {
         value: "light"
       }, "Mode: Light"), /*#__PURE__*/React.createElement("option", {
         value: "dark"
-      }, "Mode: Dark")), /*#__PURE__*/React.createElement("label", {
+      }, "Mode: Dark"))));
+    },
+    renderRulesSection: function () {
+      var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
+      return /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section-title"
+      }, "Rules"), /*#__PURE__*/React.createElement("div", {
+        className: "presets-col"
+      }, /*#__PURE__*/React.createElement("select", {
+        className: "rule-preset-select",
+        "aria-label": "Rule preset",
+        value: this.state.rulePreset,
+        onChange: this.setRulePreset
+      }, /*#__PURE__*/React.createElement("option", {
+        value: ""
+      }, "Rule preset..."), RULE_PRESETS.map(function (p) {
+        return /*#__PURE__*/React.createElement("option", {
+          key: p.rule,
+          value: p.rule
+        }, p.name);
+      })), /*#__PURE__*/React.createElement("label", {
         className: "slider-title rule-label"
       }, "Rule (B/S notation)"), /*#__PURE__*/React.createElement("input", {
         className: "rule-input" + (ruleValid ? "" : " rule-input-invalid"),
@@ -4806,15 +4790,11 @@ document.addEventListener('DOMContentLoaded', function () {
         title: "Birth/Survival rule string (e.g. B3/S23)"
       })));
     },
-    renderSliders: function () {
-      var delay = SPEED_DELAYS[this.state.speed - 1];
-      var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+    renderBoardSliders: function () {
       var isUnbounded = this.state.boundary === 'unbounded';
       return /*#__PURE__*/React.createElement("div", {
         className: "sidebar-section"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-section-title"
-      }, "Board"), !isUnbounded && /*#__PURE__*/React.createElement("div", {
+      }, !isUnbounded && /*#__PURE__*/React.createElement("div", {
         className: "sliders"
       }, /*#__PURE__*/React.createElement("label", {
         className: "slider-title"
@@ -4909,9 +4889,12 @@ document.addEventListener('DOMContentLoaded', function () {
         "aria-label": "Fill density",
         value: 9 - this.state.sparseness,
         onChange: this.setDensity
-      }))), /*#__PURE__*/React.createElement("label", {
-        className: "control-group-label"
-      }, "Playback & Display"), /*#__PURE__*/React.createElement("div", {
+      }))));
+    },
+    renderSpeedSlider: function () {
+      var delay = SPEED_DELAYS[this.state.speed - 1];
+      var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+      return /*#__PURE__*/React.createElement("div", {
         className: "sliders"
       }, /*#__PURE__*/React.createElement("label", {
         className: "slider-title"
@@ -4924,7 +4907,10 @@ document.addEventListener('DOMContentLoaded', function () {
         "aria-label": "Simulation speed",
         value: this.state.speed,
         onChange: this.setSpeed
-      }))), /*#__PURE__*/React.createElement("div", {
+      })));
+    },
+    renderZoomSlider: function () {
+      return /*#__PURE__*/React.createElement("div", {
         className: "sliders"
       }, /*#__PURE__*/React.createElement("label", {
         className: "slider-title"
@@ -4938,7 +4924,7 @@ document.addEventListener('DOMContentLoaded', function () {
         "aria-label": "Zoom level",
         value: this.state.cellSize,
         onChange: this.setZoom
-      }))));
+      })));
     },
     renderRLESection: function () {
       return /*#__PURE__*/React.createElement("div", {
@@ -5157,6 +5143,23 @@ document.addEventListener('DOMContentLoaded', function () {
         "aria-hidden": "true"
       }), " Minimap"));
     },
+    renderBoundaryControls: function () {
+      return /*#__PURE__*/React.createElement("div", {
+        className: "boundary-controls"
+      }, /*#__PURE__*/React.createElement("label", {
+        className: "control-group-label"
+      }, "Boundary"), /*#__PURE__*/React.createElement("div", {
+        className: "view-controls"
+      }, /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : ""),
+        onClick: this.toggleBoundary,
+        title: "Cycle boundary: Wrap / Hard / Infinite"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa fa-repeat",
+        "aria-hidden": "true"
+      }), " ", this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E")));
+    },
     renderModeControls: function () {
       return /*#__PURE__*/React.createElement("div", {
         className: "mode-controls"
@@ -5201,14 +5204,6 @@ document.addEventListener('DOMContentLoaded', function () {
         className: "fa fa-paint-brush",
         "aria-hidden": "true"
       }), " Live Paint"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : ""),
-        onClick: this.toggleBoundary,
-        title: "Cycle boundary"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-repeat",
-        "aria-hidden": "true"
-      }), " ", this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"), /*#__PURE__*/React.createElement("button", {
         type: "button",
         className: "btn",
         onClick: this.analyzePattern,
@@ -5259,8 +5254,6 @@ document.addEventListener('DOMContentLoaded', function () {
       return /*#__PURE__*/React.createElement("div", {
         className: "tools-content"
       }, /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-section-title"
-      }, "Tools"), /*#__PURE__*/React.createElement("div", {
         className: "btn-section"
       }, /*#__PURE__*/React.createElement("div", {
         className: "tool-subtype-row"
@@ -5635,7 +5628,7 @@ document.addEventListener('DOMContentLoaded', function () {
         className: "panel-overlay-container",
         role: "group",
         "aria-label": "Floating control panels"
-      }, this._renderFloatPanel('transport', 'Transport', this.renderTransportControls(false)), this._renderFloatPanel('view', 'View', this.renderViewControls()), this._renderFloatPanel('mode', 'Mode', this.renderModeControls()), this._renderFloatPanel('tools', 'Tools', this.renderToolsContent()), this._renderFloatPanel('board', 'Board', this.renderSliders()), this._renderFloatPanel('rules', 'Rules', this.renderRulesSection()), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent()), /*#__PURE__*/React.createElement("div", {
+      }, this._renderFloatPanel('transport', 'Simulate', /*#__PURE__*/React.createElement("div", null, this.renderTransportControls(false), this.renderSpeedSlider())), this._renderFloatPanel('board', 'Board', /*#__PURE__*/React.createElement("div", null, this.renderBoardSliders(), this.renderBoundaryControls())), this._renderFloatPanel('view', 'View', /*#__PURE__*/React.createElement("div", null, this.renderViewControls(), this.renderZoomSlider(), this.renderDisplaySettings())), this._renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, this.renderModeControls(), this.renderToolsContent())), this._renderFloatPanel('rules', 'Rules', this.renderRulesSection()), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent()), /*#__PURE__*/React.createElement("div", {
         className: "panel-menu",
         role: "group",
         "aria-label": "Panel visibility"
@@ -5665,8 +5658,17 @@ document.addEventListener('DOMContentLoaded', function () {
         className: "panel-menu-list",
         role: "group",
         "aria-label": "Panel toggles"
-      }, ['transport', 'view', 'mode', 'tools', 'board', 'rules', 'stats', 'importExport'].map(function (id) {
-        var label = id === 'importExport' ? 'Import / Export' : id.charAt(0).toUpperCase() + id.slice(1);
+      }, ['transport', 'board', 'view', 'mode', 'rules', 'stats', 'importExport'].map(function (id) {
+        var PANEL_LABELS = {
+          transport: 'Simulate',
+          board: 'Board',
+          view: 'View',
+          mode: 'Tools',
+          rules: 'Rules',
+          stats: 'Stats',
+          importExport: 'Import / Export'
+        };
+        var label = PANEL_LABELS[id] || id;
         return /*#__PURE__*/React.createElement("label", {
           key: id,
           className: "panel-menu-item"
