@@ -458,7 +458,7 @@ document.addEventListener('DOMContentLoaded', function(){
                             if(typeof parsed.railCollapsed === 'boolean'){
                                 savedLayout.railCollapsed = parsed.railCollapsed;
                             }
-                            if(parsed.railTab && ['simulate','tools','board','rules','export'].indexOf(parsed.railTab) !== -1){
+                            if(parsed.railTab && ['simulate','board','view','tools','rules','export'].indexOf(parsed.railTab) !== -1){
                                 savedLayout.railTab = parsed.railTab;
                             }
                             if(parsed.railSide && ['left','right'].indexOf(parsed.railSide) !== -1){
@@ -3376,8 +3376,9 @@ document.addEventListener('DOMContentLoaded', function(){
 
             _MOBILE_TABS : [
                 {id: 'simulate', icon: 'fa-play',     label: 'Simulate'},
-                {id: 'tools',    icon: 'fa-pencil',   label: 'Tools'},
                 {id: 'board',    icon: 'fa-th',       label: 'Board'},
+                {id: 'view',     icon: 'fa-eye',      label: 'View'},
+                {id: 'tools',    icon: 'fa-pencil',   label: 'Tools'},
                 {id: 'rules',    icon: 'fa-cog',      label: 'Rules'},
                 {id: 'export',   icon: 'fa-download', label: 'Export'}
             ],
@@ -3394,46 +3395,44 @@ document.addEventListener('DOMContentLoaded', function(){
                     case 'simulate':
                         return (
                             <div>
-                                {options.sectionTitle && <div className="sidebar-section-title">Simulation</div>}
-                                <label className="control-group-label">Transport</label>
+                                {options.sectionTitle && <div className="sidebar-section-title">Simulate</div>}
                                 {this.renderTransportControls(false)}
-                                <label className="control-group-label">View</label>
-                                {this.renderViewControls()}
-                                {options.showMode !== false && <label className="control-group-label">Mode</label>}
-                                {options.showMode !== false && this.renderModeControls()}
+                                {this.renderSpeedSlider()}
                                 {options.sparkline && this.renderMobileSparkline()}
                             </div>
                         );
-                    case 'tools':  return this.renderToolsContent();
-                    case 'board':  return this.renderSliders();
+                    case 'board':
+                        return (
+                            <div>
+                                {options.sectionTitle && <div className="sidebar-section-title">Board</div>}
+                                {this.renderBoardSliders()}
+                                {this.renderBoundaryControls()}
+                            </div>
+                        );
+                    case 'view':
+                        return (
+                            <div>
+                                {options.sectionTitle && <div className="sidebar-section-title">View</div>}
+                                {this.renderViewControls()}
+                                {this.renderZoomSlider()}
+                                {this.renderDisplaySettings()}
+                            </div>
+                        );
+                    case 'tools':
+                        return (
+                            <div>
+                                {options.sectionTitle && <div className="sidebar-section-title">Tools</div>}
+                                <label className="control-group-label">Mode</label>
+                                {this.renderModeControls()}
+                                {this.renderToolsContent()}
+                            </div>
+                        );
                     case 'rules':  return this.renderRulesSection();
                     case 'export': return this.renderExportContent();
                     default:       return null;
                 }
             },
 
-            _drawSparkline : function(canvas){
-                if(!canvas) return;
-                var hist = this.state.popHistory;
-                var W = canvas.width, H = canvas.height;
-                var ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, W, H);
-                if(hist.length < 2) return;
-                // Show last 100 data points.
-                var slice = hist.length > 100 ? hist.slice(-100) : hist;
-                var max = 0;
-                for(var i = 0; i < slice.length; i++){ if(slice[i] > max) max = slice[i]; }
-                if(max === 0) return;
-                var stepX = W / (slice.length - 1);
-                ctx.strokeStyle = 'rgba(120,180,220,0.8)';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(0, H - (slice[0] / max) * H);
-                for(var j = 1; j < slice.length; j++){
-                    ctx.lineTo(j * stepX, H - (slice[j] / max) * H);
-                }
-                ctx.stroke();
-            },
 
             _renderStatsChip : function(){
                 var self = this;
@@ -3443,9 +3442,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); self.togglePopGraph(); } }}>
                         <span>{"Gen " + this.state.generations.toLocaleString()}</span>
                         <span>{"\u2002Pop " + this.state.liveCells.size.toLocaleString()}</span>
-                        <canvas className="sparkline" width="80" height="20"
-                            ref={function(c){ if(c) self._drawSparkline(c); }}
-                            aria-hidden="true" />
                         <span className={"status-indicator status-icon " + (this.state.running ? "status-running" : "status-paused")}>
                             <i className={"fa " + (this.state.stable ? "fa-check-circle" : (this.state.running ? "fa-play" : "fa-pause"))} />
                             {" "}{this.state.stable ? "Stable" : (this.state.running ? "Run" : "Pause")}
@@ -3652,21 +3648,11 @@ document.addEventListener('DOMContentLoaded', function(){
             },
 
 
-            renderRulesSection : function(){
-                var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
+            renderDisplaySettings : function(){
                 return (
-                    <div className="sidebar-section">
-                        <div className="sidebar-section-title">Rules &amp; Display</div>
+                    <div className="display-settings">
+                        <label className="control-group-label">Display</label>
                         <div className="presets-col">
-                            <select className="rule-preset-select"
-                                aria-label="Rule preset"
-                                value={this.state.rulePreset}
-                                onChange={this.setRulePreset}>
-                                <option value="">Rule preset...</option>
-                                {RULE_PRESETS.map(function(p){
-                                    return <option key={p.rule} value={p.rule}>{p.name}</option>;
-                                })}
-                            </select>
                             <select className="rule-preset-select"
                                 aria-label="Color theme"
                                 value={this.state.theme}
@@ -3684,6 +3670,26 @@ document.addEventListener('DOMContentLoaded', function(){
                                 <option value="light">Mode: Light</option>
                                 <option value="dark">Mode: Dark</option>
                             </select>
+                        </div>
+                    </div>
+                );
+            },
+
+            renderRulesSection : function(){
+                var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(this.state.ruleString);
+                return (
+                    <div className="sidebar-section">
+                        <div className="sidebar-section-title">Rules</div>
+                        <div className="presets-col">
+                            <select className="rule-preset-select"
+                                aria-label="Rule preset"
+                                value={this.state.rulePreset}
+                                onChange={this.setRulePreset}>
+                                <option value="">Rule preset...</option>
+                                {RULE_PRESETS.map(function(p){
+                                    return <option key={p.rule} value={p.rule}>{p.name}</option>;
+                                })}
+                            </select>
                             <label className="slider-title rule-label">Rule (B/S notation)</label>
                             <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
                                 type="text"
@@ -3695,13 +3701,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 );
             },
 
-            renderSliders : function(){
-                var delay = SPEED_DELAYS[this.state.speed - 1];
-                var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+            renderBoardSliders : function(){
                 var isUnbounded = this.state.boundary === 'unbounded';
                 return (
                     <div className="sidebar-section">
-                        <div className="sidebar-section-title">Board</div>
                         {!isUnbounded && <div className="sliders">
                             <label className="slider-title">{"Width: " + this.state.pendingCols}</label>
                             <div className="slider-row">
@@ -3748,24 +3751,35 @@ document.addEventListener('DOMContentLoaded', function(){
                                     onChange={this.setDensity} />
                             </div>
                         </div>
-                        <label className="control-group-label">Playback &amp; Display</label>
-                        <div className="sliders">
-                            <label className="slider-title">{"Speed: " + speedLabel}</label>
-                            <div className="slider-row">
-                                <input type="range" min="1" max="10"
-                                    aria-label="Simulation speed"
-                                    value={this.state.speed}
-                                    onChange={this.setSpeed} />
-                            </div>
+                    </div>
+                );
+            },
+
+            renderSpeedSlider : function(){
+                var delay = SPEED_DELAYS[this.state.speed - 1];
+                var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+                return (
+                    <div className="sliders">
+                        <label className="slider-title">{"Speed: " + speedLabel}</label>
+                        <div className="slider-row">
+                            <input type="range" min="1" max="10"
+                                aria-label="Simulation speed"
+                                value={this.state.speed}
+                                onChange={this.setSpeed} />
                         </div>
-                        <div className="sliders">
-                            <label className="slider-title">{"Zoom: " + this.state.cellSize + "\u00a0px/cell"}</label>
-                            <div className="slider-row">
-                                <input type="range" min="1" max="32" step="1"
-                                    aria-label="Zoom level"
-                                    value={this.state.cellSize}
-                                    onChange={this.setZoom} />
-                            </div>
+                    </div>
+                );
+            },
+
+            renderZoomSlider : function(){
+                return (
+                    <div className="sliders">
+                        <label className="slider-title">{"Zoom: " + this.state.cellSize + "\u00a0px/cell"}</label>
+                        <div className="slider-row">
+                            <input type="range" min="1" max="32" step="1"
+                                aria-label="Zoom level"
+                                value={this.state.cellSize}
+                                onChange={this.setZoom} />
                         </div>
                     </div>
                 );
@@ -3870,6 +3884,17 @@ document.addEventListener('DOMContentLoaded', function(){
                 );
             },
 
+            renderBoundaryControls : function(){
+                return (
+                    <div className="boundary-controls">
+                        <label className="control-group-label">Boundary</label>
+                        <div className="view-controls">
+                            <button type="button" className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary: Wrap / Hard / Infinite"><i className="fa fa-repeat" aria-hidden="true"></i> {this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
+                        </div>
+                    </div>
+                );
+            },
+
             renderModeControls : function(){
                 return (
                     <div className="mode-controls">
@@ -3878,7 +3903,6 @@ document.addEventListener('DOMContentLoaded', function(){
                         <button type="button" className={"btn btn-toggle" + (this.state.drawMode === 'select' ? " active" : "")} onClick={this.toggleSelectMode} title="Select and move cells (S)"><i className="fa fa-mouse-pointer" aria-hidden="true"></i> Select</button>
                         {this.state.boundary !== 'unbounded' && <button type="button" className={"btn btn-toggle" + (this.state.drawMode === 'region' ? " active" : "")} onClick={this.toggleRegionMode} title="Draw/erase region bounds (B)"><i className="fa fa-th" aria-hidden="true"></i> Region</button>}
                         <button type="button" className={"btn btn-toggle" + (this.state.livePaintMode ? " active" : "")} onClick={this.toggleLivePaint} title="Paint while running"><i className="fa fa-paint-brush" aria-hidden="true"></i> Live Paint</button>
-                        <button type="button" className={"btn btn-toggle" + (this.state.boundary !== 'toroidal' ? " active" : "")} onClick={this.toggleBoundary} title="Cycle boundary"><i className="fa fa-repeat" aria-hidden="true"></i> {this.state.boundary === 'toroidal' ? "Wrap" : this.state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
                         <button type="button" className="btn" onClick={this.analyzePattern} disabled={this.state.analyzing} title="Detect oscillator/spaceship"><i className="fa fa-crosshairs" aria-hidden="true"></i> Analyze</button>
                     </div>
                 );
@@ -3913,7 +3937,6 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
                 return (
                     <div className="tools-content">
-                        <div className="sidebar-section-title">Tools</div>
                         <div className="btn-section">
                             <div className="tool-subtype-row">
                                 <label className="tool-label">Draw:</label>
@@ -4162,11 +4185,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         {this.renderCanvas(cs)}
                         {!zenMode &&
                             <div className="panel-overlay-container" role="group" aria-label="Floating control panels">
-                                {this._renderFloatPanel('transport', 'Transport', this.renderTransportControls(false))}
-                                {this._renderFloatPanel('view', 'View', this.renderViewControls())}
-                                {this._renderFloatPanel('mode', 'Mode', this.renderModeControls())}
-                                {this._renderFloatPanel('tools', 'Tools', this.renderToolsContent())}
-                                {this._renderFloatPanel('board', 'Board', this.renderSliders())}
+                                {this._renderFloatPanel('transport', 'Simulate', <div>{this.renderTransportControls(false)}{this.renderSpeedSlider()}</div>)}
+                                {this._renderFloatPanel('board', 'Board', <div>{this.renderBoardSliders()}{this.renderBoundaryControls()}</div>)}
+                                {this._renderFloatPanel('view', 'View', <div>{this.renderViewControls()}{this.renderZoomSlider()}{this.renderDisplaySettings()}</div>)}
+                                {this._renderFloatPanel('mode', 'Tools', <div>{this.renderModeControls()}{this.renderToolsContent()}</div>)}
                                 {this._renderFloatPanel('rules', 'Rules', this.renderRulesSection())}
                                 {this._renderFloatPanel('stats', 'Stats', this.renderStats())}
                                 {this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent())}
@@ -4183,8 +4205,9 @@ document.addEventListener('DOMContentLoaded', function(){
                                     </button>
                                     {this.state.panelMenuOpen &&
                                         <div className="panel-menu-list" role="group" aria-label="Panel toggles">
-                                            {['transport','view','mode','tools','board','rules','stats','importExport'].map(function(id){
-                                                var label = id === 'importExport' ? 'Import / Export' : id.charAt(0).toUpperCase() + id.slice(1);
+                                            {['transport','board','view','mode','rules','stats','importExport'].map(function(id){
+                                                var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', rules:'Rules', stats:'Stats', importExport:'Import / Export'};
+                                                var label = PANEL_LABELS[id] || id;
                                                 return (
                                                     <label key={id} className="panel-menu-item">
                                                         <input type="checkbox" checked={panels[id].open}
