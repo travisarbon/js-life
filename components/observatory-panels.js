@@ -36,14 +36,29 @@ var _getPanelContent = function(panelId, state, stateRef, refs, dispatch){
     }
 };
 
-var _checkTabBarOverflow = function(bar){
+var _checkTabBarOverflow = function(bar, stateRef, refs, dispatch){
     bar.classList.remove('panel-tab-bar-icons');
     if(bar.scrollWidth > bar.clientWidth + 1){
         bar.classList.add('panel-tab-bar-icons');
+        // If even icon-only tabs still overflow, switch the group to compact mode.
+        if(stateRef && refs && dispatch){
+            // Re-check after class change settles.
+            requestAnimationFrame(function(){
+                if(bar.scrollWidth > bar.clientWidth + 1){
+                    var groupEl = bar.closest('.panel-group');
+                    if(groupEl){
+                        var groupId = groupEl.getAttribute('data-group-id');
+                        if(groupId){
+                            LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
+                        }
+                    }
+                }
+            });
+        }
     }
 };
 
-var _observeTabBars = function(stateRef, refs){ // eslint-disable-line no-unused-vars
+var _observeTabBars = function(stateRef, refs, dispatch){ // eslint-disable-line no-unused-vars
     if(refs.tabBarObservers){
         refs.tabBarObservers.forEach(function(obs){ obs.disconnect(); });
     }
@@ -51,7 +66,7 @@ var _observeTabBars = function(stateRef, refs){ // eslint-disable-line no-unused
     var tabBars = document.querySelectorAll('.panel-group .panel-tab-bar');
     for(var i = 0; i < tabBars.length; i++){
         (function(bar){
-            var obs = new ResizeObserver(function(){ _checkTabBarOverflow(bar); });
+            var obs = new ResizeObserver(function(){ _checkTabBarOverflow(bar, stateRef, refs, dispatch); });
             obs.observe(bar);
             refs.tabBarObservers.push(obs);
         })(tabBars[i]);

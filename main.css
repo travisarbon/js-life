@@ -1084,6 +1084,14 @@ canvas.display {
   display: none;
   font-size: 14px; }
 
+/* When tab bar overflows, switch to icon-only tabs */
+.panel-tab-bar-icons .panel-tab-icon {
+  display: inline; }
+.panel-tab-bar-icons .panel-tab-label {
+  display: none; }
+.panel-tab-bar-icons .panel-tab {
+  padding: var(--space-xs) var(--space-sm); }
+
 
 .panel-group .float-panel-header {
   display: flex;
@@ -1190,7 +1198,7 @@ canvas.display {
   border-radius: var(--radius-md);
   box-shadow: var(--panel-shadow);
   padding: var(--space-md);
-  z-index: 1;
+  z-index: 9999;
   margin-left: var(--space-sm); }
 
 .pop-out-trigger {
@@ -1238,6 +1246,12 @@ canvas.display {
   cursor: pointer;
   opacity: var(--opacity-muted); }
 
+.panel-group-compact .compact-icon-rail .panel-tab-icon {
+  display: inline;
+  font-size: 14px; }
+.panel-group-compact .compact-icon-rail .panel-tab-label {
+  display: none; }
+
 .panel-group-compact .compact-icon-rail .panel-tab:hover {
   opacity: 1; }
 
@@ -1250,7 +1264,7 @@ canvas.display {
   flex-direction: column;
   flex: 1;
   min-width: 0;
-  overflow: hidden; }
+  overflow: visible; }
 
 .panel-group-compact .compact-main .float-panel-header {
   padding: var(--space-xs) var(--space-sm); }
@@ -1267,7 +1281,9 @@ canvas.display {
   padding: var(--space-xs) !important; }
 
 .panel-group-compact .float-panel-body {
-  padding: var(--space-sm); }
+  padding: var(--space-sm);
+  overflow-y: auto;
+  overflow-x: hidden; }
 
 .panel-group-compact .float-panel-resize {
   position: absolute;

@@ -1603,13 +1603,28 @@ var _getPanelContent = function (panelId, state, stateRef, refs, dispatch) {
       return null;
   }
 };
-var _checkTabBarOverflow = function (bar) {
+var _checkTabBarOverflow = function (bar, stateRef, refs, dispatch) {
   bar.classList.remove('panel-tab-bar-icons');
   if (bar.scrollWidth > bar.clientWidth + 1) {
     bar.classList.add('panel-tab-bar-icons');
+    // If even icon-only tabs still overflow, switch the group to compact mode.
+    if (stateRef && refs && dispatch) {
+      // Re-check after class change settles.
+      requestAnimationFrame(function () {
+        if (bar.scrollWidth > bar.clientWidth + 1) {
+          var groupEl = bar.closest('.panel-group');
+          if (groupEl) {
+            var groupId = groupEl.getAttribute('data-group-id');
+            if (groupId) {
+              LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
+            }
+          }
+        }
+      });
+    }
   }
 };
-var _observeTabBars = function (stateRef, refs) {
+var _observeTabBars = function (stateRef, refs, dispatch) {
   // eslint-disable-line no-unused-vars
   if (refs.tabBarObservers) {
     refs.tabBarObservers.forEach(function (obs) {
@@ -1621,7 +1636,7 @@ var _observeTabBars = function (stateRef, refs) {
   for (var i = 0; i < tabBars.length; i++) {
     (function (bar) {
       var obs = new ResizeObserver(function () {
-        _checkTabBarOverflow(bar);
+        _checkTabBarOverflow(bar, stateRef, refs, dispatch);
       });
       obs.observe(bar);
       refs.tabBarObservers.push(obs);
@@ -4555,7 +4570,7 @@ document.addEventListener('DOMContentLoaded', function () {
       })();
       LifeIOUtils._loadFromURLHash(stateRef, refs, dispatch);
       LifeSimUtils._startLoop(stateRef, refs, dispatch);
-      ObservatoryPanelUtils._observeTabBars(stateRef, refs);
+      ObservatoryPanelUtils._observeTabBars(stateRef, refs, dispatch);
 
       // ── Cleanup (replaces componentWillUnmount) ──
       return function () {
@@ -4637,7 +4652,7 @@ document.addEventListener('DOMContentLoaded', function () {
         drawRotationPreview(stateRef, refs);
       }
       if (prevPanelGroups.current !== state.panelGroups) {
-        ObservatoryPanelUtils._observeTabBars(stateRef, refs);
+        ObservatoryPanelUtils._observeTabBars(stateRef, refs, dispatch);
       }
       prevSelectedPattern.current = state.selectedPattern;
       prevPatternRotation.current = state.patternRotation;

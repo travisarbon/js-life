@@ -353,7 +353,7 @@ function LifeBoard() {
                 })();
                 LifeIOUtils._loadFromURLHash(stateRef, refs, dispatch);
                 LifeSimUtils._startLoop(stateRef, refs, dispatch);
-                ObservatoryPanelUtils._observeTabBars(stateRef, refs);
+                ObservatoryPanelUtils._observeTabBars(stateRef, refs, dispatch);
 
                 // ── Cleanup (replaces componentWillUnmount) ──
                 return function(){
@@ -416,7 +416,7 @@ function LifeBoard() {
             drawRotationPreview(stateRef, refs);
         }
         if(prevPanelGroups.current !== state.panelGroups){
-            ObservatoryPanelUtils._observeTabBars(stateRef, refs);
+            ObservatoryPanelUtils._observeTabBars(stateRef, refs, dispatch);
         }
         prevSelectedPattern.current = state.selectedPattern;
         prevPatternRotation.current = state.patternRotation;
