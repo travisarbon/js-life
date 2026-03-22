@@ -989,7 +989,7 @@ function LifeBoard() {
                             <div>
                                 {options.sectionTitle && <div className="sidebar-section-title">Simulate</div>}
                                 {<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                                {renderSpeedSlider(state, stateRef, refs, dispatch)}
+                                {<SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                                 {options.sparkline && <MobileSparkline state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />}
                             </div>
                         );
@@ -997,17 +997,17 @@ function LifeBoard() {
                         return (
                             <div>
                                 {options.sectionTitle && <div className="sidebar-section-title">Board</div>}
-                                {renderBoardSliders(state, stateRef, refs, dispatch)}
-                                {renderBoundaryControls(state, stateRef, refs, dispatch)}
+                                {<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
+                                {<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                             </div>
                         );
                     case 'view':
                         return (
                             <div>
                                 {options.sectionTitle && <div className="sidebar-section-title">View</div>}
-                                {renderViewControls(state, stateRef, refs, dispatch)}
-                                {renderZoomSlider(state, stateRef, refs, dispatch)}
-                                {renderDisplaySettings(state, stateRef, refs, dispatch)}
+                                {<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}
+                                {<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
+                                {<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                             </div>
                         );
                     case 'tools':
@@ -1195,168 +1195,17 @@ function LifeBoard() {
     }
 
 
-    function renderDisplaySettings(){
-                return (
-                    <div className="display-settings">
-                        <label className="control-group-label">Display</label>
-                        <div className="presets-col">
-                            <select className="rule-preset-select"
-                                aria-label="Color theme"
-                                value={state.theme}
-                                onChange={function(e){ LifeBoardUtils.setTheme(stateRef, refs, dispatch, e); }}>
-                                {Object.keys(THEMES).map(function(t){
-                                    return <option key={t} value={t}>{t}</option>;
-                                })}
-                            </select>
-                            <select className="rule-preset-select"
-                                aria-label="Dark mode preference"
-                                value={state.darkModePref}
-                                onChange={function(e){ LifeBoardUtils.setDarkModePref(stateRef, refs, dispatch, e); }}
-                                title="UI dark mode preference">
-                                <option value="system">Mode: System</option>
-                                <option value="light">Mode: Light</option>
-                                <option value="dark">Mode: Dark</option>
-                            </select>
-                        </div>
-                    </div>
-                );
-    }
+    // renderDisplaySettings — extracted to components/settings-panels.js as DisplaySettings
 
-    function renderRulesSection(){
-                var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
-                return (
-                    <div className="sidebar-section">
-                        <div className="sidebar-section-title">Rules</div>
-                        <div className="presets-col">
-                            <select className="rule-preset-select"
-                                aria-label="Rule preset"
-                                value={state.rulePreset}
-                                onChange={function(e){ LifeBoardUtils.setRulePreset(stateRef, refs, dispatch, e); }}>
-                                <option value="">Rule preset...</option>
-                                {RULE_PRESETS.map(function(p){
-                                    return <option key={p.rule} value={p.rule}>{p.name}</option>;
-                                })}
-                            </select>
-                            <label className="slider-title rule-label">Rule (B/S notation)</label>
-                            <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
-                                type="text"
-                                value={state.ruleString}
-                                onChange={function(e){ LifeBoardUtils.setRule(stateRef, refs, dispatch, e); }}
-                                title="Birth/Survival rule string (e.g. B3/S23)" />
-                        </div>
-                    </div>
-                );
-    }
+    // renderRulesSection — extracted to components/rules-export.js as RulesSection
 
-    function renderBoardSliders(){
-                var isUnbounded = state.boundary === 'unbounded';
-                return (
-                    <div className="sidebar-section">
-                        {!isUnbounded && <div className="sliders">
-                            <label className="slider-title">{"Width: " + state.pendingCols}</label>
-                            <div className="slider-row">
-                                <input type="range" min="20" max="2000" step="10"
-                                    aria-label="Grid width"
-                                    value={state.pendingCols}
-                                    onChange={function(e){ LifeBoardUtils.setWidth(stateRef, refs, dispatch, e); }}
-                                    onMouseUp={function(){ LifeBoardUtils.applyWidth(stateRef, refs, dispatch); }}
-                                    onKeyDown={function(e){ LifeBoardUtils.onWidthKeyDown(stateRef, refs, dispatch, e); }}
-                                    onTouchEnd={function(){ LifeBoardUtils.applyWidth(stateRef, refs, dispatch); }} />
-                            </div>
-                        </div>}
-                        {!isUnbounded && <div className="sliders">
-                            <label className="slider-title">{"Height: " + state.pendingRows}</label>
-                            <div className="slider-row">
-                                <input type="range" min="20" max="2000" step="10"
-                                    aria-label="Grid height"
-                                    value={state.pendingRows}
-                                    onChange={function(e){ LifeBoardUtils.setHeight(stateRef, refs, dispatch, e); }}
-                                    onMouseUp={function(){ LifeBoardUtils.applyHeight(stateRef, refs, dispatch); }}
-                                    onKeyDown={function(e){ LifeBoardUtils.onHeightKeyDown(stateRef, refs, dispatch, e); }}
-                                    onTouchEnd={function(){ LifeBoardUtils.applyHeight(stateRef, refs, dispatch); }} />
-                            </div>
-                        </div>}
-                        {!isUnbounded && <div className="sliders">
-                            <label className="slider-title">Grid presets</label>
-                            <div className="grid-presets">
-                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 100, 100); }} title="Set grid to 100×100">100²</button>
-                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 200, 200); }} title="Set grid to 200×200">200²</button>
-                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 400, 400); }} title="Set grid to 400×400">400²</button>
-                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 1000, 1000); }} title="Set grid to 1000×1000">1000²</button>
-                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 2000, 2000); }} title="Set grid to 2000×2000">2000²</button>
-                            </div>
-                        </div>}
-                        {isUnbounded && <div className="sliders">
-                            <label className="slider-title" style={{fontStyle:'italic'}}>No bounding box — infinite canvas</label>
-                        </div>}
-                        <div className="sliders">
-                            <label className="slider-title">Fill Density (on Reset)</label>
-                            <div className="slider-row">
-                                <input type="range" min="2" max="7"
-                                    aria-label="Fill density"
-                                    value={9 - state.sparseness}
-                                    onChange={function(e){ LifeBoardUtils.setDensity(stateRef, refs, dispatch, e); }} />
-                            </div>
-                        </div>
-                    </div>
-                );
-    }
+    // renderBoardSliders — extracted to components/settings-panels.js as BoardSliders
 
-    function renderSpeedSlider(){
-                var delay = SPEED_DELAYS[state.speed - 1];
-                var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
-                return (
-                    <div className="sliders">
-                        <label className="slider-title">{"Speed: " + speedLabel}</label>
-                        <div className="slider-row">
-                            <input type="range" min="1" max="10"
-                                aria-label="Simulation speed"
-                                value={state.speed}
-                                onChange={function(e){ LifeBoardUtils.setSpeed(stateRef, refs, dispatch, e); }} />
-                        </div>
-                    </div>
-                );
-    }
+    // renderSpeedSlider — extracted to components/settings-panels.js as SpeedSlider
 
-    function renderZoomSlider(){
-                return (
-                    <div className="sliders">
-                        <label className="slider-title">{"Zoom: " + state.cellSize + "\u00a0px/cell"}</label>
-                        <div className="slider-row">
-                            <input type="range" min="1" max="32" step="1"
-                                aria-label="Zoom level"
-                                value={state.cellSize}
-                                onChange={function(e){ LifeViewUtils.setZoom(stateRef, refs, dispatch, e); }} />
-                        </div>
-                    </div>
-                );
-    }
+    // renderZoomSlider — extracted to components/settings-panels.js as ZoomSlider
 
-    function renderRLESection(){
-                return (
-                    <div className="sidebar-section">
-                        <div className="rle-section">
-                            <div className="buttons rle-toggle-row">
-                                <button type="button" className={"btn btn-rle-toggle btn-block" + (state.showRle ? " active" : "")}
-                                    onClick={function(){ LifeIOUtils.toggleRle(stateRef, refs, dispatch); }}>Import RLE / Plaintext</button>
-                            </div>
-                            {state.showRle &&
-                                <div className="rle-body">
-                                    <textarea className="rle-input"
-                                        rows="5"
-                                        placeholder={"Paste RLE or plaintext pattern\n(from LifeWiki or Golly)"}
-                                        value={state.rleInput}
-                                        onChange={function(e){ LifeIOUtils.setRleInput(stateRef, refs, dispatch, e); }} />
-                                    <button type="button" className="btn btn-block" onClick={function(){ LifeIOUtils.loadRle(stateRef, refs, dispatch); }} title="Load the RLE or plaintext pattern">Load pattern</button>
-                                    {state.rleError &&
-                                        <p className="rle-error">{state.rleError}</p>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
-                );
-    }
+    // renderRLESection — extracted to components/rules-export.js as RLESection
 
             // ── Shared sub-components (used by all layout modes) ───────────
 
@@ -1389,28 +1238,9 @@ function LifeBoard() {
 
     // renderTransportControls — extracted to components/transport-controls.js as TransportControls
 
-    function renderViewControls(){
-                return (
-                    <div className="view-controls">
-                        <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitView(stateRef, refs, dispatch); }} title="Zoom to fit entire grid"><i className="fa fa-arrows-alt" aria-hidden="true"></i> Fit Grid</button>
-                        <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitLiveCells(stateRef, refs, dispatch); }} title="Zoom to fit live cells"><i className="fa fa-compress" aria-hidden="true"></i> Fit Cells</button>
-                        <button type="button" className={"btn btn-toggle" + (state.gridLines ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); }} title="Toggle grid lines (G)"><i className="fa fa-th" aria-hidden="true"></i> Grid</button>
-                        <button type="button" className={"btn btn-toggle" + (state.showTrails ? " active" : "")} onClick={function(){ toggleTrails(stateRef, refs, dispatch); }} title="Show ghost trails"><i className="fa fa-eye" aria-hidden="true"></i> Trails</button>
-                        <button type="button" className={"btn btn-toggle" + (state.showMinimap ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch); }} title="Show/hide minimap (M)"><i className="fa fa-map-o" aria-hidden="true"></i> Minimap</button>
-                    </div>
-                );
-    }
+    // renderViewControls — extracted to components/settings-panels.js as ViewControls
 
-    function renderBoundaryControls(){
-                return (
-                    <div className="boundary-controls">
-                        <label className="control-group-label">Boundary</label>
-                        <div className="view-controls">
-                            <button type="button" className={"btn btn-toggle" + (state.boundary !== 'toroidal' ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }} title="Cycle boundary: Wrap / Hard / Infinite"><i className="fa fa-repeat" aria-hidden="true"></i> {state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
-                        </div>
-                    </div>
-                );
-    }
+    // renderBoundaryControls — extracted to components/settings-panels.js as BoundaryControls
 
     function renderModeControls(){
                 return (
@@ -1702,9 +1532,9 @@ function LifeBoard() {
                         {renderCanvas(cs, state, stateRef, refs, dispatch)}
                         {!zenMode &&
                             <div className="panel-overlay-container" role="group" aria-label="Floating control panels">
-                                {_renderFloatPanel('transport', 'Simulate', <div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{renderSpeedSlider(state, stateRef, refs, dispatch)}</div>)}
-                                {_renderFloatPanel('board', 'Board', <div>{renderBoardSliders(state, stateRef, refs, dispatch)}{renderBoundaryControls(state, stateRef, refs, dispatch)}</div>)}
-                                {_renderFloatPanel('view', 'View', <div>{renderViewControls(state, stateRef, refs, dispatch)}{renderZoomSlider(state, stateRef, refs, dispatch)}{renderDisplaySettings(state, stateRef, refs, dispatch)}</div>)}
+                                {_renderFloatPanel('transport', 'Simulate', <div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>)}
+                                {_renderFloatPanel('board', 'Board', <div>{<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>)}
+                                {_renderFloatPanel('view', 'View', <div>{<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}{<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>)}
                                 {_renderFloatPanel('mode', 'Tools', <div>{renderModeControls(state, stateRef, refs, dispatch)}{renderToolsContent(state, stateRef, refs, dispatch)}</div>)}
                                 {_renderFloatPanel('rules', 'Rules', renderRulesSection(state, stateRef, refs, dispatch))}
                                 {_renderFloatPanel('stats', 'Stats', <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />)}
@@ -1850,12 +1680,12 @@ function LifeBoard() {
                             {id:'reset', icon: 'fa-refresh', title: 'Randomize (R)', onClick: function(){ LifeBoardUtils.resetGame(stateRef, refs, dispatch); }},
                             {id:'empty', icon: 'fa-eraser', title: 'Clear all cells (E)', onClick: function(){ LifeBoardUtils.emptyBoard(stateRef, refs, dispatch); }},
                             {id:'undo', icon: 'fa-undo', title: 'Undo (Ctrl+Z)', onClick: function(){ LifeSimUtils.undo(stateRef, refs, dispatch); }},
-                            {id:'speed', icon: 'fa-tachometer', title: 'Speed', popOut: function(){ return renderSpeedSlider(state, stateRef, refs, dispatch); }}
+                            {id:'speed', icon: 'fa-tachometer', title: 'Speed', popOut: function(){ return <SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
                         ];
                     case 'board':
                         return [
                             {id:'boundary', icon: 'fa-repeat', title: 'Cycle boundary', onClick: function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }, active: state.boundary !== 'toroidal'},
-                            {id:'grid-size', icon: 'fa-th-large', title: 'Grid size', popOut: function(){ return renderBoardSliders(state, stateRef, refs, dispatch); }}
+                            {id:'grid-size', icon: 'fa-th-large', title: 'Grid size', popOut: function(){ return <BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
                         ];
                     case 'view':
                         return [
@@ -1864,8 +1694,8 @@ function LifeBoard() {
                             {id:'grid', icon: 'fa-th', title: 'Grid lines (G)', onClick: function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); }, active: state.gridLines},
                             {id:'trails', icon: 'fa-eye', title: 'Trails', onClick: function(){ toggleTrails(stateRef, refs, dispatch); }, active: state.showTrails},
                             {id:'minimap', icon: 'fa-map-o', title: 'Minimap (M)', onClick: function(){ LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch); }, active: state.showMinimap},
-                            {id:'zoom', icon: 'fa-search-plus', title: 'Zoom', popOut: function(){ return renderZoomSlider(state, stateRef, refs, dispatch); }},
-                            {id:'display', icon: 'fa-paint-brush', title: 'Display settings', popOut: function(){ return renderDisplaySettings(state, stateRef, refs, dispatch); }}
+                            {id:'zoom', icon: 'fa-search-plus', title: 'Zoom', popOut: function(){ return <ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }},
+                            {id:'display', icon: 'fa-paint-brush', title: 'Display settings', popOut: function(){ return <DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
                         ];
                     case 'mode':
                         var defs = [
@@ -1913,12 +1743,12 @@ function LifeBoard() {
 
     function _getPanelContent(panelId){
                 switch(panelId){
-                    case 'transport': return <div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{renderSpeedSlider(state, stateRef, refs, dispatch)}</div>;
-                    case 'board': return <div>{renderBoardSliders(state, stateRef, refs, dispatch)}{renderBoundaryControls(state, stateRef, refs, dispatch)}</div>;
-                    case 'view': return <div>{renderViewControls(state, stateRef, refs, dispatch)}{renderZoomSlider(state, stateRef, refs, dispatch)}{renderDisplaySettings(state, stateRef, refs, dispatch)}</div>;
+                    case 'transport': return <div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
+                    case 'board': return <div>{<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
+                    case 'view': return <div>{<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}{<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
                     case 'mode': return <div>{renderModeControls(state, stateRef, refs, dispatch)}{renderToolsContent(state, stateRef, refs, dispatch)}</div>;
                     case 'rules': return renderRulesSection(state, stateRef, refs, dispatch);
-                    case 'stats': return renderStats(state, refs);
+                    case 'stats': return <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />;
                     case 'importExport': return renderExportContent(state, stateRef, refs, dispatch);
                     default: return null;
                 }

@@ -1,0 +1,147 @@
+/* global React, LifeViewUtils, LifeBoardUtils, THEMES, SPEED_DELAYS */
+/**
+ * Settings panel components extracted from LifeBoard.
+ * Each component receives props: state, stateRef, refs, dispatch
+ * ViewControls also receives onToggleTrails.
+ */
+
+var ViewControls = function ViewControls(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    var onToggleTrails = props.onToggleTrails;
+                return (
+                    <div className="view-controls">
+                        <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitView(stateRef, refs, dispatch); }} title="Zoom to fit entire grid"><i className="fa fa-arrows-alt" aria-hidden="true"></i> Fit Grid</button>
+                        <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitLiveCells(stateRef, refs, dispatch); }} title="Zoom to fit live cells"><i className="fa fa-compress" aria-hidden="true"></i> Fit Cells</button>
+                        <button type="button" className={"btn btn-toggle" + (state.gridLines ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); }} title="Toggle grid lines (G)"><i className="fa fa-th" aria-hidden="true"></i> Grid</button>
+                        <button type="button" className={"btn btn-toggle" + (state.showTrails ? " active" : "")} onClick={function(){ onToggleTrails(stateRef, refs, dispatch); }} title="Show ghost trails"><i className="fa fa-eye" aria-hidden="true"></i> Trails</button>
+                        <button type="button" className={"btn btn-toggle" + (state.showMinimap ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch); }} title="Show/hide minimap (M)"><i className="fa fa-map-o" aria-hidden="true"></i> Minimap</button>
+                    </div>
+                );
+};
+
+var ZoomSlider = function ZoomSlider(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+                return (
+                    <div className="sliders">
+                        <label className="slider-title">{"Zoom: " + state.cellSize + "\u00a0px/cell"}</label>
+                        <div className="slider-row">
+                            <input type="range" min="1" max="32" step="1"
+                                aria-label="Zoom level"
+                                value={state.cellSize}
+                                onChange={function(e){ LifeViewUtils.setZoom(stateRef, refs, dispatch, e); }} />
+                        </div>
+                    </div>
+                );
+};
+
+var DisplaySettings = function DisplaySettings(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+                return (
+                    <div className="display-settings">
+                        <label className="control-group-label">Display</label>
+                        <div className="presets-col">
+                            <select className="rule-preset-select"
+                                aria-label="Color theme"
+                                value={state.theme}
+                                onChange={function(e){ LifeBoardUtils.setTheme(stateRef, refs, dispatch, e); }}>
+                                {Object.keys(THEMES).map(function(t){
+                                    return <option key={t} value={t}>{t}</option>;
+                                })}
+                            </select>
+                            <select className="rule-preset-select"
+                                aria-label="Dark mode preference"
+                                value={state.darkModePref}
+                                onChange={function(e){ LifeBoardUtils.setDarkModePref(stateRef, refs, dispatch, e); }}
+                                title="UI dark mode preference">
+                                <option value="system">Mode: System</option>
+                                <option value="light">Mode: Light</option>
+                                <option value="dark">Mode: Dark</option>
+                            </select>
+                        </div>
+                    </div>
+                );
+};
+
+var BoundaryControls = function BoundaryControls(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+                return (
+                    <div className="boundary-controls">
+                        <label className="control-group-label">Boundary</label>
+                        <div className="view-controls">
+                            <button type="button" className={"btn btn-toggle" + (state.boundary !== 'toroidal' ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }} title="Cycle boundary: Wrap / Hard / Infinite"><i className="fa fa-repeat" aria-hidden="true"></i> {state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
+                        </div>
+                    </div>
+                );
+};
+
+var SpeedSlider = function SpeedSlider(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+                var delay = SPEED_DELAYS[state.speed - 1];
+                var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+                return (
+                    <div className="sliders">
+                        <label className="slider-title">{"Speed: " + speedLabel}</label>
+                        <div className="slider-row">
+                            <input type="range" min="1" max="10"
+                                aria-label="Simulation speed"
+                                value={state.speed}
+                                onChange={function(e){ LifeBoardUtils.setSpeed(stateRef, refs, dispatch, e); }} />
+                        </div>
+                    </div>
+                );
+};
+
+var BoardSliders = function BoardSliders(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+                var isUnbounded = state.boundary === 'unbounded';
+                return (
+                    <div className="sidebar-section">
+                        {!isUnbounded && <div className="sliders">
+                            <label className="slider-title">{"Width: " + state.pendingCols}</label>
+                            <div className="slider-row">
+                                <input type="range" min="20" max="2000" step="10"
+                                    aria-label="Grid width"
+                                    value={state.pendingCols}
+                                    onChange={function(e){ LifeBoardUtils.setWidth(stateRef, refs, dispatch, e); }}
+                                    onMouseUp={function(){ LifeBoardUtils.applyWidth(stateRef, refs, dispatch); }}
+                                    onKeyDown={function(e){ LifeBoardUtils.onWidthKeyDown(stateRef, refs, dispatch, e); }}
+                                    onTouchEnd={function(){ LifeBoardUtils.applyWidth(stateRef, refs, dispatch); }} />
+                            </div>
+                        </div>}
+                        {!isUnbounded && <div className="sliders">
+                            <label className="slider-title">{"Height: " + state.pendingRows}</label>
+                            <div className="slider-row">
+                                <input type="range" min="20" max="2000" step="10"
+                                    aria-label="Grid height"
+                                    value={state.pendingRows}
+                                    onChange={function(e){ LifeBoardUtils.setHeight(stateRef, refs, dispatch, e); }}
+                                    onMouseUp={function(){ LifeBoardUtils.applyHeight(stateRef, refs, dispatch); }}
+                                    onKeyDown={function(e){ LifeBoardUtils.onHeightKeyDown(stateRef, refs, dispatch, e); }}
+                                    onTouchEnd={function(){ LifeBoardUtils.applyHeight(stateRef, refs, dispatch); }} />
+                            </div>
+                        </div>}
+                        {!isUnbounded && <div className="sliders">
+                            <label className="slider-title">Grid presets</label>
+                            <div className="grid-presets">
+                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 100, 100); }} title="Set grid to 100×100">100²</button>
+                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 200, 200); }} title="Set grid to 200×200">200²</button>
+                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 400, 400); }} title="Set grid to 400×400">400²</button>
+                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 1000, 1000); }} title="Set grid to 1000×1000">1000²</button>
+                                <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 2000, 2000); }} title="Set grid to 2000×2000">2000²</button>
+                            </div>
+                        </div>}
+                        {isUnbounded && <div className="sliders">
+                            <label className="slider-title" style={{fontStyle:'italic'}}>No bounding box — infinite canvas</label>
+                        </div>}
+                        <div className="sliders">
+                            <label className="slider-title">Fill Density (on Reset)</label>
+                            <div className="slider-row">
+                                <input type="range" min="2" max="7"
+                                    aria-label="Fill density"
+                                    value={9 - state.sparseness}
+                                    onChange={function(e){ LifeBoardUtils.setDensity(stateRef, refs, dispatch, e); }} />
+                            </div>
+                        </div>
+                    </div>
+                );
+};

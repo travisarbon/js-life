@@ -230,6 +230,462 @@ var PopGraphModal = function PopGraphModal(props) {
 };
 "use strict";
 
+/* global React, LifeBoardUtils, LifeIOUtils, LifeAnalysisUtils, RULE_PRESETS */
+/**
+ * Rules and export panel components extracted from LifeBoard.
+ * Each component receives props: state, stateRef, refs, dispatch
+ */
+
+var RulesSection = function RulesSection(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-section-title"
+  }, "Rules"), /*#__PURE__*/React.createElement("div", {
+    className: "presets-col"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "rule-preset-select",
+    "aria-label": "Rule preset",
+    value: state.rulePreset,
+    onChange: function (e) {
+      LifeBoardUtils.setRulePreset(stateRef, refs, dispatch, e);
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Rule preset..."), RULE_PRESETS.map(function (p) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: p.rule,
+      value: p.rule
+    }, p.name);
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "slider-title rule-label"
+  }, "Rule (B/S notation)"), /*#__PURE__*/React.createElement("input", {
+    className: "rule-input" + (ruleValid ? "" : " rule-input-invalid"),
+    type: "text",
+    value: state.ruleString,
+    onChange: function (e) {
+      LifeBoardUtils.setRule(stateRef, refs, dispatch, e);
+    },
+    title: "Birth/Survival rule string (e.g. B3/S23)"
+  })));
+};
+var RLESection = function RLESection(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rle-section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "buttons rle-toggle-row"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-rle-toggle btn-block" + (state.showRle ? " active" : ""),
+    onClick: function () {
+      LifeIOUtils.toggleRle(stateRef, refs, dispatch);
+    }
+  }, "Import RLE / Plaintext")), state.showRle && /*#__PURE__*/React.createElement("div", {
+    className: "rle-body"
+  }, /*#__PURE__*/React.createElement("textarea", {
+    className: "rle-input",
+    rows: "5",
+    placeholder: "Paste RLE or plaintext pattern\n(from LifeWiki or Golly)",
+    value: state.rleInput,
+    onChange: function (e) {
+      LifeIOUtils.setRleInput(stateRef, refs, dispatch, e);
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-block",
+    onClick: function () {
+      LifeIOUtils.loadRle(stateRef, refs, dispatch);
+    },
+    title: "Load the RLE or plaintext pattern"
+  }, "Load pattern"), state.rleError && /*#__PURE__*/React.createElement("p", {
+    className: "rle-error"
+  }, state.rleError))));
+};
+var ExportContent = function ExportContent(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "export-content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-section-title"
+  }, "Share"), /*#__PURE__*/React.createElement("div", {
+    className: "btn-section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "buttons buttons-export"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeIOUtils.exportPNG(stateRef, refs, dispatch);
+    },
+    title: "Save as PNG"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-camera",
+    "aria-hidden": "true"
+  }), " Export PNG"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeIOUtils.copyRLE(stateRef, refs, dispatch);
+    },
+    title: "Copy board as RLE"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-clipboard",
+    "aria-hidden": "true"
+  }), " Copy RLE"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.recording ? " active btn-record" : ""),
+    onClick: function () {
+      LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch);
+    },
+    title: "Record an animated GIF",
+    "aria-label": state.recording ? "Stop recording" : "Record GIF"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa " + (state.recording ? "fa-stop" : "fa-circle"),
+    "aria-hidden": "true"
+  }), " ", state.recording ? "Stop" : "Record"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeIOUtils.shareURL(stateRef, refs, dispatch);
+    },
+    title: "Copy shareable URL to clipboard",
+    "aria-label": "Share simulation URL"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-share-alt",
+    "aria-hidden": "true"
+  }), " ", state.shareTooltip ? "Copied!" : "Share")), /*#__PURE__*/React.createElement(RLESection, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  })));
+};
+"use strict";
+
+/* global React, LifeViewUtils, LifeBoardUtils, THEMES, SPEED_DELAYS */
+/**
+ * Settings panel components extracted from LifeBoard.
+ * Each component receives props: state, stateRef, refs, dispatch
+ * ViewControls also receives onToggleTrails.
+ */
+
+var ViewControls = function ViewControls(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var onToggleTrails = props.onToggleTrails;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "view-controls"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeViewUtils.fitView(stateRef, refs, dispatch);
+    },
+    title: "Zoom to fit entire grid"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-arrows-alt",
+    "aria-hidden": "true"
+  }), " Fit Grid"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeViewUtils.fitLiveCells(stateRef, refs, dispatch);
+    },
+    title: "Zoom to fit live cells"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-compress",
+    "aria-hidden": "true"
+  }), " Fit Cells"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.gridLines ? " active" : ""),
+    onClick: function () {
+      LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch);
+    },
+    title: "Toggle grid lines (G)"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-th",
+    "aria-hidden": "true"
+  }), " Grid"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.showTrails ? " active" : ""),
+    onClick: function () {
+      onToggleTrails(stateRef, refs, dispatch);
+    },
+    title: "Show ghost trails"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-eye",
+    "aria-hidden": "true"
+  }), " Trails"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.showMinimap ? " active" : ""),
+    onClick: function () {
+      LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch);
+    },
+    title: "Show/hide minimap (M)"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-map-o",
+    "aria-hidden": "true"
+  }), " Minimap"));
+};
+var ZoomSlider = function ZoomSlider(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "sliders"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "slider-title"
+  }, "Zoom: " + state.cellSize + "\u00a0px/cell"), /*#__PURE__*/React.createElement("div", {
+    className: "slider-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: "1",
+    max: "32",
+    step: "1",
+    "aria-label": "Zoom level",
+    value: state.cellSize,
+    onChange: function (e) {
+      LifeViewUtils.setZoom(stateRef, refs, dispatch, e);
+    }
+  })));
+};
+var DisplaySettings = function DisplaySettings(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "display-settings"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "control-group-label"
+  }, "Display"), /*#__PURE__*/React.createElement("div", {
+    className: "presets-col"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "rule-preset-select",
+    "aria-label": "Color theme",
+    value: state.theme,
+    onChange: function (e) {
+      LifeBoardUtils.setTheme(stateRef, refs, dispatch, e);
+    }
+  }, Object.keys(THEMES).map(function (t) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: t,
+      value: t
+    }, t);
+  })), /*#__PURE__*/React.createElement("select", {
+    className: "rule-preset-select",
+    "aria-label": "Dark mode preference",
+    value: state.darkModePref,
+    onChange: function (e) {
+      LifeBoardUtils.setDarkModePref(stateRef, refs, dispatch, e);
+    },
+    title: "UI dark mode preference"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "system"
+  }, "Mode: System"), /*#__PURE__*/React.createElement("option", {
+    value: "light"
+  }, "Mode: Light"), /*#__PURE__*/React.createElement("option", {
+    value: "dark"
+  }, "Mode: Dark"))));
+};
+var BoundaryControls = function BoundaryControls(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "boundary-controls"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "control-group-label"
+  }, "Boundary"), /*#__PURE__*/React.createElement("div", {
+    className: "view-controls"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.boundary !== 'toroidal' ? " active" : ""),
+    onClick: function () {
+      LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch);
+    },
+    title: "Cycle boundary: Wrap / Hard / Infinite"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-repeat",
+    "aria-hidden": "true"
+  }), " ", state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "\u221E")));
+};
+var SpeedSlider = function SpeedSlider(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var delay = SPEED_DELAYS[state.speed - 1];
+  var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+  return /*#__PURE__*/React.createElement("div", {
+    className: "sliders"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "slider-title"
+  }, "Speed: " + speedLabel), /*#__PURE__*/React.createElement("div", {
+    className: "slider-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: "1",
+    max: "10",
+    "aria-label": "Simulation speed",
+    value: state.speed,
+    onChange: function (e) {
+      LifeBoardUtils.setSpeed(stateRef, refs, dispatch, e);
+    }
+  })));
+};
+var BoardSliders = function BoardSliders(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var isUnbounded = state.boundary === 'unbounded';
+  return /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-section"
+  }, !isUnbounded && /*#__PURE__*/React.createElement("div", {
+    className: "sliders"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "slider-title"
+  }, "Width: " + state.pendingCols), /*#__PURE__*/React.createElement("div", {
+    className: "slider-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: "20",
+    max: "2000",
+    step: "10",
+    "aria-label": "Grid width",
+    value: state.pendingCols,
+    onChange: function (e) {
+      LifeBoardUtils.setWidth(stateRef, refs, dispatch, e);
+    },
+    onMouseUp: function () {
+      LifeBoardUtils.applyWidth(stateRef, refs, dispatch);
+    },
+    onKeyDown: function (e) {
+      LifeBoardUtils.onWidthKeyDown(stateRef, refs, dispatch, e);
+    },
+    onTouchEnd: function () {
+      LifeBoardUtils.applyWidth(stateRef, refs, dispatch);
+    }
+  }))), !isUnbounded && /*#__PURE__*/React.createElement("div", {
+    className: "sliders"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "slider-title"
+  }, "Height: " + state.pendingRows), /*#__PURE__*/React.createElement("div", {
+    className: "slider-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: "20",
+    max: "2000",
+    step: "10",
+    "aria-label": "Grid height",
+    value: state.pendingRows,
+    onChange: function (e) {
+      LifeBoardUtils.setHeight(stateRef, refs, dispatch, e);
+    },
+    onMouseUp: function () {
+      LifeBoardUtils.applyHeight(stateRef, refs, dispatch);
+    },
+    onKeyDown: function (e) {
+      LifeBoardUtils.onHeightKeyDown(stateRef, refs, dispatch, e);
+    },
+    onTouchEnd: function () {
+      LifeBoardUtils.applyHeight(stateRef, refs, dispatch);
+    }
+  }))), !isUnbounded && /*#__PURE__*/React.createElement("div", {
+    className: "sliders"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "slider-title"
+  }, "Grid presets"), /*#__PURE__*/React.createElement("div", {
+    className: "grid-presets"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-xs",
+    onClick: function () {
+      LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 100, 100);
+    },
+    title: "Set grid to 100\xD7100"
+  }, "100\xB2"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-xs",
+    onClick: function () {
+      LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 200, 200);
+    },
+    title: "Set grid to 200\xD7200"
+  }, "200\xB2"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-xs",
+    onClick: function () {
+      LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 400, 400);
+    },
+    title: "Set grid to 400\xD7400"
+  }, "400\xB2"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-xs",
+    onClick: function () {
+      LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 1000, 1000);
+    },
+    title: "Set grid to 1000\xD71000"
+  }, "1000\xB2"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-xs",
+    onClick: function () {
+      LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 2000, 2000);
+    },
+    title: "Set grid to 2000\xD72000"
+  }, "2000\xB2"))), isUnbounded && /*#__PURE__*/React.createElement("div", {
+    className: "sliders"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "slider-title",
+    style: {
+      fontStyle: 'italic'
+    }
+  }, "No bounding box \u2014 infinite canvas")), /*#__PURE__*/React.createElement("div", {
+    className: "sliders"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "slider-title"
+  }, "Fill Density (on Reset)"), /*#__PURE__*/React.createElement("div", {
+    className: "slider-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: "2",
+    max: "7",
+    "aria-label": "Fill density",
+    value: 9 - state.sparseness,
+    onChange: function (e) {
+      LifeBoardUtils.setDensity(stateRef, refs, dispatch, e);
+    }
+  }))));
+};
+"use strict";
+
 /* global React, CanvasRenderer, LifeAnalysisUtils, GPS_DISPLAY_DURATION */
 /**
  * Stats-related render components extracted from LifeBoard.
@@ -1837,29 +2293,7 @@ document.addEventListener('DOMContentLoaded', function () {
       };
     }
     function renderStats() {
-      var population = state.liveCells.size;
-      var hc = state.hoverCell;
-      var coordText = hc ? 'Col\u00a0' + hc.c + '\u2002Row\u00a0' + hc.r : '\u2014';
-      var sparkline = renderSparklineSVG(state, refs);
-      return /*#__PURE__*/React.createElement("div", {
-        className: "stats"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "stat-row"
-      }, /*#__PURE__*/React.createElement("span", null, "Gen: " + state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", {
-        className: "board-dims"
-      }, state.cols + "\u00d7" + state.rows)), /*#__PURE__*/React.createElement("div", {
-        className: "stat-row"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "status-badges"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "status-indicator " + (state.running ? "status-running" : "status-paused")
-      }, state.running ? "Running" : "Paused"), state.stable && /*#__PURE__*/React.createElement("span", {
-        className: "status-indicator status-stable"
-      }, "Stable")), /*#__PURE__*/React.createElement("div", {
-        className: "coord-display"
-      }, coordText)), sparkline || /*#__PURE__*/React.createElement("div", {
-        className: "sparkline-placeholder"
-      }, "Pop: " + population.toLocaleString()));
+      // Extracted to components/stats-panel.js as StatsPanel
     }
 
     // ── Shared mobile sub-components (R10) ─────────────────────────────
@@ -1913,15 +2347,51 @@ document.addEventListener('DOMContentLoaded', function () {
             stateRef: stateRef,
             refs: refs,
             dispatch: dispatch
-          }), renderSpeedSlider(state, stateRef, refs, dispatch), options.sparkline && renderMobileSparkline(state, refs));
+          }), /*#__PURE__*/React.createElement(SpeedSlider, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }), options.sparkline && /*#__PURE__*/React.createElement(MobileSparkline, {
+            state: state,
+            refs: refs,
+            stateRef: stateRef,
+            dispatch: dispatch
+          }));
         case 'board':
           return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
             className: "sidebar-section-title"
-          }, "Board"), renderBoardSliders(state, stateRef, refs, dispatch), renderBoundaryControls(state, stateRef, refs, dispatch));
+          }, "Board"), /*#__PURE__*/React.createElement(BoardSliders, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }), /*#__PURE__*/React.createElement(BoundaryControls, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }));
         case 'view':
           return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
             className: "sidebar-section-title"
-          }, "View"), renderViewControls(state, stateRef, refs, dispatch), renderZoomSlider(state, stateRef, refs, dispatch), renderDisplaySettings(state, stateRef, refs, dispatch));
+          }, "View"), /*#__PURE__*/React.createElement(ViewControls, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch,
+            onToggleTrails: toggleTrails
+          }), /*#__PURE__*/React.createElement(ZoomSlider, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }), /*#__PURE__*/React.createElement(DisplaySettings, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }));
         case 'tools':
           return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
             className: "sidebar-section-title"
@@ -1935,26 +2405,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
     function _renderStatsChip() {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "stats-chip",
-        onClick: function () {
-          LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch);
-        },
-        role: "button",
-        tabIndex: "0",
-        "aria-atomic": "true",
-        "aria-live": "off",
-        onKeyDown: function (e) {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch);
-          }
-        }
-      }, /*#__PURE__*/React.createElement("span", null, "Gen " + state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", null, "\u2002Pop " + state.liveCells.size.toLocaleString()), /*#__PURE__*/React.createElement("span", {
-        className: "status-indicator status-icon " + (state.running ? "status-running" : "status-paused")
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (state.stable ? "fa-check-circle" : state.running ? "fa-play" : "fa-pause")
-      }), " ", state.stable ? "Stable" : state.running ? "Run" : "Pause"));
+      // Extracted to components/stats-panel.js as StatsChip
     }
 
     // _renderMobileTransportBar — extracted to components/transport-controls.js as MobileTransportBar
@@ -2328,41 +2779,9 @@ document.addEventListener('DOMContentLoaded', function () {
         title: "Detect oscillator period or spaceship velocity"
       }, "Analyze"))));
     }
-    function renderDisplaySettings() {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "display-settings"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "control-group-label"
-      }, "Display"), /*#__PURE__*/React.createElement("div", {
-        className: "presets-col"
-      }, /*#__PURE__*/React.createElement("select", {
-        className: "rule-preset-select",
-        "aria-label": "Color theme",
-        value: state.theme,
-        onChange: function (e) {
-          LifeBoardUtils.setTheme(stateRef, refs, dispatch, e);
-        }
-      }, Object.keys(THEMES).map(function (t) {
-        return /*#__PURE__*/React.createElement("option", {
-          key: t,
-          value: t
-        }, t);
-      })), /*#__PURE__*/React.createElement("select", {
-        className: "rule-preset-select",
-        "aria-label": "Dark mode preference",
-        value: state.darkModePref,
-        onChange: function (e) {
-          LifeBoardUtils.setDarkModePref(stateRef, refs, dispatch, e);
-        },
-        title: "UI dark mode preference"
-      }, /*#__PURE__*/React.createElement("option", {
-        value: "system"
-      }, "Mode: System"), /*#__PURE__*/React.createElement("option", {
-        value: "light"
-      }, "Mode: Light"), /*#__PURE__*/React.createElement("option", {
-        value: "dark"
-      }, "Mode: Dark"))));
-    }
+
+    // renderDisplaySettings — extracted to components/settings-panels.js as DisplaySettings
+
     function renderRulesSection() {
       var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
       return /*#__PURE__*/React.createElement("div", {
@@ -2397,164 +2816,13 @@ document.addEventListener('DOMContentLoaded', function () {
         title: "Birth/Survival rule string (e.g. B3/S23)"
       })));
     }
-    function renderBoardSliders() {
-      var isUnbounded = state.boundary === 'unbounded';
-      return /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-section"
-      }, !isUnbounded && /*#__PURE__*/React.createElement("div", {
-        className: "sliders"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "slider-title"
-      }, "Width: " + state.pendingCols), /*#__PURE__*/React.createElement("div", {
-        className: "slider-row"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "range",
-        min: "20",
-        max: "2000",
-        step: "10",
-        "aria-label": "Grid width",
-        value: state.pendingCols,
-        onChange: function (e) {
-          LifeBoardUtils.setWidth(stateRef, refs, dispatch, e);
-        },
-        onMouseUp: function () {
-          LifeBoardUtils.applyWidth(stateRef, refs, dispatch);
-        },
-        onKeyDown: function (e) {
-          LifeBoardUtils.onWidthKeyDown(stateRef, refs, dispatch, e);
-        },
-        onTouchEnd: function () {
-          LifeBoardUtils.applyWidth(stateRef, refs, dispatch);
-        }
-      }))), !isUnbounded && /*#__PURE__*/React.createElement("div", {
-        className: "sliders"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "slider-title"
-      }, "Height: " + state.pendingRows), /*#__PURE__*/React.createElement("div", {
-        className: "slider-row"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "range",
-        min: "20",
-        max: "2000",
-        step: "10",
-        "aria-label": "Grid height",
-        value: state.pendingRows,
-        onChange: function (e) {
-          LifeBoardUtils.setHeight(stateRef, refs, dispatch, e);
-        },
-        onMouseUp: function () {
-          LifeBoardUtils.applyHeight(stateRef, refs, dispatch);
-        },
-        onKeyDown: function (e) {
-          LifeBoardUtils.onHeightKeyDown(stateRef, refs, dispatch, e);
-        },
-        onTouchEnd: function () {
-          LifeBoardUtils.applyHeight(stateRef, refs, dispatch);
-        }
-      }))), !isUnbounded && /*#__PURE__*/React.createElement("div", {
-        className: "sliders"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "slider-title"
-      }, "Grid presets"), /*#__PURE__*/React.createElement("div", {
-        className: "grid-presets"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-xs",
-        onClick: function () {
-          LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 100, 100);
-        },
-        title: "Set grid to 100\xD7100"
-      }, "100\xB2"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-xs",
-        onClick: function () {
-          LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 200, 200);
-        },
-        title: "Set grid to 200\xD7200"
-      }, "200\xB2"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-xs",
-        onClick: function () {
-          LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 400, 400);
-        },
-        title: "Set grid to 400\xD7400"
-      }, "400\xB2"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-xs",
-        onClick: function () {
-          LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 1000, 1000);
-        },
-        title: "Set grid to 1000\xD71000"
-      }, "1000\xB2"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-xs",
-        onClick: function () {
-          LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 2000, 2000);
-        },
-        title: "Set grid to 2000\xD72000"
-      }, "2000\xB2"))), isUnbounded && /*#__PURE__*/React.createElement("div", {
-        className: "sliders"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "slider-title",
-        style: {
-          fontStyle: 'italic'
-        }
-      }, "No bounding box \u2014 infinite canvas")), /*#__PURE__*/React.createElement("div", {
-        className: "sliders"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "slider-title"
-      }, "Fill Density (on Reset)"), /*#__PURE__*/React.createElement("div", {
-        className: "slider-row"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "range",
-        min: "2",
-        max: "7",
-        "aria-label": "Fill density",
-        value: 9 - state.sparseness,
-        onChange: function (e) {
-          LifeBoardUtils.setDensity(stateRef, refs, dispatch, e);
-        }
-      }))));
-    }
-    function renderSpeedSlider() {
-      var delay = SPEED_DELAYS[state.speed - 1];
-      var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
-      return /*#__PURE__*/React.createElement("div", {
-        className: "sliders"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "slider-title"
-      }, "Speed: " + speedLabel), /*#__PURE__*/React.createElement("div", {
-        className: "slider-row"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "range",
-        min: "1",
-        max: "10",
-        "aria-label": "Simulation speed",
-        value: state.speed,
-        onChange: function (e) {
-          LifeBoardUtils.setSpeed(stateRef, refs, dispatch, e);
-        }
-      })));
-    }
-    function renderZoomSlider() {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "sliders"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "slider-title"
-      }, "Zoom: " + state.cellSize + "\u00a0px/cell"), /*#__PURE__*/React.createElement("div", {
-        className: "slider-row"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "range",
-        min: "1",
-        max: "32",
-        step: "1",
-        "aria-label": "Zoom level",
-        value: state.cellSize,
-        onChange: function (e) {
-          LifeViewUtils.setZoom(stateRef, refs, dispatch, e);
-        }
-      })));
-    }
+
+    // renderBoardSliders — extracted to components/settings-panels.js as BoardSliders
+
+    // renderSpeedSlider — extracted to components/settings-panels.js as SpeedSlider
+
+    // renderZoomSlider — extracted to components/settings-panels.js as ZoomSlider
+
     function renderRLESection() {
       return /*#__PURE__*/React.createElement("div", {
         className: "sidebar-section"
@@ -2649,80 +2917,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // renderTransportControls — extracted to components/transport-controls.js as TransportControls
 
-    function renderViewControls() {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "view-controls"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeViewUtils.fitView(stateRef, refs, dispatch);
-        },
-        title: "Zoom to fit entire grid"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-arrows-alt",
-        "aria-hidden": "true"
-      }), " Fit Grid"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeViewUtils.fitLiveCells(stateRef, refs, dispatch);
-        },
-        title: "Zoom to fit live cells"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-compress",
-        "aria-hidden": "true"
-      }), " Fit Cells"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.gridLines ? " active" : ""),
-        onClick: function () {
-          LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch);
-        },
-        title: "Toggle grid lines (G)"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-th",
-        "aria-hidden": "true"
-      }), " Grid"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.showTrails ? " active" : ""),
-        onClick: function () {
-          toggleTrails(stateRef, refs, dispatch);
-        },
-        title: "Show ghost trails"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-eye",
-        "aria-hidden": "true"
-      }), " Trails"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.showMinimap ? " active" : ""),
-        onClick: function () {
-          LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch);
-        },
-        title: "Show/hide minimap (M)"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-map-o",
-        "aria-hidden": "true"
-      }), " Minimap"));
-    }
-    function renderBoundaryControls() {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "boundary-controls"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "control-group-label"
-      }, "Boundary"), /*#__PURE__*/React.createElement("div", {
-        className: "view-controls"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.boundary !== 'toroidal' ? " active" : ""),
-        onClick: function () {
-          LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch);
-        },
-        title: "Cycle boundary: Wrap / Hard / Infinite"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-repeat",
-        "aria-hidden": "true"
-      }), " ", state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "\u221E")));
-    }
+    // renderViewControls — extracted to components/settings-panels.js as ViewControls
+
+    // renderBoundaryControls — extracted to components/settings-panels.js as BoundaryControls
+
     function renderModeControls() {
       return /*#__PURE__*/React.createElement("div", {
         className: "mode-controls"
@@ -3172,7 +3370,12 @@ document.addEventListener('DOMContentLoaded', function () {
         "aria-hidden": "true"
       })))), !state.railCollapsed && /*#__PURE__*/React.createElement("div", {
         className: "rail-stats"
-      }, renderStats(state, refs)), /*#__PURE__*/React.createElement("div", {
+      }, /*#__PURE__*/React.createElement(StatsPanel, {
+        state: state,
+        refs: refs,
+        stateRef: stateRef,
+        dispatch: dispatch
+      })), /*#__PURE__*/React.createElement("div", {
         className: "rail-tabs",
         role: "tablist",
         "aria-label": "Control categories"
@@ -3232,7 +3435,12 @@ document.addEventListener('DOMContentLoaded', function () {
       var sheetContent = _buildSheetContent(state, stateRef, refs, dispatch);
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-cartographer layout-mobile"
-      }, renderCanvas(cs, state, stateRef, refs, dispatch), !state.bottomSheetOpen && !refs.statsChipHidden && _renderStatsChip(state, stateRef, refs, dispatch), !state.bottomSheetOpen && renderMobileContextPanel(state, stateRef, refs, dispatch), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), /*#__PURE__*/React.createElement(MobileTransportBar, {
+      }, renderCanvas(cs, state, stateRef, refs, dispatch), !state.bottomSheetOpen && !refs.statsChipHidden && /*#__PURE__*/React.createElement(StatsChip, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), !state.bottomSheetOpen && renderMobileContextPanel(state, stateRef, refs, dispatch), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), /*#__PURE__*/React.createElement(MobileTransportBar, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -3262,7 +3470,43 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }), renderSpeedSlider(state, stateRef, refs, dispatch))), _renderFloatPanel('board', 'Board', /*#__PURE__*/React.createElement("div", null, renderBoardSliders(state, stateRef, refs, dispatch), renderBoundaryControls(state, stateRef, refs, dispatch))), _renderFloatPanel('view', 'View', /*#__PURE__*/React.createElement("div", null, renderViewControls(state, stateRef, refs, dispatch), renderZoomSlider(state, stateRef, refs, dispatch), renderDisplaySettings(state, stateRef, refs, dispatch))), _renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch))), _renderFloatPanel('rules', 'Rules', renderRulesSection(state, stateRef, refs, dispatch)), _renderFloatPanel('stats', 'Stats', renderStats(state, refs)), _renderFloatPanel('importExport', 'Share', renderExportContent(state, stateRef, refs, dispatch)), state.panelGroups.map(function (group) {
+      }), /*#__PURE__*/React.createElement(SpeedSlider, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }))), _renderFloatPanel('board', 'Board', /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(BoardSliders, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement(BoundaryControls, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }))), _renderFloatPanel('view', 'View', /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ViewControls, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch,
+        onToggleTrails: toggleTrails
+      }), /*#__PURE__*/React.createElement(ZoomSlider, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement(DisplaySettings, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }))), _renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch))), _renderFloatPanel('rules', 'Rules', renderRulesSection(state, stateRef, refs, dispatch)), _renderFloatPanel('stats', 'Stats', /*#__PURE__*/React.createElement(StatsPanel, {
+        state: state,
+        refs: refs,
+        stateRef: stateRef,
+        dispatch: dispatch
+      })), _renderFloatPanel('importExport', 'Share', renderExportContent(state, stateRef, refs, dispatch)), state.panelGroups.map(function (group) {
         return _renderPanelGroup(group, state, stateRef, refs, dispatch);
       }), /*#__PURE__*/React.createElement("div", {
         className: "panel-menu",
@@ -3323,7 +3567,12 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }), !state.bottomSheetOpen && !refs.statsChipHidden && _renderStatsChip(state, stateRef, refs, dispatch), !state.bottomSheetOpen && renderMobileContextPanel(state, stateRef, refs, dispatch), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch));
+      }), !state.bottomSheetOpen && !refs.statsChipHidden && /*#__PURE__*/React.createElement(StatsChip, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), !state.bottomSheetOpen && renderMobileContextPanel(state, stateRef, refs, dispatch), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch));
     }
 
     // ── Float panel helper (Observatory) ─────────────────────────────
@@ -3493,7 +3742,12 @@ document.addEventListener('DOMContentLoaded', function () {
             icon: 'fa-tachometer',
             title: 'Speed',
             popOut: function () {
-              return renderSpeedSlider(state, stateRef, refs, dispatch);
+              return /*#__PURE__*/React.createElement(SpeedSlider, {
+                state: state,
+                stateRef: stateRef,
+                refs: refs,
+                dispatch: dispatch
+              });
             }
           }];
         case 'board':
@@ -3510,7 +3764,12 @@ document.addEventListener('DOMContentLoaded', function () {
             icon: 'fa-th-large',
             title: 'Grid size',
             popOut: function () {
-              return renderBoardSliders(state, stateRef, refs, dispatch);
+              return /*#__PURE__*/React.createElement(BoardSliders, {
+                state: state,
+                stateRef: stateRef,
+                refs: refs,
+                dispatch: dispatch
+              });
             }
           }];
         case 'view':
@@ -3557,14 +3816,24 @@ document.addEventListener('DOMContentLoaded', function () {
             icon: 'fa-search-plus',
             title: 'Zoom',
             popOut: function () {
-              return renderZoomSlider(state, stateRef, refs, dispatch);
+              return /*#__PURE__*/React.createElement(ZoomSlider, {
+                state: state,
+                stateRef: stateRef,
+                refs: refs,
+                dispatch: dispatch
+              });
             }
           }, {
             id: 'display',
             icon: 'fa-paint-brush',
             title: 'Display settings',
             popOut: function () {
-              return renderDisplaySettings(state, stateRef, refs, dispatch);
+              return /*#__PURE__*/React.createElement(DisplaySettings, {
+                state: state,
+                stateRef: stateRef,
+                refs: refs,
+                dispatch: dispatch
+              });
             }
           }];
         case 'mode':
@@ -3642,7 +3911,12 @@ document.addEventListener('DOMContentLoaded', function () {
             icon: 'fa-bar-chart',
             title: 'Statistics',
             popOut: function () {
-              return renderStats(state, refs);
+              return /*#__PURE__*/React.createElement(StatsPanel, {
+                state: state,
+                refs: refs,
+                stateRef: stateRef,
+                dispatch: dispatch
+              });
             }
           }];
         case 'importExport':
@@ -3696,17 +3970,53 @@ document.addEventListener('DOMContentLoaded', function () {
             stateRef: stateRef,
             refs: refs,
             dispatch: dispatch
-          }), renderSpeedSlider(state, stateRef, refs, dispatch));
+          }), /*#__PURE__*/React.createElement(SpeedSlider, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }));
         case 'board':
-          return /*#__PURE__*/React.createElement("div", null, renderBoardSliders(state, stateRef, refs, dispatch), renderBoundaryControls(state, stateRef, refs, dispatch));
+          return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(BoardSliders, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }), /*#__PURE__*/React.createElement(BoundaryControls, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }));
         case 'view':
-          return /*#__PURE__*/React.createElement("div", null, renderViewControls(state, stateRef, refs, dispatch), renderZoomSlider(state, stateRef, refs, dispatch), renderDisplaySettings(state, stateRef, refs, dispatch));
+          return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ViewControls, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch,
+            onToggleTrails: toggleTrails
+          }), /*#__PURE__*/React.createElement(ZoomSlider, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }), /*#__PURE__*/React.createElement(DisplaySettings, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }));
         case 'mode':
           return /*#__PURE__*/React.createElement("div", null, renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch));
         case 'rules':
           return renderRulesSection(state, stateRef, refs, dispatch);
         case 'stats':
-          return renderStats(state, refs);
+          return /*#__PURE__*/React.createElement(StatsPanel, {
+            state: state,
+            refs: refs,
+            stateRef: stateRef,
+            dispatch: dispatch
+          });
         case 'importExport':
           return renderExportContent(state, stateRef, refs, dispatch);
         default:
