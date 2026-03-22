@@ -430,7 +430,7 @@ var FloatPanel = function FloatPanel(props) { // eslint-disable-line no-unused-v
     var ps = state.panelStates[panelId];
     if(!ps || !ps.open){ return null; }
     // Skip panels that are in a group — they render inside the group.
-    if(LifeViewUtils._findGroupForPanel(stateRef, refs, panelId)){ return null; }
+    if(LifeViewUtils._findGroupForPanel(stateRef, refs, dispatch, panelId)){ return null; }
     var isCompact = ps.compact && !ps.collapsed;
     var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() +
         (ps.collapsed ? " float-panel-collapsed" : "") +

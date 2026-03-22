@@ -18,11 +18,25 @@ var LifeInputUtils = { // eslint-disable-line no-unused-vars
             },
             _canvas      : refs.canvas,
             _ctx          : refs.ctx,
+            get _minimapRect(){ return refs.minimapRect; },
+            get _minimapDirty(){ return refs.minimapDirty; },
+            set _minimapDirty(v){ refs.minimapDirty = v; },
+            get _previewCanvas(){ return refs.previewCanvas; },
             drawBoard     : function(){ refs.drawPending = true; },
             getCellPos    : function(ev){ return LifeInputUtils.getCellPos(stateRef, refs, dispatch, ev); },
             getMousePos   : function(ev){ return LifeInputUtils.getMousePos(stateRef, refs, dispatch, ev); },
             paintCellDirect : function(c, r){ LifeInputUtils.paintCellDirect(stateRef, refs, dispatch, c, r); },
-            _startPanMomentum : function(vx, vy){ LifeInputUtils._startPanMomentum(stateRef, refs, dispatch, vx, vy); }
+            _startPanMomentum : function(vx, vy){ LifeInputUtils._startPanMomentum(stateRef, refs, dispatch, vx, vy); },
+            clampView     : function(vx, vy){ return LifeViewUtils.clampView(stateRef, refs, dispatch, vx, vy); },
+            pan           : function(dc, dr){ LifeViewUtils.pan(stateRef, refs, dispatch, dc, dr); },
+            selectAllVisible : function(){ LifeViewUtils.selectAllVisible(stateRef, refs, dispatch); },
+            _hideStatsChip : function(){ LifeViewUtils._hideStatsChip(stateRef, refs, dispatch); },
+            _showStatsChipAfterDelay : function(){ LifeViewUtils._showStatsChipAfterDelay(stateRef, refs, dispatch); },
+            placePattern  : function(name, c, r){ LifeBoardUtils.placePattern(stateRef, refs, dispatch, name, c, r); },
+            _mutateRegion : function(add, rm, cb){ LifeBoardUtils._mutateRegion(stateRef, refs, dispatch, add, rm, cb); },
+            pushUndo      : function(){ LifeSimUtils.pushUndo(stateRef, refs, dispatch); },
+            popUndo       : function(){ return LifeSimUtils.popUndo(stateRef, refs, dispatch); },
+            cancelDrawTool : function(){ LifeSimUtils.cancelDrawTool(stateRef, refs, dispatch); }
         };
     },
 

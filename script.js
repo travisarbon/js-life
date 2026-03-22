@@ -171,11 +171,11 @@ function initState(){
                         board:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         rules:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         stats:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
-                        importExport: { open: false, x: -1, y: -1, collapsed: false, z: 0, compact: false }
+                        importExport: { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false }
                     },
                     panelZCounter :    savedLayout.panelZCounter || 1,
                     panelGroups :      savedLayout.panelGroups || [{
-                        id: 'g-default', panels: ['transport','view','mode','board','rules','stats'],
+                        id: 'g-default', panels: ['transport','view','mode','tools','board','rules','stats','importExport'],
                         activeTab: 'transport', x: 10, y: 50, z: 1, compact: true, compactTabMode: 'sidebar'
                     }],
                     activePopOut :     null,
@@ -202,7 +202,7 @@ function LifeBoard() {
     var refs = React.useRef(null);
     if(!refs.current) {
         refs.current = {
-            mounted: false, canvas: null, minimapCanvas: null, previewCanvas: null,
+            mounted: false, canvas: null, minimapCanvas: document.createElement('canvas'), previewCanvas: null,
             mobileMinimap: null, genHistory: [], genHistoryMax: 200,
             genHistoryInterval: 1, genHistoryCounter: 0,
             trailMap: new Map(), trailEnabled: true, loopRunning: false,
