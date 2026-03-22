@@ -403,7 +403,7 @@ var CompactBody = function CompactBody(props) { // eslint-disable-line no-unused
     return (
         <div className="compact-body">
             {defs.map(function(def){
-                var isOpen = LifeViewUtils._isPopOutOpen(stateRef, refs, panelId, def.id);
+                var isOpen = LifeViewUtils._isPopOutOpen(stateRef, refs, dispatch, panelId, def.id);
                 return (
                     <div key={def.id} className="pop-out-trigger">
                         <button type="button"

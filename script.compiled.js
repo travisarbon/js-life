@@ -2233,7 +2233,7 @@ var CompactBody = function CompactBody(props) {
   return /*#__PURE__*/React.createElement("div", {
     className: "compact-body"
   }, defs.map(function (def) {
-    var isOpen = LifeViewUtils._isPopOutOpen(stateRef, refs, panelId, def.id);
+    var isOpen = LifeViewUtils._isPopOutOpen(stateRef, refs, dispatch, panelId, def.id);
     return /*#__PURE__*/React.createElement("div", {
       key: def.id,
       className: "pop-out-trigger"
