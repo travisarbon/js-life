@@ -562,6 +562,9 @@ var CanvasArea = function CanvasArea(props) {
     className: "display",
     ref: function (c) {
       refs.canvas = c;
+      if (c) {
+        refs.drawPending = true;
+      }
     },
     width: cs.w,
     height: cs.h,
@@ -2446,7 +2449,6 @@ var PanelGroup = function PanelGroup(props) {
   }
   var activeTab = openPanels.indexOf(group.activeTab) !== -1 ? group.activeTab : openPanels[0];
   var isCompact = !!group.compact;
-  var tabMode = group.compactTabMode || 'horizontal';
   var style = {};
   if (group.x >= 0) {
     style.left = group.x;
@@ -2458,9 +2460,9 @@ var PanelGroup = function PanelGroup(props) {
   if (group.z) {
     style.zIndex = group.z;
   }
-  var className = "float-panel panel-group" + (isCompact ? " panel-group-compact panel-group-compact-" + tabMode : "");
+  var className = "float-panel panel-group" + (isCompact ? " panel-group-compact" : "");
 
-  // Tab buttons shared by horizontal and sidebar modes.
+  // Tab buttons: icon rail in compact, full tabs in expanded.
   var tabButtons = openPanels.map(function (pid) {
     var label = _getPanelLabel(pid);
     return /*#__PURE__*/React.createElement("button", {
@@ -2482,59 +2484,9 @@ var PanelGroup = function PanelGroup(props) {
       className: "panel-tab-label"
     }, label));
   });
-
-  // Tab area: dropdown mode uses a single trigger, others use tab bar.
-  var tabArea;
-  if (isCompact && tabMode === 'dropdown') {
-    tabArea = /*#__PURE__*/React.createElement("div", {
-      className: "panel-tab-dropdown"
-    }, /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      className: "btn panel-tab-dropdown-trigger",
-      onClick: function (e) {
-        e.stopPropagation();
-        dispatch({
-          type: "MERGE",
-          payload: {
-            groupTabDropdownOpen: state.groupTabDropdownOpen === group.id ? null : group.id
-          }
-        });
-      },
-      title: _getPanelLabel(activeTab)
-    }, /*#__PURE__*/React.createElement("i", {
-      className: "fa " + _getPanelIcon(activeTab),
-      "aria-hidden": "true"
-    }), /*#__PURE__*/React.createElement("i", {
-      className: "fa fa-caret-down panel-tab-dropdown-caret",
-      "aria-hidden": "true"
-    })), state.groupTabDropdownOpen === group.id && /*#__PURE__*/React.createElement("div", {
-      className: "panel-tab-dropdown-menu"
-    }, openPanels.map(function (pid) {
-      return /*#__PURE__*/React.createElement("button", {
-        key: pid,
-        type: "button",
-        className: "panel-tab-dropdown-item" + (pid === activeTab ? " active" : ""),
-        onClick: function (e) {
-          e.stopPropagation();
-          LifeViewUtils._setGroupActiveTab(stateRef, refs, dispatch, group.id, pid);
-          dispatch({
-            type: "MERGE",
-            payload: {
-              groupTabDropdownOpen: null
-            }
-          });
-        },
-        title: _getPanelLabel(pid)
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + _getPanelIcon(pid),
-        "aria-hidden": "true"
-      }), /*#__PURE__*/React.createElement("span", null, _getPanelLabel(pid)));
-    })));
-  } else {
-    tabArea = /*#__PURE__*/React.createElement("div", {
-      className: "panel-tab-bar" + (isCompact ? " panel-tab-bar-icons" : "")
-    }, tabButtons);
-  }
+  var tabArea = /*#__PURE__*/React.createElement("div", {
+    className: "panel-tab-bar" + (isCompact ? " panel-tab-bar-icons" : "")
+  }, tabButtons);
   return /*#__PURE__*/React.createElement("div", {
     className: className,
     style: style,
@@ -2559,17 +2511,7 @@ var PanelGroup = function PanelGroup(props) {
       LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id);
     },
     title: isCompact ? "Expand group" : "Compact group"
-  }, isCompact ? "\u00bb" : "\u00ab"), isCompact && /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "btn panel-group-mode-toggle",
-    onClick: function () {
-      LifeViewUtils._cycleGroupCompactTabMode(stateRef, refs, dispatch, group.id);
-    },
-    title: "Tab layout: " + tabMode + " (click to cycle)"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fa " + (tabMode === 'horizontal' ? 'fa-ellipsis-h' : tabMode === 'sidebar' ? 'fa-ellipsis-v' : 'fa-caret-down'),
-    "aria-hidden": "true"
-  })), /*#__PURE__*/React.createElement("button", {
+  }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-close",
     onClick: function () {

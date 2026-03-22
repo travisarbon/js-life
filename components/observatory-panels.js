@@ -519,13 +519,12 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
     }
     var activeTab = openPanels.indexOf(group.activeTab) !== -1 ? group.activeTab : openPanels[0];
     var isCompact = !!group.compact;
-    var tabMode = group.compactTabMode || 'horizontal';
     var style = {};
     if(group.x >= 0){ style.left = group.x; style.top = group.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
     if(group.z){ style.zIndex = group.z; }
-    var className = "float-panel panel-group" + (isCompact ? " panel-group-compact panel-group-compact-" + tabMode : "");
+    var className = "float-panel panel-group" + (isCompact ? " panel-group-compact" : "");
 
-    // Tab buttons shared by horizontal and sidebar modes.
+    // Tab buttons: icon rail in compact, full tabs in expanded.
     var tabButtons = openPanels.map(function(pid){
         var label = _getPanelLabel(pid);
         return (
@@ -540,41 +539,11 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
         );
     });
 
-    // Tab area: dropdown mode uses a single trigger, others use tab bar.
-    var tabArea;
-    if(isCompact && tabMode === 'dropdown'){
-        tabArea = (
-            <div className="panel-tab-dropdown">
-                <button type="button" className="btn panel-tab-dropdown-trigger"
-                    onClick={function(e){ e.stopPropagation(); dispatch({type:"MERGE", payload:{groupTabDropdownOpen: state.groupTabDropdownOpen === group.id ? null : group.id}}); }}
-                    title={_getPanelLabel(activeTab)}>
-                    <i className={"fa " + _getPanelIcon(activeTab)} aria-hidden="true"></i>
-                    <i className="fa fa-caret-down panel-tab-dropdown-caret" aria-hidden="true"></i>
-                </button>
-                {state.groupTabDropdownOpen === group.id && (
-                    <div className="panel-tab-dropdown-menu">
-                        {openPanels.map(function(pid){
-                            return (
-                                <button key={pid} type="button"
-                                    className={"panel-tab-dropdown-item" + (pid === activeTab ? " active" : "")}
-                                    onClick={function(e){ e.stopPropagation(); LifeViewUtils._setGroupActiveTab(stateRef, refs, dispatch, group.id, pid); dispatch({type:"MERGE", payload:{groupTabDropdownOpen: null}}); }}
-                                    title={_getPanelLabel(pid)}>
-                                    <i className={"fa " + _getPanelIcon(pid)} aria-hidden="true"></i>
-                                    <span>{_getPanelLabel(pid)}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-        );
-    } else {
-        tabArea = (
-            <div className={"panel-tab-bar" + (isCompact ? " panel-tab-bar-icons" : "")}>
-                {tabButtons}
-            </div>
-        );
-    }
+    var tabArea = (
+        <div className={"panel-tab-bar" + (isCompact ? " panel-tab-bar-icons" : "")}>
+            {tabButtons}
+        </div>
+    );
 
     return (
         <div className={className} style={style} data-group-id={group.id}
@@ -589,11 +558,6 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
                     title={isCompact ? "Expand group" : "Compact group"}>
                     {isCompact ? "\u00bb" : "\u00ab"}
                 </button>
-                {isCompact && <button type="button" className="btn panel-group-mode-toggle"
-                    onClick={function(){ LifeViewUtils._cycleGroupCompactTabMode(stateRef, refs, dispatch, group.id); }}
-                    title={"Tab layout: " + tabMode + " (click to cycle)"}>
-                    <i className={"fa " + (tabMode === 'horizontal' ? 'fa-ellipsis-h' : tabMode === 'sidebar' ? 'fa-ellipsis-v' : 'fa-caret-down')} aria-hidden="true"></i>
-                </button>}
                 <button type="button" className="btn float-panel-close"
                     onClick={function(){ _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
                     aria-label="Close active panel">&times;</button>

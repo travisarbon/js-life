@@ -498,7 +498,7 @@ var CanvasArea = function CanvasArea(props) { // eslint-disable-line no-unused-v
                 return (
                     <div className="app-canvas-container">
                         <canvas className="display"
-                            ref    = {function(c){ refs.canvas = c; }}
+                            ref    = {function(c){ refs.canvas = c; if(c){ refs.drawPending = true; } }}
                             width  = {cs.w}
                             height = {cs.h}
                             style  = {{width: cs.displayW + 'px', height: cs.displayH + 'px', display: 'block', margin: '0 auto'}}
