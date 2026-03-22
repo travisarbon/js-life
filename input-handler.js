@@ -724,15 +724,8 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         // ── Zoom (Ctrl+wheel or trackpad pinch) ──────────────────────
         if(event.ctrlKey || event.metaKey){
             var mouse = this.getMousePos(event, canvas);
-            // Accumulate zoom delta for smooth trackpad pinch-to-zoom.
-            this._zoomAcc = (this._zoomAcc || 0) - rawDY;
-            var zoomThreshold = 50;
-            var steps = Math.trunc(this._zoomAcc / zoomThreshold);
-            if(steps === 0){ return; }
-            // Cap to ±3 steps per event for controllable zoom.
-            steps = Math.max(-3, Math.min(3, steps));
-            this._zoomAcc -= steps * zoomThreshold;
-            var newCS = Math.max(1, Math.min(128, cellSize + steps));
+            var delta = rawDY > 0 ? -1 : 1;
+            var newCS = Math.max(1, Math.min(128, cellSize + delta));
             if(newCS === cellSize){ return; }
             // Zoom toward cursor: keep the cell under the pointer fixed.
             var cellC = host.state.viewX + mouse.x / cellSize;
