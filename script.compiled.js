@@ -736,6 +736,749 @@ var HelpModal = function HelpModal(props) {
 };
 "use strict";
 
+/* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
+          CanvasArea, StatsPanel, StatsChip, MobileSparkline,
+          TransportControls, SpeedSlider, MobileTransportBar,
+          BoardSliders, BoundaryControls, ViewControls, ZoomSlider, DisplaySettings,
+          ModeControls, ToolsContent, MobileContextPanel, RulesSection, ExportContent,
+          MobileMinimapArea, toggleTrails,
+          FloatPanel, PanelGroup, ObservatoryPanelUtils */
+/**
+ * Layout orchestrator components extracted from LifeBoard.
+ *
+ * Components:
+ *   CartographerLayout  — desktop Cartographer layout (rail + canvas)
+ *   CartographerMobile  — mobile Cartographer layout
+ *   ObservatoryLayout   — desktop Observatory layout (floating panels)
+ *   ObservatoryMobile   — mobile Observatory layout
+ *   LayoutSwitcher      — toggle between Cartographer and Observatory
+ *   BottomSheet         — mobile bottom sheet overlay
+ *
+ * Helpers:
+ *   TabContentBuilder   — builds tab content for a given tab ID
+ *
+ * Also exports the _MOBILE_TABS array via refs.MOBILE_TABS (set at load time).
+ */
+
+var _MOBILE_TABS = [{
+  id: 'simulate',
+  icon: 'fa-play',
+  label: 'Simulate'
+}, {
+  id: 'board',
+  icon: 'fa-th-large',
+  label: 'Board'
+}, {
+  id: 'view',
+  icon: 'fa-eye',
+  label: 'View'
+}, {
+  id: 'tools',
+  icon: 'fa-pencil',
+  label: 'Tools'
+}, {
+  id: 'rules',
+  icon: 'fa-cogs',
+  label: 'Rules'
+}, {
+  id: 'export',
+  icon: 'fa-exchange',
+  label: 'Share'
+}]; // eslint-disable-line no-unused-vars
+
+var TabContentBuilder = function TabContentBuilder(props) {
+  // eslint-disable-line no-unused-vars
+  var tabId = props.tabId,
+    options = props.options || {};
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  switch (tabId) {
+    case 'simulate':
+      return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section-title"
+      }, "Simulate"), /*#__PURE__*/React.createElement(TransportControls, {
+        compact: false,
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement(SpeedSlider, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), options.sparkline && /*#__PURE__*/React.createElement(MobileSparkline, {
+        state: state,
+        refs: refs,
+        stateRef: stateRef,
+        dispatch: dispatch
+      }));
+    case 'board':
+      return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section-title"
+      }, "Board"), /*#__PURE__*/React.createElement(BoardSliders, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement(BoundaryControls, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }));
+    case 'view':
+      return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section-title"
+      }, "View"), /*#__PURE__*/React.createElement(ViewControls, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch,
+        onToggleTrails: toggleTrails
+      }), /*#__PURE__*/React.createElement(ZoomSlider, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement(DisplaySettings, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }));
+    case 'tools':
+      return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section-title"
+      }, "Tools"), /*#__PURE__*/React.createElement(ModeControls, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement(ToolsContent, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }));
+    case 'rules':
+      return /*#__PURE__*/React.createElement(RulesSection, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      });
+    case 'export':
+      return /*#__PURE__*/React.createElement(ExportContent, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      });
+    default:
+      return null;
+  }
+};
+var BottomSheet = function BottomSheet(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var sheetContent = props.sheetContent;
+  var tabs = _MOBILE_TABS;
+  var layoutSwitcher = /*#__PURE__*/React.createElement(LayoutSwitcher, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bottom-sheet-container",
+    onKeyDown: function (e) {
+      LifeViewUtils._onSheetKeyDown(stateRef, refs, dispatch, e);
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bottom-sheet-backdrop",
+    onClick: function () {
+      LifeViewUtils.toggleBottomSheet(stateRef, refs, dispatch);
+    },
+    role: "presentation",
+    "aria-hidden": "true"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "bottom-sheet" + (state.bottomSheetClosing ? " sheet-closing" : ""),
+    role: "dialog",
+    "aria-modal": "true",
+    "aria-label": "Controls panel",
+    onTouchStart: function (e) {
+      LifeViewUtils._onSheetTouchStart(stateRef, refs, e);
+    },
+    onTouchMove: function (e) {
+      LifeViewUtils._onSheetTouchMove(stateRef, refs, e);
+    },
+    onTouchEnd: function (e) {
+      LifeViewUtils._onSheetTouchEnd(stateRef, refs, dispatch, e);
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bottom-sheet-handle"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "bottom-sheet-tabs",
+    role: "tablist",
+    "aria-label": "Control categories"
+  }, tabs.map(function (tab) {
+    var isActive = state.bottomSheetTab === tab.id;
+    return /*#__PURE__*/React.createElement("button", {
+      key: tab.id,
+      className: "rail-tab" + (isActive ? " active" : ""),
+      onClick: function () {
+        LifeViewUtils.setBottomSheetTab(stateRef, refs, dispatch, tab.id);
+      },
+      role: "tab",
+      "aria-selected": isActive,
+      "aria-label": tab.label,
+      "aria-controls": "sheet-panel-" + tab.id
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fa " + tab.icon,
+      "aria-hidden": "true"
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "rail-tab-label"
+    }, tab.label));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "bottom-sheet-content",
+    id: "sheet-panel-" + state.bottomSheetTab,
+    role: "tabpanel",
+    "aria-label": state.bottomSheetTab + " controls"
+  }, sheetContent, layoutSwitcher && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '8px 12px 0',
+      borderTop: '1px solid var(--panel-border)'
+    }
+  }, layoutSwitcher))));
+};
+var LayoutSwitcher = function LayoutSwitcher(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var dc = state.deviceClass;
+  var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+  if (isMobile) {
+    return null;
+  }
+  var mode = state.layoutMode;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "layout-switcher"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (mode === 'cartographer' ? " active" : ""),
+    onClick: function () {
+      LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'cartographer');
+    },
+    title: "Cartographer: Edge rail with tabs",
+    "aria-label": "Cartographer layout: edge rail with tabs"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-columns"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (mode === 'observatory' ? " active" : ""),
+    onClick: function () {
+      LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'observatory');
+    },
+    title: "Observatory: Floating panels",
+    "aria-label": "Observatory layout: floating panels"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-th-large"
+  })));
+};
+var CartographerLayout = function CartographerLayout(props) {
+  // eslint-disable-line no-unused-vars
+  var cs = props.cs,
+    state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var dc = state.deviceClass;
+  var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+  if (isMobile) {
+    return /*#__PURE__*/React.createElement(CartographerMobile, {
+      cs: cs,
+      state: state,
+      stateRef: stateRef,
+      refs: refs,
+      dispatch: dispatch
+    });
+  }
+  var railW = state.railHidden ? 0 : state.railCollapsed ? 40 : dc === 'tablet' ? 200 : 240;
+  var railSide = state.railSide;
+  var railClass = 'rail' + (state.railCollapsed ? ' rail-collapsed' : '') + (state.railHidden ? ' rail-hidden' : '') + (' rail-' + railSide);
+  var tabContent = /*#__PURE__*/React.createElement("div", {
+    className: "rail-tab-content"
+  }, /*#__PURE__*/React.createElement(TabContentBuilder, {
+    tabId: state.railTab,
+    options: {
+      sectionTitle: true
+    },
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }));
+  var tabs = _MOBILE_TABS;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "layout-cartographer"
+  }, /*#__PURE__*/React.createElement(CanvasArea, {
+    cs: cs,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement("div", {
+    className: railClass,
+    style: {
+      width: railW + 'px'
+    },
+    role: "complementary",
+    "aria-label": "Controls panel"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rail-header"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "rail-title"
+  }, "Game of Life"), /*#__PURE__*/React.createElement("div", {
+    className: "rail-header-controls"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch);
+    },
+    "aria-label": "Help",
+    title: "Keyboard shortcuts (?)"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-question-circle",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeViewUtils.toggleRailSide(stateRef, refs, dispatch);
+    },
+    "aria-label": state.railSide === 'right' ? "Move panel to left" : "Move panel to right",
+    title: state.railSide === 'right' ? "Move panel to left" : "Move panel to right"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa " + (state.railSide === 'right' ? "fa-indent" : "fa-dedent"),
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn rail-collapse-btn",
+    onClick: function () {
+      LifeViewUtils.toggleRailCollapsed(stateRef, refs, dispatch);
+    },
+    "aria-expanded": !state.railCollapsed,
+    "aria-label": state.railCollapsed ? "Expand controls panel" : "Collapse controls panel"
+  }, state.railCollapsed ? /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-chevron-left",
+    "aria-hidden": "true"
+  }) : /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-chevron-right",
+    "aria-hidden": "true"
+  })))), !state.railCollapsed && /*#__PURE__*/React.createElement("div", {
+    className: "rail-stats"
+  }, /*#__PURE__*/React.createElement(StatsPanel, {
+    state: state,
+    refs: refs,
+    stateRef: stateRef,
+    dispatch: dispatch
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "rail-tabs",
+    role: "tablist",
+    "aria-label": "Control categories"
+  }, tabs.map(function (tab) {
+    var isActive = state.railTab === tab.id;
+    return /*#__PURE__*/React.createElement("button", {
+      key: tab.id,
+      className: "rail-tab" + (isActive ? " active" : ""),
+      onClick: function () {
+        LifeViewUtils.setRailTab(stateRef, refs, dispatch, tab.id);
+      },
+      role: "tab",
+      "aria-selected": isActive,
+      "aria-controls": "rail-panel-" + tab.id,
+      "aria-label": tab.label
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fa " + tab.icon,
+      "aria-hidden": "true"
+    }), !state.railCollapsed && /*#__PURE__*/React.createElement("span", {
+      className: "rail-tab-label"
+    }, tab.label));
+  })), !state.railCollapsed && /*#__PURE__*/React.createElement("div", {
+    id: "rail-panel-" + state.railTab,
+    role: "tabpanel",
+    "aria-label": state.railTab + " controls",
+    style: {
+      flex: 1,
+      minHeight: 0,
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, tabContent), !state.railCollapsed && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '8px 12px',
+      borderTop: '1px solid var(--panel-border)',
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement(LayoutSwitcher, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "transport-strip",
+    role: "toolbar",
+    "aria-label": "Simulation transport"
+  }, /*#__PURE__*/React.createElement(TransportControls, {
+    compact: true,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  })), state.railHidden && /*#__PURE__*/React.createElement("div", {
+    className: "rail-reveal rail-reveal-" + railSide,
+    onMouseEnter: function () {
+      LifeViewUtils.toggleRailHidden(stateRef, refs, dispatch);
+    }
+  }), /*#__PURE__*/React.createElement(MobileMinimapArea, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }));
+};
+var CartographerMobile = function CartographerMobile(props) {
+  // eslint-disable-line no-unused-vars
+  var cs = props.cs,
+    state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var sheetContent = state.bottomSheetOpen ? /*#__PURE__*/React.createElement(TabContentBuilder, {
+    tabId: state.bottomSheetTab,
+    options: {
+      sectionTitle: true,
+      sparkline: true
+    },
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }) : null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "layout-cartographer layout-mobile"
+  }, /*#__PURE__*/React.createElement(CanvasArea, {
+    cs: cs,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), !state.bottomSheetOpen && !refs.statsChipHidden && /*#__PURE__*/React.createElement(StatsChip, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), !state.bottomSheetOpen && /*#__PURE__*/React.createElement(MobileContextPanel, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), !state.bottomSheetOpen && /*#__PURE__*/React.createElement(MobileMinimapArea, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement(MobileTransportBar, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), state.bottomSheetOpen && /*#__PURE__*/React.createElement(BottomSheet, {
+    sheetContent: sheetContent,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }));
+};
+var ObservatoryLayout = function ObservatoryLayout(props) {
+  // eslint-disable-line no-unused-vars
+  var cs = props.cs,
+    state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var dc = state.deviceClass;
+  var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+  if (isMobile) {
+    return /*#__PURE__*/React.createElement(ObservatoryMobile, {
+      cs: cs,
+      state: state,
+      stateRef: stateRef,
+      refs: refs,
+      dispatch: dispatch
+    });
+  }
+  var panels = state.panelStates;
+  var zenMode = state.zenMode;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "layout-observatory" + (zenMode ? " zen-mode" : "")
+  }, /*#__PURE__*/React.createElement(CanvasArea, {
+    cs: cs,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), !zenMode && /*#__PURE__*/React.createElement("div", {
+    className: "panel-overlay-container",
+    role: "group",
+    "aria-label": "Floating control panels"
+  }, /*#__PURE__*/React.createElement(FloatPanel, {
+    panelId: "transport",
+    label: "Simulate",
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(TransportControls, {
+    compact: false,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement(SpeedSlider, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }))), /*#__PURE__*/React.createElement(FloatPanel, {
+    panelId: "board",
+    label: "Board",
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(BoardSliders, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement(BoundaryControls, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }))), /*#__PURE__*/React.createElement(FloatPanel, {
+    panelId: "view",
+    label: "View",
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ViewControls, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch,
+    onToggleTrails: toggleTrails
+  }), /*#__PURE__*/React.createElement(ZoomSlider, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement(DisplaySettings, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }))), /*#__PURE__*/React.createElement(FloatPanel, {
+    panelId: "mode",
+    label: "Tools",
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ModeControls, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement(ToolsContent, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }))), /*#__PURE__*/React.createElement(FloatPanel, {
+    panelId: "rules",
+    label: "Rules",
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }, /*#__PURE__*/React.createElement(RulesSection, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  })), /*#__PURE__*/React.createElement(FloatPanel, {
+    panelId: "stats",
+    label: "Stats",
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }, /*#__PURE__*/React.createElement(StatsPanel, {
+    state: state,
+    refs: refs,
+    stateRef: stateRef,
+    dispatch: dispatch
+  })), /*#__PURE__*/React.createElement(FloatPanel, {
+    panelId: "importExport",
+    label: "Share",
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }, /*#__PURE__*/React.createElement(ExportContent, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  })), state.panelGroups.map(function (group) {
+    return /*#__PURE__*/React.createElement(PanelGroup, {
+      key: group.id,
+      group: group,
+      state: state,
+      stateRef: stateRef,
+      refs: refs,
+      dispatch: dispatch
+    });
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "panel-menu",
+    role: "group",
+    "aria-label": "Panel visibility"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch);
+    },
+    "aria-label": "Help",
+    title: "Keyboard shortcuts (?)"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-question-circle",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn panel-menu-toggle",
+    onClick: function () {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          panelMenuOpen: !state.panelMenuOpen
+        }
+      });
+    },
+    "aria-expanded": !!state.panelMenuOpen,
+    "aria-label": "Toggle panel visibility menu"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-th",
+    "aria-hidden": "true"
+  })), state.panelMenuOpen && /*#__PURE__*/React.createElement("div", {
+    className: "panel-menu-list",
+    role: "group",
+    "aria-label": "Panel toggles"
+  }, ['transport', 'board', 'view', 'mode', 'rules', 'stats', 'importExport'].map(function (id) {
+    var label = ObservatoryPanelUtils.getPanelLabel(id);
+    return /*#__PURE__*/React.createElement("label", {
+      key: id,
+      className: "panel-menu-item"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: panels[id].open,
+      onChange: function () {
+        ObservatoryPanelUtils.togglePanelOpen(id, state, stateRef, refs, dispatch);
+      },
+      "aria-label": "Show " + label + " panel"
+    }), /*#__PURE__*/React.createElement("span", null, label));
+  })), /*#__PURE__*/React.createElement(LayoutSwitcher, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }))), /*#__PURE__*/React.createElement(MobileMinimapArea, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }));
+};
+var ObservatoryMobile = function ObservatoryMobile(props) {
+  // eslint-disable-line no-unused-vars
+  var cs = props.cs,
+    state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var sheetContent = state.bottomSheetOpen ? /*#__PURE__*/React.createElement(TabContentBuilder, {
+    tabId: state.bottomSheetTab,
+    options: {
+      sectionTitle: true,
+      sparkline: true
+    },
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }) : null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "layout-observatory layout-mobile"
+  }, /*#__PURE__*/React.createElement(CanvasArea, {
+    cs: cs,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), /*#__PURE__*/React.createElement(MobileTransportBar, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), !state.bottomSheetOpen && !refs.statsChipHidden && /*#__PURE__*/React.createElement(StatsChip, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), !state.bottomSheetOpen && /*#__PURE__*/React.createElement(MobileContextPanel, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), !state.bottomSheetOpen && /*#__PURE__*/React.createElement(MobileMinimapArea, {
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }), state.bottomSheetOpen && /*#__PURE__*/React.createElement(BottomSheet, {
+    sheetContent: sheetContent,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }));
+};
+"use strict";
+
 /* global React, CanvasRenderer, LifeAnalysisUtils */
 /**
  * PopGraphModal — full population history graph overlay.
