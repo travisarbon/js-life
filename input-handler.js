@@ -378,7 +378,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         this._dragStatus = host.state.liveCells.has(key) ? 0 : 1;
         this._paintedCells = {};
         this._paintedCells[key] = this._dragStatus;
-        this.paintCellDirect(c, r, host);
+        host.drawBoard();
     },
 
     onMouseMove: function(event, host){
@@ -519,7 +519,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         var paintKey = r + ',' + c;
         if(this._paintedCells[paintKey] !== undefined){ return; }
         this._paintedCells[paintKey] = this._dragStatus;
-        this.paintCellDirect(c, r, host);
+        host.drawBoard();
     },
 
     onMouseUp: function(event, host){
