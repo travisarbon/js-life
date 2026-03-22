@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "Conway's Game of Life — interactive cellular automaton simulator",
   "scripts": {
-    "build": "npm run lint:quiet && babel script.js --source-maps -o script.compiled.js",
+    "build": "npm run lint:quiet && babel components/*.js script.js --source-maps -o script.compiled.js",
     "start": "npx serve .",
-    "lint": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-mixin.js life-io-mixin.js life-input-mixin.js life-view-mixin.js life-board-mixin.js life-analysis-mixin.js",
-    "lint:quiet": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-mixin.js life-io-mixin.js life-input-mixin.js life-view-mixin.js life-board-mixin.js life-analysis-mixin.js --quiet",
+    "lint": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-mixin.js life-io-mixin.js life-input-mixin.js life-view-mixin.js life-board-mixin.js life-analysis-mixin.js components/",
+    "lint:quiet": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-mixin.js life-io-mixin.js life-input-mixin.js life-view-mixin.js life-board-mixin.js life-analysis-mixin.js components/ --quiet",
     "test": "jest",
     "test:watch": "jest --watch",
     "prebuild": "npm test -- --passWithNoTests"

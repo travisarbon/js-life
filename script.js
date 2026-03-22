@@ -732,190 +732,18 @@ function LifeBoard() {
 
             // ── Render sub-methods ────────────────────────────────────────────
 
-    function renderHelpModal(){
-                if(!state.showHelp){ return null; }
-                return (
-                    <div className="help-overlay" onClick={function(){ LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch); }}
-                        role="dialog" aria-modal="true" aria-labelledby="help-dialog-title"
-                        onKeyDown={function(e){
-                            if(e.key === 'Tab'){
-                                var modal = e.currentTarget.querySelector('.help-modal');
-                                if(!modal) return;
-                                var focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-                                if(focusable.length === 0) return;
-                                var first = focusable[0], last = focusable[focusable.length - 1];
-                                if(e.shiftKey){ if(document.activeElement === first){ e.preventDefault(); last.focus(); } }
-                                else { if(document.activeElement === last){ e.preventDefault(); first.focus(); } }
-                            }
-                        }}>
-                        <div className="help-modal" onClick={function(e){ e.stopPropagation(); }}>
-                            <h3 className="help-title" id="help-dialog-title">Keyboard Shortcuts</h3>
-                            <table className="help-table">
-                                <tbody>
-                                    <tr><td>Space</td><td>Play / Pause</td></tr>
-                                    <tr><td>.</td><td>Step one generation</td></tr>
-                                    <tr><td>Shift+.</td><td>Step N generations</td></tr>
-                                    <tr><td>,</td><td>Step backward</td></tr>
-                                    <tr><td>R</td><td>Reset (random fill)</td></tr>
-                                    <tr><td>E</td><td>Empty board</td></tr>
-                                    <tr><td>Ctrl+Z</td><td>Undo</td></tr>
-                                    <tr><td>S</td><td>Export PNG</td></tr>
-                                    <tr><td>X</td><td>Copy board as RLE</td></tr>
-                                    <tr><td>F</td><td>Fit live cells in view</td></tr>
-                                    <tr><td>Ctrl+Wheel</td><td>Zoom in / out</td></tr>
-                                    <tr><td>Scroll / Trackpad</td><td>Pan viewport</td></tr>
-                                    <tr><td>Arrows</td><td>Pan viewport</td></tr>
-                                    <tr><td>Right-drag</td><td>Pan viewport</td></tr>
-                                    <tr><td>[</td><td>Rotate pattern CCW</td></tr>
-                                    <tr><td>]</td><td>Rotate pattern CW</td></tr>
-                                    <tr><td>Ctrl+C</td><td>Copy selection</td></tr>
-                                    <tr><td>Ctrl+V</td><td>Paste selection</td></tr>
-                                    <tr><td>Del</td><td>Delete selection</td></tr>
-                                    <tr><td>Esc</td><td>Cancel / close</td></tr>
-                                    <tr><td>D</td><td>Switch to Draw mode</td></tr>
-                                    <tr><td>P</td><td>Switch to Preset mode</td></tr>
-                                    <tr><td>B</td><td>Switch to Region mode</td></tr>
-                                    <tr><td>G</td><td>Toggle grid lines</td></tr>
-                                    <tr><td>T</td><td>Toggle trails</td></tr>
-                                    <tr><td>M</td><td>Toggle minimap</td></tr>
-                                    <tr><td>?</td><td>Show / hide this help</td></tr>
-                                    <tr><th colSpan="2" scope="colgroup" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:'normal',textAlign:'left'}}>Touch gestures</th></tr>
-                                    <tr><td>Tap</td><td>Paint / place cell</td></tr>
-                                    <tr><td>Pinch</td><td>Zoom in / out</td></tr>
-                                    <tr><td>2-finger drag</td><td>Pan viewport</td></tr>
-                                    <tr><td>Long press</td><td>Show cell coordinates</td></tr>
-                                    <tr><th colSpan="2" scope="colgroup" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:'normal',textAlign:'left'}}>File import</th></tr>
-                                    <tr><td>Drag &amp; drop</td><td>Drop .rle/.cells file on canvas</td></tr>
-                                    <tr><td>Ctrl+V</td><td>Paste RLE text from clipboard</td></tr>
-                                </tbody>
-                            </table>
-                            <button type="button" className="btn help-close" onClick={function(){ LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch); }} title="Close" aria-label="Close help dialog">Close</button>
-                        </div>
-                    </div>
-                );
-    }
+    // HelpModal extracted to components/help-modal.js
 
-    function renderPopGraph(){
-                if(!state.showPopGraph){ return null; }
-                var hist = state.popHistory;
-                if(hist.length < 2){ return null; }
-                var maxPop = 0;
-                for(var i = 0; i < hist.length; i++){ if(hist[i] > maxPop){ maxPop = hist[i]; } }
-                if(maxPop === 0){ maxPop = 1; }
-                var vbW = 600, vbH = 200, padT = 10, padB = 20, padL = 50, padR = 10;
-                var plotW = vbW - padL - padR;
-                var plotH = vbH - padT - padB;
-                // Draw data points as SVG polyline.
-                var points = hist.map(function(p, idx){
-                    var x = padL + (idx / (hist.length - 1)) * plotW;
-                    var y = padT + (1 - p / maxPop) * plotH;
-                    return x.toFixed(1) + ',' + y.toFixed(1);
-                }).join(' ');
-                // Y-axis labels.
-                var yLabels = [];
-                var ySteps = 4;
-                for(var yi = 0; yi <= ySteps; yi++){
-                    var val = Math.round(maxPop * (1 - yi / ySteps));
-                    var yy = padT + (yi / ySteps) * plotH;
-                    yLabels.push({val: val, y: yy});
-                }
-                return (
-                    <div className="help-overlay" onClick={function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); }}
-                        role="dialog" aria-modal="true" aria-labelledby="popgraph-dialog-title"
-                        onKeyDown={function(e){
-                            if(e.key === 'Tab'){
-                                var modal = e.currentTarget.querySelector('.pop-graph-modal');
-                                if(!modal) return;
-                                var focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-                                if(focusable.length === 0) return;
-                                var first = focusable[0], last = focusable[focusable.length - 1];
-                                if(e.shiftKey){ if(document.activeElement === first){ e.preventDefault(); last.focus(); } }
-                                else { if(document.activeElement === last){ e.preventDefault(); first.focus(); } }
-                            }
-                        }}>
-                        <div className="pop-graph-modal" onClick={function(e){ e.stopPropagation(); }}>
-                            <h3 className="help-title" id="popgraph-dialog-title">Population History</h3>
-                            <p style={{fontSize:'0.8em',opacity:0.7,margin:'0 0 8px'}}>{hist.length + ' generations recorded \xB7 peak ' + maxPop.toLocaleString()}</p>
-                            <svg width="100%" viewBox={"0 0 " + vbW + " " + vbH} style={{background:'rgba(0,0,0,0.15)',borderRadius:'4px'}} role="img" aria-label="Population history graph">
-                                {/* Y-axis gridlines and labels */}
-                                {yLabels.map(function(yl, idx){
-                                    return <g key={idx}>
-                                        <line x1={padL} y1={yl.y} x2={vbW - padR} y2={yl.y} stroke="rgba(255,255,255,0.15)" strokeWidth="0.5"/>
-                                        <text x={padL - 5} y={yl.y + 4} textAnchor="end" fill="rgba(255,255,255,0.6)" fontSize="10">{yl.val.toLocaleString()}</text>
-                                    </g>;
-                                })}
-                                {/* X-axis label */}
-                                <text x={padL + plotW / 2} y={vbH - 2} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9">Generation</text>
-                                {/* Data line */}
-                                <polyline fill="none" stroke={CanvasRenderer._aliveRGB || '#70959A'} strokeWidth="1.5" points={points}/>
-                                {/* Area fill */}
-                                <polygon fill={CanvasRenderer._aliveRGB ? CanvasRenderer._aliveRGB.replace('rgb', 'rgba').replace(')', ',0.2)') : 'rgba(112,149,154,0.2)'} points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
-                            </svg>
-                            <button type="button" className="btn help-close" onClick={function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); }} title="Close" aria-label="Close population graph">Close</button>
-                        </div>
-                    </div>
-                );
-    }
+    // PopGraphModal extracted to components/pop-graph.js
 
             // Returns the sparkline SVG block (or null if insufficient data).
             // Called from both renderStats (desktop) and renderMobileSparkline (mobile).
     function renderSparklineSVG(){
-                var population = state.liveCells.size;
-                var now2 = Date.now();
-                var gpsText = (refs.measuredGps > 0 &&
-                    (state.running || now2 < (refs.gpsDisplayUntil || 0)))
-                    ? refs.measuredGps.toFixed(1) + '\u00a0gen/s' : null;
-                var fullHist = state.popHistory;
-                var trendArrow = '';
-                if(fullHist.length >= 5){
-                    var delta = fullHist[fullHist.length - 1] - fullHist[fullHist.length - 5];
-                    trendArrow = delta > 2 ? '\u2009\u25b2' : delta < -2 ? '\u2009\u25bc' : '\u2009\u223c';
-                }
-                var histStart = Math.max(0, fullHist.length - 60);
-                var hist = histStart > 0 ? fullHist.slice(histStart) : fullHist;
-                var maxPop = 0;
-                for(var hi = 0; hi < hist.length; hi++){
-                    if(hist[hi] > maxPop){ maxPop = hist[hi]; }
-                }
-                if(hist.length <= 1){ return null; }
-                var vbW = 200, vbH = 36, padT = 2, innerH = vbH - padT * 2;
-                var spMax = maxPop || 1;
-                var sparkPts = hist.map(function(p, idx){
-                    var x = hist.length === 1 ? vbW / 2 : (idx / (hist.length - 1)) * vbW;
-                    var y = padT + (1 - p / spMax) * innerH;
-                    return x.toFixed(1) + ',' + y.toFixed(1);
-                }).join(' ');
-                var spanLabel = hist.length >= 60 ? 'last 60 gen' : hist.length + ' gen';
-                return (
-                    <div className="sparkline-wrap">
-                        <div className="sparkline-header">
-                            <span className="sparkline-title" onClick={function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); }} style={{cursor:'pointer'}} title="Click for full population graph">{"Pop: " + population.toLocaleString() + trendArrow}</span>
-                            <span className="sparkline-peak">{"peak " + maxPop.toLocaleString() + (state.sessionPeakPop > maxPop ? " \xb7 all " + state.sessionPeakPop.toLocaleString() : "")}</span>
-                        </div>
-                        <svg className="sparkline" width="100%" height={vbH}
-                             viewBox={"0 0 " + vbW + " " + vbH}
-                             preserveAspectRatio="none"
-                             role="img" aria-label="Population sparkline">
-                            <line x1="0" y1={vbH - 0.5} x2={vbW} y2={vbH - 0.5}
-                                  stroke="rgba(244,233,225,0.25)" strokeWidth="1"/>
-                            <line x1="0" y1={padT + innerH / 2} x2={vbW} y2={padT + innerH / 2}
-                                  stroke="rgba(244,233,225,0.1)" strokeWidth="0.5"/>
-                            <polyline points={sparkPts} fill="none" stroke={CanvasRenderer._aliveRGB || '#70959A'}
-                                      strokeWidth="1.5" strokeLinejoin="round"
-                                      strokeLinecap="round"/>
-                        </svg>
-                        <div className="sparkline-footer">
-                            <span className="sparkline-gps">{gpsText || ''}</span>
-                            <span>{"← " + spanLabel + " →"}</span>
-                        </div>
-                    </div>
-                );
+                // Extracted to components/stats-panel.js as SparklineSVG
     }
 
     function renderMobileSparkline(){
-                var svg = renderSparklineSVG(state, refs);
-                if(!svg){ return null; }
-                return <div className="mobile-sparkline">{svg}</div>;
+                // Extracted to components/stats-panel.js as MobileSparkline
     }
 
     function renderMobileMinimapArea(){
@@ -1132,35 +960,7 @@ function LifeBoard() {
     }
 
     function renderStats(){
-                var population = state.liveCells.size;
-                var hc = state.hoverCell;
-                var coordText = hc ? ('Col\u00a0' + hc.c + '\u2002Row\u00a0' + hc.r) : '\u2014';
-                var sparkline = renderSparklineSVG(state, refs);
-
-                return (
-                    <div className="stats">
-                        <div className="stat-row">
-                            <span>{"Gen: " + state.generations.toLocaleString()}</span>
-                            <span className="board-dims">{state.cols + "\u00d7" + state.rows}</span>
-                        </div>
-                        <div className="stat-row">
-                            <div className="status-badges">
-                                <span className={"status-indicator " + (state.running ? "status-running" : "status-paused")}>
-                                    {state.running ? "Running" : "Paused"}
-                                </span>
-                                {state.stable &&
-                                    <span className="status-indicator status-stable">Stable</span>
-                                }
-                            </div>
-                            <div className="coord-display">{coordText}</div>
-                        </div>
-                        {sparkline || (
-                            <div className="sparkline-placeholder">
-                                {"Pop: " + population.toLocaleString()}
-                            </div>
-                        )}
-                    </div>
-                );
+                // Extracted to components/stats-panel.js as StatsPanel
     }
 
             // ── Shared mobile sub-components (R10) ─────────────────────────────
@@ -1188,9 +988,9 @@ function LifeBoard() {
                         return (
                             <div>
                                 {options.sectionTitle && <div className="sidebar-section-title">Simulate</div>}
-                                {renderTransportControls(false, state, stateRef, refs, dispatch)}
+                                {<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                                 {renderSpeedSlider(state, stateRef, refs, dispatch)}
-                                {options.sparkline && renderMobileSparkline(state, refs)}
+                                {options.sparkline && <MobileSparkline state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />}
                             </div>
                         );
                     case 'board':
@@ -1226,54 +1026,10 @@ function LifeBoard() {
 
 
     function _renderStatsChip(){
-                
-                return (
-                    <div className="stats-chip" onClick={function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); }}
-                        role="button" tabIndex="0" aria-atomic="true" aria-live="off"
-                        onKeyDown={function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); } }}>
-                        <span>{"Gen " + state.generations.toLocaleString()}</span>
-                        <span>{"\u2002Pop " + state.liveCells.size.toLocaleString()}</span>
-                        <span className={"status-indicator status-icon " + (state.running ? "status-running" : "status-paused")}>
-                            <i className={"fa " + (state.stable ? "fa-check-circle" : (state.running ? "fa-play" : "fa-pause"))} />
-                            {" "}{state.stable ? "Stable" : (state.running ? "Run" : "Pause")}
-                        </span>
-                    </div>
-                );
+                // Extracted to components/stats-panel.js as StatsChip
     }
 
-    function _renderMobileTransportBar(){
-                return (
-                    <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">
-                        <button type="button" className={"btn btn-toggle" + (state.running ? " active" : "")} onClick={function(){ LifeSimUtils.toggleGame(stateRef, refs, dispatch); }}
-                            aria-label={state.running ? "Pause simulation" : "Play simulation"}>
-                            <i className={"fa " + (state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i>
-                        </button>
-                        <button type="button" className="btn" onClick={function(){ LifeSimUtils.stepGame(stateRef, refs, dispatch); }} aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
-                        <button type="button" className="btn" onClick={function(){ LifeBoardUtils.resetGame(stateRef, refs, dispatch); }} aria-label="Reset simulation"><i className="fa fa-refresh" aria-hidden="true"></i></button>
-                        <button type="button" className={"btn btn-toggle" + (state.panMode ? " active" : "")}
-                            onClick={function(){ LifeBoardUtils.togglePanMode(stateRef, refs, dispatch); }}
-                            aria-label={state.panMode ? "Switch to " + (state.drawMode === 'select' ? "select" : state.drawMode === 'preset' ? "preset" : state.drawMode === 'region' ? "region" : "draw") + " mode" : "Switch to pan mode"}
-                            aria-pressed={state.panMode}>
-                            <i className={"fa " + (state.panMode
-                                ? (state.drawMode === 'select' ? "fa-crosshairs" : state.drawMode === 'preset' ? "fa-puzzle-piece" : state.drawMode === 'region' ? "fa-th" : "fa-pencil")
-                                : "fa-hand-paper-o")} aria-hidden="true"></i>
-                        </button>
-                        <span className="mobile-transport-mode" aria-live="polite">
-                            {state.panMode ? 'Pan'
-                                : (state.drawMode === 'preset' && state.selectedPattern
-                                ? state.selectedPattern
-                                : (state.drawMode === 'select' ? 'Select' : state.drawMode === 'region' ? 'Region' : 'Draw'))}
-                        </span>
-                        <button type="button" className="btn" onClick={function(){ LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch); }} aria-label="Help" title="Keyboard shortcuts (?)">
-                            <i className="fa fa-question-circle" aria-hidden="true"></i>
-                        </button>
-                        <button type="button" className={"btn btn-toggle btn-sheet-toggle" + (state.bottomSheetOpen ? " active" : "")}
-                            onClick={function(){ LifeViewUtils.toggleBottomSheet(stateRef, refs, dispatch); }}
-                            aria-expanded={state.bottomSheetOpen}
-                            aria-label="Open controls panel"><i className="fa fa-ellipsis-h" aria-hidden="true"></i></button>
-                    </div>
-                );
-    }
+    // _renderMobileTransportBar — extracted to components/transport-controls.js as MobileTransportBar
 
     function _renderBottomSheet(sheetContent){
                 
@@ -1631,36 +1387,7 @@ function LifeBoard() {
                 );
     }
 
-    function renderTransportControls(compact){
-                
-                if(compact){
-                    return (
-                        <div className="transport-controls transport-compact">
-                            <button type="button" className={"btn btn-toggle" + (state.running ? " active" : "")} onClick={function(){ LifeSimUtils.toggleGame(stateRef, refs, dispatch); }} title="Play/Pause (Space)"><i className={"fa " + (state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i></button>
-                            <button type="button" className="btn" onClick={function(){ LifeSimUtils.stepGame(stateRef, refs, dispatch); }} title="Step (.)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
-                            <span className="transport-speed-label">{"Gen " + state.generations.toLocaleString()}</span>
-                        </div>
-                    );
-                }
-                return (
-                    <div className="transport-controls">
-                        <button type="button" className={"btn btn-toggle" + (state.running ? " active" : "")} onClick={function(){ LifeSimUtils.toggleGame(stateRef, refs, dispatch); }} title="Start or pause the simulation (Space)"><i className={"fa " + (state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i> {state.running ? "Pause" : "Play"}</button>
-                        <button type="button" className="btn" onClick={function(){ LifeSimUtils.stepGame(stateRef, refs, dispatch); }} title="Advance one generation (Enter)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
-                        <button type="button" className="btn" onClick={function(){ LifeSimUtils.stepBack(stateRef, refs, dispatch); }} title="Step backward (,)" disabled={refs.genHistory && refs.genHistory.length === 0}><i className="fa fa-step-backward" aria-hidden="true"></i> Back</button>
-                        <select className="toolbar-step-select" value={state.stepCount} onChange={function(e){ LifeBoardUtils.setStepCount(stateRef, refs, dispatch, e); }} title="Advance N generations">
-                            <option value="1">+1</option>
-                            <option value="10">+10</option>
-                            <option value="50">+50</option>
-                            <option value="100">+100</option>
-                            <option value="500">+500</option>
-                        </select>
-                        <button type="button" className="btn" onClick={function(){ LifeSimUtils.stepN(stateRef, refs, dispatch, state.stepCount); }} title="Advance multiple generations"><i className="fa fa-fast-forward" aria-hidden="true"></i> Go</button>
-                        <button type="button" className="btn" onClick={function(){ LifeBoardUtils.resetGame(stateRef, refs, dispatch); }} title="Randomize the board (R)"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>
-                        <button type="button" className="btn" onClick={function(){ LifeBoardUtils.emptyBoard(stateRef, refs, dispatch); }} title="Clear all cells (E)"><i className="fa fa-eraser" aria-hidden="true"></i> Empty</button>
-                        <button type="button" className="btn" onClick={function(){ LifeSimUtils.undo(stateRef, refs, dispatch); }} title="Undo last edit (Ctrl+Z)"><i className="fa fa-undo" aria-hidden="true"></i> Undo</button>
-                    </div>
-                );
-    }
+    // renderTransportControls — extracted to components/transport-controls.js as TransportControls
 
     function renderViewControls(){
                 return (
@@ -1896,7 +1623,7 @@ function LifeBoard() {
                                     </button>
                                 </div>
                             </div>
-                            {!state.railCollapsed && <div className="rail-stats">{renderStats(state, refs)}</div>}
+                            {!state.railCollapsed && <div className="rail-stats">{<StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />}</div>}
                             <div className="rail-tabs" role="tablist" aria-label="Control categories">
                                 {tabs.map(function(tab){
                                     var isActive = state.railTab === tab.id;
@@ -1929,7 +1656,7 @@ function LifeBoard() {
                         </div>
                         {/* Floating transport strip */}
                         <div className="transport-strip" role="toolbar" aria-label="Simulation transport">
-                            {renderTransportControls(true, state, stateRef, refs, dispatch)}
+                            {<TransportControls compact={true} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                         </div>
                         {/* Rail show button when hidden */}
                         {state.railHidden &&
@@ -1947,10 +1674,10 @@ function LifeBoard() {
                 return (
                     <div className="layout-cartographer layout-mobile">
                         {renderCanvas(cs, state, stateRef, refs, dispatch)}
-                        {!state.bottomSheetOpen && !refs.statsChipHidden && _renderStatsChip(state, stateRef, refs, dispatch)}
+                        {!state.bottomSheetOpen && !refs.statsChipHidden && <StatsChip state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                         {!state.bottomSheetOpen && renderMobileContextPanel(state, stateRef, refs, dispatch)}
                         {!state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch)}
-                        {_renderMobileTransportBar(state, stateRef, refs, dispatch)}
+                        {<MobileTransportBar state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                         {state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch)}
                     </div>
                 );
@@ -1975,12 +1702,12 @@ function LifeBoard() {
                         {renderCanvas(cs, state, stateRef, refs, dispatch)}
                         {!zenMode &&
                             <div className="panel-overlay-container" role="group" aria-label="Floating control panels">
-                                {_renderFloatPanel('transport', 'Simulate', <div>{renderTransportControls(false, state, stateRef, refs, dispatch)}{renderSpeedSlider(state, stateRef, refs, dispatch)}</div>)}
+                                {_renderFloatPanel('transport', 'Simulate', <div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{renderSpeedSlider(state, stateRef, refs, dispatch)}</div>)}
                                 {_renderFloatPanel('board', 'Board', <div>{renderBoardSliders(state, stateRef, refs, dispatch)}{renderBoundaryControls(state, stateRef, refs, dispatch)}</div>)}
                                 {_renderFloatPanel('view', 'View', <div>{renderViewControls(state, stateRef, refs, dispatch)}{renderZoomSlider(state, stateRef, refs, dispatch)}{renderDisplaySettings(state, stateRef, refs, dispatch)}</div>)}
                                 {_renderFloatPanel('mode', 'Tools', <div>{renderModeControls(state, stateRef, refs, dispatch)}{renderToolsContent(state, stateRef, refs, dispatch)}</div>)}
                                 {_renderFloatPanel('rules', 'Rules', renderRulesSection(state, stateRef, refs, dispatch))}
-                                {_renderFloatPanel('stats', 'Stats', renderStats(state, refs))}
+                                {_renderFloatPanel('stats', 'Stats', <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />)}
                                 {_renderFloatPanel('importExport', 'Share', renderExportContent(state, stateRef, refs, dispatch))}
                                 {state.panelGroups.map(function(group){ return _renderPanelGroup(group, state, stateRef, refs, dispatch); })}
                                 {/* Panel menu */}
@@ -2024,8 +1751,8 @@ function LifeBoard() {
                 return (
                     <div className="layout-observatory layout-mobile">
                         {renderCanvas(cs, state, stateRef, refs, dispatch)}
-                        {_renderMobileTransportBar(state, stateRef, refs, dispatch)}
-                        {!state.bottomSheetOpen && !refs.statsChipHidden && _renderStatsChip(state, stateRef, refs, dispatch)}
+                        {<MobileTransportBar state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
+                        {!state.bottomSheetOpen && !refs.statsChipHidden && <StatsChip state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                         {!state.bottomSheetOpen && renderMobileContextPanel(state, stateRef, refs, dispatch)}
                         {!state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch)}
                         {state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch)}
@@ -2159,7 +1886,7 @@ function LifeBoard() {
                         ];
                     case 'stats':
                         return [
-                            {id:'stats', icon: 'fa-bar-chart', title: 'Statistics', popOut: function(){ return renderStats(state, refs); }}
+                            {id:'stats', icon: 'fa-bar-chart', title: 'Statistics', popOut: function(){ return <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />; }}
                         ];
                     case 'importExport':
                         return [
@@ -2186,7 +1913,7 @@ function LifeBoard() {
 
     function _getPanelContent(panelId){
                 switch(panelId){
-                    case 'transport': return <div>{renderTransportControls(false, state, stateRef, refs, dispatch)}{renderSpeedSlider(state, stateRef, refs, dispatch)}</div>;
+                    case 'transport': return <div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{renderSpeedSlider(state, stateRef, refs, dispatch)}</div>;
                     case 'board': return <div>{renderBoardSliders(state, stateRef, refs, dispatch)}{renderBoundaryControls(state, stateRef, refs, dispatch)}</div>;
                     case 'view': return <div>{renderViewControls(state, stateRef, refs, dispatch)}{renderZoomSlider(state, stateRef, refs, dispatch)}{renderDisplaySettings(state, stateRef, refs, dispatch)}</div>;
                     case 'mode': return <div>{renderModeControls(state, stateRef, refs, dispatch)}{renderToolsContent(state, stateRef, refs, dispatch)}</div>;
@@ -2665,8 +2392,8 @@ function LifeBoard() {
             <div className="sr-only" aria-live="polite" aria-atomic="true">
                 {state.srAnnouncement}
             </div>
-            {renderHelpModal(state, stateRef, refs, dispatch)}
-            {renderPopGraph(state, stateRef, refs, dispatch)}
+            <HelpModal showHelp={state.showHelp} stateRef={stateRef} refs={refs} dispatch={dispatch} />
+            <PopGraphModal showPopGraph={state.showPopGraph} popHistory={state.popHistory} stateRef={stateRef} refs={refs} dispatch={dispatch} />
             {layoutContent}
         </div>
     );
