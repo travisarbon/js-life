@@ -1198,7 +1198,11 @@ canvas.display {
 .compact-body .btn {
   width: 28px;
   height: 28px; }
-.compact-body .btn.active {
+.compact-body .compact-btn-label {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1; }
+#content .compact-body .btn.active {
   background-color: var(--accent);
   color: var(--accent-text);
   border-color: var(--accent); }
@@ -1396,6 +1400,7 @@ canvas.display {
   z-index: var(--z-panels);
   min-width: 180px;
   max-width: 260px;
+  padding: var(--space-sm) var(--space-md);
   background: var(--panel-bg-blur);
   backdrop-filter: blur(var(--panel-blur));
   -webkit-backdrop-filter: blur(var(--panel-blur));
@@ -1403,27 +1408,6 @@ canvas.display {
   border-radius: var(--radius-md);
   box-shadow: var(--panel-shadow);
   pointer-events: auto; }
-
-.stats-window-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-xs) var(--space-sm);
-  min-height: 24px;
-  background: var(--panel-header-bg);
-  border-bottom: 1px solid var(--panel-border);
-  border-radius: var(--radius-md) var(--radius-md) 0 0; }
-
-.stats-window-title {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--panel-header-color);
-  opacity: var(--opacity-secondary); }
-
-.stats-window-body {
-  padding: var(--space-sm) var(--space-md); }
 
 /* ── Zen mode ─────────────────────────────────────────────────────────── */
 .zen-mode .float-panel,

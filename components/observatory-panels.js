@@ -1,8 +1,8 @@
-/* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
+/* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeIOUtils,
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
           ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
           DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
-          RulesSection, ExportContent, StatsPanel,
+          RulesSection, RLESection, ExportContent, StatsPanel, RULE_PRESETS,
           toggleTrails */
 /**
  * Observatory panel system — extracted from LifeBoard.
@@ -384,10 +384,56 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
                 {id:'speed', icon: 'fa-tachometer', title: 'Speed', popOut: function(){ return <SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
             ];
         case 'board':
-            return [
-                {id:'boundary', icon: 'fa-repeat', title: 'Cycle boundary', onClick: function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }, active: state.boundary !== 'toroidal'},
-                {id:'grid-size', icon: 'fa-th-large', title: 'Grid size', popOut: function(){ return <BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
+            var boardDefs = [
+                {id:'boundary', icon: state.boundary === 'toroidal' ? 'fa-repeat' : state.boundary === 'finite' ? 'fa-stop' : null, label: state.boundary === 'unbounded' ? '\u221E' : null, title: 'Boundary: ' + (state.boundary === 'toroidal' ? 'Wrap' : state.boundary === 'finite' ? 'Hard' : '\u221E'), onClick: function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }, active: state.boundary !== 'toroidal'}
             ];
+            if(state.boundary !== 'unbounded'){
+                boardDefs.push(
+                    {id:'grid-presets', icon: 'fa-th-large', title: 'Grid presets', popOut: function(){
+                        return (<div className="compact-popout-content grid-presets">
+                            <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 100, 100); }} title="100\u00d7100">100\u00b2</button>
+                            <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 200, 200); }} title="200\u00d7200">200\u00b2</button>
+                            <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 400, 400); }} title="400\u00d7400">400\u00b2</button>
+                            <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 1000, 1000); }} title="1000\u00d71000">1000\u00b2</button>
+                            <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 2000, 2000); }} title="2000\u00d72000">2000\u00b2</button>
+                        </div>);
+                    }},
+                    {id:'grid-size', icon: 'fa-arrows-h', title: 'Width & Height', popOut: function(){
+                        return (<div className="compact-popout-content">
+                            <div className="sliders">
+                                <label className="slider-title">{"Width: " + state.pendingCols}</label>
+                                <div className="slider-row">
+                                    <input type="range" min="20" max="2000" step="10" aria-label="Grid width" value={state.pendingCols}
+                                        onChange={function(e){ LifeBoardUtils.setWidth(stateRef, refs, dispatch, e); }}
+                                        onMouseUp={function(){ LifeBoardUtils.applyWidth(stateRef, refs, dispatch); }}
+                                        onTouchEnd={function(){ LifeBoardUtils.applyWidth(stateRef, refs, dispatch); }} />
+                                </div>
+                            </div>
+                            <div className="sliders">
+                                <label className="slider-title">{"Height: " + state.pendingRows}</label>
+                                <div className="slider-row">
+                                    <input type="range" min="20" max="2000" step="10" aria-label="Grid height" value={state.pendingRows}
+                                        onChange={function(e){ LifeBoardUtils.setHeight(stateRef, refs, dispatch, e); }}
+                                        onMouseUp={function(){ LifeBoardUtils.applyHeight(stateRef, refs, dispatch); }}
+                                        onTouchEnd={function(){ LifeBoardUtils.applyHeight(stateRef, refs, dispatch); }} />
+                                </div>
+                            </div>
+                        </div>);
+                    }}
+                );
+            }
+            boardDefs.push(
+                {id:'density', icon: 'fa-braille', title: 'Fill density', popOut: function(){
+                    return (<div className="compact-popout-content sliders">
+                        <label className="slider-title">Fill Density (on Reset)</label>
+                        <div className="slider-row">
+                            <input type="range" min="2" max="7" aria-label="Fill density" value={9 - state.sparseness}
+                                onChange={function(e){ LifeBoardUtils.setDensity(stateRef, refs, dispatch, e); }} />
+                        </div>
+                    </div>);
+                }}
+            );
+            return boardDefs;
         case 'view':
             return [
                 {id:'fit-grid', icon: 'fa-arrows-alt', title: 'Fit Grid', onClick: function(){ LifeViewUtils.fitView(stateRef, refs, dispatch); }},
@@ -395,6 +441,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
                 {id:'grid', icon: 'fa-th', title: 'Grid lines (G)', onClick: function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); }, active: state.gridLines},
                 {id:'trails', icon: 'fa-eye', title: 'Trails', onClick: function(){ toggleTrails(stateRef, refs, dispatch); }, active: state.showTrails},
                 {id:'minimap', icon: 'fa-map-o', title: 'Minimap (M)', onClick: function(){ LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch); }, active: state.showMinimap},
+                {id:'stats', icon: 'fa-bar-chart', title: 'Stats', onClick: function(){ dispatch({type:'MERGE', payload:{showStats: !state.showStats}}); }, active: state.showStats},
                 {id:'zoom', icon: 'fa-search-plus', title: 'Zoom', popOut: function(){ return <ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }},
                 {id:'display', icon: 'fa-paint-brush', title: 'Display settings', popOut: function(){ return <DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
             ];
@@ -412,13 +459,31 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
             return defs;
         case 'rules':
             return [
-                {id:'rules', icon: 'fa-cogs', title: 'Rules', popOut: function(){ return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
+                {id:'rule-preset', icon: 'fa-cogs', title: 'Rule presets', popOut: function(){
+                    return (<div className="compact-popout-content">
+                        <select className="rule-preset-select" aria-label="Rule preset" value={state.rulePreset}
+                            onChange={function(e){ LifeBoardUtils.setRulePreset(stateRef, refs, dispatch, e); }}>
+                            <option value="">Preset...</option>
+                            {RULE_PRESETS.map(function(p){ return <option key={p.rule} value={p.rule}>{p.name}</option>; })}
+                        </select>
+                    </div>);
+                }},
+                {id:'rule-input', icon: 'fa-pencil-square-o', title: 'Edit rule (B/S notation)', popOut: function(){
+                    var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
+                    return (<div className="compact-popout-content">
+                        <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")} type="text" value={state.ruleString}
+                            onChange={function(e){ LifeBoardUtils.setRule(stateRef, refs, dispatch, e); }}
+                            title="B/S notation (e.g. B3/S23)" />
+                    </div>);
+                }}
             ];
-        case 'stats':
-            return [];
         case 'importExport':
             return [
-                {id:'io', icon: 'fa-exchange', title: 'Share', popOut: function(){ return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
+                {id:'export-png', icon: 'fa-camera', title: 'Export PNG', onClick: function(){ LifeIOUtils.exportPNG(stateRef, refs, dispatch); }},
+                {id:'copy-rle', icon: 'fa-clipboard', title: 'Copy RLE', onClick: function(){ LifeIOUtils.copyRLE(stateRef, refs, dispatch); }},
+                {id:'record', icon: state.recording ? 'fa-stop' : 'fa-circle', title: state.recording ? 'Stop recording' : 'Record GIF', onClick: function(){ LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch); }, active: state.recording},
+                {id:'share-url', icon: 'fa-share-alt', title: 'Share URL', onClick: function(){ LifeIOUtils.shareURL(stateRef, refs, dispatch); }},
+                {id:'import-rle', icon: 'fa-download', title: 'Import RLE/Plaintext', popOut: function(){ return <RLESection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
             ];
         default:
             return [];
@@ -441,7 +506,8 @@ var CompactBody = function CompactBody(props) { // eslint-disable-line no-unused
                             className={"btn" + (def.active ? " active" : "")}
                             onClick={def.popOut ? function(){ if(def.onClick) def.onClick(); isOpen ? LifeViewUtils._closePopOut(stateRef, refs, dispatch) : LifeViewUtils._openPopOut(stateRef, refs, dispatch, panelId, def.id); } : def.onClick}
                             title={def.title}>
-                            <i className={"fa " + def.icon} aria-hidden="true"></i>
+                            {def.icon ? <i className={"fa " + def.icon} aria-hidden="true"></i> : null}
+                            {def.label ? <span className="compact-btn-label">{def.label}</span> : null}
                         </button>
                         {def.popOut && isOpen &&
                             <div className="pop-out-panel">

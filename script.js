@@ -143,6 +143,7 @@ function initState(){
                     selection :      null,
                     clipboard :      null,
                     showMinimap :     !isMobileInit,
+                    showStats :       true,
                     recording :       false,
                     showMobileTools : false,
                     showTrails :      true,
@@ -174,7 +175,7 @@ function initState(){
                     },
                     panelZCounter :    savedLayout.panelZCounter || 1,
                     panelGroups :      savedLayout.panelGroups || [{
-                        id: 'g-default', panels: ['transport','view','mode','board','rules','stats','importExport'],
+                        id: 'g-default', panels: ['transport','view','mode','board','rules','importExport'],
                         activeTab: 'transport', x: 10, y: 50, z: 1, compact: true, compactTabMode: 'sidebar'
                     }],
                     activePopOut :     null,

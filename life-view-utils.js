@@ -370,7 +370,17 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
     },
 
     toggleZenMode : function(stateRef, refs, dispatch){
-        dispatch({type:'MERGE', payload:{zenMode: !stateRef.current.zenMode}}); refs.drawPending = true;
+        var entering = !stateRef.current.zenMode;
+        var payload = {zenMode: entering};
+        if(entering){
+            payload._zenMinimapWas = stateRef.current.showMinimap;
+            payload.showMinimap = false;
+        } else {
+            if(stateRef.current._zenMinimapWas){ payload.showMinimap = true; }
+            payload._zenMinimapWas = false;
+        }
+        dispatch({type:'MERGE', payload: payload});
+        refs.drawPending = true;
     },
 
     toggleBottomSheet : function(stateRef, refs, dispatch){
