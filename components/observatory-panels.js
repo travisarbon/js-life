@@ -1,6 +1,7 @@
 /* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
           ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
+          DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
           RulesSection, ExportContent, StatsPanel,
           toggleTrails */
 /**
@@ -40,8 +41,9 @@ var _checkTabBarOverflow = function(bar, stateRef, refs, dispatch){
     bar.classList.remove('panel-tab-bar-icons');
     if(bar.scrollWidth > bar.clientWidth + 1){
         bar.classList.add('panel-tab-bar-icons');
-        // If even icon-only tabs still overflow, switch the group to compact mode.
-        if(stateRef && refs && dispatch){
+        // If even icon-only tabs still overflow, switch the group to compact mode
+        // (but not while the user is actively resizing — defer to snap-on-release).
+        if(stateRef && refs && dispatch && !refs.resizingGroup){
             // Re-check after class change settles.
             requestAnimationFrame(function(){
                 if(bar.scrollWidth > bar.clientWidth + 1){
@@ -121,6 +123,8 @@ var _clearDropIndicator = function(){
 };
 
 var _findDropTarget = function(draggedId, dragRect){
+    // Stats panel cannot be merged with other panels.
+    if(draggedId === 'stats'){ return null; }
     var allPanels = document.querySelectorAll('.float-panel, .panel-group');
     for(var i = 0; i < allPanels.length; i++){
         var el = allPanels[i];
@@ -128,6 +132,8 @@ var _findDropTarget = function(draggedId, dragRect){
         var targetGroupId = el.getAttribute('data-group-id');
         if(!targetId && !targetGroupId){ continue; }
         if(targetId === draggedId){ continue; }
+        // Stats panel cannot be a merge target.
+        if(targetId === 'stats'){ continue; }
         var otherRect = el.getBoundingClientRect();
         if(_rectsOverlap(dragRect, otherRect) > 0.3){
             return targetId || targetGroupId;
@@ -309,42 +315,31 @@ var _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
     var startH = rect.height;
     var startX = e.touches ? e.touches[0].clientX : e.clientX;
     var startY = e.touches ? e.touches[0].clientY : e.clientY;
-    // Thresholds with hysteresis to prevent flip-flopping.
-    var compactThreshold = 100;   // shrink below this → go compact
-    var expandThreshold  = 140;   // grow above this → go expanded
-    var didToggle = false;
+    // Snap thresholds (applied on mouse-up, not during drag).
+    var compactSnapThreshold = 100;
+    var curGroup = null;
+    var gs = stateRef.current.panelGroups;
+    for(var gi = 0; gi < gs.length; gi++){
+        if(gs[gi].id === groupId){ curGroup = gs[gi]; break; }
+    }
+    var isCompact = curGroup && !!curGroup.compact;
+    // Suppress _checkTabBarOverflow auto-compact during resize.
+    refs.resizingGroup = true;
     var move = function(ev){
         ev.preventDefault();
-        if(didToggle) return;
         var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
         var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-        var newW = startW + (cx - startX);
         var newH = startH + (cy - startY);
-        // Read current compact state fresh each move event.
-        var curGroup = null;
-        var gs = stateRef.current.panelGroups;
-        for(var gi = 0; gi < gs.length; gi++){
-            if(gs[gi].id === groupId){ curGroup = gs[gi]; break; }
-        }
-        var curCompact = curGroup && !!curGroup.compact;
-        if(!curCompact && newW < compactThreshold){
-            didToggle = true;
-            panel.style.width = '';
-            panel.style.maxHeight = '';
-            LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-        } else if(curCompact && newW > expandThreshold){
-            didToggle = true;
-            panel.style.width = '';
-            panel.style.maxHeight = '';
-            LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-        } else if(curCompact){
-            // Measure the minimum height needed to contain all buttons.
+        if(isCompact){
+            // Compact: vertical resize only.
             var body = panel.querySelector('.compact-group-body') || panel.querySelector('.compact-body');
             var minH = 60;
             if(body){ minH = body.scrollHeight + (panel.offsetHeight - panel.clientHeight) + 40; }
             panel.style.maxHeight = Math.max(minH, newH) + 'px';
         } else {
-            panel.style.width = Math.max(180, newW) + 'px';
+            // Expanded: allow width to track cursor freely during drag.
+            var newW = startW + (cx - startX);
+            panel.style.width = Math.max(60, newW) + 'px';
             panel.style.maxHeight = Math.max(80, newH) + 'px';
         }
     };
@@ -353,10 +348,18 @@ var _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
         document.removeEventListener('mouseup', end);
         document.removeEventListener('touchmove', move);
         document.removeEventListener('touchend', end);
-        // After a toggle, clear stale inline styles so CSS takes over.
-        if(didToggle){
-            panel.style.width = '';
-            panel.style.maxHeight = '';
+        refs.resizingGroup = false;
+        if(!isCompact){
+            // Snap to nearest of three sizes based on final width.
+            var finalW = panel.getBoundingClientRect().width;
+            if(finalW < compactSnapThreshold){
+                // Snap to compact mode.
+                panel.style.width = '';
+                panel.style.maxHeight = '';
+                LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
+            }
+            // Otherwise keep the inline width; the ResizeObserver on the
+            // tab bar naturally switches between text and icon-only tabs.
         }
     };
     document.addEventListener('mousemove', move);
@@ -397,15 +400,14 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
             ];
         case 'mode':
             var defs = [
-                {id:'draw', icon: 'fa-pencil', title: 'Draw mode (D)', onClick: function(){ LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch); }, active: state.drawMode === 'paint'},
+                {id:'draw', icon: 'fa-pencil', title: 'Draw mode (D)', onClick: function(){ LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch); }, active: state.drawMode === 'paint', popOut: function(){ return <DrawToolPopOut state={state} dispatch={dispatch} />; }},
                 {id:'preset', icon: 'fa-puzzle-piece', title: 'Preset patterns (P)', onClick: function(){ LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch); }, active: state.drawMode === 'preset', popOut: function(){ return <PresetContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }},
-                {id:'select', icon: 'fa-mouse-pointer', title: 'Select mode (S)', onClick: function(){ LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch); }, active: state.drawMode === 'select'},
+                {id:'select', icon: 'fa-mouse-pointer', title: 'Select mode (S)', onClick: function(){ LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch); }, active: state.drawMode === 'select', popOut: function(){ return <SelectToolPopOut state={state} dispatch={dispatch} />; }},
                 {id:'live-paint', icon: 'fa-paint-brush', title: 'Live Paint', onClick: function(){ LifeBoardUtils.toggleLivePaint(stateRef, refs, dispatch); }, active: state.livePaintMode},
-                {id:'analyze', icon: 'fa-crosshairs', title: 'Analyze', onClick: function(){ LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch); }},
-                {id:'tools', icon: 'fa-wrench', title: 'Tool options', popOut: function(){ return <ToolsContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
+                {id:'analyze', icon: 'fa-crosshairs', title: 'Analyze', onClick: function(){ LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch); }}
             ];
             if(state.boundary !== 'unbounded'){
-                defs.splice(3, 0, {id:'region', icon: 'fa-th', title: 'Region bounds (B)', onClick: function(){ LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch); }, active: state.drawMode === 'region'});
+                defs.splice(3, 0, {id:'region', icon: 'fa-th', title: 'Region bounds (B)', onClick: function(){ LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch); }, active: state.drawMode === 'region', popOut: function(){ return <RegionToolPopOut state={state} dispatch={dispatch} />; }});
             }
             return defs;
         case 'rules':
@@ -413,9 +415,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
                 {id:'rules', icon: 'fa-cogs', title: 'Rules', popOut: function(){ return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
             ];
         case 'stats':
-            return [
-                {id:'stats', icon: 'fa-bar-chart', title: 'Statistics', popOut: function(){ return <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />; }}
-            ];
+            return [];
         case 'importExport':
             return [
                 {id:'io', icon: 'fa-exchange', title: 'Share', popOut: function(){ return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}

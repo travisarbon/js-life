@@ -1362,19 +1362,29 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  })), /*#__PURE__*/React.createElement(FloatPanel, {
-    panelId: "stats",
-    label: "Stats",
-    state: state,
-    stateRef: stateRef,
-    refs: refs,
-    dispatch: dispatch
+  })), panels.stats && panels.stats.open && /*#__PURE__*/React.createElement("div", {
+    className: "stats-window",
+    role: "region",
+    "aria-label": "Statistics"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stats-window-header"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "stats-window-title"
+  }, "Stats"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn float-panel-close",
+    onClick: function () {
+      ObservatoryPanelUtils.togglePanelOpen('stats', state, stateRef, refs, dispatch);
+    },
+    "aria-label": "Close Stats"
+  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+    className: "stats-window-body"
   }, /*#__PURE__*/React.createElement(StatsPanel, {
     state: state,
     refs: refs,
     stateRef: stateRef,
     dispatch: dispatch
-  })), /*#__PURE__*/React.createElement(FloatPanel, {
+  }))), /*#__PURE__*/React.createElement(FloatPanel, {
     panelId: "importExport",
     label: "Share",
     state: state,
@@ -1443,12 +1453,34 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
       },
       "aria-label": "Show " + label + " panel"
     }), /*#__PURE__*/React.createElement("span", null, label));
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn panel-menu-toggle",
+    onClick: function () {
+      LifeViewUtils.toggleZenMode(stateRef, refs, dispatch);
+    },
+    title: "Zen mode \u2014 hide all panels (Z)",
+    "aria-label": "Toggle zen mode"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-eye-slash",
+    "aria-hidden": "true"
   })), /*#__PURE__*/React.createElement(LayoutSwitcher, {
     state: state,
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }))), /*#__PURE__*/React.createElement(MobileMinimapArea, {
+  }))), zenMode && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn zen-exit-btn",
+    onClick: function () {
+      LifeViewUtils.toggleZenMode(stateRef, refs, dispatch);
+    },
+    title: "Exit zen mode (Z or Escape)",
+    "aria-label": "Exit zen mode"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-eye",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement(MobileMinimapArea, {
     state: state,
     stateRef: stateRef,
     refs: refs,
@@ -1514,6 +1546,7 @@ var ObservatoryMobile = function ObservatoryMobile(props) {
 /* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
           ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
+          DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
           RulesSection, ExportContent, StatsPanel,
           toggleTrails */
 /**
@@ -1634,8 +1667,9 @@ var _checkTabBarOverflow = function (bar, stateRef, refs, dispatch) {
   bar.classList.remove('panel-tab-bar-icons');
   if (bar.scrollWidth > bar.clientWidth + 1) {
     bar.classList.add('panel-tab-bar-icons');
-    // If even icon-only tabs still overflow, switch the group to compact mode.
-    if (stateRef && refs && dispatch) {
+    // If even icon-only tabs still overflow, switch the group to compact mode
+    // (but not while the user is actively resizing — defer to snap-on-release).
+    if (stateRef && refs && dispatch && !refs.resizingGroup) {
       // Re-check after class change settles.
       requestAnimationFrame(function () {
         if (bar.scrollWidth > bar.clientWidth + 1) {
@@ -1736,6 +1770,10 @@ var _clearDropIndicator = function () {
   }
 };
 var _findDropTarget = function (draggedId, dragRect) {
+  // Stats panel cannot be merged with other panels.
+  if (draggedId === 'stats') {
+    return null;
+  }
   var allPanels = document.querySelectorAll('.float-panel, .panel-group');
   for (var i = 0; i < allPanels.length; i++) {
     var el = allPanels[i];
@@ -1745,6 +1783,10 @@ var _findDropTarget = function (draggedId, dragRect) {
       continue;
     }
     if (targetId === draggedId) {
+      continue;
+    }
+    // Stats panel cannot be a merge target.
+    if (targetId === 'stats') {
       continue;
     }
     var otherRect = el.getBoundingClientRect();
@@ -1948,39 +1990,26 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
   var startH = rect.height;
   var startX = e.touches ? e.touches[0].clientX : e.clientX;
   var startY = e.touches ? e.touches[0].clientY : e.clientY;
-  // Thresholds with hysteresis to prevent flip-flopping.
-  var compactThreshold = 100; // shrink below this → go compact
-  var expandThreshold = 140; // grow above this → go expanded
-  var didToggle = false;
+  // Snap thresholds (applied on mouse-up, not during drag).
+  var compactSnapThreshold = 100;
+  var curGroup = null;
+  var gs = stateRef.current.panelGroups;
+  for (var gi = 0; gi < gs.length; gi++) {
+    if (gs[gi].id === groupId) {
+      curGroup = gs[gi];
+      break;
+    }
+  }
+  var isCompact = curGroup && !!curGroup.compact;
+  // Suppress _checkTabBarOverflow auto-compact during resize.
+  refs.resizingGroup = true;
   var move = function (ev) {
     ev.preventDefault();
-    if (didToggle) return;
     var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
     var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-    var newW = startW + (cx - startX);
     var newH = startH + (cy - startY);
-    // Read current compact state fresh each move event.
-    var curGroup = null;
-    var gs = stateRef.current.panelGroups;
-    for (var gi = 0; gi < gs.length; gi++) {
-      if (gs[gi].id === groupId) {
-        curGroup = gs[gi];
-        break;
-      }
-    }
-    var curCompact = curGroup && !!curGroup.compact;
-    if (!curCompact && newW < compactThreshold) {
-      didToggle = true;
-      panel.style.width = '';
-      panel.style.maxHeight = '';
-      LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-    } else if (curCompact && newW > expandThreshold) {
-      didToggle = true;
-      panel.style.width = '';
-      panel.style.maxHeight = '';
-      LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-    } else if (curCompact) {
-      // Measure the minimum height needed to contain all buttons.
+    if (isCompact) {
+      // Compact: vertical resize only.
       var body = panel.querySelector('.compact-group-body') || panel.querySelector('.compact-body');
       var minH = 60;
       if (body) {
@@ -1988,7 +2017,9 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
       }
       panel.style.maxHeight = Math.max(minH, newH) + 'px';
     } else {
-      panel.style.width = Math.max(180, newW) + 'px';
+      // Expanded: allow width to track cursor freely during drag.
+      var newW = startW + (cx - startX);
+      panel.style.width = Math.max(60, newW) + 'px';
       panel.style.maxHeight = Math.max(80, newH) + 'px';
     }
   };
@@ -1997,10 +2028,18 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
     document.removeEventListener('mouseup', end);
     document.removeEventListener('touchmove', move);
     document.removeEventListener('touchend', end);
-    // After a toggle, clear stale inline styles so CSS takes over.
-    if (didToggle) {
-      panel.style.width = '';
-      panel.style.maxHeight = '';
+    refs.resizingGroup = false;
+    if (!isCompact) {
+      // Snap to nearest of three sizes based on final width.
+      var finalW = panel.getBoundingClientRect().width;
+      if (finalW < compactSnapThreshold) {
+        // Snap to compact mode.
+        panel.style.width = '';
+        panel.style.maxHeight = '';
+        LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
+      }
+      // Otherwise keep the inline width; the ResizeObserver on the
+      // tab bar naturally switches between text and icon-only tabs.
     }
   };
   document.addEventListener('mousemove', move);
@@ -2173,7 +2212,13 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         onClick: function () {
           LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch);
         },
-        active: state.drawMode === 'paint'
+        active: state.drawMode === 'paint',
+        popOut: function () {
+          return /*#__PURE__*/React.createElement(DrawToolPopOut, {
+            state: state,
+            dispatch: dispatch
+          });
+        }
       }, {
         id: 'preset',
         icon: 'fa-puzzle-piece',
@@ -2197,7 +2242,13 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         onClick: function () {
           LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch);
         },
-        active: state.drawMode === 'select'
+        active: state.drawMode === 'select',
+        popOut: function () {
+          return /*#__PURE__*/React.createElement(SelectToolPopOut, {
+            state: state,
+            dispatch: dispatch
+          });
+        }
       }, {
         id: 'live-paint',
         icon: 'fa-paint-brush',
@@ -2213,18 +2264,6 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         onClick: function () {
           LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch);
         }
-      }, {
-        id: 'tools',
-        icon: 'fa-wrench',
-        title: 'Tool options',
-        popOut: function () {
-          return /*#__PURE__*/React.createElement(ToolsContent, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          });
-        }
       }];
       if (state.boundary !== 'unbounded') {
         defs.splice(3, 0, {
@@ -2234,7 +2273,13 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
           onClick: function () {
             LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch);
           },
-          active: state.drawMode === 'region'
+          active: state.drawMode === 'region',
+          popOut: function () {
+            return /*#__PURE__*/React.createElement(RegionToolPopOut, {
+              state: state,
+              dispatch: dispatch
+            });
+          }
         });
       }
       return defs;
@@ -2253,19 +2298,7 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         }
       }];
     case 'stats':
-      return [{
-        id: 'stats',
-        icon: 'fa-bar-chart',
-        title: 'Statistics',
-        popOut: function () {
-          return /*#__PURE__*/React.createElement(StatsPanel, {
-            state: state,
-            refs: refs,
-            stateRef: stateRef,
-            dispatch: dispatch
-          });
-        }
-      }];
+      return [];
     case 'importExport':
       return [{
         id: 'io',
@@ -3911,6 +3944,117 @@ var PresetContent = function PresetContent(props) {
     "aria-hidden": "true"
   })))));
 };
+
+/**
+ * DrawToolPopOut — draw tool sub-type selector for compact mode pop-out.
+ */
+var DrawToolPopOut = function DrawToolPopOut(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tools-content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Draw:"), /*#__PURE__*/React.createElement("select", {
+    value: state.drawTool,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          drawTool: e.target.value,
+          drawMode: 'paint',
+          selection: null
+        }
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "cell"
+  }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
+    value: "line"
+  }, "Line"), /*#__PURE__*/React.createElement("option", {
+    value: "fill"
+  }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-rect"
+  }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-circle"
+  }, "Circle"))));
+};
+
+/**
+ * SelectToolPopOut — select tool sub-type selector for compact mode pop-out.
+ */
+var SelectToolPopOut = function SelectToolPopOut(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tools-content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Select:"), /*#__PURE__*/React.createElement("select", {
+    value: state.selectTool,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          selectTool: e.target.value,
+          drawMode: 'select',
+          selection: null
+        }
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "rect"
+  }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+    value: "ellipse"
+  }, "Ellipse"), /*#__PURE__*/React.createElement("option", {
+    value: "freeform"
+  }, "Freeform"), /*#__PURE__*/React.createElement("option", {
+    value: "all-visible"
+  }, "All visible"))));
+};
+
+/**
+ * RegionToolPopOut — region tool sub-type selector for compact mode pop-out.
+ */
+var RegionToolPopOut = function RegionToolPopOut(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tools-content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Region:"), /*#__PURE__*/React.createElement("select", {
+    value: state.regionTool,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          regionTool: e.target.value,
+          drawMode: 'region'
+        }
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "cell"
+  }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
+    value: "line"
+  }, "Line"), /*#__PURE__*/React.createElement("option", {
+    value: "fill"
+  }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-rect"
+  }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-circle"
+  }, "Circle"))));
+};
 var MobileContextPanel = function MobileContextPanel(props) {
   // eslint-disable-line no-unused-vars
   var state = props.state,
@@ -4383,7 +4527,7 @@ function initState() {
     rleError: '',
     patternFilter: '',
     hoverCell: null,
-    theme: 'Teal',
+    theme: 'Midnight',
     drawMode: 'paint',
     selectTool: 'rect',
     drawTool: 'cell',
@@ -4396,9 +4540,9 @@ function initState() {
     showTrails: true,
     darkModePref: function () {
       try {
-        return localStorage.getItem('life-dark-mode-pref') || 'system';
+        return localStorage.getItem('life-dark-mode-pref') || 'dark';
       } catch (e) {
-        return 'system';
+        return 'dark';
       }
     }(),
     stepCount: 1,
@@ -4645,7 +4789,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (refs.darkModeQuery) {
         refs.onDarkModeChange = function (e) {
           if (stateRef.current.darkModePref === 'system') {
-            LifeBoardUtils._applyDarkMode(e.matches);
+            LifeBoardUtils._applyDarkMode(stateRef, refs, dispatch, e.matches);
           }
         };
         try {
@@ -4656,8 +4800,10 @@ document.addEventListener('DOMContentLoaded', function () {
           } catch (ex2) {}
         }
         // Apply initial dark mode state.
-        if (stateRef.current.darkModePref === 'system') {
-          LifeBoardUtils._applyDarkMode(refs.darkModeQuery.matches);
+        if (stateRef.current.darkModePref === 'dark') {
+          LifeBoardUtils._applyDarkMode(stateRef, refs, dispatch, true);
+        } else if (stateRef.current.darkModePref === 'system') {
+          LifeBoardUtils._applyDarkMode(stateRef, refs, dispatch, refs.darkModeQuery.matches);
         }
       }
       // Respond to viewport resize (throttled) to update canvas dimensions.
