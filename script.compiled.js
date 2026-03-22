@@ -3530,202 +3530,19 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Shared mobile sub-components (R10) ─────────────────────────────
     // Extracted from 3 duplicated mobile render methods.
 
-    var _MOBILE_TABS = [{
-      id: 'simulate',
-      icon: 'fa-play',
-      label: 'Simulate'
-    }, {
-      id: 'board',
-      icon: 'fa-th-large',
-      label: 'Board'
-    }, {
-      id: 'view',
-      icon: 'fa-eye',
-      label: 'View'
-    }, {
-      id: 'tools',
-      icon: 'fa-pencil',
-      label: 'Tools'
-    }, {
-      id: 'rules',
-      icon: 'fa-cogs',
-      label: 'Rules'
-    }, {
-      id: 'export',
-      icon: 'fa-exchange',
-      label: 'Share'
-    }];
-    function _buildSheetContent() {
-      if (!state.bottomSheetOpen) {
-        return null;
-      }
-      return _buildTabContent(state.bottomSheetTab, {
-        sectionTitle: true,
-        sparkline: true
-      }, state, stateRef, refs, dispatch);
-    }
+    // _MOBILE_TABS — extracted to components/layout-shell.js as _MOBILE_TABS
 
-    // Shared tab content builder used by mobile sheet, desktop rail, and context tray.
-    function _buildTabContent(tabId, options) {
-      options = options || {};
-      switch (tabId) {
-        case 'simulate':
-          return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
-            className: "sidebar-section-title"
-          }, "Simulate"), /*#__PURE__*/React.createElement(TransportControls, {
-            compact: false,
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          }), /*#__PURE__*/React.createElement(SpeedSlider, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          }), options.sparkline && /*#__PURE__*/React.createElement(MobileSparkline, {
-            state: state,
-            refs: refs,
-            stateRef: stateRef,
-            dispatch: dispatch
-          }));
-        case 'board':
-          return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
-            className: "sidebar-section-title"
-          }, "Board"), /*#__PURE__*/React.createElement(BoardSliders, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          }), /*#__PURE__*/React.createElement(BoundaryControls, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          }));
-        case 'view':
-          return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
-            className: "sidebar-section-title"
-          }, "View"), /*#__PURE__*/React.createElement(ViewControls, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch,
-            onToggleTrails: toggleTrails
-          }), /*#__PURE__*/React.createElement(ZoomSlider, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          }), /*#__PURE__*/React.createElement(DisplaySettings, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          }));
-        case 'tools':
-          return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
-            className: "sidebar-section-title"
-          }, "Tools"), /*#__PURE__*/React.createElement(ModeControls, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          }), /*#__PURE__*/React.createElement(ToolsContent, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          }));
-        case 'rules':
-          return /*#__PURE__*/React.createElement(RulesSection, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          });
-        case 'export':
-          return /*#__PURE__*/React.createElement(ExportContent, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          });
-        default:
-          return null;
-      }
-    }
+    // _buildSheetContent — extracted to components/layout-shell.js (inlined in CartographerMobile/ObservatoryMobile)
+
+    // _buildTabContent — extracted to components/layout-shell.js as TabContentBuilder
+
     function _renderStatsChip() {
       // Extracted to components/stats-panel.js as StatsChip
     }
 
     // _renderMobileTransportBar — extracted to components/transport-controls.js as MobileTransportBar
 
-    function _renderBottomSheet(sheetContent) {
-      var tabs = refs.MOBILE_TABS;
-      var layoutSwitcher = renderLayoutSwitcher(state, stateRef, refs, dispatch);
-      return /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-container",
-        onKeyDown: function (e) {
-          LifeViewUtils._onSheetKeyDown(stateRef, refs, dispatch, e);
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-backdrop",
-        onClick: function () {
-          LifeViewUtils.toggleBottomSheet(stateRef, refs, dispatch);
-        },
-        role: "presentation",
-        "aria-hidden": "true"
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet" + (state.bottomSheetClosing ? " sheet-closing" : ""),
-        role: "dialog",
-        "aria-modal": "true",
-        "aria-label": "Controls panel",
-        onTouchStart: function (e) {
-          LifeViewUtils._onSheetTouchStart(stateRef, refs, e);
-        },
-        onTouchMove: function (e) {
-          LifeViewUtils._onSheetTouchMove(stateRef, refs, e);
-        },
-        onTouchEnd: function (e) {
-          LifeViewUtils._onSheetTouchEnd(stateRef, refs, dispatch, e);
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-handle"
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-tabs",
-        role: "tablist",
-        "aria-label": "Control categories"
-      }, tabs.map(function (tab) {
-        var isActive = state.bottomSheetTab === tab.id;
-        return /*#__PURE__*/React.createElement("button", {
-          key: tab.id,
-          className: "rail-tab" + (isActive ? " active" : ""),
-          onClick: function () {
-            LifeViewUtils.setBottomSheetTab(stateRef, refs, dispatch, tab.id);
-          },
-          role: "tab",
-          "aria-selected": isActive,
-          "aria-label": tab.label,
-          "aria-controls": "sheet-panel-" + tab.id
-        }, /*#__PURE__*/React.createElement("i", {
-          className: "fa " + tab.icon,
-          "aria-hidden": "true"
-        }), /*#__PURE__*/React.createElement("span", {
-          className: "rail-tab-label"
-        }, tab.label));
-      })), /*#__PURE__*/React.createElement("div", {
-        className: "bottom-sheet-content",
-        id: "sheet-panel-" + state.bottomSheetTab,
-        role: "tabpanel",
-        "aria-label": state.bottomSheetTab + " controls"
-      }, sheetContent, layoutSwitcher && /*#__PURE__*/React.createElement("div", {
-        style: {
-          padding: '8px 12px 0',
-          borderTop: '1px solid var(--panel-border)'
-        }
-      }, layoutSwitcher))));
-    }
+    // _renderBottomSheet — extracted to components/layout-shell.js as BottomSheet
 
     // renderMobileContextPanel — extracted to components/tools-panel.js as MobileContextPanel
 
@@ -3960,37 +3777,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // renderExportContent — extracted to components/rules-export.js as ExportContent
 
-    function renderLayoutSwitcher() {
-      var dc = state.deviceClass;
-      var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
-      if (isMobile) {
-        return null;
-      }
-      var mode = state.layoutMode;
-      return /*#__PURE__*/React.createElement("div", {
-        className: "layout-switcher"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (mode === 'cartographer' ? " active" : ""),
-        onClick: function () {
-          LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'cartographer');
-        },
-        title: "Cartographer: Edge rail with tabs",
-        "aria-label": "Cartographer layout: edge rail with tabs"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-columns"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (mode === 'observatory' ? " active" : ""),
-        onClick: function () {
-          LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'observatory');
-        },
-        title: "Observatory: Floating panels",
-        "aria-label": "Observatory layout: floating panels"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-th-large"
-      })));
-    }
+    // renderLayoutSwitcher — extracted to components/layout-shell.js as LayoutSwitcher
 
     // ── Cartographer layout ─────────────────────────────────────────
 
@@ -3998,14 +3785,20 @@ document.addEventListener('DOMContentLoaded', function () {
       var dc = state.deviceClass;
       var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
       if (isMobile) {
-        return renderCartographerMobile(cs, state, stateRef, refs, dispatch);
+        return /*#__PURE__*/React.createElement(CartographerMobile, {
+          cs: cs,
+          state: state,
+          stateRef: stateRef,
+          refs: refs,
+          dispatch: dispatch
+        });
       }
       var railW = state.railHidden ? 0 : state.railCollapsed ? 40 : dc === 'tablet' ? 200 : 240;
       var railSide = state.railSide;
       var railClass = 'rail' + (state.railCollapsed ? ' rail-collapsed' : '') + (state.railHidden ? ' rail-hidden' : '') + (' rail-' + railSide);
       var tabContent = /*#__PURE__*/React.createElement("div", {
         className: "rail-tab-content"
-      }, _buildTabContent(state.railTab, {
+      }, TabContentBuilder._buildTabContent(state.railTab, {
         sectionTitle: true
       }, state, stateRef, refs, dispatch));
       var tabs = refs.MOBILE_TABS;
@@ -4112,7 +3905,12 @@ document.addEventListener('DOMContentLoaded', function () {
           borderTop: '1px solid var(--panel-border)',
           flexShrink: 0
         }
-      }, renderLayoutSwitcher(state, stateRef, refs, dispatch))), /*#__PURE__*/React.createElement("div", {
+      }, /*#__PURE__*/React.createElement(LayoutSwitcher, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }))), /*#__PURE__*/React.createElement("div", {
         className: "transport-strip",
         role: "toolbar",
         "aria-label": "Simulation transport"
@@ -4135,7 +3933,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }));
     }
     function renderCartographerMobile(cs) {
-      var sheetContent = _buildSheetContent(state, stateRef, refs, dispatch);
+      var sheetContent = TabContentBuilder._buildSheetContent(state, stateRef, refs, dispatch);
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-cartographer layout-mobile"
       }, /*#__PURE__*/React.createElement(CanvasArea, {
@@ -4164,7 +3962,13 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }), state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch));
+      }), state.bottomSheetOpen && /*#__PURE__*/React.createElement(BottomSheet, {
+        sheetContent: sheetContent,
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }));
     }
 
     // ── Observatory layout ───────────────────────────────────────────
@@ -4173,7 +3977,13 @@ document.addEventListener('DOMContentLoaded', function () {
       var dc = state.deviceClass;
       var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
       if (isMobile) {
-        return renderObservatoryMobile(cs, state, stateRef, refs, dispatch);
+        return /*#__PURE__*/React.createElement(ObservatoryMobile, {
+          cs: cs,
+          state: state,
+          stateRef: stateRef,
+          refs: refs,
+          dispatch: dispatch
+        });
       }
       var panels = state.panelStates;
       var zenMode = state.zenMode;
@@ -4301,7 +4111,12 @@ document.addEventListener('DOMContentLoaded', function () {
           },
           "aria-label": "Show " + label + " panel"
         }), /*#__PURE__*/React.createElement("span", null, label));
-      })), renderLayoutSwitcher(state, stateRef, refs, dispatch))), /*#__PURE__*/React.createElement(MobileMinimapArea, {
+      })), /*#__PURE__*/React.createElement(LayoutSwitcher, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }))), /*#__PURE__*/React.createElement(MobileMinimapArea, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -4309,7 +4124,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }));
     }
     function renderObservatoryMobile(cs) {
-      var sheetContent = _buildSheetContent(state, stateRef, refs, dispatch);
+      var sheetContent = TabContentBuilder._buildSheetContent(state, stateRef, refs, dispatch);
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-observatory layout-mobile"
       }, /*#__PURE__*/React.createElement(CanvasArea, {
@@ -4338,7 +4153,13 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }), state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch));
+      }), state.bottomSheetOpen && /*#__PURE__*/React.createElement(BottomSheet, {
+        sheetContent: sheetContent,
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }));
     }
 
     // ── Float panel helper (Observatory) ─────────────────────────────
@@ -5414,10 +5235,22 @@ document.addEventListener('DOMContentLoaded', function () {
     var layoutContent;
     switch (layout) {
       case 'observatory':
-        layoutContent = renderObservatory(cs, state, stateRef, refs, dispatch);
+        layoutContent = /*#__PURE__*/React.createElement(ObservatoryLayout, {
+          cs: cs,
+          state: state,
+          stateRef: stateRef,
+          refs: refs,
+          dispatch: dispatch
+        });
         break;
       default:
-        layoutContent = renderCartographer(cs, state, stateRef, refs, dispatch);
+        layoutContent = /*#__PURE__*/React.createElement(CartographerLayout, {
+          cs: cs,
+          state: state,
+          stateRef: stateRef,
+          refs: refs,
+          dispatch: dispatch
+        });
     }
     return /*#__PURE__*/React.createElement("div", {
       className: "app-root layout-" + layout,

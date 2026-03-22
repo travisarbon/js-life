@@ -471,51 +471,7 @@ function LifeBoard() {
 
     // _renderMobileTransportBar — extracted to components/transport-controls.js as MobileTransportBar
 
-    function _renderBottomSheet(sheetContent){
-                
-                var tabs = refs.MOBILE_TABS;
-                var layoutSwitcher = renderLayoutSwitcher(state, stateRef, refs, dispatch);
-                return (
-                    <div className="bottom-sheet-container"
-                        onKeyDown={function(e){ LifeViewUtils._onSheetKeyDown(stateRef, refs, dispatch, e); }}>
-                        <div className="bottom-sheet-backdrop" onClick={function(){ LifeViewUtils.toggleBottomSheet(stateRef, refs, dispatch); }}
-                            role="presentation" aria-hidden="true"></div>
-                        <div className={"bottom-sheet" + (state.bottomSheetClosing ? " sheet-closing" : "")} role="dialog" aria-modal="true"
-                            aria-label="Controls panel"
-                            onTouchStart={function(e){ LifeViewUtils._onSheetTouchStart(stateRef, refs, e); }}
-                            onTouchMove={function(e){ LifeViewUtils._onSheetTouchMove(stateRef, refs, e); }}
-                            onTouchEnd={function(e){ LifeViewUtils._onSheetTouchEnd(stateRef, refs, dispatch, e); }}>
-                            <div className="bottom-sheet-handle"></div>
-                            <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
-                                {tabs.map(function(tab){
-                                    var isActive = state.bottomSheetTab === tab.id;
-                                    return (
-                                        <button key={tab.id}
-                                            className={"rail-tab" + (isActive ? " active" : "")}
-                                            onClick={function(){ LifeViewUtils.setBottomSheetTab(stateRef, refs, dispatch, tab.id); }}
-                                            role="tab" aria-selected={isActive} aria-label={tab.label}
-                                            aria-controls={"sheet-panel-" + tab.id}>
-                                            <i className={"fa " + tab.icon} aria-hidden="true"></i>
-                                            <span className="rail-tab-label">{tab.label}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <div className="bottom-sheet-content"
-                                id={"sheet-panel-" + state.bottomSheetTab}
-                                role="tabpanel"
-                                aria-label={state.bottomSheetTab + " controls"}>
-                                {sheetContent}
-                                {layoutSwitcher &&
-                                    <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
-                                        {layoutSwitcher}
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                );
-    }
+    // _renderBottomSheet — extracted to components/layout-shell.js as BottomSheet
 
     // renderMobileContextPanel — extracted to components/tools-panel.js as MobileContextPanel
 
@@ -624,29 +580,7 @@ function LifeBoard() {
 
     // renderExportContent — extracted to components/rules-export.js as ExportContent
 
-    function renderLayoutSwitcher(){
-                var dc = state.deviceClass;
-                var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
-                if(isMobile){ return null; }
-                
-                var mode = state.layoutMode;
-                return (
-                    <div className="layout-switcher">
-                        <button type="button" className={"btn btn-toggle" + (mode === 'cartographer' ? " active" : "")}
-                            onClick={function(){ LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'cartographer'); }}
-                            title="Cartographer: Edge rail with tabs"
-                            aria-label="Cartographer layout: edge rail with tabs">
-                            <i className="fa fa-columns"></i>
-                        </button>
-                        <button type="button" className={"btn btn-toggle" + (mode === 'observatory' ? " active" : "")}
-                            onClick={function(){ LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'observatory'); }}
-                            title="Observatory: Floating panels"
-                            aria-label="Observatory layout: floating panels">
-                            <i className="fa fa-th-large"></i>
-                        </button>
-                    </div>
-                );
-    }
+    // renderLayoutSwitcher — extracted to components/layout-shell.js as LayoutSwitcher
 
             // ── Cartographer layout ─────────────────────────────────────────
 
@@ -656,7 +590,7 @@ function LifeBoard() {
                 var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
 
                 if(isMobile){
-                    return renderCartographerMobile(cs, state, stateRef, refs, dispatch);
+                    return <CartographerMobile cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
                 }
 
                 var railW = state.railHidden ? 0 : (state.railCollapsed ? 40 : (dc === 'tablet' ? 200 : 240));
@@ -668,7 +602,7 @@ function LifeBoard() {
 
                 var tabContent = (
                     <div className="rail-tab-content">
-                        {_buildTabContent(state.railTab, {sectionTitle: true}, state, stateRef, refs, dispatch)}
+                        {TabContentBuilder._buildTabContent(state.railTab, {sectionTitle: true}, state, stateRef, refs, dispatch)}
                     </div>
                 );
 
@@ -725,7 +659,7 @@ function LifeBoard() {
                             }
                             {!state.railCollapsed &&
                                 <div style={{padding:'8px 12px', borderTop:'1px solid var(--panel-border)', flexShrink:0}}>
-                                    {renderLayoutSwitcher(state, stateRef, refs, dispatch)}
+                                    {<LayoutSwitcher state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                                 </div>
                             }
                         </div>
@@ -745,7 +679,7 @@ function LifeBoard() {
     }
 
     function renderCartographerMobile(cs){
-                var sheetContent = _buildSheetContent(state, stateRef, refs, dispatch);
+                var sheetContent = TabContentBuilder._buildSheetContent(state, stateRef, refs, dispatch);
                 return (
                     <div className="layout-cartographer layout-mobile">
                         {<CanvasArea cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
@@ -753,7 +687,7 @@ function LifeBoard() {
                         {!state.bottomSheetOpen && <MobileContextPanel state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                         {!state.bottomSheetOpen && <MobileMinimapArea state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                         {<MobileTransportBar state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                        {state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch)}
+                        {state.bottomSheetOpen && <BottomSheet sheetContent={sheetContent} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                     </div>
                 );
     }
@@ -766,7 +700,7 @@ function LifeBoard() {
                 var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
 
                 if(isMobile){
-                    return renderObservatoryMobile(cs, state, stateRef, refs, dispatch);
+                    return <ObservatoryMobile cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
                 }
 
                 var panels = state.panelStates;
@@ -811,7 +745,7 @@ function LifeBoard() {
                                             })}
                                         </div>
                                     }
-                                    {renderLayoutSwitcher(state, stateRef, refs, dispatch)}
+                                    {<LayoutSwitcher state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                                 </div>
                             </div>
                         }
@@ -822,7 +756,7 @@ function LifeBoard() {
     }
 
     function renderObservatoryMobile(cs){
-                var sheetContent = _buildSheetContent(state, stateRef, refs, dispatch);
+                var sheetContent = TabContentBuilder._buildSheetContent(state, stateRef, refs, dispatch);
                 return (
                     <div className="layout-observatory layout-mobile">
                         {<CanvasArea cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
@@ -830,7 +764,7 @@ function LifeBoard() {
                         {!state.bottomSheetOpen && !refs.statsChipHidden && <StatsChip state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                         {!state.bottomSheetOpen && <MobileContextPanel state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                         {!state.bottomSheetOpen && <MobileMinimapArea state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                        {state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch)}
+                        {state.bottomSheetOpen && <BottomSheet sheetContent={sheetContent} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                     </div>
                 );
     }
@@ -1454,10 +1388,10 @@ function LifeBoard() {
 
     switch(layout){
         case 'observatory':
-            layoutContent = renderObservatory(cs, state, stateRef, refs, dispatch);
+            layoutContent = <ObservatoryLayout cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
             break;
         default:
-            layoutContent = renderCartographer(cs, state, stateRef, refs, dispatch);
+            layoutContent = <CartographerLayout cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
     }
 
     return (
