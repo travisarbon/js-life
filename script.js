@@ -55,7 +55,7 @@ function initState(){
                             }
                             // Validate panelStates: must be an object with known panel keys.
                             if(parsed.panelStates && typeof parsed.panelStates === 'object'){
-                                var validPanels = ['transport','view','mode','tools','board','rules','stats','importExport'];
+                                var validPanels = ['transport','view','mode','board','rules','stats','importExport'];
                                 var ps = {};
                                 var allValid = true;
                                 var maxZ = 0;
@@ -167,7 +167,6 @@ function initState(){
                         transport: { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         view:      { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         mode:      { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
-                        tools:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         board:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         rules:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         stats:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
@@ -175,7 +174,7 @@ function initState(){
                     },
                     panelZCounter :    savedLayout.panelZCounter || 1,
                     panelGroups :      savedLayout.panelGroups || [{
-                        id: 'g-default', panels: ['transport','view','mode','tools','board','rules','stats','importExport'],
+                        id: 'g-default', panels: ['transport','view','mode','board','rules','stats','importExport'],
                         activeTab: 'transport', x: 10, y: 50, z: 1, compact: true, compactTabMode: 'sidebar'
                     }],
                     activePopOut :     null,

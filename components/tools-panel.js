@@ -131,6 +131,72 @@ var ToolsContent = function ToolsContent(props) { // eslint-disable-line no-unus
                 );
 };
 
+/**
+ * PresetContent — preset selector for use in compact mode pop-out.
+ * Renders only the preset dropdown, filter, and rotation preview.
+ */
+var PresetContent = function PresetContent(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    var filterLc = state.patternFilter.toLowerCase();
+    var patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
+        var names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
+            return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
+        });
+        if(names.length === 0){ return null; }
+        var opts = names.map(function(name){
+            var meta = PATTERN_META[name];
+            var title = '';
+            if(meta){
+                if(meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';
+                else if(meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+                else if(meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');
+                else if(meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';
+                else if(meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+            }
+            return <option key={name} value={name} title={title}>{name}</option>;
+        });
+        return <optgroup key={group} label={group}>{opts}</optgroup>;
+    }).filter(function(x){ return x !== null; });
+    if(PATTERNS['Custom']){
+        patternOptions = patternOptions.concat(
+            <optgroup key="custom" label="Custom"><option value="Custom">Custom</option></optgroup>
+        );
+    }
+    return (
+        <div className="tools-content">
+            <select className={"preset-select" + (state.drawMode === 'preset' && state.selectedPattern ? " active" : "")}
+                value={state.selectedPattern || ""}
+                onChange={function(e){ LifeBoardUtils.selectPattern(stateRef, refs, dispatch, e); }}>
+                <option value="">Choose preset...</option>
+                {patternOptions}
+            </select>
+            <input className="pattern-filter-input"
+                type="search" placeholder="Filter patterns..."
+                aria-label="Filter patterns"
+                value={state.patternFilter}
+                onChange={function(e){ dispatch({type:"MERGE", payload:{patternFilter: e.target.value}}); }} />
+            {state.drawMode === 'preset' && state.selectedPattern &&
+                <div className="rotation-row">
+                    <canvas className="rotation-preview" width="96" height="96"
+                        role="img" aria-label="Pattern rotation preview"
+                        ref={function(c){ refs.previewCanvas = c; if(c) requestAnimationFrame(function(){ drawRotationPreview(stateRef, refs); }); }} />
+                    <div className="rotation-btns">
+                        <button type="button" className="btn btn-rotate" onClick={function(){ LifeBoardUtils.rotateCCW(stateRef, refs, dispatch); }} title="Rotate 90\xB0 counter-clockwise"><i className="fa fa-undo" aria-hidden="true"></i></button>
+                        <button type="button" className="btn btn-rotate" onClick={function(){ LifeBoardUtils.rotateCW(stateRef, refs, dispatch); }} title="Rotate 90\xB0 clockwise"><i className="fa fa-repeat" aria-hidden="true"></i></button>
+                        <button type="button" className="btn" onClick={function(){
+                            refs.previewPos = null;
+                            dispatch({type:"MERGE", payload:{selectedPattern: null, patternRotation: 0, drawMode: "paint"}});
+                            setTimeout(function(){ drawBoard(stateRef, refs); }, 0);
+                        }} aria-label="Cancel pattern placement" title="Cancel placement">
+                            <i className="fa fa-times" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    );
+};
+
 var MobileContextPanel = function MobileContextPanel(props) { // eslint-disable-line no-unused-vars
     var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 

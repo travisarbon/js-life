@@ -1,6 +1,6 @@
 /* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
-          ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent,
+          ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
           RulesSection, ExportContent, StatsPanel,
           toggleTrails */
 /**
@@ -12,13 +12,13 @@
 // ── Helper functions ─────────────────────────────────────────────────
 
 var _getPanelLabel = function(panelId){
-    var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', tools:'Tools', rules:'Rules', stats:'Stats', importExport:'Share'};
+    var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', rules:'Rules', stats:'Stats', importExport:'Share'};
     return PANEL_LABELS[panelId] || panelId;
 };
 
 var _getPanelIcon = function(panelId){
     var PANEL_ICONS = {transport:'fa-play', board:'fa-th-large', view:'fa-eye',
-        mode:'fa-pencil', tools:'fa-wrench', rules:'fa-cogs', stats:'fa-bar-chart',
+        mode:'fa-pencil', rules:'fa-cogs', stats:'fa-bar-chart',
         importExport:'fa-exchange'};
     return PANEL_ICONS[panelId] || 'fa-circle-o';
 };
@@ -382,7 +382,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
         case 'mode':
             var defs = [
                 {id:'draw', icon: 'fa-pencil', title: 'Draw mode (D)', onClick: function(){ LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch); }, active: state.drawMode === 'paint'},
-                {id:'preset', icon: 'fa-puzzle-piece', title: 'Preset patterns (P)', onClick: function(){ LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch); }, active: state.drawMode === 'preset'},
+                {id:'preset', icon: 'fa-puzzle-piece', title: 'Preset patterns (P)', onClick: function(){ LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch); }, active: state.drawMode === 'preset', popOut: function(){ return <PresetContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }},
                 {id:'select', icon: 'fa-mouse-pointer', title: 'Select mode (S)', onClick: function(){ LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch); }, active: state.drawMode === 'select'},
                 {id:'live-paint', icon: 'fa-paint-brush', title: 'Live Paint', onClick: function(){ LifeBoardUtils.toggleLivePaint(stateRef, refs, dispatch); }, active: state.livePaintMode},
                 {id:'analyze', icon: 'fa-crosshairs', title: 'Analyze', onClick: function(){ LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch); }},
@@ -423,7 +423,7 @@ var CompactBody = function CompactBody(props) { // eslint-disable-line no-unused
                     <div key={def.id} className="pop-out-trigger">
                         <button type="button"
                             className={"btn" + (def.active ? " active" : "")}
-                            onClick={def.popOut ? function(){ isOpen ? LifeViewUtils._closePopOut(stateRef, refs, dispatch) : LifeViewUtils._openPopOut(stateRef, refs, dispatch, panelId, def.id); } : def.onClick}
+                            onClick={def.popOut ? function(){ if(def.onClick) def.onClick(); isOpen ? LifeViewUtils._closePopOut(stateRef, refs, dispatch) : LifeViewUtils._openPopOut(stateRef, refs, dispatch, panelId, def.id); } : def.onClick}
                             title={def.title}>
                             <i className={"fa " + def.icon} aria-hidden="true"></i>
                         </button>

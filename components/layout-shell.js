@@ -276,6 +276,10 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
     return (
         <div className={"layout-observatory" + (zenMode ? " zen-mode" : "")}>
             <CanvasArea cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
+            {/* Floating transport strip — always visible so users can pause even if panels are closed */}
+            <div className="transport-strip" role="toolbar" aria-label="Simulation transport">
+                {<TransportControls compact={true} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
+            </div>
             {!zenMode &&
                 <div className="panel-overlay-container" role="group" aria-label="Floating control panels">
                     <FloatPanel panelId="transport" label="Simulate" state={state} stateRef={stateRef} refs={refs} dispatch={dispatch}>

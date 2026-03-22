@@ -1242,7 +1242,17 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }), !zenMode && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "transport-strip",
+    role: "toolbar",
+    "aria-label": "Simulation transport"
+  }, /*#__PURE__*/React.createElement(TransportControls, {
+    compact: true,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  })), !zenMode && /*#__PURE__*/React.createElement("div", {
     className: "panel-overlay-container",
     role: "group",
     "aria-label": "Floating control panels"
@@ -1484,7 +1494,7 @@ var ObservatoryMobile = function ObservatoryMobile(props) {
 
 /* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
-          ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent,
+          ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
           RulesSection, ExportContent, StatsPanel,
           toggleTrails */
 /**
@@ -1501,7 +1511,6 @@ var _getPanelLabel = function (panelId) {
     board: 'Board',
     view: 'View',
     mode: 'Tools',
-    tools: 'Tools',
     rules: 'Rules',
     stats: 'Stats',
     importExport: 'Share'
@@ -1514,7 +1523,6 @@ var _getPanelIcon = function (panelId) {
     board: 'fa-th-large',
     view: 'fa-eye',
     mode: 'fa-pencil',
-    tools: 'fa-wrench',
     rules: 'fa-cogs',
     stats: 'fa-bar-chart',
     importExport: 'fa-exchange'
@@ -2136,7 +2144,15 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         onClick: function () {
           LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch);
         },
-        active: state.drawMode === 'preset'
+        active: state.drawMode === 'preset',
+        popOut: function () {
+          return /*#__PURE__*/React.createElement(PresetContent, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          });
+        }
       }, {
         id: 'select',
         icon: 'fa-mouse-pointer',
@@ -2256,6 +2272,7 @@ var CompactBody = function CompactBody(props) {
       type: "button",
       className: "btn" + (def.active ? " active" : ""),
       onClick: def.popOut ? function () {
+        if (def.onClick) def.onClick();
         isOpen ? LifeViewUtils._closePopOut(stateRef, refs, dispatch) : LifeViewUtils._openPopOut(stateRef, refs, dispatch, panelId, def.id);
       } : def.onClick,
       title: def.title
@@ -3725,6 +3742,136 @@ var ToolsContent = function ToolsContent(props) {
     "aria-label": "Delete selected cells"
   }, "Delete"))));
 };
+
+/**
+ * PresetContent — preset selector for use in compact mode pop-out.
+ * Renders only the preset dropdown, filter, and rotation preview.
+ */
+var PresetContent = function PresetContent(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var filterLc = state.patternFilter.toLowerCase();
+  var patternOptions = Object.keys(PATTERN_GROUPS).map(function (group) {
+    var names = Object.keys(PATTERN_GROUPS[group]).filter(function (name) {
+      return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
+    });
+    if (names.length === 0) {
+      return null;
+    }
+    var opts = names.map(function (name) {
+      var meta = PATTERN_META[name];
+      var title = '';
+      if (meta) {
+        if (meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');else if (meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+      }
+      return /*#__PURE__*/React.createElement("option", {
+        key: name,
+        value: name,
+        title: title
+      }, name);
+    });
+    return /*#__PURE__*/React.createElement("optgroup", {
+      key: group,
+      label: group
+    }, opts);
+  }).filter(function (x) {
+    return x !== null;
+  });
+  if (PATTERNS['Custom']) {
+    patternOptions = patternOptions.concat(/*#__PURE__*/React.createElement("optgroup", {
+      key: "custom",
+      label: "Custom"
+    }, /*#__PURE__*/React.createElement("option", {
+      value: "Custom"
+    }, "Custom")));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tools-content"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "preset-select" + (state.drawMode === 'preset' && state.selectedPattern ? " active" : ""),
+    value: state.selectedPattern || "",
+    onChange: function (e) {
+      LifeBoardUtils.selectPattern(stateRef, refs, dispatch, e);
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Choose preset..."), patternOptions), /*#__PURE__*/React.createElement("input", {
+    className: "pattern-filter-input",
+    type: "search",
+    placeholder: "Filter patterns...",
+    "aria-label": "Filter patterns",
+    value: state.patternFilter,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          patternFilter: e.target.value
+        }
+      });
+    }
+  }), state.drawMode === 'preset' && state.selectedPattern && /*#__PURE__*/React.createElement("div", {
+    className: "rotation-row"
+  }, /*#__PURE__*/React.createElement("canvas", {
+    className: "rotation-preview",
+    width: "96",
+    height: "96",
+    role: "img",
+    "aria-label": "Pattern rotation preview",
+    ref: function (c) {
+      refs.previewCanvas = c;
+      if (c) requestAnimationFrame(function () {
+        drawRotationPreview(stateRef, refs);
+      });
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "rotation-btns"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-rotate",
+    onClick: function () {
+      LifeBoardUtils.rotateCCW(stateRef, refs, dispatch);
+    },
+    title: "Rotate 90\\xB0 counter-clockwise"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-undo",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-rotate",
+    onClick: function () {
+      LifeBoardUtils.rotateCW(stateRef, refs, dispatch);
+    },
+    title: "Rotate 90\\xB0 clockwise"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-repeat",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      refs.previewPos = null;
+      dispatch({
+        type: "MERGE",
+        payload: {
+          selectedPattern: null,
+          patternRotation: 0,
+          drawMode: "paint"
+        }
+      });
+      setTimeout(function () {
+        drawBoard(stateRef, refs);
+      }, 0);
+    },
+    "aria-label": "Cancel pattern placement",
+    title: "Cancel placement"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-times",
+    "aria-hidden": "true"
+  })))));
+};
 var MobileContextPanel = function MobileContextPanel(props) {
   // eslint-disable-line no-unused-vars
   var state = props.state,
@@ -4107,7 +4254,7 @@ function initState() {
         }
         // Validate panelStates: must be an object with known panel keys.
         if (parsed.panelStates && typeof parsed.panelStates === 'object') {
-          var validPanels = ['transport', 'view', 'mode', 'tools', 'board', 'rules', 'stats', 'importExport'];
+          var validPanels = ['transport', 'view', 'mode', 'board', 'rules', 'stats', 'importExport'];
           var ps = {};
           var allValid = true;
           var maxZ = 0;
@@ -4255,14 +4402,6 @@ function initState() {
         z: 0,
         compact: false
       },
-      tools: {
-        open: true,
-        x: -1,
-        y: -1,
-        collapsed: false,
-        z: 0,
-        compact: false
-      },
       board: {
         open: true,
         x: -1,
@@ -4299,7 +4438,7 @@ function initState() {
     panelZCounter: savedLayout.panelZCounter || 1,
     panelGroups: savedLayout.panelGroups || [{
       id: 'g-default',
-      panels: ['transport', 'view', 'mode', 'tools', 'board', 'rules', 'stats', 'importExport'],
+      panels: ['transport', 'view', 'mode', 'board', 'rules', 'stats', 'importExport'],
       activeTab: 'transport',
       x: 10,
       y: 50,

@@ -1285,6 +1285,18 @@ canvas.display {
   overflow-y: auto;
   overflow-x: hidden; }
 
+/* Allow pop-out flyouts to escape compact panel overflow clipping */
+.panel-group-compact,
+.panel-group-compact .compact-main,
+.panel-group-compact .compact-main .float-panel-body {
+  overflow: visible; }
+
+.float-panel-compact {
+  overflow: visible; }
+
+.float-panel-compact .float-panel-body {
+  overflow: visible; }
+
 .panel-group-compact .float-panel-resize {
   position: absolute;
   bottom: 0;
