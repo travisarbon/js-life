@@ -1187,12 +1187,11 @@ canvas.display {
   width: 28px;
   height: 28px; }
 
-/* In compact groups, wrap buttons in rows to fit the wider content area */
+/* In compact groups, buttons stack vertically like individual compact panels */
 .panel-group-compact .compact-body {
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-xs);
-  justify-content: center; }
+  align-items: center; }
 
 /* Hide sliders, selects, and inputs in compact mode — they use pop-outs */
 .float-panel-compact .compact-hidden {
@@ -1235,7 +1234,7 @@ canvas.display {
 .panel-group-compact {
   flex-direction: column;
   min-width: 0;
-  max-width: none;
+  max-width: 80px;
   width: auto;
   overflow: visible; }
 
@@ -1321,14 +1320,15 @@ canvas.display {
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  min-width: 60px;
+  min-width: 36px;
   padding: var(--space-sm);
   overflow: visible; }
 
 /* Allow pop-out flyouts to escape compact panel overflow clipping */
 .panel-group-compact,
 .panel-group-compact .compact-group-body,
-.panel-group-compact .compact-main {
+.panel-group-compact .compact-main,
+.panel-group-compact .compact-body {
   overflow: visible; }
 
 .float-panel-compact {
