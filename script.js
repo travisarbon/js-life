@@ -338,11 +338,16 @@ function LifeBoard() {
                 // Render loop: consume drawPending flag each frame.
                 (function renderLoop(){
                     refs.rafId = requestAnimationFrame(function(){
-                        if(refs.drawPending){
-                            refs.drawPending = false;
-                            drawBoard(stateRef, refs);
-                            drawMinimapMobile(stateRef, refs, stateRef.current.liveCells, stateRef.current.cols, stateRef.current.rows, stateRef.current.viewX, stateRef.current.viewY, stateRef.current.cellSize, THEMES[stateRef.current.theme] || THEMES['Teal']);
-                        }
+                        try {
+                            if(refs.drawPending){
+                                refs.drawPending = false;
+                                drawBoard(stateRef, refs);
+                                var s = stateRef.current;
+                                if(refs.mobileMinimap){
+                                    drawMinimapMobile(stateRef, refs, s.liveCells, s.cols, s.rows, s.viewX, s.viewY, s.cellSize, THEMES[s.theme] || THEMES['Teal']);
+                                }
+                            }
+                        } catch(e){ /* prevent loop death */ }
                         if(refs.mounted){ renderLoop(); }
                     });
                 })();

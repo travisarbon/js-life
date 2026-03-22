@@ -291,7 +291,7 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
 
 var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, cols, rows, viewX, viewY, cellSize, theme) { // eslint-disable-line no-unused-vars
                 var state = stateRef.current;
-                if(!refs.mobileMinimap){ return; }
+                if(!refs.mobileMinimap || !refs.minimapCanvas){ return; }
                 var isUnbounded = state.boundary === 'unbounded';
                 var mmMobOriginR = 0, mmMobOriginC = 0;
                 var mmRegionRows, mmRegionCols;

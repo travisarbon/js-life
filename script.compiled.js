@@ -318,7 +318,7 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
 var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, cols, rows, viewX, viewY, cellSize, theme) {
   // eslint-disable-line no-unused-vars
   var state = stateRef.current;
-  if (!refs.mobileMinimap) {
+  if (!refs.mobileMinimap || !refs.minimapCanvas) {
     return;
   }
   var isUnbounded = state.boundary === 'unbounded';
@@ -4543,11 +4543,16 @@ document.addEventListener('DOMContentLoaded', function () {
       // Render loop: consume drawPending flag each frame.
       (function renderLoop() {
         refs.rafId = requestAnimationFrame(function () {
-          if (refs.drawPending) {
-            refs.drawPending = false;
-            drawBoard(stateRef, refs);
-            drawMinimapMobile(stateRef, refs, stateRef.current.liveCells, stateRef.current.cols, stateRef.current.rows, stateRef.current.viewX, stateRef.current.viewY, stateRef.current.cellSize, THEMES[stateRef.current.theme] || THEMES['Teal']);
-          }
+          try {
+            if (refs.drawPending) {
+              refs.drawPending = false;
+              drawBoard(stateRef, refs);
+              var s = stateRef.current;
+              if (refs.mobileMinimap) {
+                drawMinimapMobile(stateRef, refs, s.liveCells, s.cols, s.rows, s.viewX, s.viewY, s.cellSize, THEMES[s.theme] || THEMES['Teal']);
+              }
+            }
+          } catch (e) {/* prevent loop death */}
           if (refs.mounted) {
             renderLoop();
           }
