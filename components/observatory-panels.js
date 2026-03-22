@@ -559,32 +559,28 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
     });
 
     if(isCompact){
-        // Compact layout: header bar on top spanning full width, icon rail + content below.
+        // Compact layout: drag bar on top spanning full width, then icon rail + content side by side below.
         return (
             <div className={className} style={style} data-group-id={group.id}
                 onMouseDown={function(){ LifeViewUtils._bringGroupToFront(stateRef, refs, dispatch, group.id); }}
                 role="region" aria-label="Panel group">
-                <div className="float-panel-header compact-group-header"
+                <div className="compact-group-header"
                     onMouseDown={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}
                     onTouchStart={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}>
                     <span className="compact-active-label">{_getPanelLabel(activeTab)}</span>
                     <button type="button" className="btn float-panel-compact-toggle"
-                        onClick={function(){ LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
+                        onClick={function(e){ e.stopPropagation(); LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
                         title="Expand group">{"\u00bb"}</button>
                     <button type="button" className="btn float-panel-close"
-                        onClick={function(){ _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
+                        onClick={function(e){ e.stopPropagation(); _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
                         aria-label="Close active panel">&times;</button>
                 </div>
                 <div className="compact-group-body">
-                    <div className="compact-icon-rail"
-                        onMouseDown={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}
-                        onTouchStart={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}>
+                    <div className="compact-icon-rail">
                         {tabButtons}
                     </div>
                     <div className="compact-main">
-                        <div className="float-panel-body">
-                            <CompactBody panelId={activeTab} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
-                        </div>
+                        <CompactBody panelId={activeTab} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
                     </div>
                 </div>
                 <div className="float-panel-resize"

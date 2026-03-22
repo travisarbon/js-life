@@ -1179,20 +1179,19 @@ canvas.display {
 
 .compact-body {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-xs);
-  align-items: center;
-  justify-content: center; }
+  align-items: center; }
 
 .compact-body .btn {
   width: 28px;
   height: 28px; }
 
-/* In compact groups, lay out buttons in a grid to use the wider content area */
+/* In compact groups, wrap buttons in rows to fit the wider content area */
 .panel-group-compact .compact-body {
   flex-direction: row;
   flex-wrap: wrap;
+  gap: var(--space-xs);
   justify-content: center; }
 
 /* Hide sliders, selects, and inputs in compact mode — they use pop-outs */
@@ -1232,21 +1231,22 @@ canvas.display {
   line-height: 1 !important; }
 
 /* ── Group compact mode ──────────────────────────────────────────────── */
-/* Compact layout: header bar on top, icon rail + content below */
+/* Compact layout: drag/title bar on top, then icon rail + content side-by-side */
 .panel-group-compact {
   flex-direction: column;
-  align-items: stretch;
-  min-width: 120px;
-  max-width: 120px;
-  width: 120px;
-  min-height: 200px; }
+  min-width: 0;
+  max-width: none;
+  width: auto;
+  overflow: visible; }
 
-/* Header bar spans full width at top */
+/* ── Compact group header — drag bar spanning full width ───────────── */
 .panel-group-compact .compact-group-header {
   display: flex;
   align-items: center;
+  gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
-  min-height: 28px;
+  min-height: 24px;
+  background: var(--panel-header-bg);
   border-bottom: 1px solid var(--panel-border);
   cursor: grab;
   user-select: none;
@@ -1262,55 +1262,56 @@ canvas.display {
   opacity: var(--opacity-muted);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; }
+  text-overflow: ellipsis;
+  min-width: 0; }
 
-.panel-group-compact .compact-group-header .float-panel-compact-toggle,
-.panel-group-compact .compact-group-header .float-panel-close {
+.panel-group-compact .compact-group-header .btn {
+  flex-shrink: 0;
   padding: var(--space-xs) !important;
-  flex-shrink: 0; }
+  min-width: 0 !important;
+  min-height: 20px !important;
+  line-height: 1 !important; }
 
-/* Body row: icon rail on left, content on right */
+/* ── Compact body: icon rail (left) + content (right) ──────────────── */
 .panel-group-compact .compact-group-body {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
   flex: 1;
-  min-height: 0; }
+  min-height: 0;
+  align-items: flex-start; }
 
 .panel-group-compact .compact-icon-rail {
   display: flex;
   flex-direction: column;
-  gap: 0;
   padding: 0;
   border-right: 1px solid var(--panel-border);
   background: var(--panel-header-bg);
   flex-shrink: 0;
-  cursor: grab;
-  min-width: 32px; }
-.panel-group-compact .compact-icon-rail:active {
-  cursor: grabbing; }
+  width: 30px; }
 
 .panel-group-compact .compact-icon-rail .panel-tab {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-xs) var(--space-sm);
+  width: 30px;
+  height: 28px;
+  padding: 0;
   border: none;
   border-left: 2px solid transparent;
   background: transparent;
   color: var(--panel-header-color);
   cursor: pointer;
-  opacity: var(--opacity-muted);
-  min-height: 32px; }
+  opacity: var(--opacity-muted); }
 
 .panel-group-compact .compact-icon-rail .panel-tab-icon {
   display: inline;
-  font-size: 14px; }
+  font-size: 13px; }
 .panel-group-compact .compact-icon-rail .panel-tab-label {
   display: none; }
 
 .panel-group-compact .compact-icon-rail .panel-tab:hover {
-  opacity: 1; }
+  opacity: 1;
+  background: rgba(128,128,128,0.1); }
 
 .panel-group-compact .compact-icon-rail .panel-tab-active {
   border-left-color: var(--accent);
@@ -1319,20 +1320,15 @@ canvas.display {
 .panel-group-compact .compact-main {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  overflow: visible; }
-
-.panel-group-compact .float-panel-body {
+  flex: 0 0 auto;
+  min-width: 60px;
   padding: var(--space-sm);
-  overflow-y: auto;
-  overflow-x: hidden; }
+  overflow: visible; }
 
 /* Allow pop-out flyouts to escape compact panel overflow clipping */
 .panel-group-compact,
-.panel-group-compact .compact-main,
 .panel-group-compact .compact-group-body,
-.panel-group-compact .float-panel-body {
+.panel-group-compact .compact-main {
   overflow: visible; }
 
 .float-panel-compact {
@@ -1341,12 +1337,13 @@ canvas.display {
 .float-panel-compact .float-panel-body {
   overflow: visible; }
 
+/* ── Compact group resize handle ───────────────────────────────────── */
 .panel-group-compact .float-panel-resize {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 20px;
+  height: 14px;
   cursor: ns-resize; }
 
 .panel-group-compact .float-panel-resize::after {
