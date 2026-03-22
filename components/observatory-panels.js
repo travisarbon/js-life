@@ -2,7 +2,7 @@
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
           ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
           DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
-          RulesSection, RLESection, ExportContent, StatsPanel, RULE_PRESETS,
+          RulesSection, RLESection, ExportContent, RULE_PRESETS,
           toggleTrails */
 /**
  * Observatory panel system — extracted from LifeBoard.
@@ -13,14 +13,13 @@
 // ── Helper functions ─────────────────────────────────────────────────
 
 var _getPanelLabel = function(panelId){
-    var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', rules:'Rules', stats:'Stats', importExport:'Share'};
+    var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', rules:'Rules', importExport:'Share'};
     return PANEL_LABELS[panelId] || panelId;
 };
 
 var _getPanelIcon = function(panelId){
     var PANEL_ICONS = {transport:'fa-play', board:'fa-th-large', view:'fa-eye',
-        mode:'fa-pencil', rules:'fa-cogs', stats:'fa-bar-chart',
-        importExport:'fa-exchange'};
+        mode:'fa-pencil', rules:'fa-cogs', importExport:'fa-exchange'};
     return PANEL_ICONS[panelId] || 'fa-circle-o';
 };
 
@@ -31,7 +30,6 @@ var _getPanelContent = function(panelId, state, stateRef, refs, dispatch){
         case 'view': return <div>{<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}{<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
         case 'mode': return <div>{<ModeControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<ToolsContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
         case 'rules': return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
-        case 'stats': return <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />;
         case 'importExport': return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
         default: return null;
     }
@@ -123,8 +121,6 @@ var _clearDropIndicator = function(){
 };
 
 var _findDropTarget = function(draggedId, dragRect){
-    // Stats panel cannot be merged with other panels.
-    if(draggedId === 'stats'){ return null; }
     var allPanels = document.querySelectorAll('.float-panel, .panel-group');
     for(var i = 0; i < allPanels.length; i++){
         var el = allPanels[i];
@@ -132,8 +128,6 @@ var _findDropTarget = function(draggedId, dragRect){
         var targetGroupId = el.getAttribute('data-group-id');
         if(!targetId && !targetGroupId){ continue; }
         if(targetId === draggedId){ continue; }
-        // Stats panel cannot be a merge target.
-        if(targetId === 'stats'){ continue; }
         var otherRect = el.getBoundingClientRect();
         if(_rectsOverlap(dragRect, otherRect) > 0.3){
             return targetId || targetGroupId;
@@ -389,7 +383,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
             ];
             if(state.boundary !== 'unbounded'){
                 boardDefs.push(
-                    {id:'grid-presets', icon: 'fa-th-large', title: 'Grid presets', popOut: function(){
+                    {id:'grid-presets', icon: 'fa-table', title: 'Grid presets', popOut: function(){
                         return (<div className="compact-popout-content grid-presets">
                             <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 100, 100); }} title="100\u00d7100">100\u00b2</button>
                             <button type="button" className="btn btn-xs" onClick={function(){ LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 200, 200); }} title="200\u00d7200">200\u00b2</button>
@@ -439,7 +433,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
                 {id:'fit-grid', icon: 'fa-arrows-alt', title: 'Fit Grid', onClick: function(){ LifeViewUtils.fitView(stateRef, refs, dispatch); }},
                 {id:'fit-cells', icon: 'fa-compress', title: 'Fit Cells', onClick: function(){ LifeViewUtils.fitLiveCells(stateRef, refs, dispatch); }},
                 {id:'grid', icon: 'fa-th', title: 'Grid lines (G)', onClick: function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); }, active: state.gridLines},
-                {id:'trails', icon: 'fa-eye', title: 'Trails', onClick: function(){ toggleTrails(stateRef, refs, dispatch); }, active: state.showTrails},
+                {id:'trails', icon: 'fa-sun-o', title: 'Trails', onClick: function(){ toggleTrails(stateRef, refs, dispatch); }, active: state.showTrails},
                 {id:'minimap', icon: 'fa-map-o', title: 'Minimap (M)', onClick: function(){ LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch); }, active: state.showMinimap},
                 {id:'stats', icon: 'fa-bar-chart', title: 'Stats', onClick: function(){ dispatch({type:'MERGE', payload:{showStats: !state.showStats}}); }, active: state.showStats},
                 {id:'zoom', icon: 'fa-search-plus', title: 'Zoom', popOut: function(){ return <ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }},
@@ -543,6 +537,7 @@ var FloatPanel = function FloatPanel(props) { // eslint-disable-line no-unused-v
             <div className="float-panel-header"
                 onMouseDown={function(e){ _startPanelDrag(panelId, e, stateRef, refs, dispatch); }}
                 onTouchStart={function(e){ _startPanelDrag(panelId, e, stateRef, refs, dispatch); }}>
+                <i className={"fa " + _getPanelIcon(panelId) + " float-panel-icon"} aria-hidden="true"></i>
                 <span className="float-panel-title" id={"panel-title-" + panelId}>{label}</span>
                 <button type="button" className="btn float-panel-compact-toggle"
                     onClick={function(){ LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId); }}
@@ -574,30 +569,48 @@ var FloatPanelDirect = function FloatPanelDirect(props) { // eslint-disable-line
     var panelId = props.panelId, label = props.label, content = props.content, group = props.group, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
     var ps = state.panelStates[panelId];
     if(!ps || !ps.open){ return null; }
+    var isCompact = ps.compact && !ps.collapsed;
     var style = {};
     if(group && group.x >= 0){ style.left = group.x; style.top = group.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
     else if(ps.x >= 0){ style.left = ps.x; style.top = ps.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
     if(ps.z){ style.zIndex = ps.z; }
     if(group && group.z){ style.zIndex = group.z; }
+    var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() +
+        (ps.collapsed ? " float-panel-collapsed" : "") +
+        (isCompact ? " float-panel-compact" : "");
     return (
-        <div className={"float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase()} style={style}
+        <div className={className} style={style}
             data-panel-id={panelId}
             onMouseDown={function(){ LifeViewUtils._bringPanelToFront(stateRef, refs, dispatch, panelId); }}
+            onTouchStart={function(){ LifeViewUtils._bringPanelToFront(stateRef, refs, dispatch, panelId); }}
             role="region" aria-label={label + " panel"}>
             <div className="float-panel-header"
                 onMouseDown={function(e){ _startPanelDrag(panelId, e, stateRef, refs, dispatch); }}
                 onTouchStart={function(e){ _startPanelDrag(panelId, e, stateRef, refs, dispatch); }}>
-                <span className="float-panel-title">{label}</span>
+                <i className={"fa " + _getPanelIcon(panelId) + " float-panel-icon"} aria-hidden="true"></i>
+                <span className="float-panel-title" id={"panel-title-" + panelId}>{label}</span>
+                <button type="button" className="btn float-panel-compact-toggle"
+                    onClick={function(){ LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId); }}
+                    aria-label={isCompact ? "Expand " + label + " panel width" : "Compact " + label + " panel"}
+                    title={isCompact ? "Expand panel" : "Compact panel"}>
+                    {isCompact ? "\u00bb" : "\u00ab"}
+                </button>
                 <button type="button" className="btn float-panel-collapse"
                     onClick={function(){ _togglePanelCollapse(panelId, stateRef, refs, dispatch); }}
-                    aria-expanded={!ps.collapsed}>
+                    aria-expanded={!ps.collapsed}
+                    aria-label={ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"}>
                     {ps.collapsed ? "+" : "\u2013"}
                 </button>
                 <button type="button" className="btn float-panel-close"
                     onClick={function(){ _togglePanelOpen(panelId, stateRef, refs, dispatch); }}
                     aria-label={"Close " + label + " panel"}>&times;</button>
             </div>
-            {!ps.collapsed && <div className="float-panel-body">{content}</div>}
+            {!ps.collapsed && <div className="float-panel-body">
+                {isCompact ? <CompactBody panelId={panelId} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} /> : content}
+            </div>}
+            {!ps.collapsed && <div className="float-panel-resize"
+                onMouseDown={function(e){ _startPanelResize(panelId, e, stateRef, refs, dispatch); }}
+                onTouchStart={function(e){ _startPanelResize(panelId, e, stateRef, refs, dispatch); }}></div>}
         </div>
     );
 };
