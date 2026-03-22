@@ -2397,9 +2397,19 @@ document.addEventListener('DOMContentLoaded', function () {
             className: "sidebar-section-title"
           }, "Tools"), renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch));
         case 'rules':
-          return renderRulesSection(state, stateRef, refs, dispatch);
+          return /*#__PURE__*/React.createElement(RulesSection, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          });
         case 'export':
-          return renderExportContent(state, stateRef, refs, dispatch);
+          return /*#__PURE__*/React.createElement(ExportContent, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          });
         default:
           return null;
       }
@@ -2782,40 +2792,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // renderDisplaySettings — extracted to components/settings-panels.js as DisplaySettings
 
-    function renderRulesSection() {
-      var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
-      return /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-section"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-section-title"
-      }, "Rules"), /*#__PURE__*/React.createElement("div", {
-        className: "presets-col"
-      }, /*#__PURE__*/React.createElement("select", {
-        className: "rule-preset-select",
-        "aria-label": "Rule preset",
-        value: state.rulePreset,
-        onChange: function (e) {
-          LifeBoardUtils.setRulePreset(stateRef, refs, dispatch, e);
-        }
-      }, /*#__PURE__*/React.createElement("option", {
-        value: ""
-      }, "Rule preset..."), RULE_PRESETS.map(function (p) {
-        return /*#__PURE__*/React.createElement("option", {
-          key: p.rule,
-          value: p.rule
-        }, p.name);
-      })), /*#__PURE__*/React.createElement("label", {
-        className: "slider-title rule-label"
-      }, "Rule (B/S notation)"), /*#__PURE__*/React.createElement("input", {
-        className: "rule-input" + (ruleValid ? "" : " rule-input-invalid"),
-        type: "text",
-        value: state.ruleString,
-        onChange: function (e) {
-          LifeBoardUtils.setRule(stateRef, refs, dispatch, e);
-        },
-        title: "Birth/Survival rule string (e.g. B3/S23)"
-      })));
-    }
+    // renderRulesSection — extracted to components/rules-export.js as RulesSection
 
     // renderBoardSliders — extracted to components/settings-panels.js as BoardSliders
 
@@ -2823,40 +2800,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // renderZoomSlider — extracted to components/settings-panels.js as ZoomSlider
 
-    function renderRLESection() {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-section"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "rle-section"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "buttons rle-toggle-row"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-rle-toggle btn-block" + (state.showRle ? " active" : ""),
-        onClick: function () {
-          LifeIOUtils.toggleRle(stateRef, refs, dispatch);
-        }
-      }, "Import RLE / Plaintext")), state.showRle && /*#__PURE__*/React.createElement("div", {
-        className: "rle-body"
-      }, /*#__PURE__*/React.createElement("textarea", {
-        className: "rle-input",
-        rows: "5",
-        placeholder: "Paste RLE or plaintext pattern\n(from LifeWiki or Golly)",
-        value: state.rleInput,
-        onChange: function (e) {
-          LifeIOUtils.setRleInput(stateRef, refs, dispatch, e);
-        }
-      }), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-block",
-        onClick: function () {
-          LifeIOUtils.loadRle(stateRef, refs, dispatch);
-        },
-        title: "Load the RLE or plaintext pattern"
-      }, "Load pattern"), state.rleError && /*#__PURE__*/React.createElement("p", {
-        className: "rle-error"
-      }, state.rleError))));
-    }
+    // renderRLESection — extracted to components/rules-export.js as RLESection
 
     // ── Shared sub-components (used by all layout modes) ───────────
 
@@ -3215,59 +3159,9 @@ document.addEventListener('DOMContentLoaded', function () {
         "aria-label": "Delete selected cells"
       }, "Delete"))));
     }
-    function renderExportContent() {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "export-content"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-section-title"
-      }, "Share"), /*#__PURE__*/React.createElement("div", {
-        className: "btn-section"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "buttons buttons-export"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeIOUtils.exportPNG(stateRef, refs, dispatch);
-        },
-        title: "Save as PNG"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-camera",
-        "aria-hidden": "true"
-      }), " Export PNG"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeIOUtils.copyRLE(stateRef, refs, dispatch);
-        },
-        title: "Copy board as RLE"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-clipboard",
-        "aria-hidden": "true"
-      }), " Copy RLE"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.recording ? " active btn-record" : ""),
-        onClick: function () {
-          LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch);
-        },
-        title: "Record an animated GIF",
-        "aria-label": state.recording ? "Stop recording" : "Record GIF"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa " + (state.recording ? "fa-stop" : "fa-circle"),
-        "aria-hidden": "true"
-      }), " ", state.recording ? "Stop" : "Record"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeIOUtils.shareURL(stateRef, refs, dispatch);
-        },
-        title: "Copy shareable URL to clipboard",
-        "aria-label": "Share simulation URL"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-share-alt",
-        "aria-hidden": "true"
-      }), " ", state.shareTooltip ? "Copied!" : "Share")), renderRLESection(state, stateRef, refs, dispatch)));
-    }
+
+    // renderExportContent — extracted to components/rules-export.js as ExportContent
+
     function renderLayoutSwitcher() {
       var dc = state.deviceClass;
       var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
@@ -3501,12 +3395,22 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }))), _renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch))), _renderFloatPanel('rules', 'Rules', renderRulesSection(state, stateRef, refs, dispatch)), _renderFloatPanel('stats', 'Stats', /*#__PURE__*/React.createElement(StatsPanel, {
+      }))), _renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch))), _renderFloatPanel('rules', 'Rules', /*#__PURE__*/React.createElement(RulesSection, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      })), _renderFloatPanel('stats', 'Stats', /*#__PURE__*/React.createElement(StatsPanel, {
         state: state,
         refs: refs,
         stateRef: stateRef,
         dispatch: dispatch
-      })), _renderFloatPanel('importExport', 'Share', renderExportContent(state, stateRef, refs, dispatch)), state.panelGroups.map(function (group) {
+      })), _renderFloatPanel('importExport', 'Share', /*#__PURE__*/React.createElement(ExportContent, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      })), state.panelGroups.map(function (group) {
         return _renderPanelGroup(group, state, stateRef, refs, dispatch);
       }), /*#__PURE__*/React.createElement("div", {
         className: "panel-menu",
@@ -3902,7 +3806,12 @@ document.addEventListener('DOMContentLoaded', function () {
             icon: 'fa-cogs',
             title: 'Rules',
             popOut: function () {
-              return renderRulesSection(state, stateRef, refs, dispatch);
+              return /*#__PURE__*/React.createElement(RulesSection, {
+                state: state,
+                stateRef: stateRef,
+                refs: refs,
+                dispatch: dispatch
+              });
             }
           }];
         case 'stats':
@@ -3925,7 +3834,12 @@ document.addEventListener('DOMContentLoaded', function () {
             icon: 'fa-exchange',
             title: 'Share',
             popOut: function () {
-              return renderExportContent(state, stateRef, refs, dispatch);
+              return /*#__PURE__*/React.createElement(ExportContent, {
+                state: state,
+                stateRef: stateRef,
+                refs: refs,
+                dispatch: dispatch
+              });
             }
           }];
         default:
@@ -4009,7 +3923,12 @@ document.addEventListener('DOMContentLoaded', function () {
         case 'mode':
           return /*#__PURE__*/React.createElement("div", null, renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch));
         case 'rules':
-          return renderRulesSection(state, stateRef, refs, dispatch);
+          return /*#__PURE__*/React.createElement(RulesSection, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          });
         case 'stats':
           return /*#__PURE__*/React.createElement(StatsPanel, {
             state: state,
@@ -4018,7 +3937,12 @@ document.addEventListener('DOMContentLoaded', function () {
             dispatch: dispatch
           });
         case 'importExport':
-          return renderExportContent(state, stateRef, refs, dispatch);
+          return /*#__PURE__*/React.createElement(ExportContent, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          });
         default:
           return null;
       }

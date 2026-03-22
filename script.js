@@ -1018,8 +1018,8 @@ function LifeBoard() {
                                 {renderToolsContent(state, stateRef, refs, dispatch)}
                             </div>
                         );
-                    case 'rules':  return renderRulesSection(state, stateRef, refs, dispatch);
-                    case 'export': return renderExportContent(state, stateRef, refs, dispatch);
+                    case 'rules':  return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
+                    case 'export': return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
                     default:       return null;
                 }
     }
@@ -1362,22 +1362,7 @@ function LifeBoard() {
                 );
     }
 
-    function renderExportContent(){
-                return (
-                    <div className="export-content">
-                        <div className="sidebar-section-title">Share</div>
-                        <div className="btn-section">
-                            <div className="buttons buttons-export">
-                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.exportPNG(stateRef, refs, dispatch); }} title="Save as PNG"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
-                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.copyRLE(stateRef, refs, dispatch); }} title="Copy board as RLE"><i className="fa fa-clipboard" aria-hidden="true"></i> Copy RLE</button>
-                                <button type="button" className={"btn btn-toggle" + (state.recording ? " active btn-record" : "")} onClick={function(){ LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch); }} title="Record an animated GIF" aria-label={state.recording ? "Stop recording" : "Record GIF"}><i className={"fa " + (state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {state.recording ? "Stop" : "Record"}</button>
-                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.shareURL(stateRef, refs, dispatch); }} title="Copy shareable URL to clipboard" aria-label="Share simulation URL"><i className="fa fa-share-alt" aria-hidden="true"></i> {state.shareTooltip ? "Copied!" : "Share"}</button>
-                            </div>
-                            {renderRLESection(state, stateRef, refs, dispatch)}
-                        </div>
-                    </div>
-                );
-    }
+    // renderExportContent — extracted to components/rules-export.js as ExportContent
 
     function renderLayoutSwitcher(){
                 var dc = state.deviceClass;
@@ -1536,9 +1521,9 @@ function LifeBoard() {
                                 {_renderFloatPanel('board', 'Board', <div>{<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>)}
                                 {_renderFloatPanel('view', 'View', <div>{<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}{<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>)}
                                 {_renderFloatPanel('mode', 'Tools', <div>{renderModeControls(state, stateRef, refs, dispatch)}{renderToolsContent(state, stateRef, refs, dispatch)}</div>)}
-                                {_renderFloatPanel('rules', 'Rules', renderRulesSection(state, stateRef, refs, dispatch))}
+                                {_renderFloatPanel('rules', 'Rules', <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />)}
                                 {_renderFloatPanel('stats', 'Stats', <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />)}
-                                {_renderFloatPanel('importExport', 'Share', renderExportContent(state, stateRef, refs, dispatch))}
+                                {_renderFloatPanel('importExport', 'Share', <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />)}
                                 {state.panelGroups.map(function(group){ return _renderPanelGroup(group, state, stateRef, refs, dispatch); })}
                                 {/* Panel menu */}
                                 <div className="panel-menu" role="group" aria-label="Panel visibility">
@@ -1712,7 +1697,7 @@ function LifeBoard() {
                         return defs;
                     case 'rules':
                         return [
-                            {id:'rules', icon: 'fa-cogs', title: 'Rules', popOut: function(){ return renderRulesSection(state, stateRef, refs, dispatch); }}
+                            {id:'rules', icon: 'fa-cogs', title: 'Rules', popOut: function(){ return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
                         ];
                     case 'stats':
                         return [
@@ -1720,7 +1705,7 @@ function LifeBoard() {
                         ];
                     case 'importExport':
                         return [
-                            {id:'io', icon: 'fa-exchange', title: 'Share', popOut: function(){ return renderExportContent(state, stateRef, refs, dispatch); }}
+                            {id:'io', icon: 'fa-exchange', title: 'Share', popOut: function(){ return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
                         ];
                     default:
                         return [];
@@ -1747,9 +1732,9 @@ function LifeBoard() {
                     case 'board': return <div>{<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
                     case 'view': return <div>{<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}{<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
                     case 'mode': return <div>{renderModeControls(state, stateRef, refs, dispatch)}{renderToolsContent(state, stateRef, refs, dispatch)}</div>;
-                    case 'rules': return renderRulesSection(state, stateRef, refs, dispatch);
+                    case 'rules': return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
                     case 'stats': return <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />;
-                    case 'importExport': return renderExportContent(state, stateRef, refs, dispatch);
+                    case 'importExport': return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
                     default: return null;
                 }
     }
