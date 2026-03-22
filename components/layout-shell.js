@@ -297,17 +297,9 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                     <FloatPanel panelId="rules" label="Rules" state={state} stateRef={stateRef} refs={refs} dispatch={dispatch}>
                         <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
                     </FloatPanel>
-                    {panels.stats && panels.stats.open &&
+                    {state.showStats &&
                         <div className="stats-window" role="region" aria-label="Statistics">
-                            <div className="stats-window-header">
-                                <span className="stats-window-title">Stats</span>
-                                <button type="button" className="btn float-panel-close"
-                                    onClick={function(){ ObservatoryPanelUtils.togglePanelOpen('stats', state, stateRef, refs, dispatch); }}
-                                    aria-label="Close Stats">&times;</button>
-                            </div>
-                            <div className="stats-window-body">
-                                <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />
-                            </div>
+                            <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />
                         </div>
                     }
                     <FloatPanel panelId="importExport" label="Share" state={state} stateRef={stateRef} refs={refs} dispatch={dispatch}>
@@ -327,7 +319,7 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                         </button>
                         {state.panelMenuOpen &&
                             <div className="panel-menu-list" role="group" aria-label="Panel toggles">
-                                {['transport','board','view','mode','rules','stats','importExport'].map(function(id){
+                                {['transport','board','view','mode','rules','importExport'].map(function(id){
                                     var label = ObservatoryPanelUtils.getPanelLabel(id);
                                     return (
                                         <label key={id} className="panel-menu-item">

@@ -15,6 +15,7 @@ var ViewControls = function ViewControls(props) { // eslint-disable-line no-unus
                         <button type="button" className={"btn btn-toggle" + (state.gridLines ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); }} title="Toggle grid lines (G)"><i className="fa fa-th" aria-hidden="true"></i> Grid</button>
                         <button type="button" className={"btn btn-toggle" + (state.showTrails ? " active" : "")} onClick={function(){ onToggleTrails(stateRef, refs, dispatch); }} title="Show ghost trails"><i className="fa fa-eye" aria-hidden="true"></i> Trails</button>
                         <button type="button" className={"btn btn-toggle" + (state.showMinimap ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch); }} title="Show/hide minimap (M)"><i className="fa fa-map-o" aria-hidden="true"></i> Minimap</button>
+                        <button type="button" className={"btn btn-toggle" + (state.showStats ? " active" : "")} onClick={function(){ dispatch({type:'MERGE', payload:{showStats: !state.showStats}}); }} title="Show/hide stats overlay"><i className="fa fa-bar-chart" aria-hidden="true"></i> Stats</button>
                     </div>
                 );
 };

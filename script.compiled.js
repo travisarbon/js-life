@@ -1362,29 +1362,16 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  })), panels.stats && panels.stats.open && /*#__PURE__*/React.createElement("div", {
+  })), state.showStats && /*#__PURE__*/React.createElement("div", {
     className: "stats-window",
     role: "region",
     "aria-label": "Statistics"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "stats-window-header"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "stats-window-title"
-  }, "Stats"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "btn float-panel-close",
-    onClick: function () {
-      ObservatoryPanelUtils.togglePanelOpen('stats', state, stateRef, refs, dispatch);
-    },
-    "aria-label": "Close Stats"
-  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
-    className: "stats-window-body"
   }, /*#__PURE__*/React.createElement(StatsPanel, {
     state: state,
     refs: refs,
     stateRef: stateRef,
     dispatch: dispatch
-  }))), /*#__PURE__*/React.createElement(FloatPanel, {
+  })), /*#__PURE__*/React.createElement(FloatPanel, {
     panelId: "importExport",
     label: "Share",
     state: state,
@@ -1440,7 +1427,7 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     className: "panel-menu-list",
     role: "group",
     "aria-label": "Panel toggles"
-  }, ['transport', 'board', 'view', 'mode', 'rules', 'stats', 'importExport'].map(function (id) {
+  }, ['transport', 'board', 'view', 'mode', 'rules', 'importExport'].map(function (id) {
     var label = ObservatoryPanelUtils.getPanelLabel(id);
     return /*#__PURE__*/React.createElement("label", {
       key: id,
@@ -1543,11 +1530,11 @@ var ObservatoryMobile = function ObservatoryMobile(props) {
 };
 "use strict";
 
-/* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
+/* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeIOUtils,
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
           ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
           DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
-          RulesSection, ExportContent, StatsPanel,
+          RulesSection, RLESection, ExportContent, StatsPanel, RULE_PRESETS,
           toggleTrails */
 /**
  * Observatory panel system — extracted from LifeBoard.
@@ -2119,27 +2106,140 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         }
       }];
     case 'board':
-      return [{
+      var boardDefs = [{
         id: 'boundary',
-        icon: 'fa-repeat',
-        title: 'Cycle boundary',
+        icon: state.boundary === 'toroidal' ? 'fa-repeat' : state.boundary === 'finite' ? 'fa-stop' : null,
+        label: state.boundary === 'unbounded' ? '\u221E' : null,
+        title: 'Boundary: ' + (state.boundary === 'toroidal' ? 'Wrap' : state.boundary === 'finite' ? 'Hard' : '\u221E'),
         onClick: function () {
           LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch);
         },
         active: state.boundary !== 'toroidal'
-      }, {
-        id: 'grid-size',
-        icon: 'fa-th-large',
-        title: 'Grid size',
-        popOut: function () {
-          return /*#__PURE__*/React.createElement(BoardSliders, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          });
-        }
       }];
+      if (state.boundary !== 'unbounded') {
+        boardDefs.push({
+          id: 'grid-presets',
+          icon: 'fa-th-large',
+          title: 'Grid presets',
+          popOut: function () {
+            return /*#__PURE__*/React.createElement("div", {
+              className: "compact-popout-content grid-presets"
+            }, /*#__PURE__*/React.createElement("button", {
+              type: "button",
+              className: "btn btn-xs",
+              onClick: function () {
+                LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 100, 100);
+              },
+              title: "100\\u00d7100"
+            }, "100\\u00b2"), /*#__PURE__*/React.createElement("button", {
+              type: "button",
+              className: "btn btn-xs",
+              onClick: function () {
+                LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 200, 200);
+              },
+              title: "200\\u00d7200"
+            }, "200\\u00b2"), /*#__PURE__*/React.createElement("button", {
+              type: "button",
+              className: "btn btn-xs",
+              onClick: function () {
+                LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 400, 400);
+              },
+              title: "400\\u00d7400"
+            }, "400\\u00b2"), /*#__PURE__*/React.createElement("button", {
+              type: "button",
+              className: "btn btn-xs",
+              onClick: function () {
+                LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 1000, 1000);
+              },
+              title: "1000\\u00d71000"
+            }, "1000\\u00b2"), /*#__PURE__*/React.createElement("button", {
+              type: "button",
+              className: "btn btn-xs",
+              onClick: function () {
+                LifeBoardUtils.applyGridPreset(stateRef, refs, dispatch, 2000, 2000);
+              },
+              title: "2000\\u00d72000"
+            }, "2000\\u00b2"));
+          }
+        }, {
+          id: 'grid-size',
+          icon: 'fa-arrows-h',
+          title: 'Width & Height',
+          popOut: function () {
+            return /*#__PURE__*/React.createElement("div", {
+              className: "compact-popout-content"
+            }, /*#__PURE__*/React.createElement("div", {
+              className: "sliders"
+            }, /*#__PURE__*/React.createElement("label", {
+              className: "slider-title"
+            }, "Width: " + state.pendingCols), /*#__PURE__*/React.createElement("div", {
+              className: "slider-row"
+            }, /*#__PURE__*/React.createElement("input", {
+              type: "range",
+              min: "20",
+              max: "2000",
+              step: "10",
+              "aria-label": "Grid width",
+              value: state.pendingCols,
+              onChange: function (e) {
+                LifeBoardUtils.setWidth(stateRef, refs, dispatch, e);
+              },
+              onMouseUp: function () {
+                LifeBoardUtils.applyWidth(stateRef, refs, dispatch);
+              },
+              onTouchEnd: function () {
+                LifeBoardUtils.applyWidth(stateRef, refs, dispatch);
+              }
+            }))), /*#__PURE__*/React.createElement("div", {
+              className: "sliders"
+            }, /*#__PURE__*/React.createElement("label", {
+              className: "slider-title"
+            }, "Height: " + state.pendingRows), /*#__PURE__*/React.createElement("div", {
+              className: "slider-row"
+            }, /*#__PURE__*/React.createElement("input", {
+              type: "range",
+              min: "20",
+              max: "2000",
+              step: "10",
+              "aria-label": "Grid height",
+              value: state.pendingRows,
+              onChange: function (e) {
+                LifeBoardUtils.setHeight(stateRef, refs, dispatch, e);
+              },
+              onMouseUp: function () {
+                LifeBoardUtils.applyHeight(stateRef, refs, dispatch);
+              },
+              onTouchEnd: function () {
+                LifeBoardUtils.applyHeight(stateRef, refs, dispatch);
+              }
+            }))));
+          }
+        });
+      }
+      boardDefs.push({
+        id: 'density',
+        icon: 'fa-braille',
+        title: 'Fill density',
+        popOut: function () {
+          return /*#__PURE__*/React.createElement("div", {
+            className: "compact-popout-content sliders"
+          }, /*#__PURE__*/React.createElement("label", {
+            className: "slider-title"
+          }, "Fill Density (on Reset)"), /*#__PURE__*/React.createElement("div", {
+            className: "slider-row"
+          }, /*#__PURE__*/React.createElement("input", {
+            type: "range",
+            min: "2",
+            max: "7",
+            "aria-label": "Fill density",
+            value: 9 - state.sparseness,
+            onChange: function (e) {
+              LifeBoardUtils.setDensity(stateRef, refs, dispatch, e);
+            }
+          })));
+        }
+      });
+      return boardDefs;
     case 'view':
       return [{
         id: 'fit-grid',
@@ -2179,6 +2279,19 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
           LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch);
         },
         active: state.showMinimap
+      }, {
+        id: 'stats',
+        icon: 'fa-bar-chart',
+        title: 'Stats',
+        onClick: function () {
+          dispatch({
+            type: 'MERGE',
+            payload: {
+              showStats: !state.showStats
+            }
+          });
+        },
+        active: state.showStats
       }, {
         id: 'zoom',
         icon: 'fa-search-plus',
@@ -2285,27 +2398,83 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
       return defs;
     case 'rules':
       return [{
-        id: 'rules',
+        id: 'rule-preset',
         icon: 'fa-cogs',
-        title: 'Rules',
+        title: 'Rule presets',
         popOut: function () {
-          return /*#__PURE__*/React.createElement(RulesSection, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          });
+          return /*#__PURE__*/React.createElement("div", {
+            className: "compact-popout-content"
+          }, /*#__PURE__*/React.createElement("select", {
+            className: "rule-preset-select",
+            "aria-label": "Rule preset",
+            value: state.rulePreset,
+            onChange: function (e) {
+              LifeBoardUtils.setRulePreset(stateRef, refs, dispatch, e);
+            }
+          }, /*#__PURE__*/React.createElement("option", {
+            value: ""
+          }, "Preset..."), RULE_PRESETS.map(function (p) {
+            return /*#__PURE__*/React.createElement("option", {
+              key: p.rule,
+              value: p.rule
+            }, p.name);
+          })));
+        }
+      }, {
+        id: 'rule-input',
+        icon: 'fa-pencil-square-o',
+        title: 'Edit rule (B/S notation)',
+        popOut: function () {
+          var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
+          return /*#__PURE__*/React.createElement("div", {
+            className: "compact-popout-content"
+          }, /*#__PURE__*/React.createElement("input", {
+            className: "rule-input" + (ruleValid ? "" : " rule-input-invalid"),
+            type: "text",
+            value: state.ruleString,
+            onChange: function (e) {
+              LifeBoardUtils.setRule(stateRef, refs, dispatch, e);
+            },
+            title: "B/S notation (e.g. B3/S23)"
+          }));
         }
       }];
-    case 'stats':
-      return [];
     case 'importExport':
       return [{
-        id: 'io',
-        icon: 'fa-exchange',
-        title: 'Share',
+        id: 'export-png',
+        icon: 'fa-camera',
+        title: 'Export PNG',
+        onClick: function () {
+          LifeIOUtils.exportPNG(stateRef, refs, dispatch);
+        }
+      }, {
+        id: 'copy-rle',
+        icon: 'fa-clipboard',
+        title: 'Copy RLE',
+        onClick: function () {
+          LifeIOUtils.copyRLE(stateRef, refs, dispatch);
+        }
+      }, {
+        id: 'record',
+        icon: state.recording ? 'fa-stop' : 'fa-circle',
+        title: state.recording ? 'Stop recording' : 'Record GIF',
+        onClick: function () {
+          LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch);
+        },
+        active: state.recording
+      }, {
+        id: 'share-url',
+        icon: 'fa-share-alt',
+        title: 'Share URL',
+        onClick: function () {
+          LifeIOUtils.shareURL(stateRef, refs, dispatch);
+        }
+      }, {
+        id: 'import-rle',
+        icon: 'fa-download',
+        title: 'Import RLE/Plaintext',
         popOut: function () {
-          return /*#__PURE__*/React.createElement(ExportContent, {
+          return /*#__PURE__*/React.createElement(RLESection, {
             state: state,
             stateRef: stateRef,
             refs: refs,
@@ -2346,10 +2515,12 @@ var CompactBody = function CompactBody(props) {
         isOpen ? LifeViewUtils._closePopOut(stateRef, refs, dispatch) : LifeViewUtils._openPopOut(stateRef, refs, dispatch, panelId, def.id);
       } : def.onClick,
       title: def.title
-    }, /*#__PURE__*/React.createElement("i", {
+    }, def.icon ? /*#__PURE__*/React.createElement("i", {
       className: "fa " + def.icon,
       "aria-hidden": "true"
-    })), def.popOut && isOpen && /*#__PURE__*/React.createElement("div", {
+    }) : null, def.label ? /*#__PURE__*/React.createElement("span", {
+      className: "compact-btn-label"
+    }, def.label) : null), def.popOut && isOpen && /*#__PURE__*/React.createElement("div", {
       className: "pop-out-panel"
     }, def.popOut()));
   }));
@@ -3086,7 +3257,22 @@ var ViewControls = function ViewControls(props) {
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-map-o",
     "aria-hidden": "true"
-  }), " Minimap"));
+  }), " Minimap"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.showStats ? " active" : ""),
+    onClick: function () {
+      dispatch({
+        type: 'MERGE',
+        payload: {
+          showStats: !state.showStats
+        }
+      });
+    },
+    title: "Show/hide stats overlay"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-bar-chart",
+    "aria-hidden": "true"
+  }), " Stats"));
 };
 var ZoomSlider = function ZoomSlider(props) {
   // eslint-disable-line no-unused-vars
@@ -4535,6 +4721,7 @@ function initState() {
     selection: null,
     clipboard: null,
     showMinimap: !isMobileInit,
+    showStats: true,
     recording: false,
     showMobileTools: false,
     showTrails: true,
@@ -4621,7 +4808,7 @@ function initState() {
     panelZCounter: savedLayout.panelZCounter || 1,
     panelGroups: savedLayout.panelGroups || [{
       id: 'g-default',
-      panels: ['transport', 'view', 'mode', 'board', 'rules', 'stats', 'importExport'],
+      panels: ['transport', 'view', 'mode', 'board', 'rules', 'importExport'],
       activeTab: 'transport',
       x: 10,
       y: 50,
