@@ -233,7 +233,7 @@ var _startPanelResize = function(panelId, e, stateRef, refs, dispatch){
 var _startGroupDrag = function(groupId, e, stateRef, refs, dispatch){
     if(e.target.tagName === 'BUTTON' || (e.target.closest && e.target.closest('button'))){ return; }
     e.preventDefault();
-    var panel = e.currentTarget.parentElement;
+    var panel = e.currentTarget.closest('.panel-group') || e.currentTarget.parentElement;
     var rect = panel.getBoundingClientRect();
     var clientX = e.touches ? e.touches[0].clientX : e.clientX;
     var clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -331,8 +331,12 @@ var _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
         } else if(isCompact && newW > 120){
             didToggle = true;
             panel.style.width = Math.max(180, newW) + 'px';
+            panel.style.maxHeight = '';
             LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-        } else if(!isCompact){
+        } else if(isCompact){
+            // In compact mode, only resize vertically.
+            panel.style.maxHeight = Math.max(100, newH) + 'px';
+        } else {
             panel.style.width = Math.max(180, newW) + 'px';
             panel.style.maxHeight = Math.max(80, newH) + 'px';
         }
@@ -555,30 +559,32 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
     });
 
     if(isCompact){
-        // Compact layout: icon rail on the left, content + header buttons on the right.
+        // Compact layout: header bar on top spanning full width, icon rail + content below.
         return (
             <div className={className} style={style} data-group-id={group.id}
                 onMouseDown={function(){ LifeViewUtils._bringGroupToFront(stateRef, refs, dispatch, group.id); }}
                 role="region" aria-label="Panel group">
-                <div className="compact-icon-rail"
+                <div className="float-panel-header compact-group-header"
                     onMouseDown={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}
                     onTouchStart={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}>
-                    {tabButtons}
+                    <span className="compact-active-label">{_getPanelLabel(activeTab)}</span>
+                    <button type="button" className="btn float-panel-compact-toggle"
+                        onClick={function(){ LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
+                        title="Expand group">{"\u00bb"}</button>
+                    <button type="button" className="btn float-panel-close"
+                        onClick={function(){ _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
+                        aria-label="Close active panel">&times;</button>
                 </div>
-                <div className="compact-main">
-                    <div className="float-panel-header"
+                <div className="compact-group-body">
+                    <div className="compact-icon-rail"
                         onMouseDown={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}
                         onTouchStart={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}>
-                        <span className="compact-active-label">{_getPanelLabel(activeTab)}</span>
-                        <button type="button" className="btn float-panel-compact-toggle"
-                            onClick={function(){ LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
-                            title="Expand group">{"\u00bb"}</button>
-                        <button type="button" className="btn float-panel-close"
-                            onClick={function(){ _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
-                            aria-label="Close active panel">&times;</button>
+                        {tabButtons}
                     </div>
-                    <div className="float-panel-body">
-                        <CompactBody panelId={activeTab} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
+                    <div className="compact-main">
+                        <div className="float-panel-body">
+                            <CompactBody panelId={activeTab} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
+                        </div>
                     </div>
                 </div>
                 <div className="float-panel-resize"
