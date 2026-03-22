@@ -318,20 +318,6 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         dispatch({type:'MERGE', payload:{ panelGroups: groups }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
-    _cycleGroupCompactTabMode : function(stateRef, refs, dispatch, groupId){
-        var MODES = ['horizontal', 'sidebar', 'dropdown'];
-        var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
-        for(var i = 0; i < groups.length; i++){
-            if(groups[i].id === groupId){
-                var cur = groups[i].compactTabMode || 'horizontal';
-                var idx = MODES.indexOf(cur);
-                groups[i].compactTabMode = MODES[(idx + 1) % MODES.length];
-                break;
-            }
-        }
-        dispatch({type:'MERGE', payload:{ panelGroups: groups }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
-    },
-
     _openPopOut : function(stateRef, refs, dispatch, panelId, controlId){
         dispatch({type:'MERGE', payload:{ activePopOut: panelId + ':' + controlId }});
     },
