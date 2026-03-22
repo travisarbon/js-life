@@ -1,9 +1,30 @@
-/* global InputHandler */
+/* global InputHandler, LifeSimUtils, LifeViewUtils, LifeBoardUtils, LifeIOUtils, LifeAnalysisUtils */
 /**
  * Input delegation and keyboard utility object for LifeBoard component.
  * Delegates mouse/touch/wheel events to InputHandler and handles keyboard shortcuts.
  */
 var LifeInputUtils = { // eslint-disable-line no-unused-vars
+
+    /**
+     * Build a thin shim that looks like `this` to InputHandler,
+     * bridging stateRef / dispatch / refs into the old interface.
+     */
+    _shim : function(stateRef, dispatch, refs){
+        return {
+            get state(){ return stateRef.current; },
+            setState : function(s, cb){
+                dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s});
+                if(cb) cb();
+            },
+            _canvas      : refs.canvas,
+            _ctx          : refs.ctx,
+            drawBoard     : function(){ refs.drawPending = true; },
+            getCellPos    : function(ev){ return LifeInputUtils.getCellPos(stateRef, dispatch, refs, ev); },
+            getMousePos   : function(ev){ return LifeInputUtils.getMousePos(stateRef, dispatch, refs, ev); },
+            paintCellDirect : function(c, r){ LifeInputUtils.paintCellDirect(stateRef, dispatch, refs, c, r); },
+            _startPanMomentum : function(vx, vy){ LifeInputUtils._startPanMomentum(stateRef, dispatch, refs, vx, vy); }
+        };
+    },
 
     // ── Mouse / painting (delegated to InputHandler) ───────────────────
 
@@ -12,7 +33,7 @@ var LifeInputUtils = { // eslint-disable-line no-unused-vars
     },
 
     paintCellDirect : function(stateRef, dispatch, refs, c, r){
-        InputHandler.paintCellDirect(c, r, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, _canvas: refs.canvas, _ctx: refs.ctx, drawBoard: function(){ refs.drawPending = true; }});
+        InputHandler.paintCellDirect(c, r, LifeInputUtils._shim(stateRef, dispatch, refs));
     },
 
     getCellPos : function(stateRef, dispatch, refs, event){
@@ -20,40 +41,40 @@ var LifeInputUtils = { // eslint-disable-line no-unused-vars
     },
 
     onMouseDown : function(stateRef, dispatch, refs, event){
-        InputHandler.onMouseDown(event, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, _canvas: refs.canvas, _ctx: refs.ctx, drawBoard: function(){ refs.drawPending = true; }, getCellPos: function(ev){ return LifeInputUtils.getCellPos(stateRef, dispatch, refs, ev); }, getMousePos: function(ev){ return LifeInputUtils.getMousePos(stateRef, dispatch, refs, ev); }, paintCellDirect: function(c, r){ LifeInputUtils.paintCellDirect(stateRef, dispatch, refs, c, r); }, _startPanMomentum: function(vx, vy){ LifeInputUtils._startPanMomentum(stateRef, dispatch, refs, vx, vy); }});
+        InputHandler.onMouseDown(event, LifeInputUtils._shim(stateRef, dispatch, refs));
     },
 
     onMouseMove : function(stateRef, dispatch, refs, event){
-        InputHandler.onMouseMove(event, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, _canvas: refs.canvas, _ctx: refs.ctx, drawBoard: function(){ refs.drawPending = true; }, getCellPos: function(ev){ return LifeInputUtils.getCellPos(stateRef, dispatch, refs, ev); }, getMousePos: function(ev){ return LifeInputUtils.getMousePos(stateRef, dispatch, refs, ev); }, paintCellDirect: function(c, r){ LifeInputUtils.paintCellDirect(stateRef, dispatch, refs, c, r); }});
+        InputHandler.onMouseMove(event, LifeInputUtils._shim(stateRef, dispatch, refs));
     },
 
     onMouseUp : function(stateRef, dispatch, refs){
-        InputHandler.onMouseUp(null, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, _canvas: refs.canvas, _ctx: refs.ctx, drawBoard: function(){ refs.drawPending = true; }, _startPanMomentum: function(vx, vy){ LifeInputUtils._startPanMomentum(stateRef, dispatch, refs, vx, vy); }});
+        InputHandler.onMouseUp(null, LifeInputUtils._shim(stateRef, dispatch, refs));
     },
 
     _startPanMomentum : function(stateRef, dispatch, refs, vx, vy){
-        InputHandler._startPanMomentum(vx, vy, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, drawBoard: function(){ refs.drawPending = true; }});
+        InputHandler._startPanMomentum(vx, vy, LifeInputUtils._shim(stateRef, dispatch, refs));
     },
 
     onMouseLeave : function(stateRef, dispatch, refs){
-        InputHandler.onMouseLeave(null, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, drawBoard: function(){ refs.drawPending = true; }});
+        InputHandler.onMouseLeave(null, LifeInputUtils._shim(stateRef, dispatch, refs));
     },
 
     onContextMenu : function(stateRef, dispatch, refs, event){
-        InputHandler.onContextMenu(event, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }});
+        InputHandler.onContextMenu(event, LifeInputUtils._shim(stateRef, dispatch, refs));
     },
 
     // ── Zoom and pan ──────────────────────────────────────────────────
 
     onWheel : function(stateRef, dispatch, refs, event){
-        InputHandler.onWheel(event, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, _canvas: refs.canvas, drawBoard: function(){ refs.drawPending = true; }});
+        InputHandler.onWheel(event, LifeInputUtils._shim(stateRef, dispatch, refs));
     },
 
     // ── Touch support (delegated to InputHandler) ─────────────────────
 
-    onTouchStart : function(stateRef, dispatch, refs, event){ InputHandler.onTouchStart(event, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, _canvas: refs.canvas, _ctx: refs.ctx, drawBoard: function(){ refs.drawPending = true; }, getCellPos: function(ev){ return LifeInputUtils.getCellPos(stateRef, dispatch, refs, ev); }, getMousePos: function(ev){ return LifeInputUtils.getMousePos(stateRef, dispatch, refs, ev); }, paintCellDirect: function(c, r){ LifeInputUtils.paintCellDirect(stateRef, dispatch, refs, c, r); }}); },
-    onTouchMove : function(stateRef, dispatch, refs, event){ InputHandler.onTouchMove(event, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, _canvas: refs.canvas, _ctx: refs.ctx, drawBoard: function(){ refs.drawPending = true; }, getCellPos: function(ev){ return LifeInputUtils.getCellPos(stateRef, dispatch, refs, ev); }, getMousePos: function(ev){ return LifeInputUtils.getMousePos(stateRef, dispatch, refs, ev); }, paintCellDirect: function(c, r){ LifeInputUtils.paintCellDirect(stateRef, dispatch, refs, c, r); }}); },
-    onTouchEnd : function(stateRef, dispatch, refs, event){ InputHandler.onTouchEnd(event, {state: stateRef.current, setState: function(s, cb){ dispatch({type:'MERGE', payload: typeof s === 'function' ? s(stateRef.current) : s}); if(cb) cb(); }, _canvas: refs.canvas, _ctx: refs.ctx, drawBoard: function(){ refs.drawPending = true; }, _startPanMomentum: function(vx, vy){ LifeInputUtils._startPanMomentum(stateRef, dispatch, refs, vx, vy); }}); },
+    onTouchStart : function(stateRef, dispatch, refs, event){ InputHandler.onTouchStart(event, LifeInputUtils._shim(stateRef, dispatch, refs)); },
+    onTouchMove  : function(stateRef, dispatch, refs, event){ InputHandler.onTouchMove(event, LifeInputUtils._shim(stateRef, dispatch, refs)); },
+    onTouchEnd   : function(stateRef, dispatch, refs, event){ InputHandler.onTouchEnd(event, LifeInputUtils._shim(stateRef, dispatch, refs)); },
 
     // ── Keyboard ──────────────────────────────────────────────────────
 
