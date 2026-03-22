@@ -335,6 +335,17 @@ function LifeBoard() {
                 HashLife.init(stateRef.current.birthRule, stateRef.current.surviveRule);
                 SimRunner._hlRuleKey = stateRef.current.birthRule.join(',') + '/' + stateRef.current.surviveRule.join(',');
                 drawBoard(stateRef, refs);
+                // Render loop: consume drawPending flag each frame.
+                (function renderLoop(){
+                    refs.rafId = requestAnimationFrame(function(){
+                        if(refs.drawPending){
+                            refs.drawPending = false;
+                            drawBoard(stateRef, refs);
+                            drawMinimapMobile(stateRef, refs, stateRef.current.liveCells, stateRef.current.cols, stateRef.current.rows, stateRef.current.viewX, stateRef.current.viewY, stateRef.current.cellSize, THEMES[stateRef.current.theme] || THEMES['Teal']);
+                        }
+                        if(refs.mounted){ renderLoop(); }
+                    });
+                })();
                 LifeIOUtils._loadFromURLHash(stateRef, refs, dispatch);
                 LifeSimUtils._startLoop(stateRef, refs, dispatch);
                 ObservatoryPanelUtils._observeTabBars(stateRef, refs);
