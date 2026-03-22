@@ -6,17 +6,17 @@ var LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
 
     // ── Help modal ─────────────────────────────────────────────────────
 
-    toggleHelp : function(stateRef, dispatch, refs){
+    toggleHelp : function(stateRef, refs, dispatch){
         var opening = !stateRef.current.showHelp;
-        if(opening){ LifeViewUtils._saveFocus(stateRef, dispatch, refs); }
+        if(opening){ LifeViewUtils._saveFocus(stateRef, refs, dispatch); }
         dispatch({type:'MERGE', payload:{showHelp : opening}});
-        if(opening){ LifeViewUtils._focusFirst(stateRef, dispatch, refs, '.help-modal'); }
-        else { LifeViewUtils._restoreFocus(stateRef, dispatch, refs); }
+        if(opening){ LifeViewUtils._focusFirst(stateRef, refs, dispatch, '.help-modal'); }
+        else { LifeViewUtils._restoreFocus(stateRef, refs, dispatch); }
     },
 
     // ── GIF recording ─────────────────────────────────────────────────
 
-    toggleRecording : function(stateRef, dispatch, refs){
+    toggleRecording : function(stateRef, refs, dispatch){
         if(stateRef.current.recording){
             // Stop recording and render.
             if(refs.gif){ refs.gif.render(); }
@@ -24,7 +24,7 @@ var LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
         } else {
             // Start recording (requires gif.js loaded).
             if(typeof GIF === 'undefined'){
-                LifeViewUtils._announce(stateRef, dispatch, refs, 'gif.js is not loaded. Add it to index.html to enable GIF export.');
+                LifeViewUtils._announce(stateRef, refs, dispatch, 'gif.js is not loaded. Add it to index.html to enable GIF export.');
                 return;
             }
             refs.gif = new GIF({
@@ -45,15 +45,15 @@ var LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
         }
     },
 
-    togglePopGraph : function(stateRef, dispatch, refs){
+    togglePopGraph : function(stateRef, refs, dispatch){
         var opening = !stateRef.current.showPopGraph;
-        if(opening){ LifeViewUtils._saveFocus(stateRef, dispatch, refs); }
+        if(opening){ LifeViewUtils._saveFocus(stateRef, refs, dispatch); }
         dispatch({type:'MERGE', payload:{showPopGraph: opening}});
-        if(opening){ LifeViewUtils._focusFirst(stateRef, dispatch, refs, '.pop-graph-modal'); }
-        else { LifeViewUtils._restoreFocus(stateRef, dispatch, refs); }
+        if(opening){ LifeViewUtils._focusFirst(stateRef, refs, dispatch, '.pop-graph-modal'); }
+        else { LifeViewUtils._restoreFocus(stateRef, refs, dispatch); }
     },
 
-    analyzePattern : function(stateRef, dispatch, refs){
+    analyzePattern : function(stateRef, refs, dispatch){
         if(stateRef.current.analyzing){ return; }
         var liveCells = stateRef.current.liveCells;
         if(liveCells.size === 0){
@@ -213,7 +213,7 @@ var LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
         setTimeout(runChunk, 0);
     },
 
-    cancelAnalysis : function(stateRef, dispatch, refs){
+    cancelAnalysis : function(stateRef, refs, dispatch){
         refs.analysisCancelled = true;
         dispatch({type:'MERGE', payload:{analysisResult: 'Analysis cancelled.', analyzing: false}});
         setTimeout(function(){ dispatch({type:'MERGE', payload:{analysisResult: null}}); }, 2000);

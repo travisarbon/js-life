@@ -6,7 +6,7 @@
 var LifeViewUtils = { // eslint-disable-line no-unused-vars
 
     // Compute canvas pixel dimensions that fit the device viewport.
-    getCanvasSize : function(stateRef, dispatch, refs){
+    getCanvasSize : function(stateRef, refs, dispatch){
         var cellSize   = stateRef.current.cellSize;
         var pendingCols = stateRef.current.pendingCols;
         var pendingRows = stateRef.current.pendingRows;
@@ -36,23 +36,23 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         return result;
     },
 
-    clampView : function(stateRef, dispatch, refs, viewX, viewY){
+    clampView : function(stateRef, refs, dispatch, viewX, viewY){
         return {viewX: Math.round(viewX), viewY: Math.round(viewY)};
     },
 
     // ── Zoom and pan ──────────────────────────────────────────────────
 
-    pan : function(stateRef, dispatch, refs, dc, dr){
-        var clamped = LifeViewUtils.clampView(stateRef, dispatch, refs,
+    pan : function(stateRef, refs, dispatch, dc, dr){
+        var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch,
             stateRef.current.viewX + dc, stateRef.current.viewY + dr,
             stateRef.current.cols, stateRef.current.rows, stateRef.current.cellSize);
         dispatch({type:'MERGE', payload:{viewX: clamped.viewX, viewY: clamped.viewY}}); refs.drawPending = true;
     },
 
-    selectAllVisible : function(stateRef, dispatch, refs){
+    selectAllVisible : function(stateRef, refs, dispatch){
         var liveCells = stateRef.current.liveCells;
         var viewX = stateRef.current.viewX, viewY = stateRef.current.viewY;
-        var cs = LifeViewUtils.getCanvasSize(stateRef, dispatch, refs);
+        var cs = LifeViewUtils.getCanvasSize(stateRef, refs, dispatch);
         var viewCols = Math.ceil(cs.w / stateRef.current.cellSize);
         var viewRows = Math.ceil(cs.h / stateRef.current.cellSize);
         var isUnbounded = stateRef.current.boundary === 'unbounded';
@@ -77,10 +77,10 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         }}); refs.drawPending = true;
     },
 
-    fitView : function(stateRef, dispatch, refs){
+    fitView : function(stateRef, refs, dispatch){
         if(!refs.canvas){ return; }
         // In unbounded mode, "Fit Grid" behaves like "Fit Cells".
-        if(stateRef.current.boundary === 'unbounded'){ LifeViewUtils.fitLiveCells(stateRef, dispatch, refs); return; }
+        if(stateRef.current.boundary === 'unbounded'){ LifeViewUtils.fitLiveCells(stateRef, refs, dispatch); return; }
         // Use regionBounds to determine the area to fit.
         var rb = stateRef.current.regionBounds;
         var originC = rb ? rb.minC : 0;
@@ -117,10 +117,10 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         dispatch({type:'MERGE', payload:{cellSize: newCS, viewX: originC - padCols, viewY: originR - padRows}}); refs.drawPending = true;
     },
 
-    fitLiveCells : function(stateRef, dispatch, refs){
+    fitLiveCells : function(stateRef, refs, dispatch){
         if(!refs.canvas){ return; }
         var liveCells = stateRef.current.liveCells;
-        if(liveCells.size === 0){ LifeViewUtils.fitView(stateRef, dispatch, refs); return; }
+        if(liveCells.size === 0){ LifeViewUtils.fitView(stateRef, refs, dispatch); return; }
         var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
         liveCells.forEach(function(_, key){
             var rc = parseKey(key);
@@ -150,11 +150,11 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         dispatch({type:'MERGE', payload:{cellSize: newCS, viewX: newVX, viewY: newVY}}); refs.drawPending = true;
     },
 
-    setZoom : function(stateRef, dispatch, refs, e){
+    setZoom : function(stateRef, refs, dispatch, e){
         var newCS = parseInt(e.target.value, 10);
         if(isNaN(newCS) || newCS < 1){ return; }
         newCS = Math.max(1, Math.min(128, newCS));
-        var clamped = LifeViewUtils.clampView(stateRef, dispatch, refs,
+        var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch,
             stateRef.current.viewX, stateRef.current.viewY,
             stateRef.current.cols, stateRef.current.rows, newCS);
         dispatch({type:'MERGE', payload:{cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY}}); refs.drawPending = true;
@@ -162,7 +162,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
 
     // ── Layout mode management ───────────────────────────────────────
 
-    _persistLayout : function(stateRef, dispatch, refs){
+    _persistLayout : function(stateRef, refs, dispatch){
         try {
             localStorage.setItem('life-layout-prefs', JSON.stringify({
                 _schemaVersion: 1,
@@ -180,7 +180,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
 
     // ── Z-index layering ─────────────────────────────────────────
 
-    _bringPanelToFront : function(stateRef, dispatch, refs, panelId){
+    _bringPanelToFront : function(stateRef, refs, dispatch, panelId){
         var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
         var next = (stateRef.current.panelZCounter || 1) + 1;
         panels[panelId].z = next;
@@ -189,11 +189,11 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
 
     // ── Panel grouping (docking) ─────────────────────────────────
 
-    _generateGroupId : function(stateRef, dispatch, refs){
+    _generateGroupId : function(stateRef, refs, dispatch){
         return 'g' + Date.now() + Math.random().toString(36).substr(2, 4);
     },
 
-    _findGroupForPanel : function(stateRef, dispatch, refs, panelId){
+    _findGroupForPanel : function(stateRef, refs, dispatch, panelId){
         var groups = stateRef.current.panelGroups;
         for(var i = 0; i < groups.length; i++){
             if(groups[i].panels.indexOf(panelId) !== -1){ return groups[i]; }
@@ -201,7 +201,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         return null;
     },
 
-    _mergePanels : function(stateRef, dispatch, refs, draggedId, targetId){
+    _mergePanels : function(stateRef, refs, dispatch, draggedId, targetId){
         var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
         var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
         var dragGroup = null, targetGroup = null;
@@ -224,7 +224,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         } else {
             // Create new group at target's position.
             var newGroup = {
-                id: LifeViewUtils._generateGroupId(stateRef, dispatch, refs),
+                id: LifeViewUtils._generateGroupId(stateRef, refs, dispatch),
                 panels: [targetId, draggedId],
                 activeTab: draggedId,
                 x: panels[targetId].x,
@@ -242,10 +242,10 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         }
 
         var next = (stateRef.current.panelZCounter || 1) + 1;
-        dispatch({type:'MERGE', payload:{ panelGroups: groups, panelStates: panels, panelZCounter: next }}); LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        dispatch({type:'MERGE', payload:{ panelGroups: groups, panelStates: panels, panelZCounter: next }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
-    _separatePanel : function(stateRef, dispatch, refs, panelId, groupId, x, y){
+    _separatePanel : function(stateRef, refs, dispatch, panelId, groupId, x, y){
         var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
         var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
         var next = (stateRef.current.panelZCounter || 1) + 1;
@@ -273,10 +273,10 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         panels[panelId].x = x;
         panels[panelId].y = y;
         panels[panelId].z = next;
-        dispatch({type:'MERGE', payload:{ panelGroups: groups, panelStates: panels, panelZCounter: next }}); LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        dispatch({type:'MERGE', payload:{ panelGroups: groups, panelStates: panels, panelZCounter: next }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
-    _setGroupActiveTab : function(stateRef, dispatch, refs, groupId, panelId){
+    _setGroupActiveTab : function(stateRef, refs, dispatch, groupId, panelId){
         var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
         for(var i = 0; i < groups.length; i++){
             if(groups[i].id === groupId){
@@ -284,10 +284,10 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
                 break;
             }
         }
-        dispatch({type:'MERGE', payload:{ panelGroups: groups, activePopOut: null }}); LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        dispatch({type:'MERGE', payload:{ panelGroups: groups, activePopOut: null }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
-    _bringGroupToFront : function(stateRef, dispatch, refs, groupId){
+    _bringGroupToFront : function(stateRef, refs, dispatch, groupId){
         var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
         var next = (stateRef.current.panelZCounter || 1) + 1;
         for(var i = 0; i < groups.length; i++){
@@ -301,13 +301,13 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
 
     // ── Compact mode ─────────────────────────────────────────────
 
-    _togglePanelCompact : function(stateRef, dispatch, refs, panelId){
+    _togglePanelCompact : function(stateRef, refs, dispatch, panelId){
         var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
         panels[panelId].compact = !panels[panelId].compact;
-        dispatch({type:'MERGE', payload:{ panelStates: panels }}); LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        dispatch({type:'MERGE', payload:{ panelStates: panels }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
-    _toggleGroupCompact : function(stateRef, dispatch, refs, groupId){
+    _toggleGroupCompact : function(stateRef, refs, dispatch, groupId){
         var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
         for(var i = 0; i < groups.length; i++){
             if(groups[i].id === groupId){
@@ -315,10 +315,10 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
                 break;
             }
         }
-        dispatch({type:'MERGE', payload:{ panelGroups: groups }}); LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        dispatch({type:'MERGE', payload:{ panelGroups: groups }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
-    _cycleGroupCompactTabMode : function(stateRef, dispatch, refs, groupId){
+    _cycleGroupCompactTabMode : function(stateRef, refs, dispatch, groupId){
         var MODES = ['horizontal', 'sidebar', 'dropdown'];
         var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
         for(var i = 0; i < groups.length; i++){
@@ -329,40 +329,40 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
                 break;
             }
         }
-        dispatch({type:'MERGE', payload:{ panelGroups: groups }}); LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        dispatch({type:'MERGE', payload:{ panelGroups: groups }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
-    _openPopOut : function(stateRef, dispatch, refs, panelId, controlId){
+    _openPopOut : function(stateRef, refs, dispatch, panelId, controlId){
         dispatch({type:'MERGE', payload:{ activePopOut: panelId + ':' + controlId }});
     },
 
-    _closePopOut : function(stateRef, dispatch, refs){
+    _closePopOut : function(stateRef, refs, dispatch){
         dispatch({type:'MERGE', payload:{ activePopOut: null }});
     },
 
-    _isPopOutOpen : function(stateRef, dispatch, refs, panelId, controlId){
+    _isPopOutOpen : function(stateRef, refs, dispatch, panelId, controlId){
         return stateRef.current.activePopOut === panelId + ':' + controlId;
     },
 
     // ── Focus management ─────────────────────────────────────────
 
-    _saveFocus : function(stateRef, dispatch, refs){
+    _saveFocus : function(stateRef, refs, dispatch){
         refs.prevFocusEl = document.activeElement;
     },
 
-    _restoreFocus : function(stateRef, dispatch, refs){
+    _restoreFocus : function(stateRef, refs, dispatch){
         if(refs.prevFocusEl && refs.prevFocusEl.focus){
             try { refs.prevFocusEl.focus(); } catch(e){}
         }
         refs.prevFocusEl = null;
     },
 
-    _announce : function(stateRef, dispatch, refs, msg){
+    _announce : function(stateRef, refs, dispatch, msg){
         dispatch({type:'MERGE', payload:{srAnnouncement: msg}});
         setTimeout(function(){ if(refs.mounted) dispatch({type:'MERGE', payload:{srAnnouncement: ''}}); }, 3000);
     },
 
-    _focusFirst : function(stateRef, dispatch, refs, containerSelector){
+    _focusFirst : function(stateRef, refs, dispatch, containerSelector){
         setTimeout(function(){
             var el = document.querySelector(containerSelector);
             if(!el){ return; }
@@ -371,68 +371,68 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         }, 50);
     },
 
-    setLayoutMode : function(stateRef, dispatch, refs, mode){
+    setLayoutMode : function(stateRef, refs, dispatch, mode){
         dispatch({type:'MERGE', payload:{layoutMode: mode, zenMode: false}});
-        LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        LifeViewUtils._persistLayout(stateRef, refs, dispatch);
         refs.drawPending = true;
     },
 
-    setRailTab : function(stateRef, dispatch, refs, tab){
+    setRailTab : function(stateRef, refs, dispatch, tab){
         var updates = {railTab: tab, railCollapsed: false};
-        dispatch({type:'MERGE', payload:updates}); LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        dispatch({type:'MERGE', payload:updates}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
-    toggleRailCollapsed : function(stateRef, dispatch, refs){
+    toggleRailCollapsed : function(stateRef, refs, dispatch){
         dispatch({type:'MERGE', payload:{railCollapsed: !stateRef.current.railCollapsed}});
-        LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        LifeViewUtils._persistLayout(stateRef, refs, dispatch);
         refs.drawPending = true;
     },
 
-    toggleRailHidden : function(stateRef, dispatch, refs){
+    toggleRailHidden : function(stateRef, refs, dispatch){
         dispatch({type:'MERGE', payload:{railHidden: !stateRef.current.railHidden}}); refs.drawPending = true;
     },
 
-    toggleRailSide : function(stateRef, dispatch, refs){
+    toggleRailSide : function(stateRef, refs, dispatch){
         var newSide = stateRef.current.railSide === 'right' ? 'left' : 'right';
         dispatch({type:'MERGE', payload:{railSide: newSide}});
-        LifeViewUtils._persistLayout(stateRef, dispatch, refs);
+        LifeViewUtils._persistLayout(stateRef, refs, dispatch);
         refs.drawPending = true;
     },
 
-    toggleZenMode : function(stateRef, dispatch, refs){
+    toggleZenMode : function(stateRef, refs, dispatch){
         dispatch({type:'MERGE', payload:{zenMode: !stateRef.current.zenMode}}); refs.drawPending = true;
     },
 
-    toggleBottomSheet : function(stateRef, dispatch, refs){
+    toggleBottomSheet : function(stateRef, refs, dispatch){
         if(stateRef.current.bottomSheetOpen){
             // Closing: animate out, then unmount.
             refs.previewCanvas = null;
             dispatch({type:'MERGE', payload:{bottomSheetClosing: true}});
             setTimeout(function(){
                 dispatch({type:'MERGE', payload:{bottomSheetOpen: false, bottomSheetClosing: false}});
-                LifeViewUtils._restoreFocus(stateRef, dispatch, refs);
+                LifeViewUtils._restoreFocus(stateRef, refs, dispatch);
                 refs.drawPending = true;
             }, 200);
         } else {
             // Opening.
-            LifeViewUtils._saveFocus(stateRef, dispatch, refs);
+            LifeViewUtils._saveFocus(stateRef, refs, dispatch);
             dispatch({type:'MERGE', payload:{bottomSheetOpen: true, bottomSheetClosing: false}});
-            LifeViewUtils._focusFirst(stateRef, dispatch, refs, '.bottom-sheet');
+            LifeViewUtils._focusFirst(stateRef, refs, dispatch, '.bottom-sheet');
             drawRotationPreview(stateRef, refs);
         }
     },
 
-    setBottomSheetTab : function(stateRef, dispatch, refs, tab){
+    setBottomSheetTab : function(stateRef, refs, dispatch, tab){
         dispatch({type:'MERGE', payload:{bottomSheetTab: tab, bottomSheetOpen: true}});
     },
 
     // ── Bottom sheet swipe-to-dismiss ─────────────────────────────────
 
-    _onSheetTouchStart : function(stateRef, dispatch, refs, e){
+    _onSheetTouchStart : function(stateRef, refs, dispatch, e){
         refs.sheetTouchY = e.touches[0].clientY;
         refs.sheetEl = e.currentTarget;
     },
-    _onSheetTouchMove : function(stateRef, dispatch, refs, e){
+    _onSheetTouchMove : function(stateRef, refs, dispatch, e){
         if(refs.sheetTouchY === null || refs.sheetTouchY === undefined){ return; }
         var dy = e.touches[0].clientY - refs.sheetTouchY;
         if(dy > 0){
@@ -440,7 +440,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
             refs.sheetEl.style.transform = 'translateY(' + dy + 'px)';
         }
     },
-    _onSheetTouchEnd : function(stateRef, dispatch, refs){
+    _onSheetTouchEnd : function(stateRef, refs, dispatch){
         if(refs.sheetTouchY === null || refs.sheetTouchY === undefined){ return; }
         var el = refs.sheetEl;
         var transform = el.style.transform;
@@ -451,16 +451,16 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         }
         el.style.transform = '';
         if(dy > 60){
-            LifeViewUtils.toggleBottomSheet(stateRef, dispatch, refs);
+            LifeViewUtils.toggleBottomSheet(stateRef, refs, dispatch);
         }
         refs.sheetTouchY = null;
     },
 
     // ── Bottom sheet focus trap + keyboard ────────────────────────────
 
-    _onSheetKeyDown : function(stateRef, dispatch, refs, e){
+    _onSheetKeyDown : function(stateRef, refs, dispatch, e){
         if(e.key === 'Escape'){
-            LifeViewUtils.toggleBottomSheet(stateRef, dispatch, refs);
+            LifeViewUtils.toggleBottomSheet(stateRef, refs, dispatch);
             e.preventDefault();
             return;
         }
@@ -480,14 +480,14 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
 
     // ── Toggles ───────────────────────────────────────────────────────
 
-    _hideStatsChip : function(stateRef, dispatch, refs){
+    _hideStatsChip : function(stateRef, refs, dispatch){
         refs.statsChipHidden = true;
         refs.minimapHidden = true;
         clearTimeout(refs.statsChipTimer);
         clearTimeout(refs.minimapTimer);
     },
 
-    _showStatsChipAfterDelay : function(stateRef, dispatch, refs){
+    _showStatsChipAfterDelay : function(stateRef, refs, dispatch){
         clearTimeout(refs.statsChipTimer);
         clearTimeout(refs.minimapTimer);
         refs.statsChipTimer = setTimeout(function(){
