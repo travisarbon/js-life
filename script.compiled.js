@@ -2929,7 +2929,7 @@ document.addEventListener('DOMContentLoaded', function () {
         "aria-label": "Close " + label + " panel"
       }, "\xD7")), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
         className: "float-panel-body"
-      }, isCompact ? this._renderCompactBody(panelId) : content), !ps.collapsed && !isCompact && /*#__PURE__*/React.createElement("div", {
+      }, isCompact ? this._renderCompactBody(panelId) : content), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
         className: "float-panel-resize",
         onMouseDown: function (e) {
           self._startPanelResize(panelId, e);
@@ -3561,18 +3561,35 @@ document.addEventListener('DOMContentLoaded', function () {
     _startPanelResize: function (panelId, e) {
       e.preventDefault();
       e.stopPropagation();
+      var self2 = this;
       var panel = e.currentTarget.parentElement;
       var rect = panel.getBoundingClientRect();
       var startW = rect.width;
       var startH = rect.height;
       var startX = e.touches ? e.touches[0].clientX : e.clientX;
       var startY = e.touches ? e.touches[0].clientY : e.clientY;
+      var isCompact = this.state.panelStates[panelId] && this.state.panelStates[panelId].compact;
+      var didToggle = false;
       var move = function (ev) {
         ev.preventDefault();
+        if (didToggle) return;
         var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
         var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-        panel.style.width = Math.max(180, startW + (cx - startX)) + 'px';
-        panel.style.maxHeight = Math.max(80, startH + (cy - startY)) + 'px';
+        var newW = startW + (cx - startX);
+        var newH = startH + (cy - startY);
+        if (!isCompact && newW < 120) {
+          didToggle = true;
+          panel.style.width = '';
+          panel.style.maxHeight = '';
+          self2._togglePanelCompact(panelId);
+        } else if (isCompact && newW > 120) {
+          didToggle = true;
+          panel.style.width = Math.max(180, newW) + 'px';
+          self2._togglePanelCompact(panelId);
+        } else if (!isCompact) {
+          panel.style.width = Math.max(180, newW) + 'px';
+          panel.style.maxHeight = Math.max(80, newH) + 'px';
+        }
       };
       var end = function () {
         document.removeEventListener('mousemove', move);

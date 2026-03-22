@@ -1126,6 +1126,21 @@ canvas.display {
 .float-panel-compact .float-panel-title {
   display: none; }
 
+.float-panel-compact .float-panel-resize {
+  width: 56px;
+  right: 0;
+  cursor: e-resize; }
+.float-panel-compact .float-panel-resize::after {
+  border-right: none;
+  border-bottom: 2px solid var(--panel-header-color);
+  border-top: none;
+  width: 16px;
+  height: 0;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 4px; }
+
 .float-panel-compact .float-panel-body {
   padding: var(--space-sm); }
 
