@@ -1951,9 +1951,10 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
   // Thresholds with hysteresis to prevent flip-flopping.
   var compactThreshold = 100; // shrink below this → go compact
   var expandThreshold = 140; // grow above this → go expanded
-  var toggled = false;
+  var didToggle = false;
   var move = function (ev) {
     ev.preventDefault();
+    if (didToggle) return;
     var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
     var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
     var newW = startW + (cx - startX);
@@ -1969,17 +1970,23 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
     }
     var curCompact = curGroup && !!curGroup.compact;
     if (!curCompact && newW < compactThreshold) {
-      toggled = true;
+      didToggle = true;
       panel.style.width = '';
       panel.style.maxHeight = '';
       LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
     } else if (curCompact && newW > expandThreshold) {
-      toggled = true;
+      didToggle = true;
       panel.style.width = '';
       panel.style.maxHeight = '';
       LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
     } else if (curCompact) {
-      panel.style.maxHeight = Math.max(100, newH) + 'px';
+      // Measure the minimum height needed to contain all buttons.
+      var body = panel.querySelector('.compact-group-body') || panel.querySelector('.compact-body');
+      var minH = 60;
+      if (body) {
+        minH = body.scrollHeight + (panel.offsetHeight - panel.clientHeight) + 40;
+      }
+      panel.style.maxHeight = Math.max(minH, newH) + 'px';
     } else {
       panel.style.width = Math.max(180, newW) + 'px';
       panel.style.maxHeight = Math.max(80, newH) + 'px';
@@ -1991,7 +1998,7 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
     document.removeEventListener('touchmove', move);
     document.removeEventListener('touchend', end);
     // After a toggle, clear stale inline styles so CSS takes over.
-    if (toggled) {
+    if (didToggle) {
       panel.style.width = '';
       panel.style.maxHeight = '';
     }
