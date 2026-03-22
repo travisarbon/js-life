@@ -534,7 +534,7 @@ function panMinimapElement(e, stateRef, refs, dispatch) {
   var mmOR = mmWorld ? mmWorld.originR : 0;
   var newVX = Math.round(frac_c * mmCols + mmOC - refs.canvas.width / state.cellSize / 2);
   var newVY = Math.round(frac_r * mmRows + mmOR - refs.canvas.height / state.cellSize / 2);
-  var clamped = LifeViewUtils.clampView(stateRef, refs, newVX, newVY, state.cols, state.rows, state.cellSize);
+  var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch, newVX, newVY, state.cols, state.rows, state.cellSize);
   dispatch({
     type: "MERGE",
     payload: {
@@ -4638,7 +4638,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Main render ───────────────────────────────────────────────────
 
-    var cs = LifeViewUtils.getCanvasSize(stateRef, refs);
+    var cs = LifeViewUtils.getCanvasSize(stateRef, refs, dispatch);
     var layout = state.layoutMode;
     var dc = state.deviceClass;
     var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';

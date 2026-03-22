@@ -8,7 +8,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
 
     // ── Drag-and-drop file import ──────────────────────────────────────
 
-    _handleFileDrop : function(stateRef, dispatch, refs, e){
+    _handleFileDrop : function(stateRef, refs, dispatch, e){
         e.preventDefault();
         e.stopPropagation();
         var container = refs.canvas.parentNode;
@@ -52,7 +52,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
                     rleError :        result.truncated ? 'Pattern truncated to ' + MAX_CELL_IMPORT.toLocaleString() + ' cells.' : ''
                 }});
                 refs.drawPending = true;
-                LifeViewUtils._announce(stateRef, dispatch, refs, 'Pattern imported. Click on the canvas to place it.');
+                LifeViewUtils._announce(stateRef, refs, dispatch, 'Pattern imported. Click on the canvas to place it.');
             } catch(ex){
                 dispatch({type:'MERGE', payload:{rleError: 'Could not parse file: ' + (ex.message || 'unknown error')}});
             }
@@ -62,7 +62,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
 
     // ── System clipboard paste (RLE/pattern text) ──────────────────────
 
-    _handleClipboardPaste : function(stateRef, dispatch, refs, e){
+    _handleClipboardPaste : function(stateRef, refs, dispatch, e){
         // Skip if focus is in a text input or textarea.
         var tag = (e.target.tagName || '').toLowerCase();
         if(tag === 'input' || tag === 'textarea' || tag === 'select'){ return; }
@@ -86,7 +86,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
                 rleError :        result.truncated ? 'Pattern truncated to ' + MAX_CELL_IMPORT.toLocaleString() + ' cells.' : ''
             }});
             refs.drawPending = true;
-            LifeViewUtils._announce(stateRef, dispatch, refs, 'Pattern pasted from clipboard. Click on the canvas to place it.');
+            LifeViewUtils._announce(stateRef, refs, dispatch, 'Pattern pasted from clipboard. Click on the canvas to place it.');
         } catch(ex){
             // Not a valid pattern — ignore silently.
         }
@@ -94,7 +94,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
 
     // ── Export ─────────────────────────────────────────────────────────
 
-    exportPNG : function(stateRef, dispatch, refs){
+    exportPNG : function(stateRef, refs, dispatch){
         var link = document.createElement('a');
         link.download = 'game-of-life-gen-' + stateRef.current.generations + '.png';
         link.href = refs.canvas.toDataURL('image/png');
@@ -103,22 +103,22 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
 
     // ── RLE export ────────────────────────────────────────────────────
 
-    copyRLE : function(stateRef, dispatch, refs){
+    copyRLE : function(stateRef, refs, dispatch){
         var rle = SimEngine.boardToRLE(stateRef.current.liveCells, stateRef.current.ruleString);
         if(!rle){ return; }
         dispatch({type:'MERGE', payload:{showRle: true, rleInput: rle, rleError: ''}}); refs.drawPending = true;
         if(navigator.clipboard && navigator.clipboard.writeText){
             navigator.clipboard.writeText(rle).then(function(){
-                LifeViewUtils._announce(stateRef, dispatch, refs, 'RLE copied to clipboard');
+                LifeViewUtils._announce(stateRef, refs, dispatch, 'RLE copied to clipboard');
             }).catch(function(){
-                LifeViewUtils._announce(stateRef, dispatch, refs, 'Could not copy to clipboard. Select and copy manually.');
+                LifeViewUtils._announce(stateRef, refs, dispatch, 'Could not copy to clipboard. Select and copy manually.');
             });
         }
     },
 
     // ── URL sharing ──────────────────────────────────────────────────
 
-    shareURL : function(stateRef, dispatch, refs){
+    shareURL : function(stateRef, refs, dispatch){
         var rle = SimEngine.boardToRLE(stateRef.current.liveCells, stateRef.current.ruleString);
         if(!rle){ return; }
         // Build URL hash with compact parameters.
@@ -131,8 +131,8 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
         // Check total length — use compression for large patterns if available.
         if(params.length > 4000){
             // Too large for URL; fall back to copying RLE.
-            LifeViewUtils._announce(stateRef, dispatch, refs, 'Pattern too large for URL sharing, copied RLE instead.');
-            LifeIOUtils.copyRLE(stateRef, dispatch, refs);
+            LifeViewUtils._announce(stateRef, refs, dispatch, 'Pattern too large for URL sharing, copied RLE instead.');
+            LifeIOUtils.copyRLE(stateRef, refs, dispatch);
             return;
         }
         var url = window.location.origin + window.location.pathname + '#' + params;
@@ -144,7 +144,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
         setTimeout(function(){ dispatch({type:'MERGE', payload:{shareTooltip: false}}); }, 2000);
     },
 
-    _loadFromURLHash : function(stateRef, dispatch, refs){
+    _loadFromURLHash : function(stateRef, refs, dispatch){
         var hash = window.location.hash;
         if(!hash || hash.length < 5){ return; }
         try {
@@ -157,7 +157,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
             var cols = Math.min(10000, Math.max(1, parseInt(params.cols, 10) || 100));
             var rows = Math.min(10000, Math.max(1, parseInt(params.rows, 10) || 100));
             var rule = params.rule || 'B3/S23';
-            var parsed = LifeBoardUtils.parseRuleString(stateRef, dispatch, refs, rule);
+            var parsed = LifeBoardUtils.parseRuleString(stateRef, refs, dispatch, rule);
             var result = SimEngine.parseRLE(params.rle);
             if(result.cells.length === 0){ return; }
             PATTERNS['Custom'] = result.cells;
@@ -174,7 +174,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
             }
             dispatch({type:'MERGE', payload:updates});
             refs.drawPending = true;
-            LifeViewUtils._announce(stateRef, dispatch, refs, 'Pattern loaded from URL. Click on the canvas to place it.');
+            LifeViewUtils._announce(stateRef, refs, dispatch, 'Pattern loaded from URL. Click on the canvas to place it.');
             // Clear hash so reloads don't re-import.
             try { if(history.replaceState){ history.replaceState(null, '', window.location.pathname); } } catch(ex2){}
         } catch(ex){}
@@ -182,15 +182,15 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
 
     // ── RLE import ────────────────────────────────────────────────────
 
-    setRleInput : function(stateRef, dispatch, refs, e){
+    setRleInput : function(stateRef, refs, dispatch, e){
         dispatch({type:'MERGE', payload:{rleInput : e.target.value, rleError : ''}});
     },
 
-    toggleRle : function(stateRef, dispatch, refs){
+    toggleRle : function(stateRef, refs, dispatch){
         dispatch({type:'MERGE', payload:{showRle : !stateRef.current.showRle, rleError : ''}});
     },
 
-    loadRle : function(stateRef, dispatch, refs){
+    loadRle : function(stateRef, refs, dispatch){
         var text = stateRef.current.rleInput.trim();
         if(!text){ dispatch({type:'MERGE', payload:{rleError : 'Paste a pattern first.'}}); return; }
         if(text.length > 500000){

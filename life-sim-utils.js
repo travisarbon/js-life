@@ -9,14 +9,14 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     // ── Animation loop ─────────────────────────────────────────────────
 
-    _startLoop : function(stateRef, dispatch, refs){
+    _startLoop : function(stateRef, refs, dispatch){
         if(refs.loopRunning){ return; }
         refs.loopRunning = true;
         var tickId = ++refs.tickId;
-        refs.rafId = requestAnimationFrame(function(){ LifeSimUtils.findNewStates(stateRef, dispatch, refs, tickId); });
+        refs.rafId = requestAnimationFrame(function(){ LifeSimUtils.findNewStates(stateRef, refs, dispatch, tickId); });
     },
 
-    findNewStates : function(stateRef, dispatch, refs, tickId){
+    findNewStates : function(stateRef, refs, dispatch, tickId){
         if(!refs.mounted){ refs.loopRunning = false; return; }
         if(tickId !== refs.tickId){ refs.loopRunning = false; return; }
         if(stateRef.current.running !== true){ refs.loopRunning = false; return; }
@@ -30,11 +30,11 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
         var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary,
             stateRef.current.regionMask, stateRef.current.regionComponents);
-        LifeSimUtils._applyNewStates(stateRef, dispatch, refs, newLiveCells, tickId);
+        LifeSimUtils._applyNewStates(stateRef, refs, dispatch, newLiveCells, tickId);
     },
 
     // Called by the worker response handler and the sync path.
-    _applyNewStates : function(stateRef, dispatch, refs, newLiveCells, tickId){
+    _applyNewStates : function(stateRef, refs, dispatch, newLiveCells, tickId){
         if(!refs.mounted){ refs.loopRunning = false; return; }
         if(tickId !== refs.tickId){ refs.loopRunning = false; return; }
 
@@ -79,7 +79,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         }
 
         // Generation history snapshot for step-backward.
-        LifeSimUtils._pushGenHistory(stateRef, dispatch, refs);
+        LifeSimUtils._pushGenHistory(stateRef, refs, dispatch);
 
         // Stability detection via O(n) order-independent hash (FNV-1a inspired).
         var _h1 = 0, _h2 = 0x811c9dc5, _h3 = 0, _hCount = 0;
@@ -129,15 +129,15 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         }});
         refs.drawPending = true;
         if(!refs.mounted){ return; }
-        if(hitStable){ refs.loopRunning = false; LifeViewUtils._announce(stateRef, dispatch, refs, 'Stable pattern detected \u2014 simulation paused'); return; }
+        if(hitStable){ refs.loopRunning = false; LifeViewUtils._announce(stateRef, refs, dispatch, 'Stable pattern detected \u2014 simulation paused'); return; }
         var delay = SPEED_DELAYS[Math.max(0, Math.min(9, (stateRef.current.speed || 1) - 1))] || 0;
         refs.loopTimeout = setTimeout(function(){
-            refs.rafId = requestAnimationFrame(function(){ LifeSimUtils.findNewStates(stateRef, dispatch, refs, myTickId); });
+            refs.rafId = requestAnimationFrame(function(){ LifeSimUtils.findNewStates(stateRef, refs, dispatch, myTickId); });
         }, delay);
     },
 
-    stepGame : function(stateRef, dispatch, refs){
-        LifeSimUtils.pushUndo(stateRef, dispatch, refs);
+    stepGame : function(stateRef, refs, dispatch){
+        LifeSimUtils.pushUndo(stateRef, refs, dispatch);
         var liveCells = stateRef.current.liveCells;
         var cols      = stateRef.current.cols;
         var rows      = stateRef.current.rows;
@@ -165,7 +165,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     // ── Undo ──────────────────────────────────────────────────────────
 
-    pushUndo : function(stateRef, dispatch, refs){
+    pushUndo : function(stateRef, refs, dispatch){
         refs.undoStack.push({
             liveCells :   new Map(stateRef.current.liveCells),
             generations : stateRef.current.generations,
@@ -175,23 +175,23 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         refs.redoStack = [];
     },
 
-    popUndo : function(stateRef, dispatch, refs){
+    popUndo : function(stateRef, refs, dispatch){
         if(refs.undoStack && refs.undoStack.length > 0){
             return refs.undoStack.pop();
         }
         return null;
     },
 
-    cancelDrawTool : function(stateRef, dispatch, refs){
+    cancelDrawTool : function(stateRef, refs, dispatch){
         if(!InputHandler._drawToolStart){ return; }
         InputHandler._drawToolStart = null;
         InputHandler._drawPreviewCells = [];
-        LifeSimUtils.popUndo(stateRef, dispatch, refs);
+        LifeSimUtils.popUndo(stateRef, refs, dispatch);
         refs.drawPending = true;
     },
 
-    undo : function(stateRef, dispatch, refs){
-        if(refs.undoStack.length === 0){ LifeViewUtils._announce(stateRef, dispatch, refs, 'Nothing to undo'); return; }
+    undo : function(stateRef, refs, dispatch){
+        if(refs.undoStack.length === 0){ LifeViewUtils._announce(stateRef, refs, dispatch, 'Nothing to undo'); return; }
         // Save current state for redo before restoring.
         refs.redoStack.push({
             liveCells: new Map(stateRef.current.liveCells),
@@ -216,12 +216,12 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
             stateUpdate.regionMask = entry.regionMask;
         }
         dispatch({type:'MERGE', payload: stateUpdate});
-        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, dispatch, refs); }
+        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch); }
         else { refs.drawPending = true; }
     },
 
-    redo : function(stateRef, dispatch, refs){
-        if(refs.redoStack.length === 0){ LifeViewUtils._announce(stateRef, dispatch, refs, 'Nothing to redo'); return; }
+    redo : function(stateRef, refs, dispatch){
+        if(refs.redoStack.length === 0){ LifeViewUtils._announce(stateRef, refs, dispatch, 'Nothing to redo'); return; }
         // Save current state for undo before applying redo.
         refs.undoStack.push({
             liveCells: new Map(stateRef.current.liveCells),
@@ -245,15 +245,15 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
             stateUpdate.regionMask = entry.regionMask;
         }
         dispatch({type:'MERGE', payload: stateUpdate});
-        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, dispatch, refs); }
+        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch); }
         else { refs.drawPending = true; }
     },
 
     // Advance N generations at once via SimRunner.
-    stepN : function(stateRef, dispatch, refs, n){
+    stepN : function(stateRef, refs, dispatch, n){
         if(!n || n < 1){ n = 1; }
-        LifeSimUtils.pushUndo(stateRef, dispatch, refs);
-        LifeSimUtils._pushGenHistory(stateRef, dispatch, refs);
+        LifeSimUtils.pushUndo(stateRef, refs, dispatch);
+        LifeSimUtils._pushGenHistory(stateRef, refs, dispatch);
         var liveCells = stateRef.current.liveCells;
         var cols      = stateRef.current.cols;
         var rows      = stateRef.current.rows;
@@ -323,7 +323,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     // ── Generation history (step backward) ─────────────────────────────
 
-    _pushGenHistory : function(stateRef, dispatch, refs){
+    _pushGenHistory : function(stateRef, refs, dispatch){
         refs.genHistoryCounter++;
         var pop = stateRef.current.liveCells.size;
         var interval = pop > 50000 ? 10 : pop > 10000 ? 5 : refs.genHistoryInterval;
@@ -337,7 +337,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         }
     },
 
-    stepBack : function(stateRef, dispatch, refs){
+    stepBack : function(stateRef, refs, dispatch){
         if(refs.genHistory.length === 0){ return; }
         var snapshot = refs.genHistory.pop();
         refs.minimapDirty = true;
@@ -351,21 +351,21 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         refs.drawPending = true;
     },
 
-    clearGenHistory : function(stateRef, dispatch, refs){
+    clearGenHistory : function(stateRef, refs, dispatch){
         refs.genHistory = [];
         refs.genHistoryCounter = 0;
     },
 
-    toggleGame : function(stateRef, dispatch, refs){
+    toggleGame : function(stateRef, refs, dispatch){
         if(stateRef.current.running){
             dispatch({type:'MERGE', payload:{running : false}});
-            LifeViewUtils._announce(stateRef, dispatch, refs, 'Simulation paused');
+            LifeViewUtils._announce(stateRef, refs, dispatch, 'Simulation paused');
         } else {
             refs.prevBoardHash = null;
             refs.stableCount = 0;
             dispatch({type:'MERGE', payload:{running : true, stable : false}});
-            LifeSimUtils._startLoop(stateRef, dispatch, refs);
-            LifeViewUtils._announce(stateRef, dispatch, refs, 'Simulation started');
+            LifeSimUtils._startLoop(stateRef, refs, dispatch);
+            LifeViewUtils._announce(stateRef, refs, dispatch, 'Simulation started');
         }
     },
 };

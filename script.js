@@ -414,7 +414,7 @@ function LifeBoard() {
 
     // ── Main render ───────────────────────────────────────────────────
 
-    var cs = LifeViewUtils.getCanvasSize(stateRef, refs);
+    var cs = LifeViewUtils.getCanvasSize(stateRef, refs, dispatch);
     var layout = state.layoutMode;
     var dc = state.deviceClass;
     var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
