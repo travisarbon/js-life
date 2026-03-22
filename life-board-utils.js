@@ -156,8 +156,8 @@ var LifeBoardUtils = { // eslint-disable-line no-unused-vars
      * kill any liveCells outside the mask, and update cols/rows/pendingCols/pendingRows.
      * Optionally accepts a callback.
      */
-    _recomputeRegion : function(stateRef, refs, dispatch, callback){
-        var mask = stateRef.current.regionMask;
+    _recomputeRegion : function(stateRef, refs, dispatch, callback, explicitMask){
+        var mask = explicitMask || stateRef.current.regionMask;
         var components = RegionUtil.findComponents(mask);
         var bounds = RegionUtil.getBounds(mask);
         CanvasRenderer.invalidateRegionCache();
@@ -209,7 +209,7 @@ var LifeBoardUtils = { // eslint-disable-line no-unused-vars
             for(var ri = 0; ri < removeKeys.length; ri++){ newMask.delete(removeKeys[ri]); }
         }
         dispatch({type:'MERGE', payload:{regionMask: newMask}});
-        LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch, callback);
+        LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch, callback, newMask);
     },
 
     /**

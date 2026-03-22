@@ -1084,12 +1084,6 @@ canvas.display {
   display: none;
   font-size: 14px; }
 
-.panel-tab-bar-icons .panel-tab {
-  padding: var(--space-xs) var(--space-sm); }
-.panel-tab-bar-icons .panel-tab-icon {
-  display: inline-block; }
-.panel-tab-bar-icons .panel-tab-label {
-  display: none; }
 
 .panel-group .float-panel-header {
   display: flex;
@@ -1217,41 +1211,70 @@ canvas.display {
   line-height: 1 !important; }
 
 /* ── Group compact mode ──────────────────────────────────────────────── */
+/* Compact layout: icon rail on left, main column on right */
 .panel-group-compact {
-  transition: max-width 0.15s ease, min-width 0.15s ease; }
-
-/* Compact: vertical icon rail on left, content on right */
-.panel-group-compact .float-panel-header {
   flex-direction: row;
-  align-items: stretch;
-  padding: 0; }
+  align-items: stretch; }
 
-.panel-group-compact .panel-tab-bar {
+.panel-group-compact .compact-icon-rail {
+  display: flex;
   flex-direction: column;
-  overflow-x: hidden;
-  overflow-y: auto;
-  border-right: 1px solid var(--panel-border);
   gap: 0;
-  padding: var(--space-xs) 0; }
+  padding: var(--space-xs) 0;
+  border-right: 1px solid var(--panel-border);
+  background: var(--panel-header-bg);
+  overflow-y: auto;
+  flex-shrink: 0; }
 
-.panel-group-compact .panel-tab {
+.panel-group-compact .compact-icon-rail .panel-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: var(--space-sm);
-  border-bottom: none;
-  border-left: 2px solid transparent; }
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--panel-header-color);
+  cursor: pointer;
+  opacity: var(--opacity-muted); }
 
-.panel-group-compact .panel-tab-active {
+.panel-group-compact .compact-icon-rail .panel-tab:hover {
+  opacity: 1; }
+
+.panel-group-compact .compact-icon-rail .panel-tab-active {
   border-left-color: var(--accent);
-  border-bottom-color: transparent; }
+  opacity: 1; }
 
-.panel-group-compact .float-panel-compact-toggle,
-.panel-group-compact .float-panel-close {
+.panel-group-compact .compact-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden; }
+
+.panel-group-compact .compact-main .float-panel-header {
+  padding: var(--space-xs) var(--space-sm); }
+
+.panel-group-compact .compact-active-label {
+  flex: 1;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: var(--opacity-muted); }
+
+.panel-group-compact .compact-main .float-panel-compact-toggle,
+.panel-group-compact .compact-main .float-panel-close {
   padding: var(--space-xs) !important; }
 
 .panel-group-compact .float-panel-body {
   padding: var(--space-sm); }
 
 .panel-group-compact .float-panel-resize {
-  cursor: e-resize; }
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  cursor: ns-resize; }
 
 .panel-group-compact .float-panel-resize::after {
   border-right: none;

@@ -216,7 +216,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
             stateUpdate.regionMask = entry.regionMask;
         }
         dispatch({type:'MERGE', payload: stateUpdate});
-        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch); }
+        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch, null, entry.regionMask); }
         else { refs.drawPending = true; }
     },
 
@@ -245,7 +245,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
             stateUpdate.regionMask = entry.regionMask;
         }
         dispatch({type:'MERGE', payload: stateUpdate});
-        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch); }
+        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch, null, entry.regionMask); }
         else { refs.drawPending = true; }
     },
 

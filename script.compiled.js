@@ -2233,7 +2233,7 @@ var CompactBody = function CompactBody(props) {
   return /*#__PURE__*/React.createElement("div", {
     className: "compact-body"
   }, defs.map(function (def) {
-    var isOpen = LifeViewUtils._isPopOutOpen(stateRef, refs, panelId, def.id);
+    var isOpen = LifeViewUtils._isPopOutOpen(stateRef, refs, dispatch, panelId, def.id);
     return /*#__PURE__*/React.createElement("div", {
       key: def.id,
       className: "pop-out-trigger"
@@ -2462,7 +2462,7 @@ var PanelGroup = function PanelGroup(props) {
   }
   var className = "float-panel panel-group" + (isCompact ? " panel-group-compact" : "");
 
-  // Tab buttons: icon rail in compact, full tabs in expanded.
+  // Tab buttons: icon-only rail in compact, full tabs in expanded.
   var tabButtons = openPanels.map(function (pid) {
     var label = _getPanelLabel(pid);
     return /*#__PURE__*/React.createElement("button", {
@@ -2480,12 +2480,71 @@ var PanelGroup = function PanelGroup(props) {
     }, /*#__PURE__*/React.createElement("i", {
       className: "fa " + _getPanelIcon(pid) + " panel-tab-icon",
       "aria-hidden": "true"
-    }), /*#__PURE__*/React.createElement("span", {
+    }), !isCompact && /*#__PURE__*/React.createElement("span", {
       className: "panel-tab-label"
     }, label));
   });
+  if (isCompact) {
+    // Compact layout: icon rail on the left, content + header buttons on the right.
+    return /*#__PURE__*/React.createElement("div", {
+      className: className,
+      style: style,
+      "data-group-id": group.id,
+      onMouseDown: function () {
+        LifeViewUtils._bringGroupToFront(stateRef, refs, dispatch, group.id);
+      },
+      role: "region",
+      "aria-label": "Panel group"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "compact-icon-rail"
+    }, tabButtons), /*#__PURE__*/React.createElement("div", {
+      className: "compact-main"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "float-panel-header",
+      onMouseDown: function (e) {
+        _startGroupDrag(group.id, e, stateRef, refs, dispatch);
+      },
+      onTouchStart: function (e) {
+        _startGroupDrag(group.id, e, stateRef, refs, dispatch);
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "compact-active-label"
+    }, _getPanelLabel(activeTab)), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "btn float-panel-compact-toggle",
+      onClick: function () {
+        LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id);
+      },
+      title: "Expand group"
+    }, "\u00bb"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "btn float-panel-close",
+      onClick: function () {
+        _togglePanelOpen(activeTab, stateRef, refs, dispatch);
+      },
+      "aria-label": "Close active panel"
+    }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+      className: "float-panel-body"
+    }, /*#__PURE__*/React.createElement(CompactBody, {
+      panelId: activeTab,
+      state: state,
+      stateRef: stateRef,
+      refs: refs,
+      dispatch: dispatch
+    }))), /*#__PURE__*/React.createElement("div", {
+      className: "float-panel-resize",
+      onMouseDown: function (e) {
+        _startGroupResize(group.id, e, stateRef, refs, dispatch);
+      },
+      onTouchStart: function (e) {
+        _startGroupResize(group.id, e, stateRef, refs, dispatch);
+      }
+    }));
+  }
+
+  // Expanded layout: tabs across the top.
   var tabArea = /*#__PURE__*/React.createElement("div", {
-    className: "panel-tab-bar" + (isCompact ? " panel-tab-bar-icons" : "")
+    className: "panel-tab-bar"
   }, tabButtons);
   return /*#__PURE__*/React.createElement("div", {
     className: className,
@@ -2510,8 +2569,8 @@ var PanelGroup = function PanelGroup(props) {
     onClick: function () {
       LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id);
     },
-    title: isCompact ? "Expand group" : "Compact group"
-  }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
+    title: "Compact group"
+  }, "\u00ab"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-close",
     onClick: function () {
@@ -2520,13 +2579,7 @@ var PanelGroup = function PanelGroup(props) {
     "aria-label": "Close active panel"
   }, "\xD7")), /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
-  }, isCompact ? /*#__PURE__*/React.createElement(CompactBody, {
-    panelId: activeTab,
-    state: state,
-    stateRef: stateRef,
-    refs: refs,
-    dispatch: dispatch
-  }) : _getPanelContent(activeTab, state, stateRef, refs, dispatch)), /*#__PURE__*/React.createElement("div", {
+  }, _getPanelContent(activeTab, state, stateRef, refs, dispatch)), /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",
     onMouseDown: function (e) {
       _startGroupResize(group.id, e, stateRef, refs, dispatch);
