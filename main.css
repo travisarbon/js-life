@@ -1141,6 +1141,7 @@ canvas.display {
 
 .float-panel-compact .float-panel-resize {
   width: 56px;
+  height: 14px;
   right: 0;
   cursor: e-resize; }
 .float-panel-compact .float-panel-resize::after {
@@ -1153,6 +1154,10 @@ canvas.display {
   left: 50%;
   transform: translateX(-50%);
   bottom: 4px; }
+
+.float-panel-compact .float-panel-header {
+  min-height: 28px;
+  padding: var(--space-sm) var(--space-xs); }
 
 .float-panel-compact .float-panel-body {
   padding: var(--space-sm); }
@@ -1179,8 +1184,8 @@ canvas.display {
   align-items: center; }
 
 .compact-body .btn {
-  width: 36px;
-  height: 36px; }
+  width: 28px;
+  height: 28px; }
 
 /* Hide sliders, selects, and inputs in compact mode — they use pop-outs */
 .float-panel-compact .compact-hidden {
@@ -1222,23 +1227,28 @@ canvas.display {
 /* Compact layout: icon rail on left, main column on right */
 .panel-group-compact {
   flex-direction: row;
-  align-items: stretch; }
+  align-items: stretch;
+  min-width: auto;
+  max-width: none; }
 
 .panel-group-compact .compact-icon-rail {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: var(--space-xs) 0;
+  padding: 0;
   border-right: 1px solid var(--panel-border);
   background: var(--panel-header-bg);
   overflow-y: auto;
-  flex-shrink: 0; }
+  flex-shrink: 0;
+  cursor: grab; }
+.panel-group-compact .compact-icon-rail:active {
+  cursor: grabbing; }
 
 .panel-group-compact .compact-icon-rail .panel-tab {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-sm);
+  padding: var(--space-xs);
   border: none;
   border-left: 2px solid transparent;
   background: transparent;
@@ -1267,7 +1277,8 @@ canvas.display {
   overflow: visible; }
 
 .panel-group-compact .compact-main .float-panel-header {
-  padding: var(--space-xs) var(--space-sm); }
+  min-height: 28px;
+  padding: var(--space-sm); }
 
 .panel-group-compact .compact-active-label {
   flex: 1;
@@ -1302,6 +1313,7 @@ canvas.display {
   bottom: 0;
   left: 0;
   right: 0;
+  height: 14px;
   cursor: ns-resize; }
 
 .panel-group-compact .float-panel-resize::after {
