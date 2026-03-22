@@ -66,6 +66,25 @@ var drawBoard = function drawBoard(stateRef, refs) {
   // Cells.
   CanvasRenderer.drawCells(ctx, liveCells, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.color);
 
+  // In-progress painted cells (drag-and-draw before mouseup commit).
+  if (InputHandler._dragging && InputHandler._paintedCells) {
+    var painted = InputHandler._paintedCells;
+    var paintKeys = Object.keys(painted);
+    if (paintKeys.length > 0) {
+      var aliveColor = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
+      for (var pi = 0; pi < paintKeys.length; pi++) {
+        var k = paintKeys[pi];
+        var rc = parseKey(k);
+        var pr = rc[0],
+          pc = rc[1];
+        if (pr >= startR && pr <= endR && pc >= startC && pc <= endC) {
+          ctx.fillStyle = painted[k] === 1 ? aliveColor : theme.bg;
+          ctx.fillRect((pc - viewX) * cellSize, (pr - viewY) * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+  }
+
   // Trails.
   if (refs.trailEnabled && refs.trailMap && refs.trailMap.size > 0) {
     CanvasRenderer.drawTrails(ctx, refs.trailMap, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.trail);
@@ -1845,7 +1864,7 @@ var _startGroupDrag = function (groupId, e, stateRef, refs, dispatch) {
     return;
   }
   e.preventDefault();
-  var panel = e.currentTarget.parentElement;
+  var panel = e.currentTarget.closest('.panel-group') || e.currentTarget.parentElement;
   var rect = panel.getBoundingClientRect();
   var clientX = e.touches ? e.touches[0].clientX : e.clientX;
   var clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -1954,8 +1973,12 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
     } else if (isCompact && newW > 120) {
       didToggle = true;
       panel.style.width = Math.max(180, newW) + 'px';
+      panel.style.maxHeight = '';
       LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-    } else if (!isCompact) {
+    } else if (isCompact) {
+      // In compact mode, only resize vertically.
+      panel.style.maxHeight = Math.max(100, newH) + 'px';
+    } else {
       panel.style.width = Math.max(180, newW) + 'px';
       panel.style.maxHeight = Math.max(80, newH) + 'px';
     }
@@ -2517,7 +2540,7 @@ var PanelGroup = function PanelGroup(props) {
     }, label));
   });
   if (isCompact) {
-    // Compact layout: icon rail on the left, content + header buttons on the right.
+    // Compact layout: drag bar on top spanning full width, then icon rail + content side by side below.
     return /*#__PURE__*/React.createElement("div", {
       className: className,
       style: style,
@@ -2528,11 +2551,7 @@ var PanelGroup = function PanelGroup(props) {
       role: "region",
       "aria-label": "Panel group"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "compact-icon-rail"
-    }, tabButtons), /*#__PURE__*/React.createElement("div", {
-      className: "compact-main"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "float-panel-header",
+      className: "compact-group-header",
       onMouseDown: function (e) {
         _startGroupDrag(group.id, e, stateRef, refs, dispatch);
       },
@@ -2544,19 +2563,25 @@ var PanelGroup = function PanelGroup(props) {
     }, _getPanelLabel(activeTab)), /*#__PURE__*/React.createElement("button", {
       type: "button",
       className: "btn float-panel-compact-toggle",
-      onClick: function () {
+      onClick: function (e) {
+        e.stopPropagation();
         LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id);
       },
       title: "Expand group"
     }, "\u00bb"), /*#__PURE__*/React.createElement("button", {
       type: "button",
       className: "btn float-panel-close",
-      onClick: function () {
+      onClick: function (e) {
+        e.stopPropagation();
         _togglePanelOpen(activeTab, stateRef, refs, dispatch);
       },
       "aria-label": "Close active panel"
     }, "\xD7")), /*#__PURE__*/React.createElement("div", {
-      className: "float-panel-body"
+      className: "compact-group-body"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "compact-icon-rail"
+    }, tabButtons), /*#__PURE__*/React.createElement("div", {
+      className: "compact-main"
     }, /*#__PURE__*/React.createElement(CompactBody, {
       panelId: activeTab,
       state: state,

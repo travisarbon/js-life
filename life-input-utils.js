@@ -36,7 +36,8 @@ var LifeInputUtils = { // eslint-disable-line no-unused-vars
             _mutateRegion : function(add, rm, cb){ LifeBoardUtils._mutateRegion(stateRef, refs, dispatch, add, rm, cb); },
             pushUndo      : function(){ LifeSimUtils.pushUndo(stateRef, refs, dispatch); },
             popUndo       : function(){ return LifeSimUtils.popUndo(stateRef, refs, dispatch); },
-            cancelDrawTool : function(){ LifeSimUtils.cancelDrawTool(stateRef, refs, dispatch); }
+            cancelDrawTool : function(){ LifeSimUtils.cancelDrawTool(stateRef, refs, dispatch); },
+            _startLoop     : function(){ LifeSimUtils._startLoop(stateRef, refs, dispatch); }
         };
     },
 
