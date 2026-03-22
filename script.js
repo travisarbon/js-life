@@ -135,7 +135,7 @@ function initState(){
                     rleError :       '',
                     patternFilter :  '',
                     hoverCell :      null,
-                    theme :          'Teal',
+                    theme :          'Midnight',
                     drawMode :       'paint',
                     selectTool :     'rect',
                     drawTool :       'cell',
@@ -146,7 +146,7 @@ function initState(){
                     recording :       false,
                     showMobileTools : false,
                     showTrails :      true,
-                    darkModePref :    (function(){ try { return localStorage.getItem('life-dark-mode-pref') || 'system'; } catch(e){ return 'system'; } })(),
+                    darkModePref :    (function(){ try { return localStorage.getItem('life-dark-mode-pref') || 'dark'; } catch(e){ return 'dark'; } })(),
                     stepCount :       1,
                     shareTooltip :    false,
                     showPopGraph :    false,
@@ -265,14 +265,16 @@ function LifeBoard() {
                 if(refs.darkModeQuery){
                     refs.onDarkModeChange = function(e){
                         if(stateRef.current.darkModePref === 'system'){
-                            LifeBoardUtils._applyDarkMode(e.matches);
+                            LifeBoardUtils._applyDarkMode(stateRef, refs, dispatch, e.matches);
                         }
                     };
                     try { refs.darkModeQuery.addEventListener('change', refs.onDarkModeChange); }
                     catch(ex){ try { refs.darkModeQuery.addListener(refs.onDarkModeChange); } catch(ex2){} }
                     // Apply initial dark mode state.
-                    if(stateRef.current.darkModePref === 'system'){
-                        LifeBoardUtils._applyDarkMode(refs.darkModeQuery.matches);
+                    if(stateRef.current.darkModePref === 'dark'){
+                        LifeBoardUtils._applyDarkMode(stateRef, refs, dispatch, true);
+                    } else if(stateRef.current.darkModePref === 'system'){
+                        LifeBoardUtils._applyDarkMode(stateRef, refs, dispatch, refs.darkModeQuery.matches);
                     }
                 }
                 // Respond to viewport resize (throttled) to update canvas dimensions.

@@ -340,9 +340,23 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                                 })}
                             </div>
                         }
+                        <button type="button" className="btn panel-menu-toggle"
+                            onClick={function(){ LifeViewUtils.toggleZenMode(stateRef, refs, dispatch); }}
+                            title="Zen mode — hide all panels (Z)"
+                            aria-label="Toggle zen mode">
+                            <i className="fa fa-eye-slash" aria-hidden="true"></i>
+                        </button>
                         <LayoutSwitcher state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
                     </div>
                 </div>
+            }
+            {zenMode &&
+                <button type="button" className="btn zen-exit-btn"
+                    onClick={function(){ LifeViewUtils.toggleZenMode(stateRef, refs, dispatch); }}
+                    title="Exit zen mode (Z or Escape)"
+                    aria-label="Exit zen mode">
+                    <i className="fa fa-eye" aria-hidden="true"></i>
+                </button>
             }
             {/* Mobile minimap element for tablet/medium screens */}
             <MobileMinimapArea state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />

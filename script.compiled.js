@@ -1453,12 +1453,34 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
       },
       "aria-label": "Show " + label + " panel"
     }), /*#__PURE__*/React.createElement("span", null, label));
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn panel-menu-toggle",
+    onClick: function () {
+      LifeViewUtils.toggleZenMode(stateRef, refs, dispatch);
+    },
+    title: "Zen mode \u2014 hide all panels (Z)",
+    "aria-label": "Toggle zen mode"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-eye-slash",
+    "aria-hidden": "true"
   })), /*#__PURE__*/React.createElement(LayoutSwitcher, {
     state: state,
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }))), /*#__PURE__*/React.createElement(MobileMinimapArea, {
+  }))), zenMode && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn zen-exit-btn",
+    onClick: function () {
+      LifeViewUtils.toggleZenMode(stateRef, refs, dispatch);
+    },
+    title: "Exit zen mode (Z or Escape)",
+    "aria-label": "Exit zen mode"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-eye",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement(MobileMinimapArea, {
     state: state,
     stateRef: stateRef,
     refs: refs,
@@ -4505,7 +4527,7 @@ function initState() {
     rleError: '',
     patternFilter: '',
     hoverCell: null,
-    theme: 'Teal',
+    theme: 'Midnight',
     drawMode: 'paint',
     selectTool: 'rect',
     drawTool: 'cell',
@@ -4518,9 +4540,9 @@ function initState() {
     showTrails: true,
     darkModePref: function () {
       try {
-        return localStorage.getItem('life-dark-mode-pref') || 'system';
+        return localStorage.getItem('life-dark-mode-pref') || 'dark';
       } catch (e) {
-        return 'system';
+        return 'dark';
       }
     }(),
     stepCount: 1,
@@ -4767,7 +4789,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (refs.darkModeQuery) {
         refs.onDarkModeChange = function (e) {
           if (stateRef.current.darkModePref === 'system') {
-            LifeBoardUtils._applyDarkMode(e.matches);
+            LifeBoardUtils._applyDarkMode(stateRef, refs, dispatch, e.matches);
           }
         };
         try {
@@ -4778,8 +4800,10 @@ document.addEventListener('DOMContentLoaded', function () {
           } catch (ex2) {}
         }
         // Apply initial dark mode state.
-        if (stateRef.current.darkModePref === 'system') {
-          LifeBoardUtils._applyDarkMode(refs.darkModeQuery.matches);
+        if (stateRef.current.darkModePref === 'dark') {
+          LifeBoardUtils._applyDarkMode(stateRef, refs, dispatch, true);
+        } else if (stateRef.current.darkModePref === 'system') {
+          LifeBoardUtils._applyDarkMode(stateRef, refs, dispatch, refs.darkModeQuery.matches);
         }
       }
       // Respond to viewport resize (throttled) to update canvas dimensions.

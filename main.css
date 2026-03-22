@@ -1429,8 +1429,28 @@ canvas.display {
 .zen-mode .float-panel,
 .zen-mode .panel-group,
 .zen-mode .panel-menu,
-.zen-mode .stats-window {
+.zen-mode .stats-window,
+.zen-mode .transport-strip {
   display: none; }
+
+/* Small button visible during zen mode to allow mouse-based exit */
+.zen-exit-btn {
+  position: fixed;
+  top: var(--space-md);
+  right: var(--space-md);
+  z-index: var(--z-panels);
+  opacity: 0.15;
+  transition: opacity var(--transition-fast);
+  background: var(--panel-bg-blur) !important;
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  border: 1px solid var(--panel-border) !important;
+  border-radius: var(--radius-md) !important;
+  padding: var(--space-sm) var(--space-md) !important;
+  min-width: 0 !important;
+  min-height: 0 !important; }
+.zen-exit-btn:hover {
+  opacity: 0.8; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    MOBILE BOTTOM SHEET (Cartographer phone fallback)
