@@ -524,7 +524,7 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
     if(group.z){ style.zIndex = group.z; }
     var className = "float-panel panel-group" + (isCompact ? " panel-group-compact" : "");
 
-    // Tab buttons: icon rail in compact, full tabs in expanded.
+    // Tab buttons: icon-only rail in compact, full tabs in expanded.
     var tabButtons = openPanels.map(function(pid){
         var label = _getPanelLabel(pid);
         return (
@@ -534,13 +534,46 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
                 onMouseDown={function(e){ if(!isCompact) _startTabDrag(pid, group.id, e, stateRef, refs, dispatch); }}
                 title={label}>
                 <i className={"fa " + _getPanelIcon(pid) + " panel-tab-icon"} aria-hidden="true"></i>
-                <span className="panel-tab-label">{label}</span>
+                {!isCompact && <span className="panel-tab-label">{label}</span>}
             </button>
         );
     });
 
+    if(isCompact){
+        // Compact layout: icon rail on the left, content + header buttons on the right.
+        return (
+            <div className={className} style={style} data-group-id={group.id}
+                onMouseDown={function(){ LifeViewUtils._bringGroupToFront(stateRef, refs, dispatch, group.id); }}
+                role="region" aria-label="Panel group">
+                <div className="compact-icon-rail">
+                    {tabButtons}
+                </div>
+                <div className="compact-main">
+                    <div className="float-panel-header"
+                        onMouseDown={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}
+                        onTouchStart={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}>
+                        <span className="compact-active-label">{_getPanelLabel(activeTab)}</span>
+                        <button type="button" className="btn float-panel-compact-toggle"
+                            onClick={function(){ LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
+                            title="Expand group">{"\u00bb"}</button>
+                        <button type="button" className="btn float-panel-close"
+                            onClick={function(){ _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
+                            aria-label="Close active panel">&times;</button>
+                    </div>
+                    <div className="float-panel-body">
+                        <CompactBody panelId={activeTab} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
+                    </div>
+                </div>
+                <div className="float-panel-resize"
+                    onMouseDown={function(e){ _startGroupResize(group.id, e, stateRef, refs, dispatch); }}
+                    onTouchStart={function(e){ _startGroupResize(group.id, e, stateRef, refs, dispatch); }}></div>
+            </div>
+        );
+    }
+
+    // Expanded layout: tabs across the top.
     var tabArea = (
-        <div className={"panel-tab-bar" + (isCompact ? " panel-tab-bar-icons" : "")}>
+        <div className="panel-tab-bar">
             {tabButtons}
         </div>
     );
@@ -555,15 +588,13 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
                 {tabArea}
                 <button type="button" className="btn float-panel-compact-toggle"
                     onClick={function(){ LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
-                    title={isCompact ? "Expand group" : "Compact group"}>
-                    {isCompact ? "\u00bb" : "\u00ab"}
-                </button>
+                    title="Compact group">{"\u00ab"}</button>
                 <button type="button" className="btn float-panel-close"
                     onClick={function(){ _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
                     aria-label="Close active panel">&times;</button>
             </div>
             <div className="float-panel-body">
-                {isCompact ? <CompactBody panelId={activeTab} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} /> : _getPanelContent(activeTab, state, stateRef, refs, dispatch)}
+                {_getPanelContent(activeTab, state, stateRef, refs, dispatch)}
             </div>
             <div className="float-panel-resize"
                 onMouseDown={function(e){ _startGroupResize(group.id, e, stateRef, refs, dispatch); }}
