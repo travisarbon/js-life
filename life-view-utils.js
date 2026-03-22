@@ -184,6 +184,8 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
     },
 
     _mergePanels : function(stateRef, refs, dispatch, draggedId, targetId){
+        // Stats panel cannot participate in merges.
+        if(draggedId === 'stats' || targetId === 'stats'){ return; }
         var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
         var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
         var dragGroup = null, targetGroup = null;

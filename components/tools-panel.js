@@ -197,6 +197,71 @@ var PresetContent = function PresetContent(props) { // eslint-disable-line no-un
     );
 };
 
+/**
+ * DrawToolPopOut — draw tool sub-type selector for compact mode pop-out.
+ */
+var DrawToolPopOut = function DrawToolPopOut(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, dispatch = props.dispatch;
+    return (
+        <div className="tools-content">
+            <div className="tool-subtype-row">
+                <label className="tool-label">Draw:</label>
+                <select value={state.drawTool}
+                        onChange={function(e){ dispatch({type:"MERGE", payload:{drawTool: e.target.value, drawMode: 'paint', selection: null}}); }}>
+                    <option value="cell">Cell paint</option>
+                    <option value="line">Line</option>
+                    <option value="fill">Flood fill</option>
+                    <option value="shape-rect">Rectangle</option>
+                    <option value="shape-circle">Circle</option>
+                </select>
+            </div>
+        </div>
+    );
+};
+
+/**
+ * SelectToolPopOut — select tool sub-type selector for compact mode pop-out.
+ */
+var SelectToolPopOut = function SelectToolPopOut(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, dispatch = props.dispatch;
+    return (
+        <div className="tools-content">
+            <div className="tool-subtype-row">
+                <label className="tool-label">Select:</label>
+                <select value={state.selectTool}
+                        onChange={function(e){ dispatch({type:"MERGE", payload:{selectTool: e.target.value, drawMode: 'select', selection: null}}); }}>
+                    <option value="rect">Rectangle</option>
+                    <option value="ellipse">Ellipse</option>
+                    <option value="freeform">Freeform</option>
+                    <option value="all-visible">All visible</option>
+                </select>
+            </div>
+        </div>
+    );
+};
+
+/**
+ * RegionToolPopOut — region tool sub-type selector for compact mode pop-out.
+ */
+var RegionToolPopOut = function RegionToolPopOut(props) { // eslint-disable-line no-unused-vars
+    var state = props.state, dispatch = props.dispatch;
+    return (
+        <div className="tools-content">
+            <div className="tool-subtype-row">
+                <label className="tool-label">Region:</label>
+                <select value={state.regionTool}
+                        onChange={function(e){ dispatch({type:"MERGE", payload:{regionTool: e.target.value, drawMode: 'region'}}); }}>
+                    <option value="cell">Cell paint</option>
+                    <option value="line">Line</option>
+                    <option value="fill">Flood fill</option>
+                    <option value="shape-rect">Rectangle</option>
+                    <option value="shape-circle">Circle</option>
+                </select>
+            </div>
+        </div>
+    );
+};
+
 var MobileContextPanel = function MobileContextPanel(props) { // eslint-disable-line no-unused-vars
     var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 

@@ -297,9 +297,19 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                     <FloatPanel panelId="rules" label="Rules" state={state} stateRef={stateRef} refs={refs} dispatch={dispatch}>
                         <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
                     </FloatPanel>
-                    <FloatPanel panelId="stats" label="Stats" state={state} stateRef={stateRef} refs={refs} dispatch={dispatch}>
-                        <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />
-                    </FloatPanel>
+                    {panels.stats && panels.stats.open &&
+                        <div className="stats-window" role="region" aria-label="Statistics">
+                            <div className="stats-window-header">
+                                <span className="stats-window-title">Stats</span>
+                                <button type="button" className="btn float-panel-close"
+                                    onClick={function(){ ObservatoryPanelUtils.togglePanelOpen('stats', state, stateRef, refs, dispatch); }}
+                                    aria-label="Close Stats">&times;</button>
+                            </div>
+                            <div className="stats-window-body">
+                                <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />
+                            </div>
+                        </div>
+                    }
                     <FloatPanel panelId="importExport" label="Share" state={state} stateRef={stateRef} refs={refs} dispatch={dispatch}>
                         <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
                     </FloatPanel>

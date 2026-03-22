@@ -1,6 +1,7 @@
 /* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
           ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
+          DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
           RulesSection, ExportContent, StatsPanel,
           toggleTrails */
 /**
@@ -122,6 +123,8 @@ var _clearDropIndicator = function(){
 };
 
 var _findDropTarget = function(draggedId, dragRect){
+    // Stats panel cannot be merged with other panels.
+    if(draggedId === 'stats'){ return null; }
     var allPanels = document.querySelectorAll('.float-panel, .panel-group');
     for(var i = 0; i < allPanels.length; i++){
         var el = allPanels[i];
@@ -129,6 +132,8 @@ var _findDropTarget = function(draggedId, dragRect){
         var targetGroupId = el.getAttribute('data-group-id');
         if(!targetId && !targetGroupId){ continue; }
         if(targetId === draggedId){ continue; }
+        // Stats panel cannot be a merge target.
+        if(targetId === 'stats'){ continue; }
         var otherRect = el.getBoundingClientRect();
         if(_rectsOverlap(dragRect, otherRect) > 0.3){
             return targetId || targetGroupId;
@@ -395,15 +400,14 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
             ];
         case 'mode':
             var defs = [
-                {id:'draw', icon: 'fa-pencil', title: 'Draw mode (D)', onClick: function(){ LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch); }, active: state.drawMode === 'paint'},
+                {id:'draw', icon: 'fa-pencil', title: 'Draw mode (D)', onClick: function(){ LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch); }, active: state.drawMode === 'paint', popOut: function(){ return <DrawToolPopOut state={state} dispatch={dispatch} />; }},
                 {id:'preset', icon: 'fa-puzzle-piece', title: 'Preset patterns (P)', onClick: function(){ LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch); }, active: state.drawMode === 'preset', popOut: function(){ return <PresetContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }},
-                {id:'select', icon: 'fa-mouse-pointer', title: 'Select mode (S)', onClick: function(){ LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch); }, active: state.drawMode === 'select'},
+                {id:'select', icon: 'fa-mouse-pointer', title: 'Select mode (S)', onClick: function(){ LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch); }, active: state.drawMode === 'select', popOut: function(){ return <SelectToolPopOut state={state} dispatch={dispatch} />; }},
                 {id:'live-paint', icon: 'fa-paint-brush', title: 'Live Paint', onClick: function(){ LifeBoardUtils.toggleLivePaint(stateRef, refs, dispatch); }, active: state.livePaintMode},
-                {id:'analyze', icon: 'fa-crosshairs', title: 'Analyze', onClick: function(){ LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch); }},
-                {id:'tools', icon: 'fa-wrench', title: 'Tool options', popOut: function(){ return <ToolsContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
+                {id:'analyze', icon: 'fa-crosshairs', title: 'Analyze', onClick: function(){ LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch); }}
             ];
             if(state.boundary !== 'unbounded'){
-                defs.splice(3, 0, {id:'region', icon: 'fa-th', title: 'Region bounds (B)', onClick: function(){ LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch); }, active: state.drawMode === 'region'});
+                defs.splice(3, 0, {id:'region', icon: 'fa-th', title: 'Region bounds (B)', onClick: function(){ LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch); }, active: state.drawMode === 'region', popOut: function(){ return <RegionToolPopOut state={state} dispatch={dispatch} />; }});
             }
             return defs;
         case 'rules':
@@ -411,9 +415,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
                 {id:'rules', icon: 'fa-cogs', title: 'Rules', popOut: function(){ return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
             ];
         case 'stats':
-            return [
-                {id:'stats', icon: 'fa-bar-chart', title: 'Statistics', popOut: function(){ return <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />; }}
-            ];
+            return [];
         case 'importExport':
             return [
                 {id:'io', icon: 'fa-exchange', title: 'Share', popOut: function(){ return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}

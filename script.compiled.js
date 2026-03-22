@@ -1362,19 +1362,29 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  })), /*#__PURE__*/React.createElement(FloatPanel, {
-    panelId: "stats",
-    label: "Stats",
-    state: state,
-    stateRef: stateRef,
-    refs: refs,
-    dispatch: dispatch
+  })), panels.stats && panels.stats.open && /*#__PURE__*/React.createElement("div", {
+    className: "stats-window",
+    role: "region",
+    "aria-label": "Statistics"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stats-window-header"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "stats-window-title"
+  }, "Stats"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn float-panel-close",
+    onClick: function () {
+      ObservatoryPanelUtils.togglePanelOpen('stats', state, stateRef, refs, dispatch);
+    },
+    "aria-label": "Close Stats"
+  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+    className: "stats-window-body"
   }, /*#__PURE__*/React.createElement(StatsPanel, {
     state: state,
     refs: refs,
     stateRef: stateRef,
     dispatch: dispatch
-  })), /*#__PURE__*/React.createElement(FloatPanel, {
+  }))), /*#__PURE__*/React.createElement(FloatPanel, {
     panelId: "importExport",
     label: "Share",
     state: state,
@@ -1514,6 +1524,7 @@ var ObservatoryMobile = function ObservatoryMobile(props) {
 /* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
           ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
+          DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
           RulesSection, ExportContent, StatsPanel,
           toggleTrails */
 /**
@@ -1737,6 +1748,10 @@ var _clearDropIndicator = function () {
   }
 };
 var _findDropTarget = function (draggedId, dragRect) {
+  // Stats panel cannot be merged with other panels.
+  if (draggedId === 'stats') {
+    return null;
+  }
   var allPanels = document.querySelectorAll('.float-panel, .panel-group');
   for (var i = 0; i < allPanels.length; i++) {
     var el = allPanels[i];
@@ -1746,6 +1761,10 @@ var _findDropTarget = function (draggedId, dragRect) {
       continue;
     }
     if (targetId === draggedId) {
+      continue;
+    }
+    // Stats panel cannot be a merge target.
+    if (targetId === 'stats') {
       continue;
     }
     var otherRect = el.getBoundingClientRect();
@@ -2171,7 +2190,13 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         onClick: function () {
           LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch);
         },
-        active: state.drawMode === 'paint'
+        active: state.drawMode === 'paint',
+        popOut: function () {
+          return /*#__PURE__*/React.createElement(DrawToolPopOut, {
+            state: state,
+            dispatch: dispatch
+          });
+        }
       }, {
         id: 'preset',
         icon: 'fa-puzzle-piece',
@@ -2195,7 +2220,13 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         onClick: function () {
           LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch);
         },
-        active: state.drawMode === 'select'
+        active: state.drawMode === 'select',
+        popOut: function () {
+          return /*#__PURE__*/React.createElement(SelectToolPopOut, {
+            state: state,
+            dispatch: dispatch
+          });
+        }
       }, {
         id: 'live-paint',
         icon: 'fa-paint-brush',
@@ -2211,18 +2242,6 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         onClick: function () {
           LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch);
         }
-      }, {
-        id: 'tools',
-        icon: 'fa-wrench',
-        title: 'Tool options',
-        popOut: function () {
-          return /*#__PURE__*/React.createElement(ToolsContent, {
-            state: state,
-            stateRef: stateRef,
-            refs: refs,
-            dispatch: dispatch
-          });
-        }
       }];
       if (state.boundary !== 'unbounded') {
         defs.splice(3, 0, {
@@ -2232,7 +2251,13 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
           onClick: function () {
             LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch);
           },
-          active: state.drawMode === 'region'
+          active: state.drawMode === 'region',
+          popOut: function () {
+            return /*#__PURE__*/React.createElement(RegionToolPopOut, {
+              state: state,
+              dispatch: dispatch
+            });
+          }
         });
       }
       return defs;
@@ -2251,19 +2276,7 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         }
       }];
     case 'stats':
-      return [{
-        id: 'stats',
-        icon: 'fa-bar-chart',
-        title: 'Statistics',
-        popOut: function () {
-          return /*#__PURE__*/React.createElement(StatsPanel, {
-            state: state,
-            refs: refs,
-            stateRef: stateRef,
-            dispatch: dispatch
-          });
-        }
-      }];
+      return [];
     case 'importExport':
       return [{
         id: 'io',
@@ -3908,6 +3921,117 @@ var PresetContent = function PresetContent(props) {
     className: "fa fa-times",
     "aria-hidden": "true"
   })))));
+};
+
+/**
+ * DrawToolPopOut — draw tool sub-type selector for compact mode pop-out.
+ */
+var DrawToolPopOut = function DrawToolPopOut(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tools-content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Draw:"), /*#__PURE__*/React.createElement("select", {
+    value: state.drawTool,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          drawTool: e.target.value,
+          drawMode: 'paint',
+          selection: null
+        }
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "cell"
+  }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
+    value: "line"
+  }, "Line"), /*#__PURE__*/React.createElement("option", {
+    value: "fill"
+  }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-rect"
+  }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-circle"
+  }, "Circle"))));
+};
+
+/**
+ * SelectToolPopOut — select tool sub-type selector for compact mode pop-out.
+ */
+var SelectToolPopOut = function SelectToolPopOut(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tools-content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Select:"), /*#__PURE__*/React.createElement("select", {
+    value: state.selectTool,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          selectTool: e.target.value,
+          drawMode: 'select',
+          selection: null
+        }
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "rect"
+  }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+    value: "ellipse"
+  }, "Ellipse"), /*#__PURE__*/React.createElement("option", {
+    value: "freeform"
+  }, "Freeform"), /*#__PURE__*/React.createElement("option", {
+    value: "all-visible"
+  }, "All visible"))));
+};
+
+/**
+ * RegionToolPopOut — region tool sub-type selector for compact mode pop-out.
+ */
+var RegionToolPopOut = function RegionToolPopOut(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tools-content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Region:"), /*#__PURE__*/React.createElement("select", {
+    value: state.regionTool,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          regionTool: e.target.value,
+          drawMode: 'region'
+        }
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "cell"
+  }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
+    value: "line"
+  }, "Line"), /*#__PURE__*/React.createElement("option", {
+    value: "fill"
+  }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-rect"
+  }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-circle"
+  }, "Circle"))));
 };
 var MobileContextPanel = function MobileContextPanel(props) {
   // eslint-disable-line no-unused-vars
