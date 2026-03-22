@@ -58,6 +58,24 @@ var drawBoard = function drawBoard(stateRef, refs) { // eslint-disable-line no-u
                 // Cells.
                 CanvasRenderer.drawCells(ctx, liveCells, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.color);
 
+                // In-progress painted cells (drag-and-draw before mouseup commit).
+                if(InputHandler._dragging && InputHandler._paintedCells){
+                    var painted = InputHandler._paintedCells;
+                    var paintKeys = Object.keys(painted);
+                    if(paintKeys.length > 0){
+                        var aliveColor = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
+                        for(var pi = 0; pi < paintKeys.length; pi++){
+                            var k = paintKeys[pi];
+                            var rc = parseKey(k);
+                            var pr = rc[0], pc = rc[1];
+                            if(pr >= startR && pr <= endR && pc >= startC && pc <= endC){
+                                ctx.fillStyle = painted[k] === 1 ? aliveColor : theme.bg;
+                                ctx.fillRect((pc - viewX) * cellSize, (pr - viewY) * cellSize, cellSize, cellSize);
+                            }
+                        }
+                    }
+                }
+
                 // Trails.
                 if(refs.trailEnabled && refs.trailMap && refs.trailMap.size > 0){
                     CanvasRenderer.drawTrails(ctx, refs.trailMap, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.trail);

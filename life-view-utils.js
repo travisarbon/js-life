@@ -88,18 +88,9 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         var cols = rb ? rb.maxC - rb.minC + 1 : stateRef.current.cols;
         var rows = rb ? rb.maxR - rb.minR + 1 : stateRef.current.rows;
         if(cols <= 0 || rows <= 0){ return; }
-        var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
-        var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
-        var contentPad = isMobile ? 24 : 40;
-        var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
-
-        var isMobileToolsOpen = typeof window !== 'undefined'
-            && window.innerWidth <= 620 && stateRef.current.bottomSheetOpen;
-        var hFrac = isMobile ? (isMobileToolsOpen ? 0.36 : 0.82) : 0.90;
-        var effW = typeof window !== 'undefined'
-            ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
-        var effH = typeof window !== 'undefined'
-            ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
+        // Use actual canvas dimensions for accurate fit calculation.
+        var effW = refs.canvas ? refs.canvas.width : (typeof window !== 'undefined' ? window.innerWidth : 846);
+        var effH = refs.canvas ? refs.canvas.height : (typeof window !== 'undefined' ? window.innerHeight : 900);
         // Apply the same aspect-ratio constraint as getCanvasSize.
         var fitAspect = cols / rows;
         if(effW / effH > fitAspect){
@@ -132,18 +123,9 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         var padR = Math.max(2, Math.round(spanR * 0.1));
         var padC = Math.max(2, Math.round(spanC * 0.1));
         var totalR = spanR + padR * 2, totalC = spanC + padC * 2;
-        var isMobile = typeof window !== 'undefined' && window.innerWidth <= 620;
-        var isTablet = typeof window !== 'undefined' && window.innerWidth > 620 && window.innerWidth <= 900;
-        var contentPad = isMobile ? 24 : 40;
-        var sidebarW = isMobile ? 0 : (isTablet ? 178 : 200) + 14;
-
-        var isMobileToolsOpen = typeof window !== 'undefined'
-            && window.innerWidth <= 620 && stateRef.current.bottomSheetOpen;
-        var hFrac = isMobile ? (isMobileToolsOpen ? 0.36 : 0.82) : 0.90;
-        var effW = typeof window !== 'undefined'
-            ? Math.max(1, Math.min(window.innerWidth, 1100) - contentPad - sidebarW) : 846;
-        var effH = typeof window !== 'undefined'
-            ? Math.min(Math.round(window.innerHeight * hFrac), 1400) : 900;
+        // Use actual canvas dimensions for accurate fit calculation.
+        var effW = refs.canvas ? refs.canvas.width : (typeof window !== 'undefined' ? window.innerWidth : 846);
+        var effH = refs.canvas ? refs.canvas.height : (typeof window !== 'undefined' ? window.innerHeight : 900);
         var newCS = Math.max(1, Math.floor(Math.min(effW / totalC, effH / totalR)));
         var newVX = minC - padC;
         var newVY = minR - padR;

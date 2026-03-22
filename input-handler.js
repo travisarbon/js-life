@@ -46,6 +46,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
     // ── Wheel/trackpad scroll accumulator ────────────────────────────────
     _wheelAccX: 0,
     _wheelAccY: 0,
+    _zoomAcc: 0,
 
     /** Check whether a cell at (r,c) is inside the active region.
      *  Returns true if the cell is allowed (unbounded mode, no region, or in-region). */
@@ -716,8 +717,13 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         // ── Zoom (Ctrl+wheel or trackpad pinch) ──────────────────────
         if(event.ctrlKey || event.metaKey){
             var mouse = this.getMousePos(event, canvas);
-            var delta = event.deltaY > 0 ? -1 : 1;
-            var newCS = Math.max(1, Math.min(32, cellSize + delta));
+            // Accumulate zoom delta for smooth trackpad pinch-to-zoom.
+            this._zoomAcc = (this._zoomAcc || 0) - event.deltaY;
+            var zoomThreshold = 15;
+            var steps = Math.trunc(this._zoomAcc / zoomThreshold);
+            if(steps === 0){ return; }
+            this._zoomAcc -= steps * zoomThreshold;
+            var newCS = Math.max(1, Math.min(32, cellSize + steps));
             if(newCS === cellSize){ return; }
             // Zoom toward cursor: keep the cell under the pointer fixed.
             var cellC = host.state.viewX + mouse.x / cellSize;

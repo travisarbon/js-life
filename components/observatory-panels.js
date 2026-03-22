@@ -560,7 +560,9 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
             <div className={className} style={style} data-group-id={group.id}
                 onMouseDown={function(){ LifeViewUtils._bringGroupToFront(stateRef, refs, dispatch, group.id); }}
                 role="region" aria-label="Panel group">
-                <div className="compact-icon-rail">
+                <div className="compact-icon-rail"
+                    onMouseDown={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}
+                    onTouchStart={function(e){ _startGroupDrag(group.id, e, stateRef, refs, dispatch); }}>
                     {tabButtons}
                 </div>
                 <div className="compact-main">
