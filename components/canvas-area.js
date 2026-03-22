@@ -1,6 +1,6 @@
 /* global React, CanvasRenderer, SimEngine, THEMES, SPEED_DELAYS,
           InputHandler, LifeInputUtils, LifeViewUtils, LifeBoardUtils,
-          LifeAnalysisUtils, parseKey */
+          LifeAnalysisUtils, parseKey, RegionUtil */
 /**
  * Canvas-area components and imperative drawing functions extracted from LifeBoard.
  *

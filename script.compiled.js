@@ -2,7 +2,7 @@
 
 /* global React, CanvasRenderer, SimEngine, THEMES, SPEED_DELAYS,
           InputHandler, LifeInputUtils, LifeViewUtils, LifeBoardUtils,
-          LifeAnalysisUtils, parseKey */
+          LifeAnalysisUtils, parseKey, RegionUtil */
 /**
  * Canvas-area components and imperative drawing functions extracted from LifeBoard.
  *
@@ -2151,7 +2151,10 @@ var MobileTransportBar = function MobileTransportBar(props) {
           PATTERN_GROUPS, PATTERNS, PATTERN_META, SimEngine, parseKey,
           RULE_PRESETS, SPEED_DELAYS, THEMES,
           LifeSimUtils, LifeIOUtils, LifeInputUtils, LifeViewUtils,
-          LifeBoardUtils, LifeAnalysisUtils */
+          LifeBoardUtils, LifeAnalysisUtils,
+          CanvasArea, MobileMinimapArea,
+          drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails,
+          onMinimapElementDown, onMinimapElementMove, onMinimapElementUp, panMinimapElement */
 /**
  * Conway's Game of Life — React UI component (React 19 functional).
  * Constants, SimEngine, and helpers are loaded from constants.js.
@@ -2740,336 +2743,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Rendering ─────────────────────────────────────────────────────
 
-    function drawBoard() {
-      var canvas = refs.canvas;
-      if (!canvas) {
-        return;
-      }
-      var ctx = canvas.getContext("2d");
-      if (!ctx) {
-        return;
-      }
-      var cellSize = state.cellSize;
-      var cols = state.cols;
-      var rows = state.rows;
-      var viewX = state.viewX;
-      var viewY = state.viewY;
-      var canvasW = canvas.width;
-      var canvasH = canvas.height;
-      var theme = THEMES[state.theme] || THEMES['Teal'];
-      var liveCells = state.liveCells;
-      var isUnbounded = state.boundary === 'unbounded';
+    // drawBoard — extracted to components/canvas-area.js as top-level function
 
-      // Visible cell range.
-      var startC = viewX,
-        startR = viewY;
-      var endC = viewX + Math.ceil(canvasW / cellSize) + 1;
-      var endR = viewY + Math.ceil(canvasH / cellSize) + 1;
+    // drawMinimap — extracted to components/canvas-area.js as top-level function
 
-      // Clear canvas.
-      // In bounded mode, pre-darken the entire canvas so that out-of-region
-      // areas are uniformly dimmed with no edge gaps.  Region cells are then
-      // restored to the clean bg before cells/trails/grid are drawn.
-      ctx.fillStyle = theme.bg;
-      ctx.fillRect(0, 0, canvasW, canvasH);
-      if (!isUnbounded && state.regionMask && state.regionMask.size > 0) {
-        ctx.fillStyle = 'rgba(0,0,0,0.18)';
-        ctx.fillRect(0, 0, canvasW, canvasH);
-        // Restore clean bg for in-region cells.
-        CanvasRenderer.clearRegionCells(ctx, state.regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, theme.bg);
-      }
-
-      // Palette.
-      var palettes = CanvasRenderer._ensurePalette(theme, state.theme);
-
-      // Cells.
-      CanvasRenderer.drawCells(ctx, liveCells, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.color);
-
-      // Trails.
-      if (refs.trailEnabled && refs.trailMap && refs.trailMap.size > 0) {
-        CanvasRenderer.drawTrails(ctx, refs.trailMap, startR, startC, endR, endC, viewX, viewY, cellSize, palettes.trail);
-      }
-
-      // Grid.
-      if (state.gridLines) {
-        CanvasRenderer.drawGrid(ctx, startR, startC, endR, endC, viewX, viewY, cellSize, canvasW, canvasH, theme.grid);
-      }
-
-      // Region overlay (replaces single bounding box).
-      if (!isUnbounded) {
-        CanvasRenderer.drawRegionOverlay(ctx, state.regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, canvasW, canvasH, theme, state.boundary);
-      }
-
-      // Selection.
-      CanvasRenderer.drawSelection(ctx, state.selection, viewX, viewY, cellSize, theme);
-
-      // Tool preview (paint mode).
-      CanvasRenderer.drawToolPreview(ctx, InputHandler._drawPreviewCells, InputHandler._drawErasing, viewX, viewY, cellSize, theme);
-
-      // Region tool preview.
-      if (state.drawMode === 'region') {
-        // Show rubber-band shape preview.
-        if (InputHandler._regionPreviewKeys.length > 0) {
-          CanvasRenderer.drawRegionPreview(ctx, InputHandler._regionPreviewKeys, InputHandler._regionErasing, viewX, viewY, cellSize);
-        }
-        // Show cell-by-cell painting preview.
-        if (InputHandler._regionDragging) {
-          var rgPainted = InputHandler._regionPaintedKeys;
-          var rgKeys = Object.keys(rgPainted);
-          if (rgKeys.length > 0) {
-            CanvasRenderer.drawRegionPreview(ctx, rgKeys, InputHandler._regionErasing, viewX, viewY, cellSize);
-          }
-        }
-      }
-
-      // Pattern preview.
-      if (state.drawMode === 'preset') {
-        var previewMask = !isUnbounded && state.regionMask && state.regionMask.size > 0 ? state.regionMask : null;
-        CanvasRenderer.drawPatternPreview(ctx, state.selectedPattern, state.patternRotation, InputHandler._previewPos, viewX, viewY, cellSize, theme, previewMask);
-      }
-
-      // Minimap overlay (bottom-right corner on large desktop; separate element elsewhere).
-      var useMobileMinimap = state.deviceClass === 'phone-portrait' || state.deviceClass === 'phone-landscape' || state.deviceClass === 'tablet' || typeof window !== 'undefined' && window.innerWidth <= 1200;
-      if (state.showMinimap && (isUnbounded || cols > 0 && rows > 0)) {
-        if (useMobileMinimap) {
-          drawMinimapMobile(liveCells, cols, rows, viewX, viewY, cellSize, theme);
-          refs.minimapRect = null;
-        } else {
-          // Compute scale from actual canvas element for accuracy.
-          var mmDisplayScale = 1;
-          if (canvas.style.width) {
-            var cssW = parseFloat(canvas.style.width);
-            if (cssW > 0 && canvasW > 0) {
-              mmDisplayScale = cssW / canvasW;
-            }
-          }
-          drawMinimap(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, mmDisplayScale);
-        }
-      }
-
-      // GIF recording: capture frame.
-      if (state.recording && refs.gif) {
-        refs.gif.addFrame(ctx, {
-          copy: true,
-          delay: SPEED_DELAYS[state.speed - 1] || 50
-        });
-      }
-    }
-    function drawMinimap(ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, displayScale) {
-      // Derive minimap world region.
-      // For all modes on the infinite canvas, show the bounding box area
-      // expanded to include any live cells outside and the current viewport.
-      var isUnbounded = state.boundary === 'unbounded';
-      var mmOriginR = 0,
-        mmOriginC = 0;
-      // regionBounds and regionComponents used instead of mmBBCols/mmBBRows
-      if (isUnbounded) {
-        var bb = SimEngine.getBoundingBox(liveCells);
-        if (bb) {
-          var pad = Math.max(5, Math.round(Math.max(bb.maxR - bb.minR, bb.maxC - bb.minC) * 0.15));
-          var newMinR = bb.minR - pad,
-            newMinC = bb.minC - pad;
-          var newMaxR = bb.maxR + pad,
-            newMaxC = bb.maxC + pad;
-          // Hysteresis: only expand, never shrink (prevents flashing).
-          var prev = refs.mmUnboundedRegion;
-          if (prev) {
-            newMinR = Math.min(prev.minR, newMinR);
-            newMinC = Math.min(prev.minC, newMinC);
-            newMaxR = Math.max(prev.maxR, newMaxR);
-            newMaxC = Math.max(prev.maxC, newMaxC);
-          }
-          refs.mmUnboundedRegion = {
-            minR: newMinR,
-            minC: newMinC,
-            maxR: newMaxR,
-            maxC: newMaxC
-          };
-          mmOriginR = newMinR;
-          mmOriginC = newMinC;
-          rows = newMaxR - newMinR + 1;
-          cols = newMaxC - newMinC + 1;
-        } else {
-          mmOriginR = viewY - 50;
-          mmOriginC = viewX - 50;
-          rows = 100;
-          cols = 100;
-          refs.mmUnboundedRegion = null;
-        }
-      } else {
-        // Bounded modes: fixed world region = region bounds + live cells + static padding.
-        // Does NOT expand to follow viewport — arrow indicators show off-screen viewport.
-        var rb = state.regionBounds;
-        var mmMinR = rb ? rb.minR : 0;
-        var mmMinC = rb ? rb.minC : 0;
-        var mmMaxR = rb ? rb.maxR + 1 : rows;
-        var mmMaxC = rb ? rb.maxC + 1 : cols;
-        var bbLive = SimEngine.getBoundingBox(liveCells);
-        if (bbLive) {
-          mmMinR = Math.min(mmMinR, bbLive.minR);
-          mmMinC = Math.min(mmMinC, bbLive.minC);
-          mmMaxR = Math.max(mmMaxR, bbLive.maxR + 1);
-          mmMaxC = Math.max(mmMaxC, bbLive.maxC + 1);
-        }
-        var pad2 = Math.max(5, Math.round(Math.max(mmMaxR - mmMinR, mmMaxC - mmMinC) * 0.1));
-        mmOriginR = mmMinR - pad2;
-        mmOriginC = mmMinC - pad2;
-        rows = mmMaxR - mmMinR + pad2 * 2;
-        cols = mmMaxC - mmMinC + pad2 * 2;
-      }
-      // Target a fixed CSS display size of ~160px for the minimap.
-      // The buffer size is inversely proportional to displayScale so the CSS display size stays constant.
-      var TARGET_CSS_SIZE = 160;
-      var ds = displayScale && displayScale > 0 ? displayScale : 1;
-      var aspect = cols / rows;
-      // Cap buffer dimensions so the minimap never exceeds 1/3 of the canvas.
-      var maxMmW = Math.floor(canvasW / 3);
-      var maxMmH = Math.floor(canvasH / 3);
-      var mmW, mmH;
-      if (aspect >= 1) {
-        mmW = Math.min(Math.max(40, Math.round(TARGET_CSS_SIZE / ds)), maxMmW);
-        mmH = Math.min(Math.max(40, Math.round(mmW / aspect)), maxMmH);
-      } else {
-        mmH = Math.min(Math.max(40, Math.round(TARGET_CSS_SIZE / ds)), maxMmH);
-        mmW = Math.min(Math.max(40, Math.round(mmH * aspect)), maxMmW);
-      }
-      // Resize the off-screen canvas if dimensions changed.
-      if (refs.minimapCanvas.width !== mmW || refs.minimapCanvas.height !== mmH) {
-        refs.minimapCanvas.width = mmW;
-        refs.minimapCanvas.height = mmH;
-        refs.minimapDirty = true;
-      }
-      // Express the margin in CSS-space pixels by scaling by 1/ds,
-      // so the visual gap from the canvas corner stays ~6px at all zoom levels.
-      var marginBuf = Math.max(1, Math.round(6 / ds));
-      // In Cartographer mode, offset minimap upward to clear the fixed transport strip.
-      var isMobileView2 = state.deviceClass === 'phone-portrait' || state.deviceClass === 'phone-landscape';
-      var transportPad = state.layoutMode === 'cartographer' && !isMobileView2 ? Math.round(60 / ds) : 0;
-      // In Cartographer, place minimap on the opposite side from the rail.
-      var mmOnLeft = state.layoutMode === 'cartographer' && state.railSide === 'right';
-      var mmX = mmOnLeft ? marginBuf : canvasW - mmW - marginBuf;
-      var mmY = canvasH - mmH - marginBuf - transportPad;
-
-      // Redraw minimap off-screen canvas only when marked dirty.
-      if (refs.minimapDirty) {
-        var mc = refs.minimapCanvas;
-        var mctx = mc.getContext('2d');
-        mctx.clearRect(0, 0, mmW, mmH);
-        // Background.
-        mctx.fillStyle = 'rgba(10,14,26,0.85)';
-        mctx.fillRect(0, 0, mmW, mmH);
-        // Draw all live cells as 1-px dots.
-        mctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
-        var _mmOC = mmOriginC,
-          _mmOR = mmOriginR,
-          _mmCols = cols,
-          _mmRows = rows;
-        liveCells.forEach(function (age, key) {
-          var _rc = parseKey(key),
-            kr = _rc[0] - _mmOR,
-            kc = _rc[1] - _mmOC;
-          if (kr >= 0 && kr < _mmRows && kc >= 0 && kc < _mmCols) {
-            mctx.fillRect(Math.floor(kc / _mmCols * mmW), Math.floor(kr / _mmRows * mmH), 1, 1);
-          }
-        });
-        // Region indicator on minimap (bounded modes only).
-        if (!isUnbounded && state.regionMask) {
-          var _regionMask = state.regionMask;
-          mctx.fillStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.12)';
-          _regionMask.forEach(function (key) {
-            var _i = key.indexOf(',');
-            var _rr = parseInt(key.substring(0, _i), 10) - _mmOR;
-            var _cc = parseInt(key.substring(_i + 1), 10) - _mmOC;
-            if (_rr >= 0 && _rr < _mmRows && _cc >= 0 && _cc < _mmCols) {
-              mctx.fillRect(Math.floor(_cc / _mmCols * mmW), Math.floor(_rr / _mmRows * mmH), 1, 1);
-            }
-          });
-          // Draw component bounding rects as dashed outlines.
-          var _comps = state.regionComponents;
-          if (_comps && _comps.length > 0) {
-            mctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.5)';
-            mctx.lineWidth = 1;
-            mctx.setLineDash([3, 2]);
-            for (var _ci = 0; _ci < _comps.length; _ci++) {
-              var _comp = _comps[_ci];
-              var _cx = Math.round((_comp.minC - _mmOC) / _mmCols * mmW);
-              var _cy = Math.round((_comp.minR - _mmOR) / _mmRows * mmH);
-              var _cw = Math.round((_comp.maxC - _comp.minC + 1) / _mmCols * mmW);
-              var _ch = Math.round((_comp.maxR - _comp.minR + 1) / _mmRows * mmH);
-              mctx.strokeRect(_cx + 0.5, _cy + 0.5, _cw, _ch);
-            }
-            mctx.setLineDash([]);
-          }
-        }
-        // Border.
-        mctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        mctx.lineWidth = 1;
-        mctx.strokeRect(0.5, 0.5, mmW - 1, mmH - 1);
-        refs.minimapDirty = false;
-      }
-
-      // Blit minimap to main canvas.
-      ctx.drawImage(refs.minimapCanvas, mmX, mmY);
-
-      // Viewport rectangle.
-      var visCols = Math.ceil(canvasW / cellSize);
-      var visRows = Math.ceil(canvasH / cellSize);
-      var vx1 = mmX + Math.round((viewX - mmOriginC) / cols * mmW);
-      var vy1 = mmY + Math.round((viewY - mmOriginR) / rows * mmH);
-      var vw = Math.max(2, Math.round(visCols / cols * mmW));
-      var vh = Math.max(2, Math.round(visRows / rows * mmH));
-      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-      ctx.lineWidth = 1;
-      var clampX = Math.max(vx1, mmX);
-      var clampY = Math.max(vy1, mmY);
-      var clampR = Math.min(vx1 + vw, mmX + mmW);
-      var clampB = Math.min(vy1 + vh, mmY + mmH);
-      if (clampR > clampX && clampB > clampY) {
-        ctx.strokeRect(clampX + 0.5, clampY + 0.5, clampR - clampX, clampB - clampY);
-      }
-
-      // Off-screen viewport indicator arrow (when viewport is outside minimap world region).
-      var vpCenterC = viewX + visCols / 2;
-      var vpCenterR = viewY + visRows / 2;
-      var vpOutside = vpCenterC < mmOriginC || vpCenterC > mmOriginC + cols || vpCenterR < mmOriginR || vpCenterR > mmOriginR + rows;
-      if (vpOutside) {
-        var mmCenterC = mmOriginC + cols / 2;
-        var mmCenterR = mmOriginR + rows / 2;
-        var arrowAngle = Math.atan2(vpCenterR - mmCenterR, vpCenterC - mmCenterC);
-        // Position arrow on minimap border
-        var arrowPx = mmX + mmW / 2 + Math.cos(arrowAngle) * (mmW / 2 - 8);
-        var arrowPy = mmY + mmH / 2 + Math.sin(arrowAngle) * (mmH / 2 - 8);
-        arrowPx = Math.max(mmX + 6, Math.min(mmX + mmW - 6, arrowPx));
-        arrowPy = Math.max(mmY + 6, Math.min(mmY + mmH - 6, arrowPy));
-        ctx.save();
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.translate(arrowPx, arrowPy);
-        ctx.rotate(arrowAngle);
-        ctx.beginPath();
-        ctx.moveTo(6, 0);
-        ctx.lineTo(-3, -4);
-        ctx.lineTo(-3, 4);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // Store minimap rect for click detection (include world origin/dims for coordinate mapping).
-      refs.minimapRect = {
-        x: mmX,
-        y: mmY,
-        w: mmW,
-        h: mmH,
-        originC: mmOriginC,
-        originR: mmOriginR,
-        worldCols: cols,
-        worldRows: rows
-      };
-    }
-    function drawRotationPreview() {
-      var theme = THEMES[state.theme] || THEMES['Teal'];
-      CanvasRenderer.drawRotationPreview(refs.previewCanvas, state.selectedPattern, state.patternRotation, theme);
-    }
+    // drawRotationPreview — extracted to components/canvas-area.js as top-level function
 
     // ── Methods delegated to mixins ──────────────────────────────────
     // LifeSimUtils: simulation loop, undo/redo, stepping
@@ -3079,22 +2757,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // LifeBoardUtils: board config, drawing modes, selection, patterns
     // LifeAnalysisUtils: pattern analysis, recording, help
 
-    function toggleTrails() {
-      var newVal = !state.showTrails;
-      refs.trailEnabled = newVal;
-      if (!newVal) {
-        refs.trailMap = new Map();
-      }
-      dispatch({
-        type: "MERGE",
-        payload: {
-          showTrails: newVal
-        }
-      });
-      setTimeout(function () {
-        drawBoard(stateRef, refs);
-      }, 0);
-    }
+    // toggleTrails — extracted to components/canvas-area.js as top-level function
 
     // ── Render sub-methods ────────────────────────────────────────────
 
@@ -3110,261 +2773,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderMobileSparkline() {
       // Extracted to components/stats-panel.js as MobileSparkline
     }
-    function renderMobileMinimapArea() {
-      if (!state.showMinimap || refs.minimapHidden) {
-        return null;
-      }
-      return /*#__PURE__*/React.createElement("div", {
-        className: "mobile-minimap-area"
-      }, /*#__PURE__*/React.createElement("canvas", {
-        className: "mobile-minimap-canvas",
-        ref: function (c) {
-          refs.mobileMinimap = c;
-        },
-        role: "img",
-        "aria-label": "Minimap navigation",
-        onMouseDown: function (e) {
-          onMinimapElementDown(e, stateRef, refs, dispatch);
-        },
-        onMouseMove: function (e) {
-          onMinimapElementMove(e, stateRef, refs, dispatch);
-        },
-        onTouchStart: function (e) {
-          onMinimapElementDown(e, stateRef, refs, dispatch);
-        },
-        onTouchMove: function (e) {
-          onMinimapElementMove(e, stateRef, refs, dispatch);
-        },
-        onMouseUp: function () {
-          onMinimapElementUp(stateRef, refs);
-        },
-        onTouchEnd: function () {
-          onMinimapElementUp(stateRef, refs);
-        }
-      }));
-    }
-    function onMinimapElementDown(e) {
-      e.preventDefault();
-      refs.mmElemDragging = true;
-      panMinimapElement(e, state, stateRef, refs, dispatch);
-    }
-    function onMinimapElementMove(e) {
-      if (!refs.mmElemDragging) {
-        return;
-      }
-      e.preventDefault();
-      panMinimapElement(e, state, stateRef, refs, dispatch);
-    }
-    function onMinimapElementUp() {
-      refs.mmElemDragging = false;
-    }
-    function panMinimapElement(e) {
-      if (!refs.mobileMinimap) {
-        return;
-      }
-      var rect = refs.mobileMinimap.getBoundingClientRect();
-      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      var frac_c = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      var frac_r = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-      // Use stored world dims from last minimap render for accurate panning.
-      var mmWorld = refs.mmMobileWorld;
-      var mmCols = mmWorld ? mmWorld.cols : state.cols;
-      var mmRows = mmWorld ? mmWorld.rows : state.rows;
-      var mmOC = mmWorld ? mmWorld.originC : 0;
-      var mmOR = mmWorld ? mmWorld.originR : 0;
-      var newVX = Math.round(frac_c * mmCols + mmOC - refs.canvas.width / state.cellSize / 2);
-      var newVY = Math.round(frac_r * mmRows + mmOR - refs.canvas.height / state.cellSize / 2);
-      var clamped = LifeViewUtils.clampView(stateRef, refs, newVX, newVY, state.cols, state.rows, state.cellSize);
-      dispatch({
-        type: "MERGE",
-        payload: {
-          viewX: clamped.viewX,
-          viewY: clamped.viewY
-        }
-      });
-      setTimeout(function () {
-        drawBoard(stateRef, refs);
-      }, 0);
-    }
-    function drawMinimapMobile(liveCells, cols, rows, viewX, viewY, cellSize, theme) {
-      if (!refs.mobileMinimap) {
-        return;
-      }
-      var isUnbounded = state.boundary === 'unbounded';
-      var mmMobOriginR = 0,
-        mmMobOriginC = 0;
-      var mmRegionRows, mmRegionCols;
-      // regionBounds used for mobile minimap bounding indicator
-      if (isUnbounded) {
-        var bb = SimEngine.getBoundingBox(liveCells);
-        if (bb) {
-          var pad = Math.max(5, Math.round(Math.max(bb.maxR - bb.minR, bb.maxC - bb.minC) * 0.15));
-          var newMinR = bb.minR - pad,
-            newMinC = bb.minC - pad;
-          var newMaxR = bb.maxR + pad,
-            newMaxC = bb.maxC + pad;
-          // Hysteresis: only expand, never shrink (prevents flashing).
-          var prev = refs.mmUnboundedRegion;
-          if (prev) {
-            newMinR = Math.min(prev.minR, newMinR);
-            newMinC = Math.min(prev.minC, newMinC);
-            newMaxR = Math.max(prev.maxR, newMaxR);
-            newMaxC = Math.max(prev.maxC, newMaxC);
-          }
-          refs.mmUnboundedRegion = {
-            minR: newMinR,
-            minC: newMinC,
-            maxR: newMaxR,
-            maxC: newMaxC
-          };
-          mmMobOriginR = newMinR;
-          mmMobOriginC = newMinC;
-          mmRegionRows = newMaxR - newMinR + 1;
-          mmRegionCols = newMaxC - newMinC + 1;
-        } else {
-          mmMobOriginR = viewY - 50;
-          mmMobOriginC = viewX - 50;
-          mmRegionRows = 100;
-          mmRegionCols = 100;
-        }
-      } else {
-        // Bounded modes: fixed world region = region bounds + live cells + static padding.
-        var rbm = state.regionBounds;
-        var mmMR = rbm ? rbm.minR : 0;
-        var mmMC = rbm ? rbm.minC : 0;
-        var mmMXR = rbm ? rbm.maxR + 1 : rows;
-        var mmMXC = rbm ? rbm.maxC + 1 : cols;
-        var bbMob = SimEngine.getBoundingBox(liveCells);
-        if (bbMob) {
-          mmMR = Math.min(mmMR, bbMob.minR);
-          mmMC = Math.min(mmMC, bbMob.minC);
-          mmMXR = Math.max(mmMXR, bbMob.maxR + 1);
-          mmMXC = Math.max(mmMXC, bbMob.maxC + 1);
-        }
-        var pad2m = Math.max(5, Math.round(Math.max(mmMXR - mmMR, mmMXC - mmMC) * 0.1));
-        mmMobOriginR = mmMR - pad2m;
-        mmMobOriginC = mmMC - pad2m;
-        mmRegionRows = mmMXR - mmMR + pad2m * 2;
-        mmRegionCols = mmMXC - mmMC + pad2m * 2;
-      }
-      var MOBILE_MM_CSS_W = Math.min(120, Math.round(window.innerWidth * 0.3));
-      var mmAspect = mmRegionCols / Math.max(1, mmRegionRows);
-      var mmH_css = Math.round(MOBILE_MM_CSS_W / mmAspect);
-      var mmW_css = MOBILE_MM_CSS_W;
 
-      // Resize off-screen buffer if needed
-      if (refs.minimapCanvas.width !== mmW_css || refs.minimapCanvas.height !== mmH_css) {
-        refs.minimapCanvas.width = mmW_css;
-        refs.minimapCanvas.height = mmH_css;
-      }
+    // renderMobileMinimapArea — extracted to components/canvas-area.js as MobileMinimapArea
+    // onMinimapElementDown, onMinimapElementMove, onMinimapElementUp, panMinimapElement — extracted to components/canvas-area.js
 
-      // Render minimap cells to off-screen canvas using actual theme colors.
-      var mmCtx = refs.minimapCanvas.getContext('2d');
-      // Dark background for contrast (same approach as desktop drawMinimap).
-      mmCtx.fillStyle = 'rgba(10,14,26,0.85)';
-      mmCtx.fillRect(0, 0, mmW_css, mmH_css);
-      var cellW = mmW_css / mmRegionCols;
-      var cellH = mmH_css / mmRegionRows;
-      mmCtx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
-      var _mmMOR = mmMobOriginR,
-        _mmMOC = mmMobOriginC,
-        _mmMCols = mmRegionCols,
-        _mmMRows = mmRegionRows;
-      liveCells.forEach(function (_, key) {
-        var rc = parseKey(key);
-        var kr = rc[0] - _mmMOR;
-        var kc = rc[1] - _mmMOC;
-        if (kr < 0 || kr >= _mmMRows || kc < 0 || kc >= _mmMCols) return;
-        var px = Math.floor(kc * cellW);
-        var py = Math.floor(kr * cellH);
-        var pw = Math.max(1, Math.ceil(cellW));
-        var ph = Math.max(1, Math.ceil(cellH));
-        mmCtx.fillRect(px, py, pw, ph);
-      });
+    // drawMinimapMobile — extracted to components/canvas-area.js as top-level function
 
-      // Region indicator on mobile minimap (bounded modes only).
-      if (!isUnbounded && state.regionComponents) {
-        var _compsM = state.regionComponents;
-        if (_compsM.length > 0) {
-          mmCtx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.5)';
-          mmCtx.lineWidth = 1;
-          mmCtx.setLineDash([3, 2]);
-          for (var _ciM = 0; _ciM < _compsM.length; _ciM++) {
-            var _compM = _compsM[_ciM];
-            var _cxM = Math.round((_compM.minC - mmMobOriginC) * cellW);
-            var _cyM = Math.round((_compM.minR - mmMobOriginR) * cellH);
-            var _cwM = Math.round((_compM.maxC - _compM.minC + 1) * cellW);
-            var _chM = Math.round((_compM.maxR - _compM.minR + 1) * cellH);
-            mmCtx.strokeRect(_cxM + 0.5, _cyM + 0.5, _cwM, _chM);
-          }
-          mmCtx.setLineDash([]);
-        }
-      }
-
-      // Border.
-      mmCtx.strokeStyle = 'rgba(255,255,255,0.2)';
-      mmCtx.lineWidth = 1;
-      mmCtx.strokeRect(0.5, 0.5, mmW_css - 1, mmH_css - 1);
-
-      // Viewport rectangle.
-      var vpVisColsM = refs.canvas ? refs.canvas.width / cellSize : 100;
-      var vpVisRowsM = refs.canvas ? refs.canvas.height / cellSize : 100;
-      var vpW = vpVisColsM * cellW;
-      var vpH = vpVisRowsM * cellH;
-      var vpX = (viewX - mmMobOriginC) * cellW;
-      var vpY = (viewY - mmMobOriginR) * cellH;
-      // Only draw viewport rect if it overlaps the minimap area.
-      var vpClampX = Math.max(0, vpX),
-        vpClampY = Math.max(0, vpY);
-      var vpClampR = Math.min(mmW_css, vpX + vpW),
-        vpClampB = Math.min(mmH_css, vpY + vpH);
-      if (vpClampR > vpClampX && vpClampB > vpClampY) {
-        mmCtx.strokeStyle = 'rgba(255,255,255,0.75)';
-        mmCtx.lineWidth = 1;
-        mmCtx.strokeRect(vpClampX + 0.5, vpClampY + 0.5, vpClampR - vpClampX, vpClampB - vpClampY);
-      }
-
-      // Off-screen viewport indicator arrow.
-      var vpCenterCm = viewX + vpVisColsM / 2;
-      var vpCenterRm = viewY + vpVisRowsM / 2;
-      var vpOutsideM = vpCenterCm < mmMobOriginC || vpCenterCm > mmMobOriginC + mmRegionCols || vpCenterRm < mmMobOriginR || vpCenterRm > mmMobOriginR + mmRegionRows;
-      if (vpOutsideM) {
-        var mmCCm = mmMobOriginC + mmRegionCols / 2,
-          mmCRm = mmMobOriginR + mmRegionRows / 2;
-        var aaM = Math.atan2(vpCenterRm - mmCRm, vpCenterCm - mmCCm);
-        var apxM = mmW_css / 2 + Math.cos(aaM) * (mmW_css / 2 - 8);
-        var apyM = mmH_css / 2 + Math.sin(aaM) * (mmH_css / 2 - 8);
-        apxM = Math.max(6, Math.min(mmW_css - 6, apxM));
-        apyM = Math.max(6, Math.min(mmH_css - 6, apyM));
-        mmCtx.save();
-        mmCtx.fillStyle = 'rgba(255,255,255,0.85)';
-        mmCtx.translate(apxM, apyM);
-        mmCtx.rotate(aaM);
-        mmCtx.beginPath();
-        mmCtx.moveTo(6, 0);
-        mmCtx.lineTo(-3, -4);
-        mmCtx.lineTo(-3, 4);
-        mmCtx.closePath();
-        mmCtx.fill();
-        mmCtx.restore();
-      }
-
-      // Resize HTML canvas if needed and blit
-      if (refs.mobileMinimap.width !== mmW_css || refs.mobileMinimap.height !== mmH_css) {
-        refs.mobileMinimap.width = mmW_css;
-        refs.mobileMinimap.height = mmH_css;
-      }
-      var mobileCtx = refs.mobileMinimap.getContext('2d');
-      mobileCtx.drawImage(refs.minimapCanvas, 0, 0);
-      // Store world dims for mobile minimap panning.
-      refs.mmMobileWorld = {
-        originC: mmMobOriginC,
-        originR: mmMobOriginR,
-        cols: mmRegionCols,
-        rows: mmRegionRows
-      };
-    }
     function renderStats() {
       // Extracted to components/stats-panel.js as StatsPanel
     }
@@ -3788,60 +3202,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Shared sub-components (used by all layout modes) ───────────
 
-    function renderCanvas(cs) {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "app-canvas-container"
-      }, /*#__PURE__*/React.createElement("canvas", {
-        className: "display",
-        ref: function (c) {
-          refs.canvas = c;
-        },
-        width: cs.w,
-        height: cs.h,
-        style: {
-          width: cs.displayW + 'px',
-          height: cs.displayH + 'px',
-          display: 'block',
-          margin: '0 auto'
-        },
-        id: "life-canvas",
-        role: "application",
-        "aria-roledescription": "Game of Life grid",
-        "aria-label": "Conway's Game of Life simulation canvas",
-        draggable: false,
-        onMouseDown: function (e) {
-          LifeInputUtils.onMouseDown(stateRef, refs, dispatch, e);
-        },
-        onMouseMove: function (e) {
-          LifeInputUtils.onMouseMove(stateRef, refs, dispatch, e);
-        },
-        onMouseUp: function (e) {
-          LifeInputUtils.onMouseUp(stateRef, refs, dispatch, e);
-        },
-        onMouseLeave: function (e) {
-          LifeInputUtils.onMouseLeave(stateRef, refs, dispatch, e);
-        },
-        onContextMenu: function (e) {
-          LifeInputUtils.onContextMenu(stateRef, refs, dispatch, e);
-        },
-        onTouchStart: function (e) {
-          LifeInputUtils.onTouchStart(stateRef, refs, dispatch, e);
-        },
-        onTouchMove: function (e) {
-          LifeInputUtils.onTouchMove(stateRef, refs, dispatch, e);
-        },
-        onTouchEnd: function (e) {
-          LifeInputUtils.onTouchEnd(stateRef, refs, dispatch, e);
-        }
-      }), state.analysisResult ? /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "analysis-result" + (state.analyzing ? " analysis-cancellable" : ""),
-        onClick: state.analyzing ? function () {
-          LifeAnalysisUtils.cancelAnalysis(stateRef, refs, dispatch);
-        } : null,
-        "aria-live": "assertive"
-      }, state.analysisResult) : null);
-    }
+    // renderCanvas — extracted to components/canvas-area.js as CanvasArea
 
     // renderTransportControls — extracted to components/transport-controls.js as TransportControls
 
@@ -3906,7 +3267,13 @@ document.addEventListener('DOMContentLoaded', function () {
       var tabs = refs.MOBILE_TABS;
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-cartographer"
-      }, renderCanvas(cs, state, stateRef, refs, dispatch), /*#__PURE__*/React.createElement("div", {
+      }, /*#__PURE__*/React.createElement(CanvasArea, {
+        cs: cs,
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement("div", {
         className: railClass,
         style: {
           width: railW + 'px'
@@ -4016,13 +3383,24 @@ document.addEventListener('DOMContentLoaded', function () {
         onMouseEnter: function () {
           LifeViewUtils.toggleRailHidden(stateRef, refs, dispatch);
         }
-      }), renderMobileMinimapArea(state, stateRef, refs, dispatch));
+      }), /*#__PURE__*/React.createElement(MobileMinimapArea, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }));
     }
     function renderCartographerMobile(cs) {
       var sheetContent = _buildSheetContent(state, stateRef, refs, dispatch);
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-cartographer layout-mobile"
-      }, renderCanvas(cs, state, stateRef, refs, dispatch), !state.bottomSheetOpen && !refs.statsChipHidden && /*#__PURE__*/React.createElement(StatsChip, {
+      }, /*#__PURE__*/React.createElement(CanvasArea, {
+        cs: cs,
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), !state.bottomSheetOpen && !refs.statsChipHidden && /*#__PURE__*/React.createElement(StatsChip, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -4032,7 +3410,12 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), /*#__PURE__*/React.createElement(MobileTransportBar, {
+      }), !state.bottomSheetOpen && /*#__PURE__*/React.createElement(MobileMinimapArea, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement(MobileTransportBar, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -4052,7 +3435,13 @@ document.addEventListener('DOMContentLoaded', function () {
       var zenMode = state.zenMode;
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-observatory" + (zenMode ? " zen-mode" : "")
-      }, renderCanvas(cs, state, stateRef, refs, dispatch), !zenMode && /*#__PURE__*/React.createElement("div", {
+      }, /*#__PURE__*/React.createElement(CanvasArea, {
+        cs: cs,
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), !zenMode && /*#__PURE__*/React.createElement("div", {
         className: "panel-overlay-container",
         role: "group",
         "aria-label": "Floating control panels"
@@ -4168,13 +3557,24 @@ document.addEventListener('DOMContentLoaded', function () {
           },
           "aria-label": "Show " + label + " panel"
         }), /*#__PURE__*/React.createElement("span", null, label));
-      })), renderLayoutSwitcher(state, stateRef, refs, dispatch))), renderMobileMinimapArea(state, stateRef, refs, dispatch));
+      })), renderLayoutSwitcher(state, stateRef, refs, dispatch))), /*#__PURE__*/React.createElement(MobileMinimapArea, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }));
     }
     function renderObservatoryMobile(cs) {
       var sheetContent = _buildSheetContent(state, stateRef, refs, dispatch);
       return /*#__PURE__*/React.createElement("div", {
         className: "layout-observatory layout-mobile"
-      }, renderCanvas(cs, state, stateRef, refs, dispatch), /*#__PURE__*/React.createElement(MobileTransportBar, {
+      }, /*#__PURE__*/React.createElement(CanvasArea, {
+        cs: cs,
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement(MobileTransportBar, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -4189,7 +3589,12 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch));
+      }), !state.bottomSheetOpen && /*#__PURE__*/React.createElement(MobileMinimapArea, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch));
     }
 
     // ── Float panel helper (Observatory) ─────────────────────────────
