@@ -22,9 +22,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 var rows = 100;
                 // On mobile, default to 8px/cell; on desktop, 5px/cell.
                 // Center the view on the grid for all screen sizes.
-                var isMobileInit = window.innerWidth <= 620 ||
+                var isMobileInit = window.innerWidth <= 900 ||
                     (window.matchMedia && window.matchMedia('(orientation: landscape) and (max-height: 550px)').matches);
-                var cellSize = isMobileInit ? 8 : 5;
+                var cellSize = isMobileInit ? 8 : 10;
                 var initViewX = Math.round((cols / 2) - (window.innerWidth / (2 * cellSize)));
                 var initViewY = Math.round((rows / 2) - (window.innerHeight / (2 * cellSize)));
                 // Load persisted layout preferences from localStorage.
@@ -306,9 +306,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 window.addEventListener('orientationchange', this._onOrientationChange);
                 // ── Device class detection via matchMedia ──────────────────
                 var self3 = this;
-                this._mqPhone = window.matchMedia('(max-width: 620px)');
+                this._mqPhone = window.matchMedia('(max-width: 900px)');
                 this._mqPhoneLandscape = window.matchMedia('(orientation: landscape) and (max-height: 550px)');
-                this._mqTablet = window.matchMedia('(min-width: 621px) and (max-width: 900px)');
+                this._mqTablet = window.matchMedia('(min-width: 901px) and (max-width: 1200px)');
                 this._mqLandscape = window.matchMedia('(orientation: landscape)');
                 this._updateDeviceClass = function(){
                     var dc;
@@ -1019,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     mmRegionRows = mmMXR - mmMR + pad2m * 2;
                     mmRegionCols = mmMXC - mmMC + pad2m * 2;
                 }
-                var MOBILE_MM_CSS_W = 160;
+                var MOBILE_MM_CSS_W = Math.min(120, Math.round(window.innerWidth * 0.3));
                 var mmAspect = mmRegionCols / Math.max(1, mmRegionRows);
                 var mmH_css = Math.round(MOBILE_MM_CSS_W / mmAspect);
                 var mmW_css = MOBILE_MM_CSS_W;
@@ -1577,7 +1577,6 @@ document.addEventListener('DOMContentLoaded', function(){
             renderRLESection : function(){
                 return (
                     <div className="sidebar-section">
-                        <div className="sidebar-section-title">Import / Export</div>
                         <div className="rle-section">
                             <div className="buttons rle-toggle-row">
                                 <button type="button" className={"btn btn-rle-toggle btn-block" + (this.state.showRle ? " active" : "")}
@@ -1878,7 +1877,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div className={railClass} style={{width: railW + 'px'}}
                             role="complementary" aria-label="Controls panel">
                             <div className="rail-header">
-                                <span className="rail-title">{"Conway's Game of Life"}</span>
+                                <span className="rail-title">{"Game of Life"}</span>
                                 <div className="rail-header-controls">
                                     <button type="button" className="btn" onClick={this.toggleHelp} aria-label="Help" title="Keyboard shortcuts (?)">
                                         <i className="fa fa-question-circle" aria-hidden="true"></i>
