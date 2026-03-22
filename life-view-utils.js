@@ -184,8 +184,6 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
     },
 
     _mergePanels : function(stateRef, refs, dispatch, draggedId, targetId){
-        // Stats panel cannot participate in merges.
-        if(draggedId === 'stats' || targetId === 'stats'){ return; }
         var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
         var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
         var dragGroup = null, targetGroup = null;
@@ -226,7 +224,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         }
 
         var next = (stateRef.current.panelZCounter || 1) + 1;
-        dispatch({type:'MERGE', payload:{ panelGroups: groups, panelStates: panels, panelZCounter: next }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
+        dispatch({type:'MERGE', payload:{ panelGroups: groups, panelStates: panels, panelZCounter: next, activePopOut: null }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
     _separatePanel : function(stateRef, refs, dispatch, panelId, groupId, x, y){
@@ -257,7 +255,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         panels[panelId].x = x;
         panels[panelId].y = y;
         panels[panelId].z = next;
-        dispatch({type:'MERGE', payload:{ panelGroups: groups, panelStates: panels, panelZCounter: next }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
+        dispatch({type:'MERGE', payload:{ panelGroups: groups, panelStates: panels, panelZCounter: next, activePopOut: null }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
     _setGroupActiveTab : function(stateRef, refs, dispatch, groupId, panelId){
@@ -288,7 +286,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
     _togglePanelCompact : function(stateRef, refs, dispatch, panelId){
         var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
         panels[panelId].compact = !panels[panelId].compact;
-        dispatch({type:'MERGE', payload:{ panelStates: panels }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
+        dispatch({type:'MERGE', payload:{ panelStates: panels, activePopOut: null }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
     _toggleGroupCompact : function(stateRef, refs, dispatch, groupId){
@@ -299,7 +297,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
                 break;
             }
         }
-        dispatch({type:'MERGE', payload:{ panelGroups: groups }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
+        dispatch({type:'MERGE', payload:{ panelGroups: groups, activePopOut: null }}); LifeViewUtils._persistLayout(stateRef, refs, dispatch);
     },
 
     _openPopOut : function(stateRef, refs, dispatch, panelId, controlId){

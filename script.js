@@ -170,7 +170,6 @@ function initState(){
                         mode:      { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         board:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         rules:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
-                        stats:     { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false },
                         importExport: { open: true, x: -1, y: -1, collapsed: false, z: 0, compact: false }
                     },
                     panelZCounter :    savedLayout.panelZCounter || 1,

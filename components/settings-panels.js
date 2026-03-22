@@ -13,7 +13,7 @@ var ViewControls = function ViewControls(props) { // eslint-disable-line no-unus
                         <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitView(stateRef, refs, dispatch); }} title="Zoom to fit entire grid"><i className="fa fa-arrows-alt" aria-hidden="true"></i> Fit Grid</button>
                         <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitLiveCells(stateRef, refs, dispatch); }} title="Zoom to fit live cells"><i className="fa fa-compress" aria-hidden="true"></i> Fit Cells</button>
                         <button type="button" className={"btn btn-toggle" + (state.gridLines ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); }} title="Toggle grid lines (G)"><i className="fa fa-th" aria-hidden="true"></i> Grid</button>
-                        <button type="button" className={"btn btn-toggle" + (state.showTrails ? " active" : "")} onClick={function(){ onToggleTrails(stateRef, refs, dispatch); }} title="Show ghost trails"><i className="fa fa-eye" aria-hidden="true"></i> Trails</button>
+                        <button type="button" className={"btn btn-toggle" + (state.showTrails ? " active" : "")} onClick={function(){ onToggleTrails(stateRef, refs, dispatch); }} title="Show ghost trails"><i className="fa fa-sun-o" aria-hidden="true"></i> Trails</button>
                         <button type="button" className={"btn btn-toggle" + (state.showMinimap ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch); }} title="Show/hide minimap (M)"><i className="fa fa-map-o" aria-hidden="true"></i> Minimap</button>
                         <button type="button" className={"btn btn-toggle" + (state.showStats ? " active" : "")} onClick={function(){ dispatch({type:'MERGE', payload:{showStats: !state.showStats}}); }} title="Show/hide stats overlay"><i className="fa fa-bar-chart" aria-hidden="true"></i> Stats</button>
                     </div>
@@ -69,7 +69,7 @@ var BoundaryControls = function BoundaryControls(props) { // eslint-disable-line
                     <div className="boundary-controls">
                         <label className="control-group-label">Boundary</label>
                         <div className="view-controls">
-                            <button type="button" className={"btn btn-toggle" + (state.boundary !== 'toroidal' ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }} title="Cycle boundary: Wrap / Hard / Infinite"><i className="fa fa-repeat" aria-hidden="true"></i> {state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "\u221E"}</button>
+                            <button type="button" className={"btn btn-toggle" + (state.boundary !== 'toroidal' ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }} title="Cycle boundary: Wrap / Hard / Infinite">{state.boundary === 'toroidal' ? <i className="fa fa-repeat" aria-hidden="true"></i> : state.boundary === 'finite' ? <i className="fa fa-stop" aria-hidden="true"></i> : null}{state.boundary === 'unbounded' ? <span style={{fontWeight:700}}>{"\u221E "}</span> : " "}{state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "Infinite"}</button>
                         </div>
                     </div>
                 );

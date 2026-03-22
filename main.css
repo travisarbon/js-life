@@ -982,6 +982,13 @@ canvas.display {
   -webkit-overflow-scrolling: touch;
   padding: var(--space-lg) var(--space-lg) var(--space-2xl); }
 
+.float-panel-icon {
+  margin-right: var(--space-xs);
+  opacity: var(--opacity-secondary);
+  font-size: var(--text-xs); }
+.float-panel-compact .float-panel-title { display: none; }
+.float-panel-compact .float-panel-icon { margin-right: 0; }
+
 /* ── Float panel collapsed ────────────────────────────────────────────── */
 .float-panel-collapsed .float-panel-body {
   display: none; }

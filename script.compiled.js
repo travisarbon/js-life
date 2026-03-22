@@ -1012,7 +1012,7 @@ var LayoutSwitcher = function LayoutSwitcher(props) {
     title: "Observatory: Floating panels",
     "aria-label": "Observatory layout: floating panels"
   }, /*#__PURE__*/React.createElement("i", {
-    className: "fa fa-th-large"
+    className: "fa fa-object-ungroup"
   })));
 };
 var CartographerLayout = function CartographerLayout(props) {
@@ -1534,7 +1534,7 @@ var ObservatoryMobile = function ObservatoryMobile(props) {
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
           ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
           DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
-          RulesSection, RLESection, ExportContent, StatsPanel, RULE_PRESETS,
+          RulesSection, RLESection, ExportContent, RULE_PRESETS,
           toggleTrails */
 /**
  * Observatory panel system — extracted from LifeBoard.
@@ -1551,7 +1551,6 @@ var _getPanelLabel = function (panelId) {
     view: 'View',
     mode: 'Tools',
     rules: 'Rules',
-    stats: 'Stats',
     importExport: 'Share'
   };
   return PANEL_LABELS[panelId] || panelId;
@@ -1563,7 +1562,6 @@ var _getPanelIcon = function (panelId) {
     view: 'fa-eye',
     mode: 'fa-pencil',
     rules: 'fa-cogs',
-    stats: 'fa-bar-chart',
     importExport: 'fa-exchange'
   };
   return PANEL_ICONS[panelId] || 'fa-circle-o';
@@ -1630,13 +1628,6 @@ var _getPanelContent = function (panelId, state, stateRef, refs, dispatch) {
         state: state,
         stateRef: stateRef,
         refs: refs,
-        dispatch: dispatch
-      });
-    case 'stats':
-      return /*#__PURE__*/React.createElement(StatsPanel, {
-        state: state,
-        refs: refs,
-        stateRef: stateRef,
         dispatch: dispatch
       });
     case 'importExport':
@@ -1757,10 +1748,6 @@ var _clearDropIndicator = function () {
   }
 };
 var _findDropTarget = function (draggedId, dragRect) {
-  // Stats panel cannot be merged with other panels.
-  if (draggedId === 'stats') {
-    return null;
-  }
   var allPanels = document.querySelectorAll('.float-panel, .panel-group');
   for (var i = 0; i < allPanels.length; i++) {
     var el = allPanels[i];
@@ -1770,10 +1757,6 @@ var _findDropTarget = function (draggedId, dragRect) {
       continue;
     }
     if (targetId === draggedId) {
-      continue;
-    }
-    // Stats panel cannot be a merge target.
-    if (targetId === 'stats') {
       continue;
     }
     var otherRect = el.getBoundingClientRect();
@@ -2119,7 +2102,7 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
       if (state.boundary !== 'unbounded') {
         boardDefs.push({
           id: 'grid-presets',
-          icon: 'fa-th-large',
+          icon: 'fa-table',
           title: 'Grid presets',
           popOut: function () {
             return /*#__PURE__*/React.createElement("div", {
@@ -2265,7 +2248,7 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
         active: state.gridLines
       }, {
         id: 'trails',
-        icon: 'fa-eye',
+        icon: 'fa-sun-o',
         title: 'Trails',
         onClick: function () {
           toggleTrails(stateRef, refs, dispatch);
@@ -2575,7 +2558,10 @@ var FloatPanel = function FloatPanel(props) {
     onTouchStart: function (e) {
       _startPanelDrag(panelId, e, stateRef, refs, dispatch);
     }
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa " + _getPanelIcon(panelId) + " float-panel-icon",
+    "aria-hidden": "true"
+  }), /*#__PURE__*/React.createElement("span", {
     className: "float-panel-title",
     id: "panel-title-" + panelId
   }, label), /*#__PURE__*/React.createElement("button", {
@@ -2633,6 +2619,7 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
   if (!ps || !ps.open) {
     return null;
   }
+  var isCompact = ps.compact && !ps.collapsed;
   var style = {};
   if (group && group.x >= 0) {
     style.left = group.x;
@@ -2653,11 +2640,15 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
   if (group && group.z) {
     style.zIndex = group.z;
   }
+  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (ps.collapsed ? " float-panel-collapsed" : "") + (isCompact ? " float-panel-compact" : "");
   return /*#__PURE__*/React.createElement("div", {
-    className: "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase(),
+    className: className,
     style: style,
     "data-panel-id": panelId,
     onMouseDown: function () {
+      LifeViewUtils._bringPanelToFront(stateRef, refs, dispatch, panelId);
+    },
+    onTouchStart: function () {
       LifeViewUtils._bringPanelToFront(stateRef, refs, dispatch, panelId);
     },
     role: "region",
@@ -2670,15 +2661,28 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     onTouchStart: function (e) {
       _startPanelDrag(panelId, e, stateRef, refs, dispatch);
     }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "float-panel-title"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa " + _getPanelIcon(panelId) + " float-panel-icon",
+    "aria-hidden": "true"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "float-panel-title",
+    id: "panel-title-" + panelId
   }, label), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn float-panel-compact-toggle",
+    onClick: function () {
+      LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
+    },
+    "aria-label": isCompact ? "Expand " + label + " panel width" : "Compact " + label + " panel",
+    title: isCompact ? "Expand panel" : "Compact panel"
+  }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-collapse",
     onClick: function () {
       _togglePanelCollapse(panelId, stateRef, refs, dispatch);
     },
-    "aria-expanded": !ps.collapsed
+    "aria-expanded": !ps.collapsed,
+    "aria-label": ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"
   }, ps.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-close",
@@ -2688,7 +2692,21 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     "aria-label": "Close " + label + " panel"
   }, "\xD7")), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
-  }, content));
+  }, isCompact ? /*#__PURE__*/React.createElement(CompactBody, {
+    panelId: panelId,
+    state: state,
+    stateRef: stateRef,
+    refs: refs,
+    dispatch: dispatch
+  }) : content), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+    className: "float-panel-resize",
+    onMouseDown: function (e) {
+      _startPanelResize(panelId, e, stateRef, refs, dispatch);
+    },
+    onTouchStart: function (e) {
+      _startPanelResize(panelId, e, stateRef, refs, dispatch);
+    }
+  }));
 };
 var PanelGroup = function PanelGroup(props) {
   // eslint-disable-line no-unused-vars
@@ -3245,7 +3263,7 @@ var ViewControls = function ViewControls(props) {
     },
     title: "Show ghost trails"
   }, /*#__PURE__*/React.createElement("i", {
-    className: "fa fa-eye",
+    className: "fa fa-sun-o",
     "aria-hidden": "true"
   }), " Trails"), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -3357,10 +3375,17 @@ var BoundaryControls = function BoundaryControls(props) {
       LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch);
     },
     title: "Cycle boundary: Wrap / Hard / Infinite"
-  }, /*#__PURE__*/React.createElement("i", {
+  }, state.boundary === 'toroidal' ? /*#__PURE__*/React.createElement("i", {
     className: "fa fa-repeat",
     "aria-hidden": "true"
-  }), " ", state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "\u221E")));
+  }) : state.boundary === 'finite' ? /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-stop",
+    "aria-hidden": "true"
+  }) : null, state.boundary === 'unbounded' ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700
+    }
+  }, "\u221E ") : " ", state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "Infinite")));
 };
 var SpeedSlider = function SpeedSlider(props) {
   // eslint-disable-line no-unused-vars
@@ -4781,14 +4806,6 @@ function initState() {
         compact: false
       },
       rules: {
-        open: true,
-        x: -1,
-        y: -1,
-        collapsed: false,
-        z: 0,
-        compact: false
-      },
-      stats: {
         open: true,
         x: -1,
         y: -1,

@@ -142,7 +142,7 @@ var LayoutSwitcher = function LayoutSwitcher(props) { // eslint-disable-line no-
                 onClick={function(){ LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'observatory'); }}
                 title="Observatory: Floating panels"
                 aria-label="Observatory layout: floating panels">
-                <i className="fa fa-th-large"></i>
+                <i className="fa fa-object-ungroup"></i>
             </button>
         </div>
     );
