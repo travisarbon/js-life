@@ -1972,7 +1972,8 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
       LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
     } else if (isCompact && newW > 120) {
       didToggle = true;
-      panel.style.width = Math.max(180, newW) + 'px';
+      // Clear inline styles — let CSS handle the expanded layout.
+      panel.style.width = '';
       panel.style.maxHeight = '';
       LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
     } else if (isCompact) {
@@ -1988,6 +1989,12 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
     document.removeEventListener('mouseup', end);
     document.removeEventListener('touchmove', move);
     document.removeEventListener('touchend', end);
+    // If we toggled compact mode during resize, ensure no stale inline
+    // styles remain that would conflict with the new CSS layout.
+    if (didToggle) {
+      panel.style.width = '';
+      panel.style.maxHeight = '';
+    }
   };
   document.addEventListener('mousemove', move);
   document.addEventListener('mouseup', end);
@@ -4570,6 +4577,14 @@ document.addEventListener('DOMContentLoaded', function () {
       // Attach wheel listener as non-passive so preventDefault works.
       refs.canvas.addEventListener('wheel', function (e) {
         LifeInputUtils.onWheel(stateRef, refs, dispatch, e);
+      }, {
+        passive: false
+      });
+      // Prevent browser zoom (Ctrl+scroll) anywhere on the page.
+      document.addEventListener('wheel', function (e) {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+        }
       }, {
         passive: false
       });

@@ -234,6 +234,8 @@ function LifeBoard() {
                 SimRunner.invalidate();
                 // Attach wheel listener as non-passive so preventDefault works.
                 refs.canvas.addEventListener('wheel', function(e){ LifeInputUtils.onWheel(stateRef, refs, dispatch, e); }, {passive: false});
+                // Prevent browser zoom (Ctrl+scroll) anywhere on the page.
+                document.addEventListener('wheel', function(e){ if(e.ctrlKey || e.metaKey){ e.preventDefault(); } }, {passive: false});
                 var handleKey = function(e){ LifeInputUtils.handleKeyDown(stateRef, refs, dispatch, e); };
                 document.addEventListener('keydown', handleKey);
                 // System clipboard paste: import RLE/pattern text from clipboard.

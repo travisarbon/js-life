@@ -1233,8 +1233,8 @@ canvas.display {
 /* Compact layout: drag/title bar on top, then icon rail + content side-by-side */
 .panel-group-compact {
   flex-direction: column;
-  min-width: 0;
-  max-width: 80px;
+  min-width: 0 !important;
+  max-width: 80px !important;
   width: auto;
   overflow: visible; }
 
@@ -1330,6 +1330,12 @@ canvas.display {
 .panel-group-compact .compact-main,
 .panel-group-compact .compact-body {
   overflow: visible; }
+
+/* In compact groups, pop-outs must clear the full panel width from their
+   trigger button. The trigger sits inside compact-main; offset the pop-out
+   so it starts past the panel's right edge. */
+.panel-group-compact .pop-out-panel {
+  left: calc(100% + 20px); }
 
 .float-panel-compact {
   overflow: visible; }
