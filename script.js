@@ -226,8 +226,6 @@ function LifeBoard() {
     refs = refs.current;
     var fr = React.useReducer(function(x){return x+1;},0);
     refs.forceRender = fr[1];
-
-
     // ── Mount effect (replaces componentDidMount + componentWillUnmount) ──
     React.useEffect(function(){
                 refs.mounted = true;
@@ -414,75 +412,20 @@ function LifeBoard() {
 
             // ── Rendering ─────────────────────────────────────────────────────
 
-    // drawBoard — extracted to components/canvas-area.js as top-level function
-
-    // drawMinimap — extracted to components/canvas-area.js as top-level function
-
-    // drawRotationPreview — extracted to components/canvas-area.js as top-level function
-
-            // ── Methods delegated to mixins ──────────────────────────────────
-            // LifeSimUtils: simulation loop, undo/redo, stepping
-            // LifeIOUtils: file import/export, URL sharing, RLE
-            // LifeInputUtils: mouse, touch, keyboard, shortcuts
-            // LifeViewUtils: viewport, layout, panels, bottom sheet
-            // LifeBoardUtils: board config, drawing modes, selection, patterns
-            // LifeAnalysisUtils: pattern analysis, recording, help
-
-    // toggleTrails — extracted to components/canvas-area.js as top-level function
-
-            // ── Render sub-methods ────────────────────────────────────────────
-
-    // HelpModal extracted to components/help-modal.js
-
-    // PopGraphModal extracted to components/pop-graph.js
-
             // Returns the sparkline SVG block (or null if insufficient data).
             // Called from both renderStats (desktop) and renderMobileSparkline (mobile).
-    function renderSparklineSVG(){
-                // Extracted to components/stats-panel.js as SparklineSVG
-    }
-
-    function renderMobileSparkline(){
-                // Extracted to components/stats-panel.js as MobileSparkline
-    }
-
-    // renderMobileMinimapArea — extracted to components/canvas-area.js as MobileMinimapArea
-    // onMinimapElementDown, onMinimapElementMove, onMinimapElementUp, panMinimapElement — extracted to components/canvas-area.js
-
-    // drawMinimapMobile — extracted to components/canvas-area.js as top-level function
-
-    function renderStats(){
-                // Extracted to components/stats-panel.js as StatsPanel
-    }
 
             // ── Shared mobile sub-components (R10) ─────────────────────────────
             // Extracted from 3 duplicated mobile render methods.
 
-    // _MOBILE_TABS — extracted to components/layout-shell.js as _MOBILE_TABS
-
-    // _buildSheetContent — extracted to components/layout-shell.js (inlined in CartographerMobile/ObservatoryMobile)
-
-    // _buildTabContent — extracted to components/layout-shell.js as TabContentBuilder
-
-
     function _renderStatsChip(){
-                // Extracted to components/stats-panel.js as StatsChip
     }
-
-    // _renderMobileTransportBar — extracted to components/transport-controls.js as MobileTransportBar
-
-    // _renderBottomSheet — extracted to components/layout-shell.js as BottomSheet
-
-    // renderMobileContextPanel — extracted to components/tools-panel.js as MobileContextPanel
-
-    function renderMobileStatsBar(){
                 var population = state.liveCells.size;
                 var hist = state.popHistory;
                 var trendArrow = '';
                 if(hist.length >= 5){
                     var delta = hist[hist.length - 1] - hist[hist.length - 5];
                     trendArrow = delta > 2 ? ' \u25b2' : delta < -2 ? ' \u25bc' : ' \u223c';
-                }
                 var statusLabel = state.stable ? 'Stable' :
                                   (state.running ? 'Running' : 'Paused');
                 var statusClass = state.stable ? 'status-stable' :
@@ -504,7 +447,6 @@ function LifeBoard() {
     }
 
             // ── Horizontal toolbar (desktop/tablet only — hidden on mobile via CSS) ──
-    function renderToolbar(){
                 
                 return (
                     <div className="toolbar-strip">
@@ -549,59 +491,7 @@ function LifeBoard() {
                         </div>
                     </div>
                 );
-    }
-
-
-    // renderDisplaySettings — extracted to components/settings-panels.js as DisplaySettings
-
-    // renderRulesSection — extracted to components/rules-export.js as RulesSection
-
-    // renderBoardSliders — extracted to components/settings-panels.js as BoardSliders
-
-    // renderSpeedSlider — extracted to components/settings-panels.js as SpeedSlider
-
-    // renderZoomSlider — extracted to components/settings-panels.js as ZoomSlider
-
-    // renderRLESection — extracted to components/rules-export.js as RLESection
-
             // ── Shared sub-components (used by all layout modes) ───────────
-
-    // renderCanvas — extracted to components/canvas-area.js as CanvasArea
-
-    // renderTransportControls — extracted to components/transport-controls.js as TransportControls
-
-    // renderViewControls — extracted to components/settings-panels.js as ViewControls
-
-    // renderBoundaryControls — extracted to components/settings-panels.js as BoundaryControls
-
-    // renderModeControls — extracted to components/tools-panel.js as ModeControls
-
-    // renderToolsContent — extracted to components/tools-panel.js as ToolsContent
-
-    // renderExportContent — extracted to components/rules-export.js as ExportContent
-
-    // renderLayoutSwitcher — extracted to components/layout-shell.js as LayoutSwitcher
-
-    // renderCartographer — extracted to components/layout-shell.js as CartographerLayout
-    // renderCartographerMobile — extracted to components/layout-shell.js as CartographerMobile
-    // renderObservatory — extracted to components/layout-shell.js as ObservatoryLayout
-    // renderObservatoryMobile — extracted to components/layout-shell.js as ObservatoryMobile
-
-    // _renderFloatPanel — extracted to components/observatory-panels.js as FloatPanel
-    // _renderCompactBody — extracted to components/observatory-panels.js as CompactBody
-    // _getCompactDefs — extracted to components/observatory-panels.js as ObservatoryPanelUtils.getCompactDefs
-    // _getPanelLabel — extracted to components/observatory-panels.js as ObservatoryPanelUtils.getPanelLabel
-    // _getPanelIcon — extracted to components/observatory-panels.js as ObservatoryPanelUtils.getPanelIcon
-    // _getPanelContent — extracted to components/observatory-panels.js as ObservatoryPanelUtils.getPanelContent
-    // _checkTabBarOverflow, _observeTabBars — extracted to components/observatory-panels.js
-    // _renderPanelGroup — extracted to components/observatory-panels.js as PanelGroup
-    // _renderFloatPanelDirect — extracted to components/observatory-panels.js as FloatPanelDirect
-    // _startGroupDrag, _startTabDrag, _startGroupResize — extracted to components/observatory-panels.js
-    // _startPanelDrag — extracted to components/observatory-panels.js
-    // _updateDropIndicator, _clearDropIndicator, _rectsOverlap, _findDropTarget — extracted to components/observatory-panels.js
-    // _startPanelResize — extracted to components/observatory-panels.js
-    // _togglePanelOpen — extracted to components/observatory-panels.js as ObservatoryPanelUtils.togglePanelOpen
-    // _togglePanelCollapse — extracted to components/observatory-panels.js as ObservatoryPanelUtils.togglePanelCollapse
 
     // ── Main render ───────────────────────────────────────────────────
 

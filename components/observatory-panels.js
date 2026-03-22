@@ -425,7 +425,8 @@ var CompactBody = function CompactBody(props) { // eslint-disable-line no-unused
 };
 
 var FloatPanel = function FloatPanel(props) { // eslint-disable-line no-unused-vars
-    var panelId = props.panelId, label = props.label, content = props.content, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    var panelId = props.panelId, label = props.label, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    var content = props.content || props.children;
     var ps = state.panelStates[panelId];
     if(!ps || !ps.open){ return null; }
     // Skip panels that are in a group — they render inside the group.
@@ -626,5 +627,11 @@ var ObservatoryPanelUtils = { // eslint-disable-line no-unused-vars
     _updateDropIndicator: _updateDropIndicator,
     _clearDropIndicator: _clearDropIndicator,
     _rectsOverlap: _rectsOverlap,
-    _findDropTarget: _findDropTarget
+    _findDropTarget: _findDropTarget,
+    // Aliases without underscore (used by layout-shell.js)
+    getPanelLabel: _getPanelLabel,
+    getPanelIcon: _getPanelIcon,
+    getPanelContent: _getPanelContent,
+    togglePanelOpen: function(panelId, state, stateRef, refs, dispatch){ _togglePanelOpen(panelId, stateRef, refs, dispatch); },
+    togglePanelCollapse: function(panelId, state, stateRef, refs, dispatch){ _togglePanelCollapse(panelId, stateRef, refs, dispatch); }
 };
