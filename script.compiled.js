@@ -451,13 +451,22 @@ document.addEventListener('DOMContentLoaded', function () {
       this.drawBoard();
       this._loadFromURLHash();
       this._startLoop();
+      this._observeTabBars();
     },
     componentDidUpdate: function (prevProps, prevState) {
       if (prevState.selectedPattern !== this.state.selectedPattern || prevState.patternRotation !== this.state.patternRotation || prevState.bottomSheetOpen !== this.state.bottomSheetOpen || prevState.bottomSheetTab !== this.state.bottomSheetTab || prevState.layoutMode !== this.state.layoutMode) {
         this.drawRotationPreview();
       }
+      if (prevState.panelGroups !== this.state.panelGroups) {
+        this._observeTabBars();
+      }
     },
     componentWillUnmount: function () {
+      if (this._tabBarObservers) {
+        this._tabBarObservers.forEach(function (obs) {
+          obs.disconnect();
+        });
+      }
       if (!this._canvas) {
         return;
       }
@@ -3170,6 +3179,19 @@ document.addEventListener('DOMContentLoaded', function () {
       };
       return PANEL_LABELS[panelId] || panelId;
     },
+    _getPanelIcon: function (panelId) {
+      var PANEL_ICONS = {
+        transport: 'fa-play',
+        board: 'fa-th-large',
+        view: 'fa-arrows-alt',
+        mode: 'fa-pencil',
+        tools: 'fa-wrench',
+        rules: 'fa-cogs',
+        stats: 'fa-bar-chart',
+        importExport: 'fa-exchange'
+      };
+      return PANEL_ICONS[panelId] || 'fa-circle-o';
+    },
     _getPanelContent: function (panelId) {
       switch (panelId) {
         case 'transport':
@@ -3188,6 +3210,31 @@ document.addEventListener('DOMContentLoaded', function () {
           return this.renderExportContent();
         default:
           return null;
+      }
+    },
+    _checkTabBarOverflow: function (bar) {
+      bar.classList.remove('panel-tab-bar-icons');
+      if (bar.scrollWidth > bar.clientWidth + 1) {
+        bar.classList.add('panel-tab-bar-icons');
+      }
+    },
+    _observeTabBars: function () {
+      var self = this;
+      if (this._tabBarObservers) {
+        this._tabBarObservers.forEach(function (obs) {
+          obs.disconnect();
+        });
+      }
+      this._tabBarObservers = [];
+      var tabBars = document.querySelectorAll('.panel-group .panel-tab-bar');
+      for (var i = 0; i < tabBars.length; i++) {
+        (function (bar) {
+          var obs = new ResizeObserver(function () {
+            self._checkTabBarOverflow(bar);
+          });
+          obs.observe(bar);
+          self._tabBarObservers.push(obs);
+        })(tabBars[i]);
       }
     },
     _renderPanelGroup: function (group) {
@@ -3251,7 +3298,12 @@ document.addEventListener('DOMContentLoaded', function () {
             self._startTabDrag(pid, group.id, e);
           },
           title: label
-        }, label);
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + self._getPanelIcon(pid) + " panel-tab-icon",
+          "aria-hidden": "true"
+        }), /*#__PURE__*/React.createElement("span", {
+          className: "panel-tab-label"
+        }, label));
       })), /*#__PURE__*/React.createElement("button", {
         type: "button",
         className: "btn float-panel-close",

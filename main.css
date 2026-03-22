@@ -1080,6 +1080,17 @@ canvas.display {
   border-bottom-color: var(--accent);
   font-weight: 600; }
 
+.panel-tab-icon {
+  display: none;
+  font-size: 14px; }
+
+.panel-tab-bar-icons .panel-tab {
+  padding: var(--space-xs) var(--space-sm); }
+.panel-tab-bar-icons .panel-tab-icon {
+  display: inline-block; }
+.panel-tab-bar-icons .panel-tab-label {
+  display: none; }
+
 .panel-group .float-panel-header {
   display: flex;
   align-items: center;
