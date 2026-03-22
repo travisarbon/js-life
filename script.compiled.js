@@ -1634,8 +1634,9 @@ var _checkTabBarOverflow = function (bar, stateRef, refs, dispatch) {
   bar.classList.remove('panel-tab-bar-icons');
   if (bar.scrollWidth > bar.clientWidth + 1) {
     bar.classList.add('panel-tab-bar-icons');
-    // If even icon-only tabs still overflow, switch the group to compact mode.
-    if (stateRef && refs && dispatch) {
+    // If even icon-only tabs still overflow, switch the group to compact mode
+    // (but not while the user is actively resizing — defer to snap-on-release).
+    if (stateRef && refs && dispatch && !refs.resizingGroup) {
       // Re-check after class change settles.
       requestAnimationFrame(function () {
         if (bar.scrollWidth > bar.clientWidth + 1) {
@@ -1948,39 +1949,26 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
   var startH = rect.height;
   var startX = e.touches ? e.touches[0].clientX : e.clientX;
   var startY = e.touches ? e.touches[0].clientY : e.clientY;
-  // Thresholds with hysteresis to prevent flip-flopping.
-  var compactThreshold = 100; // shrink below this → go compact
-  var expandThreshold = 140; // grow above this → go expanded
-  var didToggle = false;
+  // Snap thresholds (applied on mouse-up, not during drag).
+  var compactSnapThreshold = 100;
+  var curGroup = null;
+  var gs = stateRef.current.panelGroups;
+  for (var gi = 0; gi < gs.length; gi++) {
+    if (gs[gi].id === groupId) {
+      curGroup = gs[gi];
+      break;
+    }
+  }
+  var isCompact = curGroup && !!curGroup.compact;
+  // Suppress _checkTabBarOverflow auto-compact during resize.
+  refs.resizingGroup = true;
   var move = function (ev) {
     ev.preventDefault();
-    if (didToggle) return;
     var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
     var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-    var newW = startW + (cx - startX);
     var newH = startH + (cy - startY);
-    // Read current compact state fresh each move event.
-    var curGroup = null;
-    var gs = stateRef.current.panelGroups;
-    for (var gi = 0; gi < gs.length; gi++) {
-      if (gs[gi].id === groupId) {
-        curGroup = gs[gi];
-        break;
-      }
-    }
-    var curCompact = curGroup && !!curGroup.compact;
-    if (!curCompact && newW < compactThreshold) {
-      didToggle = true;
-      panel.style.width = '';
-      panel.style.maxHeight = '';
-      LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-    } else if (curCompact && newW > expandThreshold) {
-      didToggle = true;
-      panel.style.width = '';
-      panel.style.maxHeight = '';
-      LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-    } else if (curCompact) {
-      // Measure the minimum height needed to contain all buttons.
+    if (isCompact) {
+      // Compact: vertical resize only.
       var body = panel.querySelector('.compact-group-body') || panel.querySelector('.compact-body');
       var minH = 60;
       if (body) {
@@ -1988,7 +1976,9 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
       }
       panel.style.maxHeight = Math.max(minH, newH) + 'px';
     } else {
-      panel.style.width = Math.max(180, newW) + 'px';
+      // Expanded: allow width to track cursor freely during drag.
+      var newW = startW + (cx - startX);
+      panel.style.width = Math.max(60, newW) + 'px';
       panel.style.maxHeight = Math.max(80, newH) + 'px';
     }
   };
@@ -1997,10 +1987,18 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
     document.removeEventListener('mouseup', end);
     document.removeEventListener('touchmove', move);
     document.removeEventListener('touchend', end);
-    // After a toggle, clear stale inline styles so CSS takes over.
-    if (didToggle) {
-      panel.style.width = '';
-      panel.style.maxHeight = '';
+    refs.resizingGroup = false;
+    if (!isCompact) {
+      // Snap to nearest of three sizes based on final width.
+      var finalW = panel.getBoundingClientRect().width;
+      if (finalW < compactSnapThreshold) {
+        // Snap to compact mode.
+        panel.style.width = '';
+        panel.style.maxHeight = '';
+        LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
+      }
+      // Otherwise keep the inline width; the ResizeObserver on the
+      // tab bar naturally switches between text and icon-only tabs.
     }
   };
   document.addEventListener('mousemove', move);
