@@ -1459,7 +1459,7 @@ document.addEventListener('DOMContentLoaded', function () {
       label: 'Simulate'
     }, {
       id: 'board',
-      icon: 'fa-th',
+      icon: 'fa-th-large',
       label: 'Board'
     }, {
       id: 'view',
@@ -1471,12 +1471,12 @@ document.addEventListener('DOMContentLoaded', function () {
       label: 'Tools'
     }, {
       id: 'rules',
-      icon: 'fa-cog',
+      icon: 'fa-cogs',
       label: 'Rules'
     }, {
       id: 'export',
-      icon: 'fa-download',
-      label: 'Export'
+      icon: 'fa-exchange',
+      label: 'Share'
     }],
     _buildSheetContent: function () {
       if (!this.state.bottomSheetOpen) {
@@ -2599,7 +2599,7 @@ document.addEventListener('DOMContentLoaded', function () {
         className: "export-content"
       }, /*#__PURE__*/React.createElement("div", {
         className: "sidebar-section-title"
-      }, "Import / Export"), /*#__PURE__*/React.createElement("div", {
+      }, "Share"), /*#__PURE__*/React.createElement("div", {
         className: "btn-section"
       }, /*#__PURE__*/React.createElement("div", {
         className: "buttons buttons-export"
@@ -2807,7 +2807,7 @@ document.addEventListener('DOMContentLoaded', function () {
         className: "panel-overlay-container",
         role: "group",
         "aria-label": "Floating control panels"
-      }, this._renderFloatPanel('transport', 'Simulate', /*#__PURE__*/React.createElement("div", null, this.renderTransportControls(false), this.renderSpeedSlider())), this._renderFloatPanel('board', 'Board', /*#__PURE__*/React.createElement("div", null, this.renderBoardSliders(), this.renderBoundaryControls())), this._renderFloatPanel('view', 'View', /*#__PURE__*/React.createElement("div", null, this.renderViewControls(), this.renderZoomSlider(), this.renderDisplaySettings())), this._renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, this.renderModeControls(), this.renderToolsContent())), this._renderFloatPanel('rules', 'Rules', this.renderRulesSection()), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent()), this.state.panelGroups.map(function (group) {
+      }, this._renderFloatPanel('transport', 'Simulate', /*#__PURE__*/React.createElement("div", null, this.renderTransportControls(false), this.renderSpeedSlider())), this._renderFloatPanel('board', 'Board', /*#__PURE__*/React.createElement("div", null, this.renderBoardSliders(), this.renderBoundaryControls())), this._renderFloatPanel('view', 'View', /*#__PURE__*/React.createElement("div", null, this.renderViewControls(), this.renderZoomSlider(), this.renderDisplaySettings())), this._renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, this.renderModeControls(), this.renderToolsContent())), this._renderFloatPanel('rules', 'Rules', this.renderRulesSection()), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Share', this.renderExportContent()), this.state.panelGroups.map(function (group) {
         return self._renderPanelGroup(group);
       }), /*#__PURE__*/React.createElement("div", {
         className: "panel-menu",
@@ -2840,16 +2840,7 @@ document.addEventListener('DOMContentLoaded', function () {
         role: "group",
         "aria-label": "Panel toggles"
       }, ['transport', 'board', 'view', 'mode', 'rules', 'stats', 'importExport'].map(function (id) {
-        var PANEL_LABELS = {
-          transport: 'Simulate',
-          board: 'Board',
-          view: 'View',
-          mode: 'Tools',
-          rules: 'Rules',
-          stats: 'Stats',
-          importExport: 'Import / Export'
-        };
-        var label = PANEL_LABELS[id] || id;
+        var label = self._getPanelLabel(id);
         return /*#__PURE__*/React.createElement("label", {
           key: id,
           className: "panel-menu-item"
@@ -3159,7 +3150,7 @@ document.addEventListener('DOMContentLoaded', function () {
           return [{
             id: 'io',
             icon: 'fa-exchange',
-            title: 'Import/Export',
+            title: 'Share',
             popOut: function () {
               return self.renderExportContent();
             }
@@ -3179,7 +3170,7 @@ document.addEventListener('DOMContentLoaded', function () {
         tools: 'Tools',
         rules: 'Rules',
         stats: 'Stats',
-        importExport: 'Import / Export'
+        importExport: 'Share'
       };
       return PANEL_LABELS[panelId] || panelId;
     },
@@ -3187,7 +3178,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var PANEL_ICONS = {
         transport: 'fa-play',
         board: 'fa-th-large',
-        view: 'fa-arrows-alt',
+        view: 'fa-eye',
         mode: 'fa-pencil',
         tools: 'fa-wrench',
         rules: 'fa-cogs',

@@ -1177,11 +1177,11 @@ document.addEventListener('DOMContentLoaded', function(){
 
             _MOBILE_TABS : [
                 {id: 'simulate', icon: 'fa-play',     label: 'Simulate'},
-                {id: 'board',    icon: 'fa-th',       label: 'Board'},
+                {id: 'board',    icon: 'fa-th-large',  label: 'Board'},
                 {id: 'view',     icon: 'fa-eye',      label: 'View'},
                 {id: 'tools',    icon: 'fa-pencil',   label: 'Tools'},
-                {id: 'rules',    icon: 'fa-cog',      label: 'Rules'},
-                {id: 'export',   icon: 'fa-download', label: 'Export'}
+                {id: 'rules',    icon: 'fa-cogs',     label: 'Rules'},
+                {id: 'export',   icon: 'fa-exchange',  label: 'Share'}
             ],
 
             _buildSheetContent : function(){
@@ -1817,7 +1817,7 @@ document.addEventListener('DOMContentLoaded', function(){
             renderExportContent : function(){
                 return (
                     <div className="export-content">
-                        <div className="sidebar-section-title">Import / Export</div>
+                        <div className="sidebar-section-title">Share</div>
                         <div className="btn-section">
                             <div className="buttons buttons-export">
                                 <button type="button" className="btn" onClick={this.exportPNG} title="Save as PNG"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
@@ -1990,7 +1990,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                 {this._renderFloatPanel('mode', 'Tools', <div>{this.renderModeControls()}{this.renderToolsContent()}</div>)}
                                 {this._renderFloatPanel('rules', 'Rules', this.renderRulesSection())}
                                 {this._renderFloatPanel('stats', 'Stats', this.renderStats())}
-                                {this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent())}
+                                {this._renderFloatPanel('importExport', 'Share', this.renderExportContent())}
                                 {this.state.panelGroups.map(function(group){ return self._renderPanelGroup(group); })}
                                 {/* Panel menu */}
                                 <div className="panel-menu" role="group" aria-label="Panel visibility">
@@ -2006,8 +2006,7 @@ document.addEventListener('DOMContentLoaded', function(){
                                     {this.state.panelMenuOpen &&
                                         <div className="panel-menu-list" role="group" aria-label="Panel toggles">
                                             {['transport','board','view','mode','rules','stats','importExport'].map(function(id){
-                                                var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', rules:'Rules', stats:'Stats', importExport:'Import / Export'};
-                                                var label = PANEL_LABELS[id] || id;
+                                                var label = self._getPanelLabel(id);
                                                 return (
                                                     <label key={id} className="panel-menu-item">
                                                         <input type="checkbox" checked={panels[id].open}
@@ -2173,7 +2172,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         ];
                     case 'importExport':
                         return [
-                            {id:'io', icon: 'fa-exchange', title: 'Import/Export', popOut: function(){ return self.renderExportContent(); }}
+                            {id:'io', icon: 'fa-exchange', title: 'Share', popOut: function(){ return self.renderExportContent(); }}
                         ];
                     default:
                         return [];
@@ -2183,12 +2182,12 @@ document.addEventListener('DOMContentLoaded', function(){
             // ── Panel group rendering (Observatory docking) ──────────────────
 
             _getPanelLabel : function(panelId){
-                var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', tools:'Tools', rules:'Rules', stats:'Stats', importExport:'Import / Export'};
+                var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', tools:'Tools', rules:'Rules', stats:'Stats', importExport:'Share'};
                 return PANEL_LABELS[panelId] || panelId;
             },
 
             _getPanelIcon : function(panelId){
-                var PANEL_ICONS = {transport:'fa-play', board:'fa-th-large', view:'fa-arrows-alt',
+                var PANEL_ICONS = {transport:'fa-play', board:'fa-th-large', view:'fa-eye',
                     mode:'fa-pencil', tools:'fa-wrench', rules:'fa-cogs', stats:'fa-bar-chart',
                     importExport:'fa-exchange'};
                 return PANEL_ICONS[panelId] || 'fa-circle-o';
