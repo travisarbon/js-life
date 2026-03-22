@@ -294,7 +294,7 @@ var LifeViewMixin = { // eslint-disable-line no-unused-vars
             }
         }
         var self = this;
-        this.setState({ panelGroups: groups }, function(){ self._persistLayout(); });
+        this.setState({ panelGroups: groups, activePopOut: null }, function(){ self._persistLayout(); });
     },
 
     _bringGroupToFront : function(groupId){
@@ -316,6 +316,33 @@ var LifeViewMixin = { // eslint-disable-line no-unused-vars
         panels[panelId].compact = !panels[panelId].compact;
         var self = this;
         this.setState({ panelStates: panels }, function(){ self._persistLayout(); });
+    },
+
+    _toggleGroupCompact : function(groupId){
+        var groups = JSON.parse(JSON.stringify(this.state.panelGroups));
+        for(var i = 0; i < groups.length; i++){
+            if(groups[i].id === groupId){
+                groups[i].compact = !groups[i].compact;
+                break;
+            }
+        }
+        var self = this;
+        this.setState({ panelGroups: groups }, function(){ self._persistLayout(); });
+    },
+
+    _cycleGroupCompactTabMode : function(groupId){
+        var MODES = ['horizontal', 'sidebar', 'dropdown'];
+        var groups = JSON.parse(JSON.stringify(this.state.panelGroups));
+        for(var i = 0; i < groups.length; i++){
+            if(groups[i].id === groupId){
+                var cur = groups[i].compactTabMode || 'horizontal';
+                var idx = MODES.indexOf(cur);
+                groups[i].compactTabMode = MODES[(idx + 1) % MODES.length];
+                break;
+            }
+        }
+        var self = this;
+        this.setState({ panelGroups: groups }, function(){ self._persistLayout(); });
     },
 
     _openPopOut : function(panelId, controlId){

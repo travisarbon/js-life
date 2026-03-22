@@ -243,6 +243,7 @@ document.addEventListener('DOMContentLoaded', function () {
         panelZCounter: savedLayout.panelZCounter || 1,
         panelGroups: savedLayout.panelGroups || [],
         activePopOut: null,
+        groupTabDropdownOpen: null,
         // Responsive device class
         deviceClass: 'desktop',
         // Bottom sheet (phone modes)
@@ -3240,20 +3241,20 @@ document.addEventListener('DOMContentLoaded', function () {
     _renderPanelGroup: function (group) {
       var self = this;
       var panels = this.state.panelStates;
-      // Filter to only open panels in this group.
       var openPanels = group.panels.filter(function (pid) {
         return panels[pid] && panels[pid].open;
       });
       if (openPanels.length === 0) {
         return null;
       }
-      // If only one panel remains open, render as standalone.
       if (openPanels.length === 1) {
         var soloId = openPanels[0];
         var soloLabel = this._getPanelLabel(soloId);
         return this._renderFloatPanelDirect(soloId, soloLabel, this._getPanelContent(soloId), group);
       }
       var activeTab = openPanels.indexOf(group.activeTab) !== -1 ? group.activeTab : openPanels[0];
+      var isCompact = !!group.compact;
+      var tabMode = group.compactTabMode || 'horizontal';
       var style = {};
       if (group.x >= 0) {
         style.left = group.x;
@@ -3265,8 +3266,74 @@ document.addEventListener('DOMContentLoaded', function () {
       if (group.z) {
         style.zIndex = group.z;
       }
+      var className = "float-panel panel-group" + (isCompact ? " panel-group-compact panel-group-compact-" + tabMode : "");
+
+      var tabButtons = openPanels.map(function (pid) {
+        var label = self._getPanelLabel(pid);
+        return /*#__PURE__*/React.createElement("button", {
+          key: pid,
+          type: "button",
+          className: "panel-tab" + (pid === activeTab ? " panel-tab-active" : ""),
+          onClick: function (e) {
+            e.stopPropagation();
+            self._setGroupActiveTab(group.id, pid);
+          },
+          onMouseDown: function (e) {
+            if (!isCompact) self._startTabDrag(pid, group.id, e);
+          },
+          title: label
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + self._getPanelIcon(pid) + " panel-tab-icon",
+          "aria-hidden": "true"
+        }), /*#__PURE__*/React.createElement("span", {
+          className: "panel-tab-label"
+        }, label));
+      });
+
+      var tabArea;
+      if (isCompact && tabMode === 'dropdown') {
+        tabArea = /*#__PURE__*/React.createElement("div", {
+          className: "panel-tab-dropdown"
+        }, /*#__PURE__*/React.createElement("button", {
+          type: "button",
+          className: "btn panel-tab-dropdown-trigger",
+          onClick: function (e) {
+            e.stopPropagation();
+            self.setState({ groupTabDropdownOpen: self.state.groupTabDropdownOpen === group.id ? null : group.id });
+          },
+          title: self._getPanelLabel(activeTab)
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + self._getPanelIcon(activeTab),
+          "aria-hidden": "true"
+        }), /*#__PURE__*/React.createElement("i", {
+          className: "fa fa-caret-down panel-tab-dropdown-caret",
+          "aria-hidden": "true"
+        })), self.state.groupTabDropdownOpen === group.id && /*#__PURE__*/React.createElement("div", {
+          className: "panel-tab-dropdown-menu"
+        }, openPanels.map(function (pid) {
+          return /*#__PURE__*/React.createElement("button", {
+            key: pid,
+            type: "button",
+            className: "panel-tab-dropdown-item" + (pid === activeTab ? " active" : ""),
+            onClick: function (e) {
+              e.stopPropagation();
+              self._setGroupActiveTab(group.id, pid);
+              self.setState({ groupTabDropdownOpen: null });
+            },
+            title: self._getPanelLabel(pid)
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fa " + self._getPanelIcon(pid),
+            "aria-hidden": "true"
+          }), /*#__PURE__*/React.createElement("span", null, self._getPanelLabel(pid)));
+        })));
+      } else {
+        tabArea = /*#__PURE__*/React.createElement("div", {
+          className: "panel-tab-bar" + (isCompact ? " panel-tab-bar-icons" : "")
+        }, tabButtons);
+      }
+
       return /*#__PURE__*/React.createElement("div", {
-        className: "float-panel panel-group",
+        className: className,
         style: style,
         "data-group-id": group.id,
         onMouseDown: function () {
@@ -3282,28 +3349,23 @@ document.addEventListener('DOMContentLoaded', function () {
         onTouchStart: function (e) {
           self._startGroupDrag(group.id, e);
         }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "panel-tab-bar"
-      }, openPanels.map(function (pid) {
-        var label = self._getPanelLabel(pid);
-        return /*#__PURE__*/React.createElement("button", {
-          key: pid,
-          type: "button",
-          className: "panel-tab" + (pid === activeTab ? " panel-tab-active" : ""),
-          onClick: function (e) {
-            e.stopPropagation();
-            self._setGroupActiveTab(group.id, pid);
-          },
-          onMouseDown: function (e) {
-            self._startTabDrag(pid, group.id, e);
-          },
-          title: label
-        }, /*#__PURE__*/React.createElement("i", {
-          className: "fa " + self._getPanelIcon(pid) + " panel-tab-icon",
-          "aria-hidden": "true"
-        }), /*#__PURE__*/React.createElement("span", {
-          className: "panel-tab-label"
-        }, label));
+      }, tabArea, /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn float-panel-compact-toggle",
+        onClick: function () {
+          self._toggleGroupCompact(group.id);
+        },
+        title: isCompact ? "Expand group" : "Compact group"
+      }, isCompact ? "\u00bb" : "\u00ab"), isCompact && /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn panel-group-mode-toggle",
+        onClick: function () {
+          self._cycleGroupCompactTabMode(group.id);
+        },
+        title: "Tab layout: " + tabMode + " (click to cycle)"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fa " + (tabMode === 'horizontal' ? 'fa-ellipsis-h' : tabMode === 'sidebar' ? 'fa-ellipsis-v' : 'fa-caret-down'),
+        "aria-hidden": "true"
       })), /*#__PURE__*/React.createElement("button", {
         type: "button",
         className: "btn float-panel-close",
@@ -3313,7 +3375,7 @@ document.addEventListener('DOMContentLoaded', function () {
         "aria-label": "Close active panel"
       }, "\xD7")), /*#__PURE__*/React.createElement("div", {
         className: "float-panel-body"
-      }, this._getPanelContent(activeTab)), /*#__PURE__*/React.createElement("div", {
+      }, isCompact ? this._renderCompactBody(activeTab) : this._getPanelContent(activeTab)), /*#__PURE__*/React.createElement("div", {
         className: "float-panel-resize",
         onMouseDown: function (e) {
           self._startGroupResize(group.id, e);
@@ -3469,18 +3531,40 @@ document.addEventListener('DOMContentLoaded', function () {
     _startGroupResize: function (groupId, e) {
       e.preventDefault();
       e.stopPropagation();
+      var self2 = this;
       var panel = e.currentTarget.parentElement;
       var rect = panel.getBoundingClientRect();
       var startW = rect.width;
       var startH = rect.height;
       var startX = e.touches ? e.touches[0].clientX : e.clientX;
       var startY = e.touches ? e.touches[0].clientY : e.clientY;
+      var group = null;
+      var groups = this.state.panelGroups;
+      for (var gi = 0; gi < groups.length; gi++) {
+        if (groups[gi].id === groupId) { group = groups[gi]; break; }
+      }
+      var isCompact = group && !!group.compact;
+      var didToggle = false;
       var move = function (ev) {
         ev.preventDefault();
+        if (didToggle) return;
         var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
         var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-        panel.style.width = Math.max(180, startW + (cx - startX)) + 'px';
-        panel.style.maxHeight = Math.max(80, startH + (cy - startY)) + 'px';
+        var newW = startW + (cx - startX);
+        var newH = startH + (cy - startY);
+        if (!isCompact && newW < 120) {
+          didToggle = true;
+          panel.style.width = '';
+          panel.style.maxHeight = '';
+          self2._toggleGroupCompact(groupId);
+        } else if (isCompact && newW > 120) {
+          didToggle = true;
+          panel.style.width = Math.max(180, newW) + 'px';
+          self2._toggleGroupCompact(groupId);
+        } else if (!isCompact) {
+          panel.style.width = Math.max(180, newW) + 'px';
+          panel.style.maxHeight = Math.max(80, newH) + 'px';
+        }
       };
       var end = function () {
         document.removeEventListener('mousemove', move);
