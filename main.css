@@ -1590,8 +1590,8 @@ canvas.display {
    RESPONSIVE BREAKPOINTS
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* ── Toolbar: shared tablet + desktop (>=621px) ─────────────────────── */
-@media (min-width: 621px) {
+/* ── Toolbar: desktop (>=901px) ──────────────────────────────────────── */
+@media (min-width: 901px) {
   .toolbar-strip {
     display: grid;
     grid-template-columns: max-content 1fr;
@@ -1685,54 +1685,8 @@ canvas.display {
     right: var(--space-md); }
 }
 
-/* ── Tablet (621px–900px) ─────────────────────────────────────────────── */
-@media (min-width: 621px) and (max-width: 900px) {
-  .layout-cartographer .rail {
-    width: 220px; }
-  .layout-cartographer .rail-tab-label {
-    font-size: var(--text-xs); }
-  .layout-observatory .float-panel {
-    max-width: 260px; }
-  /* Redistribute observatory panel default positions to avoid overlap on tablet */
-  .layout-observatory .float-panel-stats { top: 10px; left: 10px; }
-  .layout-observatory .float-panel-mode { top: 10px; left: auto; right: 10px; }
-  .layout-observatory .float-panel-tools { top: 60px; left: auto; right: 10px; }
-  .layout-observatory .float-panel-board { bottom: 60px; left: 10px; right: auto; top: auto; }
-
-  /* Slightly larger touch targets for tablet */
-  #content .btn {
-    min-height: 36px; }
-  .transport-controls .btn,
-  .view-controls .btn,
-  .mode-controls .btn {
-    min-height: 36px; }
-
-  /* Show mobile minimap element on tablets */
-  .mobile-minimap-area {
-    display: flex;
-    justify-content: center;
-    position: fixed;
-    bottom: 60px;
-    right: var(--space-md);
-    left: auto;
-    z-index: var(--z-panels);
-    padding: 0; }
-  .mobile-minimap-canvas {
-    border: 1px solid var(--separator-strong);
-    border-radius: var(--radius-sm);
-    cursor: crosshair;
-    touch-action: none; }
-  /* Place minimap on the opposite side from the Cartographer rail on tablets */
-  .rail-right ~ .mobile-minimap-area {
-    right: auto;
-    left: var(--space-md); }
-  .rail-left ~ .mobile-minimap-area {
-    left: auto;
-    right: var(--space-md); }
-}
-
-/* ── Phone portrait (<=620px) ─────────────────────────────────────────── */
-@media (max-width: 620px) {
+/* ── Phone / tablet portrait (<=900px) ────────────────────────────────── */
+@media (max-width: 900px) {
   /* All buttons meet 44px touch target on phones */
   #content .btn,
   .mobile-quickbar .btn,
