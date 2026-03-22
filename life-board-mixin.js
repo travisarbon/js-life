@@ -1,34 +1,34 @@
-/* global SimEngine, SimRunner, CanvasRenderer, InputHandler, RegionUtil, PATTERNS */
+/* global SimEngine, SimRunner, CanvasRenderer, InputHandler, RegionUtil, PATTERNS, LifeSimUtils, LifeViewUtils */
 /**
- * Board configuration, drawing modes, and selection mixin for LifeBoard component.
+ * Board configuration, drawing modes, and selection utility for LifeBoard component.
  * Handles board resize, rules, patterns, mode toggles, selection, and region management.
  */
-var LifeBoardMixin = { // eslint-disable-line no-unused-vars
+var LifeBoardUtils = { // eslint-disable-line no-unused-vars
 
     // ── Selection & draw helpers ─────────────────────────────────────────
 
-    getSelectionCells : function(sel){
-        var mask = this.state.boundary !== 'unbounded' ? this.state.regionMask : null;
+    getSelectionCells : function(stateRef, dispatch, refs, sel){
+        var mask = stateRef.current.boundary !== 'unbounded' ? stateRef.current.regionMask : null;
         return InputHandler.getSelectionCells(sel, mask);
     },
 
-    pointInPolygon : function(px, py, polygon){ return InputHandler.pointInPolygon(px, py, polygon); },
+    pointInPolygon : function(stateRef, dispatch, refs, px, py, polygon){ return InputHandler.pointInPolygon(px, py, polygon); },
 
-    bresenhamLine : function(r0, c0, r1, c1){ return InputHandler.bresenhamLine(r0, c0, r1, c1); },
+    bresenhamLine : function(stateRef, dispatch, refs, r0, c0, r1, c1){ return InputHandler.bresenhamLine(r0, c0, r1, c1); },
 
-    floodFillCells : function(startC, startR, liveCells, cols, rows, startAlive){
-        return InputHandler.floodFillCells(startC, startR, liveCells, cols, rows, this.state.boundary, startAlive, this.state.regionMask);
+    floodFillCells : function(stateRef, dispatch, refs, startC, startR, liveCells, cols, rows, startAlive){
+        return InputHandler.floodFillCells(startC, startR, liveCells, cols, rows, stateRef.current.boundary, startAlive, stateRef.current.regionMask);
     },
 
-    ellipseCells : function(c1, r1, c2, r2){ return InputHandler.ellipseCells(c1, r1, c2, r2); },
+    ellipseCells : function(stateRef, dispatch, refs, c1, r1, c2, r2){ return InputHandler.ellipseCells(c1, r1, c2, r2); },
 
     // ── Selection operations ─────────────────────────────────────────────
 
-    copySelection : function(){
-        var sel = this.state.selection;
+    copySelection : function(stateRef, dispatch, refs){
+        var sel = stateRef.current.selection;
         if(!sel){ return; }
-        var liveCells = this.state.liveCells;
-        var selCells = this.getSelectionCells(sel);
+        var liveCells = stateRef.current.liveCells;
+        var selCells = LifeBoardUtils.getSelectionCells(stateRef, dispatch, refs, sel);
         if(selCells.length === 0){ return; }
         var minR = Infinity, minC = Infinity;
         selCells.forEach(function(rc){ if(rc[0] < minR) minR = rc[0]; if(rc[1] < minC) minC = rc[1]; });
@@ -38,121 +38,115 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
                 cells.push([rc[0] - minR, rc[1] - minC]);
             }
         });
-        this.setState({clipboard: cells});
+        dispatch({type:'MERGE', payload:{clipboard: cells}});
     },
 
-    pasteAsPattern : function(){
-        if(!this.state.clipboard || this.state.clipboard.length === 0){ return; }
-        PATTERNS['Clipboard'] = this.state.clipboard;
+    pasteAsPattern : function(stateRef, dispatch, refs){
+        if(!stateRef.current.clipboard || stateRef.current.clipboard.length === 0){ return; }
+        PATTERNS['Clipboard'] = stateRef.current.clipboard;
         InputHandler._previewPos = null;
-        var self = this;
-        this.setState({selectedPattern: 'Clipboard', patternRotation: 0,
-                       drawMode: 'preset', selection: null},
-            function(){ self.drawBoard(); self.drawRotationPreview(); });
+        dispatch({type:'MERGE', payload:{selectedPattern: 'Clipboard', patternRotation: 0,
+                       drawMode: 'preset', selection: null}});
+        refs.drawPending = true;
+        LifeViewUtils.drawRotationPreview(stateRef, dispatch, refs);
     },
 
-    deleteSelection : function(){
-        var sel = this.state.selection;
+    deleteSelection : function(stateRef, dispatch, refs){
+        var sel = stateRef.current.selection;
         if(!sel){ return; }
-        this.pushUndo();
-        this._stableCount = 0;
-        this._prevBoardHash = null;
-        // Snapshot selection cells before setState to avoid stale closure.
-        var selCells = this.getSelectionCells(sel);
-        this._minimapDirty = true;
+        LifeSimUtils.pushUndo(stateRef, dispatch, refs);
+        refs.stableCount = 0;
+        refs.prevBoardHash = null;
+        // Snapshot selection cells before dispatch to avoid stale closure.
+        var selCells = LifeBoardUtils.getSelectionCells(stateRef, dispatch, refs, sel);
+        refs.minimapDirty = true;
         SimRunner.invalidate();
-        var self = this;
-        this.setState(function(prevState){
-            var newLiveCells = new Map(prevState.liveCells);
-            selCells.forEach(function(rc){
-                newLiveCells.delete(rc[0] + ',' + rc[1]);
-            });
-            return {liveCells: newLiveCells, stable: false};
-        }, function(){ self.drawBoard(); });
+        var newLiveCells = new Map(stateRef.current.liveCells);
+        selCells.forEach(function(rc){
+            newLiveCells.delete(rc[0] + ',' + rc[1]);
+        });
+        dispatch({type:'MERGE', payload:{liveCells: newLiveCells, stable: false}});
+        refs.drawPending = true;
     },
 
-    clearSelection : function(){
-        var self = this;
+    clearSelection : function(stateRef, dispatch, refs){
         // Restore to preset or paint depending on whether a pattern is armed.
-        var restoreMode = this.state.selectedPattern ? 'preset' : 'paint';
-        this.setState({selection: null, drawMode: restoreMode},
-            function(){ self.drawBoard(); });
+        var restoreMode = stateRef.current.selectedPattern ? 'preset' : 'paint';
+        dispatch({type:'MERGE', payload:{selection: null, drawMode: restoreMode}});
+        refs.drawPending = true;
     },
 
-    toggleSelectMode : function(){
-        if(this.state.drawMode === 'select'){
-            this.clearSelection();
+    toggleSelectMode : function(stateRef, dispatch, refs){
+        if(stateRef.current.drawMode === 'select'){
+            LifeBoardUtils.clearSelection(stateRef, dispatch, refs);
         } else {
-            var self = this;
             // Enter select mode without clearing the armed preset.
-            this.setState({drawMode: 'select'},
-                function(){ self.drawBoard(); });
+            dispatch({type:'MERGE', payload:{drawMode: 'select'}});
+            refs.drawPending = true;
         }
     },
 
     // ── Mode toggles ─────────────────────────────────────────────────────
 
-    toggleDrawMode : function(){
-        var self = this;
-        this.setState({drawMode: 'paint'}, function(){ self.drawBoard(); });
+    toggleDrawMode : function(stateRef, dispatch, refs){
+        dispatch({type:'MERGE', payload:{drawMode: 'paint'}});
+        refs.drawPending = true;
     },
 
-    togglePresetMode : function(){
-        var self = this;
-        var newMode = this.state.drawMode === 'preset' ? 'paint' : 'preset';
-        this.setState({drawMode: newMode}, function(){ self.drawBoard(); });
+    togglePresetMode : function(stateRef, dispatch, refs){
+        var newMode = stateRef.current.drawMode === 'preset' ? 'paint' : 'preset';
+        dispatch({type:'MERGE', payload:{drawMode: newMode}});
+        refs.drawPending = true;
     },
 
-    toggleMinimap : function(){
-        var self = this;
-        this.setState({showMinimap: !this.state.showMinimap}, function(){ self.drawBoard(); });
+    toggleMinimap : function(stateRef, dispatch, refs){
+        dispatch({type:'MERGE', payload:{showMinimap: !stateRef.current.showMinimap}});
+        refs.drawPending = true;
     },
 
-    togglePanMode : function(){
-        this.setState({panMode: !this.state.panMode});
+    togglePanMode : function(stateRef, dispatch, refs){
+        dispatch({type:'MERGE', payload:{panMode: !stateRef.current.panMode}});
     },
 
-    toggleMobileTools : function(){
-        this.toggleBottomSheet();
+    toggleMobileTools : function(stateRef, dispatch, refs){
+        LifeViewUtils.toggleBottomSheet(stateRef, dispatch, refs);
     },
 
     // ── Theme / dark mode ────────────────────────────────────────────────
 
-    _applyDarkMode : function(dark){
+    _applyDarkMode : function(stateRef, dispatch, refs, dark){
         document.documentElement.classList.toggle('dark-mode', !!dark);
     },
 
-    setDarkModePref : function(e){
+    setDarkModePref : function(stateRef, dispatch, refs, e){
         var pref = e.target.value;
         var dark;
         if(pref === 'dark'){ dark = true; }
         else if(pref === 'light'){ dark = false; }
-        else { dark = this._darkModeQuery && this._darkModeQuery.matches; }
-        this._applyDarkMode(dark);
-        this.setState({darkModePref: pref});
+        else { dark = refs.darkModeQuery && refs.darkModeQuery.matches; }
+        LifeBoardUtils._applyDarkMode(stateRef, dispatch, refs, dark);
+        dispatch({type:'MERGE', payload:{darkModePref: pref}});
         try { localStorage.setItem('life-dark-mode-pref', pref); } catch(ex){}
     },
 
-    setTheme : function(e){
-        var self = this;
-        this.setState({theme: e.target.value}, function(){ self.drawBoard(); });
+    setTheme : function(stateRef, dispatch, refs, e){
+        dispatch({type:'MERGE', payload:{theme: e.target.value}});
+        refs.drawPending = true;
     },
 
     // ── Step count and toggles ───────────────────────────────────────────
 
-    setStepCount : function(e){
-        this.setState({stepCount: Math.min(10000, Math.max(1, parseInt(e.target.value, 10) || 1))});
+    setStepCount : function(stateRef, dispatch, refs, e){
+        dispatch({type:'MERGE', payload:{stepCount: Math.min(10000, Math.max(1, parseInt(e.target.value, 10) || 1))}});
     },
 
-    toggleLivePaint : function(){
-        this.setState({livePaintMode : !this.state.livePaintMode});
+    toggleLivePaint : function(stateRef, dispatch, refs){
+        dispatch({type:'MERGE', payload:{livePaintMode : !stateRef.current.livePaintMode}});
     },
 
-    toggleGridLines : function(){
-        var self = this;
-        this.setState({gridLines : !this.state.gridLines}, function(){
-            self.drawBoard();
-        });
+    toggleGridLines : function(stateRef, dispatch, refs){
+        dispatch({type:'MERGE', payload:{gridLines : !stateRef.current.gridLines}});
+        refs.drawPending = true;
     },
 
     // ── Region management ────────────────────────────────────────────────
@@ -162,20 +156,20 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
      * kill any liveCells outside the mask, and update cols/rows/pendingCols/pendingRows.
      * Optionally accepts a callback.
      */
-    _recomputeRegion : function(callback){
-        var mask = this.state.regionMask;
+    _recomputeRegion : function(stateRef, dispatch, refs, callback){
+        var mask = stateRef.current.regionMask;
         var components = RegionUtil.findComponents(mask);
         var bounds = RegionUtil.getBounds(mask);
         CanvasRenderer.invalidateRegionCache();
         // Derive cols/rows from bounds for backward compat.
-        var newCols = bounds ? bounds.maxC - bounds.minC + 1 : this.state.cols;
-        var newRows = bounds ? bounds.maxR - bounds.minR + 1 : this.state.rows;
+        var newCols = bounds ? bounds.maxC - bounds.minC + 1 : stateRef.current.cols;
+        var newRows = bounds ? bounds.maxR - bounds.minR + 1 : stateRef.current.rows;
         // Kill live cells outside the region when in bounded mode.
-        var clippedLiveCells = this.state.liveCells;
-        if(this.state.boundary !== 'unbounded' && mask.size > 0){
+        var clippedLiveCells = stateRef.current.liveCells;
+        if(stateRef.current.boundary !== 'unbounded' && mask.size > 0){
             var dirty = false;
             clippedLiveCells = new Map();
-            var liveCells = this.state.liveCells;
+            var liveCells = stateRef.current.liveCells;
             liveCells.forEach(function(age, key){
                 if(mask.has(key)){
                     clippedLiveCells.set(key, age);
@@ -183,12 +177,11 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
                     dirty = true;
                 }
             });
-            if(!dirty){ clippedLiveCells = this.state.liveCells; }
+            if(!dirty){ clippedLiveCells = stateRef.current.liveCells; }
         }
-        this._minimapDirty = true;
+        refs.minimapDirty = true;
         SimRunner.invalidate();
-        var self = this;
-        this.setState({
+        dispatch({type:'MERGE', payload:{
             regionComponents: components,
             regionBounds: bounds || {minR: 0, maxR: newRows - 1, minC: 0, maxC: newCols - 1},
             cols: newCols,
@@ -197,10 +190,9 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
             pendingRows: newRows,
             liveCells: clippedLiveCells,
             stable: false
-        }, function(){
-            self.drawBoard();
-            if(callback) callback();
-        });
+        }});
+        refs.drawPending = true;
+        if(callback) callback();
     },
 
     /**
@@ -208,48 +200,46 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
      * addKeys: array of "r,c" strings to add.
      * removeKeys: array of "r,c" strings to remove.
      */
-    _mutateRegion : function(addKeys, removeKeys, callback){
-        var newMask = new Set(this.state.regionMask);
+    _mutateRegion : function(stateRef, dispatch, refs, addKeys, removeKeys, callback){
+        var newMask = new Set(stateRef.current.regionMask);
         if(addKeys){
             for(var ai = 0; ai < addKeys.length; ai++){ newMask.add(addKeys[ai]); }
         }
         if(removeKeys){
             for(var ri = 0; ri < removeKeys.length; ri++){ newMask.delete(removeKeys[ri]); }
         }
-        var self = this;
-        this.setState({regionMask: newMask}, function(){
-            self._recomputeRegion(callback);
-        });
+        dispatch({type:'MERGE', payload:{regionMask: newMask}});
+        LifeBoardUtils._recomputeRegion(stateRef, dispatch, refs, callback);
     },
 
     /**
      * Switch to region draw mode.
      */
-    toggleRegionMode : function(){
-        var self = this;
-        var newMode = this.state.drawMode === 'region' ? 'paint' : 'region';
-        this.setState({drawMode: newMode}, function(){ self.drawBoard(); });
+    toggleRegionMode : function(stateRef, dispatch, refs){
+        var newMode = stateRef.current.drawMode === 'region' ? 'paint' : 'region';
+        dispatch({type:'MERGE', payload:{drawMode: newMode}});
+        refs.drawPending = true;
     },
 
-    toggleBoundary : function(){
-        var cur = this.state.boundary;
+    toggleBoundary : function(stateRef, dispatch, refs){
+        var cur = stateRef.current.boundary;
         var next = cur === 'toroidal' ? 'finite' : cur === 'finite' ? 'unbounded' : 'toroidal';
         SimRunner.invalidate();
-        this._minimapDirty = true;
-        this._mmUnboundedRegion = null;
+        refs.minimapDirty = true;
+        refs.mmUnboundedRegion = null;
         CanvasRenderer.invalidateRegionCache();
-        var self = this;
         var stateUpdate = {boundary : next};
         // Exit region mode when switching to unbounded.
-        if(next === 'unbounded' && this.state.drawMode === 'region'){
+        if(next === 'unbounded' && stateRef.current.drawMode === 'region'){
             stateUpdate.drawMode = 'paint';
         }
-        this.setState(stateUpdate, function(){ self.drawBoard(); });
+        dispatch({type:'MERGE', payload:stateUpdate});
+        refs.drawPending = true;
     },
 
     // ── Sliders ──────────────────────────────────────────────────────────
 
-    resizeBoard : function(newCols, newRows){
+    resizeBoard : function(stateRef, dispatch, refs, newCols, newRows){
         newCols = Math.max(1, Math.round(newCols || 1));
         newRows = Math.max(1, Math.round(newRows || 1));
         // Replace region mask with a fresh rectangle of the new dimensions.
@@ -259,18 +249,17 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
             minR: 0, maxR: newRows - 1, minC: 0, maxC: newCols - 1
         }];
         // Keep only cells that still fall within the new bounds.
-        var oldLiveCells = this.state.liveCells;
+        var oldLiveCells = stateRef.current.liveCells;
         var newLiveCells = new Map();
         oldLiveCells.forEach(function(age, key){
             if(newRegionMask.has(key)){ newLiveCells.set(key, age); }
         });
-        var clamped = this.clampView(
-            this.state.viewX, this.state.viewY, newCols, newRows, this.state.cellSize);
-        this._minimapDirty = true;
+        var clamped = LifeViewUtils.clampView(stateRef, dispatch, refs,
+            stateRef.current.viewX, stateRef.current.viewY, newCols, newRows, stateRef.current.cellSize);
+        refs.minimapDirty = true;
         SimRunner.invalidate();
         CanvasRenderer.invalidateRegionCache();
-        var self = this;
-        this.setState({
+        dispatch({type:'MERGE', payload:{
             cols :        newCols,
             rows :        newRows,
             pendingCols : newCols,
@@ -284,64 +273,61 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
             regionMask :     newRegionMask,
             regionComponents : newRegionComponents,
             regionBounds :   {minR: 0, maxR: newRows - 1, minC: 0, maxC: newCols - 1}
-        }, function(){ self.drawBoard(); });
+        }});
+        refs.drawPending = true;
     },
 
-    setWidth : function(e){
+    setWidth : function(stateRef, dispatch, refs, e){
         var v = parseInt(e.target.value, 10);
-        if(isNaN(v) || v < 1) v = this.state.cols;
+        if(isNaN(v) || v < 1) v = stateRef.current.cols;
         v = Math.max(1, Math.min(10000, v));
-        var self = this;
-        this.setState({pendingCols : v}, function(){
-            self.drawBoard();
-        });
+        dispatch({type:'MERGE', payload:{pendingCols : v}});
+        refs.drawPending = true;
     },
 
-    applyWidth : function(){
-        this.resizeBoard(this.state.pendingCols, this.state.rows);
+    applyWidth : function(stateRef, dispatch, refs){
+        LifeBoardUtils.resizeBoard(stateRef, dispatch, refs, stateRef.current.pendingCols, stateRef.current.rows);
     },
 
-    onWidthKeyDown : function(e){
-        if(e.key === 'Enter'){ this.applyWidth(); }
+    onWidthKeyDown : function(stateRef, dispatch, refs, e){
+        if(e.key === 'Enter'){ LifeBoardUtils.applyWidth(stateRef, dispatch, refs); }
     },
 
-    setHeight : function(e){
+    setHeight : function(stateRef, dispatch, refs, e){
         var v = parseInt(e.target.value, 10);
-        if(isNaN(v) || v < 1) v = this.state.rows;
+        if(isNaN(v) || v < 1) v = stateRef.current.rows;
         v = Math.max(1, Math.min(10000, v));
-        var self = this;
-        this.setState({pendingRows : v}, function(){
-            self.drawBoard();
-        });
+        dispatch({type:'MERGE', payload:{pendingRows : v}});
+        refs.drawPending = true;
     },
 
-    applyHeight : function(){
-        this.resizeBoard(this.state.cols, this.state.pendingRows);
+    applyHeight : function(stateRef, dispatch, refs){
+        LifeBoardUtils.resizeBoard(stateRef, dispatch, refs, stateRef.current.cols, stateRef.current.pendingRows);
     },
 
-    onHeightKeyDown : function(e){
-        if(e.key === 'Enter'){ this.applyHeight(); }
+    onHeightKeyDown : function(stateRef, dispatch, refs, e){
+        if(e.key === 'Enter'){ LifeBoardUtils.applyHeight(stateRef, dispatch, refs); }
     },
 
-    applyGridPreset : function(cols, rows){
+    applyGridPreset : function(stateRef, dispatch, refs, cols, rows){
         if(cols * rows > 500000){
             if(!confirm('A ' + cols + '\u00d7' + rows + ' grid uses significant memory and may run slowly. Continue?')){ return; }
         }
-        this.resizeBoard(cols, rows);
+        LifeBoardUtils.resizeBoard(stateRef, dispatch, refs, cols, rows);
     },
 
-    setDensity : function(e){
-        this.setState({sparseness : 9 - (parseInt(e.target.value, 10) || 0)});
+    setDensity : function(stateRef, dispatch, refs, e){
+        dispatch({type:'MERGE', payload:{sparseness : 9 - (parseInt(e.target.value, 10) || 0)}});
     },
 
-    setSpeed : function(e){
+    setSpeed : function(stateRef, dispatch, refs, e){
         var v = Math.max(1, Math.min(10, parseInt(e.target.value, 10) || 1));
-        this.setState({speed : v});
+        dispatch({type:'MERGE', payload:{speed : v}});
     },
 
     // ── Rules ────────────────────────────────────────────────────────────
 
-    parseRuleString : function(val){
+    parseRuleString : function(stateRef, dispatch, refs, val){
         var match = val.trim().toUpperCase().match(/^B([0-8]*)\/?S([0-8]*)$/);
         if(!match){ return null; }
         return {
@@ -350,58 +336,55 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
         };
     },
 
-    setRule : function(e){
+    setRule : function(stateRef, dispatch, refs, e){
         var val = e.target.value;
-        var parsed = this.parseRuleString(val);
+        var parsed = LifeBoardUtils.parseRuleString(stateRef, dispatch, refs, val);
         if(parsed){
             SimRunner.invalidate();
-            this.setState({birthRule : parsed.birth, surviveRule : parsed.survive,
-                ruleString : val, rulePreset : val.toUpperCase()});
+            dispatch({type:'MERGE', payload:{birthRule : parsed.birth, surviveRule : parsed.survive,
+                ruleString : val, rulePreset : val.toUpperCase()}});
         } else {
-            this.setState({ruleString : val, rulePreset : ''});
+            dispatch({type:'MERGE', payload:{ruleString : val, rulePreset : ''}});
         }
     },
 
-    setRulePreset : function(e){
+    setRulePreset : function(stateRef, dispatch, refs, e){
         var rule = e.target.value;
         if(!rule){ return; }
-        var parsed = this.parseRuleString(rule);
+        var parsed = LifeBoardUtils.parseRuleString(stateRef, dispatch, refs, rule);
         if(parsed){
             SimRunner.invalidate();
-            this.setState({birthRule : parsed.birth, surviveRule : parsed.survive,
-                ruleString : rule, rulePreset : rule});
+            dispatch({type:'MERGE', payload:{birthRule : parsed.birth, surviveRule : parsed.survive,
+                ruleString : rule, rulePreset : rule}});
         }
     },
 
     // ── Patterns ─────────────────────────────────────────────────────────
 
-    rotateCW : function(){
-        var self = this;
-        this.setState({patternRotation : (this.state.patternRotation + 1) % 4},
-            function(){ self.drawBoard(); });
+    rotateCW : function(stateRef, dispatch, refs){
+        dispatch({type:'MERGE', payload:{patternRotation : (stateRef.current.patternRotation + 1) % 4}});
+        refs.drawPending = true;
     },
 
-    rotateCCW : function(){
-        var self = this;
-        this.setState({patternRotation : (this.state.patternRotation + 3) % 4},
-            function(){ self.drawBoard(); });
+    rotateCCW : function(stateRef, dispatch, refs){
+        dispatch({type:'MERGE', payload:{patternRotation : (stateRef.current.patternRotation + 3) % 4}});
+        refs.drawPending = true;
     },
 
-    selectPattern : function(e){
+    selectPattern : function(stateRef, dispatch, refs, e){
         var name = e.target.value || null;
         InputHandler._previewPos = null;
-        var self = this;
         var newMode = name ? 'preset' : 'paint';
-        this.setState({selectedPattern: name, drawMode: newMode, patternRotation: 0},
-            function(){ self.drawBoard(); });
+        dispatch({type:'MERGE', payload:{selectedPattern: name, drawMode: newMode, patternRotation: 0}});
+        refs.drawPending = true;
     },
 
-    placePattern : function(name, centerC, centerR){
+    placePattern : function(stateRef, dispatch, refs, name, centerC, centerR){
         if(!PATTERNS[name]){ return; }
-        this.pushUndo();
-        this._stableCount = 0;
-        this._prevBoardHash = null;
-        var pattern = SimEngine.rotatePattern(PATTERNS[name], this.state.patternRotation);
+        LifeSimUtils.pushUndo(stateRef, dispatch, refs);
+        refs.stableCount = 0;
+        refs.prevBoardHash = null;
+        var pattern = SimEngine.rotatePattern(PATTERNS[name], stateRef.current.patternRotation);
         var maxR = 0, maxC = 0;
         for(var k = 0; k < pattern.length; k++){
             if(pattern[k][0] > maxR){ maxR = pattern[k][0]; }
@@ -409,9 +392,9 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
         }
         var offsetR = centerR - Math.floor(maxR / 2);
         var offsetC = centerC - Math.floor(maxC / 2);
-        var newLiveCells = new Map(this.state.liveCells);
-        var regionMask = this.state.regionMask;
-        var isUnbounded = this.state.boundary === 'unbounded';
+        var newLiveCells = new Map(stateRef.current.liveCells);
+        var regionMask = stateRef.current.regionMask;
+        var isUnbounded = stateRef.current.boundary === 'unbounded';
         for(var i = 0; i < pattern.length; i++){
             var pr = pattern[i][0] + offsetR;
             var pc = pattern[i][1] + offsetC;
@@ -421,60 +404,59 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
             }
         }
         InputHandler._previewPos = null;
-        this._minimapDirty = true;
+        refs.minimapDirty = true;
         SimRunner.invalidate();
-        var self = this;
-        this.setState({liveCells: newLiveCells, stable: false}, function(){ self.drawBoard(); });
+        dispatch({type:'MERGE', payload:{liveCells: newLiveCells, stable: false}});
+        refs.drawPending = true;
     },
 
     // ── Board actions ────────────────────────────────────────────────────
 
-    emptyBoard : function(){
-        this.pushUndo();
-        this._prevBoardHash = null;
-        this._stableCount = 0;
-        this._minimapDirty = true;
-        this._mmUnboundedRegion = null;
+    emptyBoard : function(stateRef, dispatch, refs){
+        LifeSimUtils.pushUndo(stateRef, dispatch, refs);
+        refs.prevBoardHash = null;
+        refs.stableCount = 0;
+        refs.minimapDirty = true;
+        refs.mmUnboundedRegion = null;
         SimRunner.invalidate();
-        this._trailMap = new Map();
-        this.clearGenHistory();
-        var self = this;
-        this.setState({running : false, generations : 0, liveCells : new Map(),
-            popHistory : [], sessionPeakPop : 0, stable : false}, function(){ self.drawBoard(); });
-        this._announce('Board cleared');
+        refs.trailMap = new Map();
+        LifeSimUtils.clearGenHistory(stateRef, dispatch, refs);
+        dispatch({type:'MERGE', payload:{running : false, generations : 0, liveCells : new Map(),
+            popHistory : [], sessionPeakPop : 0, stable : false}});
+        refs.drawPending = true;
+        LifeViewUtils._announce(stateRef, dispatch, refs, 'Board cleared');
     },
 
-    resetGame : function(){
-        this.pushUndo();
-        var mask = this.state.regionMask;
-        var useMask = this.state.boundary !== 'unbounded' && mask && mask.size > 0;
-        var resetCols = this.state.boundary === 'unbounded' ? 100 : this.state.cols;
-        var resetRows = this.state.boundary === 'unbounded' ? 100 : this.state.rows;
+    resetGame : function(stateRef, dispatch, refs){
+        LifeSimUtils.pushUndo(stateRef, dispatch, refs);
+        var mask = stateRef.current.regionMask;
+        var useMask = stateRef.current.boundary !== 'unbounded' && mask && mask.size > 0;
+        var resetCols = stateRef.current.boundary === 'unbounded' ? 100 : stateRef.current.cols;
+        var resetRows = stateRef.current.boundary === 'unbounded' ? 100 : stateRef.current.rows;
         var totalCells = useMask ? mask.size : resetCols * resetRows;
-        var sparseness = this.state.sparseness;
+        var sparseness = stateRef.current.sparseness;
         // Cap density for very large boards to prevent browser crash.
         if(totalCells > 1000000){
             sparseness = Math.max(sparseness, totalCells / 500000);
         }
-        var wasRunning = this.state.running;
-        this._tickId++;
-        this._loopRunning = false;
-        this._prevBoardHash = null;
-        this._stableCount = 0;
-        this._minimapDirty = true;
-        this._mmUnboundedRegion = null;
+        var wasRunning = stateRef.current.running;
+        refs.tickId++;
+        refs.loopRunning = false;
+        refs.prevBoardHash = null;
+        refs.stableCount = 0;
+        refs.minimapDirty = true;
+        refs.mmUnboundedRegion = null;
         SimRunner.invalidate();
-        this._trailMap = new Map();
-        this.clearGenHistory();
-        var self = this;
+        refs.trailMap = new Map();
+        LifeSimUtils.clearGenHistory(stateRef, dispatch, refs);
         var applyReset = function(newLiveCells){
-            self.setState({running : false, generations : 0, liveCells : newLiveCells,
-                popHistory : [], sessionPeakPop : 0, stable : false}, function(){
-                self.drawBoard();
-                if(wasRunning){
-                    self.setState({running : true}, function(){ self._startLoop(); });
-                }
-            });
+            dispatch({type:'MERGE', payload:{running : false, generations : 0, liveCells : newLiveCells,
+                popHistory : [], sessionPeakPop : 0, stable : false}});
+            refs.drawPending = true;
+            if(wasRunning){
+                dispatch({type:'MERGE', payload:{running : true}});
+                LifeSimUtils._startLoop(stateRef, dispatch, refs);
+            }
         };
         if(useMask){
             // Generate random cells only within the region mask.
@@ -487,7 +469,7 @@ var LifeBoardMixin = { // eslint-disable-line no-unused-vars
             applyReset(newLiveCells);
         } else if(totalCells > 250000){
             // Large board: generate cells asynchronously to avoid UI freeze.
-            this.setState({running : false});
+            dispatch({type:'MERGE', payload:{running : false}});
             SimEngine.buildLiveCellsAsync(resetCols, resetRows, sparseness, applyReset);
         } else {
             applyReset(SimEngine.buildLiveCells(resetCols, resetRows, sparseness));

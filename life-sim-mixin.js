@@ -1,47 +1,47 @@
 /* global SimRunner, InputHandler, parseKey, SPEED_DELAYS, MAX_POP_HISTORY,
-          TRAIL_MAX_VALUE, MAX_TRAIL_MAP, TRAIL_PRUNE_THRESHOLD, MAX_UNDO_STACK */
+          TRAIL_MAX_VALUE, MAX_TRAIL_MAP, TRAIL_PRUNE_THRESHOLD, MAX_UNDO_STACK,
+          LifeViewUtils, LifeBoardUtils */
 /**
- * Simulation control mixin for LifeBoard component.
+ * Simulation control utilities for LifeBoard component.
  * Handles animation loop, stepping, undo/redo, and generation history.
  */
-var LifeSimMixin = { // eslint-disable-line no-unused-vars
+var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     // ── Animation loop ─────────────────────────────────────────────────
 
-    _startLoop : function(){
-        if(this._loopRunning){ return; }
-        this._loopRunning = true;
-        var tickId = ++this._tickId;
-        var self = this;
-        this._rafId = requestAnimationFrame(function(){ self.findNewStates(tickId); });
+    _startLoop : function(stateRef, dispatch, refs){
+        if(refs.loopRunning){ return; }
+        refs.loopRunning = true;
+        var tickId = ++refs.tickId;
+        refs.rafId = requestAnimationFrame(function(){ LifeSimUtils.findNewStates(stateRef, dispatch, refs, tickId); });
     },
 
-    findNewStates : function(tickId){
-        if(!this._mounted){ this._loopRunning = false; return; }
-        if(tickId !== this._tickId){ this._loopRunning = false; return; }
-        if(this.state.running !== true){ this._loopRunning = false; return; }
+    findNewStates : function(stateRef, dispatch, refs, tickId){
+        if(!refs.mounted){ refs.loopRunning = false; return; }
+        if(tickId !== refs.tickId){ refs.loopRunning = false; return; }
+        if(stateRef.current.running !== true){ refs.loopRunning = false; return; }
 
-        var liveCells = this.state.liveCells;
-        var cols     = this.state.cols;
-        var rows     = this.state.rows;
-        var birth    = this.state.birthRule;
-        var survive  = this.state.surviveRule;
-        var boundary = this.state.boundary;
+        var liveCells = stateRef.current.liveCells;
+        var cols     = stateRef.current.cols;
+        var rows     = stateRef.current.rows;
+        var birth    = stateRef.current.birthRule;
+        var survive  = stateRef.current.surviveRule;
+        var boundary = stateRef.current.boundary;
 
         var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary,
-            this.state.regionMask, this.state.regionComponents);
-        this._applyNewStates(newLiveCells, tickId);
+            stateRef.current.regionMask, stateRef.current.regionComponents);
+        LifeSimUtils._applyNewStates(stateRef, dispatch, refs, newLiveCells, tickId);
     },
 
     // Called by the worker response handler and the sync path.
-    _applyNewStates : function(newLiveCells, tickId){
-        if(!this._mounted){ this._loopRunning = false; return; }
-        if(tickId !== this._tickId){ this._loopRunning = false; return; }
+    _applyNewStates : function(stateRef, dispatch, refs, newLiveCells, tickId){
+        if(!refs.mounted){ refs.loopRunning = false; return; }
+        if(tickId !== refs.tickId){ refs.loopRunning = false; return; }
 
         // While the user is mid-stroke in Live Paint mode, merge the
         // cells being painted so they aren't erased by the incoming
         // generation (which was computed from the pre-stroke snapshot).
-        if(InputHandler._dragging && this.state.livePaintMode){
+        if(InputHandler._dragging && stateRef.current.livePaintMode){
             var painted = InputHandler._paintedCells;
             var paintKeys = Object.keys(painted);
             if(paintKeys.length > 0){
@@ -55,9 +55,9 @@ var LifeSimMixin = { // eslint-disable-line no-unused-vars
         }
 
         // Cell trail tracking: record recently-dead cells.
-        if(this._trailEnabled){
-            var trailMap = this._trailMap;
-            var prevCells = this.state.liveCells;
+        if(refs.trailEnabled){
+            var trailMap = refs.trailMap;
+            var prevCells = stateRef.current.liveCells;
             // Cells that were alive but are now dead → add to trail.
             prevCells.forEach(function(age, key){
                 if(!newLiveCells.has(key)){ trailMap.set(key, TRAIL_MAX_VALUE); }
@@ -79,7 +79,7 @@ var LifeSimMixin = { // eslint-disable-line no-unused-vars
         }
 
         // Generation history snapshot for step-backward.
-        this._pushGenHistory();
+        LifeSimUtils._pushGenHistory(stateRef, dispatch, refs);
 
         // Stability detection via O(n) order-independent hash (FNV-1a inspired).
         var _h1 = 0, _h2 = 0x811c9dc5, _h3 = 0, _hCount = 0;
@@ -92,124 +92,119 @@ var LifeSimMixin = { // eslint-disable-line no-unused-vars
             _hCount++;
         });
         var boardHash = _hCount + '|' + _h1 + '|' + _h2 + '|' + _h3;
-        var isStable  = (boardHash === this._prevBoardHash);
-        this._prevBoardHash = boardHash;
-        this._stableCount = isStable ? this._stableCount + 1 : 0;
-        var hitStable = this._stableCount >= 2 && this.state.autoPauseOnStable;
+        var isStable  = (boardHash === refs.prevBoardHash);
+        refs.prevBoardHash = boardHash;
+        refs.stableCount = isStable ? refs.stableCount + 1 : 0;
+        var hitStable = refs.stableCount >= 2 && stateRef.current.autoPauseOnStable;
 
         var newPop = newLiveCells.size;
-        var newHistory = this.state.popHistory;
+        var newHistory = stateRef.current.popHistory;
         newHistory.push(newPop);
         if(newHistory.length > MAX_POP_HISTORY * 2){ newHistory = newHistory.slice(-MAX_POP_HISTORY); }
-        var newSessionPeak = Math.max(this.state.sessionPeakPop || 0, newPop);
+        var newSessionPeak = Math.max(stateRef.current.sessionPeakPop || 0, newPop);
         // Store last measured GPS so it persists briefly after pausing.
-        this._gpsDisplayUntil = this._gpsDisplayUntil || 0;
+        refs.gpsDisplayUntil = refs.gpsDisplayUntil || 0;
 
         // Gen/sec tracking.
         var now = Date.now();
-        this._genTimestamps.push(now);
-        if(this._genTimestamps.length > 20){ this._genTimestamps.shift(); }
-        if(this._genTimestamps.length >= 2){
-            var ts = this._genTimestamps;
+        refs.genTimestamps.push(now);
+        if(refs.genTimestamps.length > 20){ refs.genTimestamps.shift(); }
+        if(refs.genTimestamps.length >= 2){
+            var ts = refs.genTimestamps;
             var dt = ts[ts.length - 1] - ts[0];
-            if(dt > 0){ this._measuredGps = (ts.length - 1) / dt * 1000; }
+            if(dt > 0){ refs.measuredGps = (ts.length - 1) / dt * 1000; }
         }
         // Keep GPS visible for 3 s after pausing.
-        this._gpsDisplayUntil = now + 3000;
+        refs.gpsDisplayUntil = now + 3000;
 
-        this._minimapDirty = true;
-        var self = this;
+        refs.minimapDirty = true;
         var myTickId = tickId;
-        this.setState(function(prev){
-            return {
-                liveCells :      newLiveCells,
-                generations :    prev.generations + 1,
-                popHistory :     newHistory,
-                sessionPeakPop : newSessionPeak,
-                stable :         hitStable,
-                running :        hitStable ? false : prev.running
-            };
-        }, function(){
-            if(!self._mounted){ return; }
-            self.drawBoard();
-            if(hitStable){ self._loopRunning = false; self._announce('Stable pattern detected \u2014 simulation paused'); return; }
-            var delay = SPEED_DELAYS[Math.max(0, Math.min(9, (self.state.speed || 1) - 1))] || 0;
-            self._loopTimeout = setTimeout(function(){
-                self._rafId = requestAnimationFrame(function(){ self.findNewStates(myTickId); });
-            }, delay);
-        });
+        dispatch({type:'MERGE', payload:{
+            liveCells :      newLiveCells,
+            generations :    stateRef.current.generations + 1,
+            popHistory :     newHistory,
+            sessionPeakPop : newSessionPeak,
+            stable :         hitStable,
+            running :        hitStable ? false : stateRef.current.running
+        }});
+        refs.drawPending = true;
+        if(!refs.mounted){ return; }
+        if(hitStable){ refs.loopRunning = false; LifeViewUtils._announce(stateRef, dispatch, refs, 'Stable pattern detected \u2014 simulation paused'); return; }
+        var delay = SPEED_DELAYS[Math.max(0, Math.min(9, (stateRef.current.speed || 1) - 1))] || 0;
+        refs.loopTimeout = setTimeout(function(){
+            refs.rafId = requestAnimationFrame(function(){ LifeSimUtils.findNewStates(stateRef, dispatch, refs, myTickId); });
+        }, delay);
     },
 
-    stepGame : function(){
-        this.pushUndo();
-        var liveCells = this.state.liveCells;
-        var cols      = this.state.cols;
-        var rows      = this.state.rows;
-        var birth     = this.state.birthRule;
-        var survive   = this.state.surviveRule;
-        var boundary  = this.state.boundary;
+    stepGame : function(stateRef, dispatch, refs){
+        LifeSimUtils.pushUndo(stateRef, dispatch, refs);
+        var liveCells = stateRef.current.liveCells;
+        var cols      = stateRef.current.cols;
+        var rows      = stateRef.current.rows;
+        var birth     = stateRef.current.birthRule;
+        var survive   = stateRef.current.surviveRule;
+        var boundary  = stateRef.current.boundary;
         var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary,
-            this.state.regionMask, this.state.regionComponents);
+            stateRef.current.regionMask, stateRef.current.regionComponents);
         var newPop = newLiveCells.size;
-        var newHistory = this.state.popHistory;
+        var newHistory = stateRef.current.popHistory;
         newHistory.push(newPop);
         if(newHistory.length > MAX_POP_HISTORY * 2){ newHistory = newHistory.slice(-MAX_POP_HISTORY); }
-        var newSessionPeakStep = Math.max(this.state.sessionPeakPop || 0, newPop);
-        this._minimapDirty = true;
-        var self = this;
-        this.setState({
+        var newSessionPeakStep = Math.max(stateRef.current.sessionPeakPop || 0, newPop);
+        refs.minimapDirty = true;
+        dispatch({type:'MERGE', payload:{
             liveCells :      newLiveCells,
             running :        false,
-            generations :    this.state.generations + 1,
+            generations :    stateRef.current.generations + 1,
             popHistory :     newHistory,
             sessionPeakPop : newSessionPeakStep,
             stable :         false
-        }, function(){ self.drawBoard(); });
+        }});
+        refs.drawPending = true;
     },
 
     // ── Undo ──────────────────────────────────────────────────────────
 
-    pushUndo : function(){
-        this._undoStack.push({
-            liveCells :   new Map(this.state.liveCells),
-            generations : this.state.generations,
-            regionMask :  new Set(this.state.regionMask)
+    pushUndo : function(stateRef, dispatch, refs){
+        refs.undoStack.push({
+            liveCells :   new Map(stateRef.current.liveCells),
+            generations : stateRef.current.generations,
+            regionMask :  new Set(stateRef.current.regionMask)
         });
-        if(this._undoStack.length > MAX_UNDO_STACK){ this._undoStack.shift(); }
-        this._redoStack = [];
+        if(refs.undoStack.length > MAX_UNDO_STACK){ refs.undoStack.shift(); }
+        refs.redoStack = [];
     },
 
-    popUndo : function(){
-        if(this._undoStack && this._undoStack.length > 0){
-            return this._undoStack.pop();
+    popUndo : function(stateRef, dispatch, refs){
+        if(refs.undoStack && refs.undoStack.length > 0){
+            return refs.undoStack.pop();
         }
         return null;
     },
 
-    cancelDrawTool : function(){
+    cancelDrawTool : function(stateRef, dispatch, refs){
         if(!InputHandler._drawToolStart){ return; }
         InputHandler._drawToolStart = null;
         InputHandler._drawPreviewCells = [];
-        this.popUndo();
-        this.drawBoard();
+        LifeSimUtils.popUndo(stateRef, dispatch, refs);
+        refs.drawPending = true;
     },
 
-    undo : function(){
-        if(this._undoStack.length === 0){ this._announce('Nothing to undo'); return; }
+    undo : function(stateRef, dispatch, refs){
+        if(refs.undoStack.length === 0){ LifeViewUtils._announce(stateRef, dispatch, refs, 'Nothing to undo'); return; }
         // Save current state for redo before restoring.
-        this._redoStack.push({
-            liveCells: new Map(this.state.liveCells),
-            generations: this.state.generations,
-            regionMask: new Set(this.state.regionMask)
+        refs.redoStack.push({
+            liveCells: new Map(stateRef.current.liveCells),
+            generations: stateRef.current.generations,
+            regionMask: new Set(stateRef.current.regionMask)
         });
-        if(this._redoStack.length > MAX_UNDO_STACK){ this._redoStack.shift(); }
-        var entry = this._undoStack.pop();
-        this._tickId++;
-        this._loopRunning = false;
-        this._prevBoardHash = null;
-        this._stableCount = 0;
-        this._minimapDirty = true;
-        var self = this;
+        if(refs.redoStack.length > MAX_UNDO_STACK){ refs.redoStack.shift(); }
+        var entry = refs.undoStack.pop();
+        refs.tickId++;
+        refs.loopRunning = false;
+        refs.prevBoardHash = null;
+        refs.stableCount = 0;
+        refs.minimapDirty = true;
         SimRunner.invalidate();
         var stateUpdate = {
             liveCells :   entry.liveCells,
@@ -220,27 +215,25 @@ var LifeSimMixin = { // eslint-disable-line no-unused-vars
         if(entry.regionMask){
             stateUpdate.regionMask = entry.regionMask;
         }
-        this.setState(stateUpdate, function(){
-            if(entry.regionMask){ self._recomputeRegion(); }
-            else { self.drawBoard(); }
-        });
+        dispatch({type:'MERGE', payload: stateUpdate});
+        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, dispatch, refs); }
+        else { refs.drawPending = true; }
     },
 
-    redo : function(){
-        if(this._redoStack.length === 0){ this._announce('Nothing to redo'); return; }
+    redo : function(stateRef, dispatch, refs){
+        if(refs.redoStack.length === 0){ LifeViewUtils._announce(stateRef, dispatch, refs, 'Nothing to redo'); return; }
         // Save current state for undo before applying redo.
-        this._undoStack.push({
-            liveCells: new Map(this.state.liveCells),
-            generations: this.state.generations,
-            regionMask: new Set(this.state.regionMask)
+        refs.undoStack.push({
+            liveCells: new Map(stateRef.current.liveCells),
+            generations: stateRef.current.generations,
+            regionMask: new Set(stateRef.current.regionMask)
         });
-        var entry = this._redoStack.pop();
-        this._tickId++;
-        this._loopRunning = false;
-        this._prevBoardHash = null;
-        this._stableCount = 0;
-        this._minimapDirty = true;
-        var self = this;
+        var entry = refs.redoStack.pop();
+        refs.tickId++;
+        refs.loopRunning = false;
+        refs.prevBoardHash = null;
+        refs.stableCount = 0;
+        refs.minimapDirty = true;
         SimRunner.invalidate();
         var stateUpdate = {
             liveCells :   entry.liveCells,
@@ -251,46 +244,45 @@ var LifeSimMixin = { // eslint-disable-line no-unused-vars
         if(entry.regionMask){
             stateUpdate.regionMask = entry.regionMask;
         }
-        this.setState(stateUpdate, function(){
-            if(entry.regionMask){ self._recomputeRegion(); }
-            else { self.drawBoard(); }
-        });
+        dispatch({type:'MERGE', payload: stateUpdate});
+        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, dispatch, refs); }
+        else { refs.drawPending = true; }
     },
 
     // Advance N generations at once via SimRunner.
-    stepN : function(n){
+    stepN : function(stateRef, dispatch, refs, n){
         if(!n || n < 1){ n = 1; }
-        this.pushUndo();
-        this._pushGenHistory();
-        var liveCells = this.state.liveCells;
-        var cols      = this.state.cols;
-        var rows      = this.state.rows;
-        var birth     = this.state.birthRule;
-        var survive   = this.state.surviveRule;
-        var boundary  = this.state.boundary;
-        var self = this;
-        var gen = this.state.generations;
-        var popHistory = this.state.popHistory;
-        var peak = this.state.sessionPeakPop || 0;
+        LifeSimUtils.pushUndo(stateRef, dispatch, refs);
+        LifeSimUtils._pushGenHistory(stateRef, dispatch, refs);
+        var liveCells = stateRef.current.liveCells;
+        var cols      = stateRef.current.cols;
+        var rows      = stateRef.current.rows;
+        var birth     = stateRef.current.birthRule;
+        var survive   = stateRef.current.surviveRule;
+        var boundary  = stateRef.current.boundary;
+        var gen = stateRef.current.generations;
+        var popHistory = stateRef.current.popHistory;
+        var peak = stateRef.current.sessionPeakPop || 0;
 
         // Fast path: unbounded — SimRunner handles HashLife batch internally
         if(boundary === 'unbounded'){
             var batch = SimRunner.stepN(liveCells, cols, rows, birth, survive, boundary, n,
-                this.state.regionMask, this.state.regionComponents);
+                stateRef.current.regionMask, stateRef.current.regionComponents);
             for(var p = 0; p < batch.pops.length; p++){
                 popHistory.push(batch.pops[p]);
                 if(popHistory.length > MAX_POP_HISTORY * 2){ popHistory = popHistory.slice(-MAX_POP_HISTORY); }
             }
             if(batch.peak > peak){ peak = batch.peak; }
-            this._minimapDirty = true;
-            this.setState({
+            refs.minimapDirty = true;
+            dispatch({type:'MERGE', payload:{
                 liveCells: batch.liveCells,
                 generations: gen + n,
                 running: false,
                 popHistory: popHistory,
                 sessionPeakPop: peak,
                 stable: false
-            }, function(){ self.drawBoard(); });
+            }});
+            refs.drawPending = true;
             return;
         }
 
@@ -299,8 +291,8 @@ var LifeSimMixin = { // eslint-disable-line no-unused-vars
         var CHUNK = 50;
         var doChunk = function(){
             var limit = Math.min(done + CHUNK, n);
-            var _regionMask = self.state.regionMask;
-            var _regionComponents = self.state.regionComponents;
+            var _regionMask = stateRef.current.regionMask;
+            var _regionComponents = stateRef.current.regionComponents;
             for(var i = done; i < limit; i++){
                 liveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary,
                     _regionMask, _regionComponents);
@@ -314,15 +306,16 @@ var LifeSimMixin = { // eslint-disable-line no-unused-vars
             if(done < n){
                 setTimeout(doChunk, 0);
             } else {
-                self._minimapDirty = true;
-                self.setState({
+                refs.minimapDirty = true;
+                dispatch({type:'MERGE', payload:{
                     liveCells: liveCells,
                     generations: gen,
                     running: false,
                     popHistory: popHistory,
                     sessionPeakPop: peak,
                     stable: false
-                }, function(){ self.drawBoard(); });
+                }});
+                refs.drawPending = true;
             }
         };
         doChunk();
@@ -330,49 +323,49 @@ var LifeSimMixin = { // eslint-disable-line no-unused-vars
 
     // ── Generation history (step backward) ─────────────────────────────
 
-    _pushGenHistory : function(){
-        this._genHistoryCounter++;
-        var pop = this.state.liveCells.size;
-        var interval = pop > 50000 ? 10 : pop > 10000 ? 5 : this._genHistoryInterval;
-        if(this._genHistoryCounter % interval !== 0){ return; }
-        this._genHistory.push({
-            liveCells: new Map(this.state.liveCells),
-            generations: this.state.generations
+    _pushGenHistory : function(stateRef, dispatch, refs){
+        refs.genHistoryCounter++;
+        var pop = stateRef.current.liveCells.size;
+        var interval = pop > 50000 ? 10 : pop > 10000 ? 5 : refs.genHistoryInterval;
+        if(refs.genHistoryCounter % interval !== 0){ return; }
+        refs.genHistory.push({
+            liveCells: new Map(stateRef.current.liveCells),
+            generations: stateRef.current.generations
         });
-        if(this._genHistory.length > this._genHistoryMax){
-            this._genHistory.shift();
+        if(refs.genHistory.length > refs.genHistoryMax){
+            refs.genHistory.shift();
         }
     },
 
-    stepBack : function(){
-        if(this._genHistory.length === 0){ return; }
-        var snapshot = this._genHistory.pop();
-        this._minimapDirty = true;
+    stepBack : function(stateRef, dispatch, refs){
+        if(refs.genHistory.length === 0){ return; }
+        var snapshot = refs.genHistory.pop();
+        refs.minimapDirty = true;
         SimRunner.invalidate();
-        var self = this;
-        this.setState({
+        dispatch({type:'MERGE', payload:{
             liveCells: snapshot.liveCells,
             generations: snapshot.generations,
             running: false,
             stable: false
-        }, function(){ self.drawBoard(); });
+        }});
+        refs.drawPending = true;
     },
 
-    clearGenHistory : function(){
-        this._genHistory = [];
-        this._genHistoryCounter = 0;
+    clearGenHistory : function(stateRef, dispatch, refs){
+        refs.genHistory = [];
+        refs.genHistoryCounter = 0;
     },
 
-    toggleGame : function(){
-        if(this.state.running){
-            this.setState({running : false});
-            this._announce('Simulation paused');
+    toggleGame : function(stateRef, dispatch, refs){
+        if(stateRef.current.running){
+            dispatch({type:'MERGE', payload:{running : false}});
+            LifeViewUtils._announce(stateRef, dispatch, refs, 'Simulation paused');
         } else {
-            this._prevBoardHash = null;
-            this._stableCount = 0;
-            this.setState({running : true, stable : false});
-            this._startLoop();
-            this._announce('Simulation started');
+            refs.prevBoardHash = null;
+            refs.stableCount = 0;
+            dispatch({type:'MERGE', payload:{running : true, stable : false}});
+            LifeSimUtils._startLoop(stateRef, dispatch, refs);
+            LifeViewUtils._announce(stateRef, dispatch, refs, 'Simulation started');
         }
     },
 };
