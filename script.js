@@ -3,9 +3,8 @@
           RULE_PRESETS, SPEED_DELAYS, THEMES,
           LifeSimUtils, LifeIOUtils, LifeInputUtils, LifeViewUtils,
           LifeBoardUtils, LifeAnalysisUtils,
-          CanvasArea, MobileMinimapArea,
-          drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails,
-          onMinimapElementDown, onMinimapElementMove, onMinimapElementUp, panMinimapElement */
+          CanvasArea, MobileMinimapArea, ModeControls, ToolsContent, MobileContextPanel,
+          drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails */
 /**
  * Conway's Game of Life — React UI component (React 19 functional).
  * Constants, SimEngine, and helpers are loaded from constants.js.

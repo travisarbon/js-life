@@ -21,6 +21,7 @@
     "drawMinimap": "readonly",
     "drawMinimapMobile": "readonly",
     "drawRotationPreview": "readonly",
+    "toggleTrails": "readonly",
     "ViewControls": "readonly",
     "ZoomSlider": "readonly",
     "DisplaySettings": "readonly",
