@@ -1,23 +1,21 @@
 /* global HashLife, SimRunner, CanvasRenderer, InputHandler, RegionUtil,
           PATTERN_GROUPS, PATTERNS, PATTERN_META, SimEngine, parseKey,
           RULE_PRESETS, SPEED_DELAYS, THEMES,
-          LifeSimMixin, LifeIOMixin, LifeInputMixin, LifeViewMixin,
-          LifeBoardMixin, LifeAnalysisMixin */
+          LifeSimUtils, LifeIOUtils, LifeInputUtils, LifeViewUtils,
+          LifeBoardUtils, LifeAnalysisUtils */
 /**
- * Conway's Game of Life — React UI component.
+ * Conway's Game of Life — React UI component (React 19 functional).
  * Constants, SimEngine, and helpers are loaded from constants.js.
  */
 
-document.addEventListener('DOMContentLoaded', function(){
+function lifeReducer(state, action) {
+    switch(action.type) {
+        case 'MERGE': return Object.assign({}, state, action.payload);
+        default:      return Object.assign({}, state, action.payload);
+    }
+}
 
-        var LifeBoard = React.createClass({
-
-            mixins: [LifeSimMixin, LifeIOMixin, LifeInputMixin,
-                     LifeViewMixin, LifeBoardMixin, LifeAnalysisMixin],
-
-            // ── Lifecycle ─────────────────────────────────────────────────────
-
-            getInitialState : function(){
+function initState(){
                 var cols = 100;
                 var rows = 100;
                 // On mobile, default to 8px/cell; on desktop, 5px/cell.
@@ -188,7 +186,45 @@ document.addEventListener('DOMContentLoaded', function(){
                     srAnnouncement :   '',
                     autoPauseOnStable : true
                 };
-            },
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+
+function LifeBoard() {
+    var _r = React.useReducer(lifeReducer, undefined, initState);
+    var state = _r[0], dispatch = _r[1];
+    var stateRef = React.useRef(state);
+    stateRef.current = state;
+    var refs = React.useRef(null);
+    if(!refs.current) {
+        refs.current = {
+            mounted: false, canvas: null, minimapCanvas: null, previewCanvas: null,
+            mobileMinimap: null, genHistory: [], genHistoryMax: 200,
+            genHistoryInterval: 1, genHistoryCounter: 0,
+            trailMap: new Map(), trailEnabled: true, loopRunning: false,
+            tickId: 0, undoStack: [], redoStack: [], prevBoardHash: null,
+            stableCount: 0, genTimestamps: [], measuredGps: 0,
+            gif: null, minimapDirty: true, minimapCanvas2: document.createElement('canvas'),
+            mmElemDragging: false, statsChipHidden: false, statsChipTimer: null,
+            minimapHidden: false, minimapTimer: null, drawPending: false,
+            tabBarObservers: [], shortcuts: {}, rafId: null, loopTimeout: null,
+            prevFocusEl: null, resizeTimer: null, lastResizeW: window.innerWidth,
+            lastResizeH: window.innerHeight, canvasSizeCacheKey: null, canvasSizeCache: null,
+            sheetTouchY: null, sheetEl: null, gpsDisplayUntil: 0,
+            previewPos: null, analysisCancelled: false,
+            darkModeQuery: null, onDarkModeChange: null,
+            mqPhone: null, mqPhoneLandscape: null, mqTablet: null, mqLandscape: null,
+            updateDeviceClass: null, onResize: null, onOrientationChange: null,
+            onPopOutDismiss: null, onPaste: null, onDragOver: null, onDragLeave: null, onDrop: null,
+            forceRender: null, drawRotationPreview: null
+        };
+    }
+    refs = refs.current;
+    var fr = React.useReducer(function(x){return x+1;},0);
+    refs.forceRender = fr[1];
+
+    // Alias for brevity in render methods
+    var self = {state: state, dispatch: dispatch, stateRef: stateRef, refs: refs};
 
             shouldComponentUpdate : function(nextProps, nextState){
                 // Skip render when only canvas-only state changed during animation.
