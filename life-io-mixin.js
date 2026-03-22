@@ -1,4 +1,4 @@
-/* global SimEngine, SimRunner, InputHandler, detectAndParsePattern,
+/* global SimEngine, SimRunner, InputHandler, detectAndParsePattern, LifeViewUtils, LifeBoardUtils,
           PATTERNS, MAX_CELL_IMPORT */
 /**
  * File I/O and export utilities for LifeBoard component.
