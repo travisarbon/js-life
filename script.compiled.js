@@ -2263,7 +2263,7 @@ var FloatPanel = function FloatPanel(props) {
     return null;
   }
   // Skip panels that are in a group — they render inside the group.
-  if (LifeViewUtils._findGroupForPanel(stateRef, refs, panelId)) {
+  if (LifeViewUtils._findGroupForPanel(stateRef, refs, dispatch, panelId)) {
     return null;
   }
   var isCompact = ps.compact && !ps.collapsed;
@@ -4278,7 +4278,7 @@ function initState() {
         compact: false
       },
       importExport: {
-        open: false,
+        open: true,
         x: -1,
         y: -1,
         collapsed: false,
@@ -4289,7 +4289,7 @@ function initState() {
     panelZCounter: savedLayout.panelZCounter || 1,
     panelGroups: savedLayout.panelGroups || [{
       id: 'g-default',
-      panels: ['transport', 'view', 'mode', 'board', 'rules', 'stats'],
+      panels: ['transport', 'view', 'mode', 'tools', 'board', 'rules', 'stats', 'importExport'],
       activeTab: 'transport',
       x: 10,
       y: 50,
@@ -4322,7 +4322,7 @@ document.addEventListener('DOMContentLoaded', function () {
       refs.current = {
         mounted: false,
         canvas: null,
-        minimapCanvas: null,
+        minimapCanvas: document.createElement('canvas'),
         previewCanvas: null,
         mobileMinimap: null,
         genHistory: [],
