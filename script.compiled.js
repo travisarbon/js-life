@@ -2896,7 +2896,9 @@ var MobileTransportBar = function MobileTransportBar(props) {
           LifeSimUtils, LifeIOUtils, LifeInputUtils, LifeViewUtils,
           LifeBoardUtils, LifeAnalysisUtils,
           CanvasArea, MobileMinimapArea, ModeControls, ToolsContent, MobileContextPanel,
-          drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails */
+          drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails,
+          CartographerLayout, ObservatoryLayout,
+          FloatPanel, PanelGroup, ObservatoryPanelUtils */
 /**
  * Conway's Game of Life — React UI component (React 19 functional).
  * Constants, SimEngine, and helpers are loaded from constants.js.

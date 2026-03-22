@@ -4,7 +4,9 @@
           LifeSimUtils, LifeIOUtils, LifeInputUtils, LifeViewUtils,
           LifeBoardUtils, LifeAnalysisUtils,
           CanvasArea, MobileMinimapArea, ModeControls, ToolsContent, MobileContextPanel,
-          drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails */
+          drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails,
+          CartographerLayout, ObservatoryLayout,
+          FloatPanel, PanelGroup, ObservatoryPanelUtils */
 /**
  * Conway's Game of Life — React UI component (React 19 functional).
  * Constants, SimEngine, and helpers are loaded from constants.js.
@@ -456,63 +458,11 @@ function LifeBoard() {
             // ── Shared mobile sub-components (R10) ─────────────────────────────
             // Extracted from 3 duplicated mobile render methods.
 
-    var _MOBILE_TABS = [
-                {id: 'simulate', icon: 'fa-play',     label: 'Simulate'},
-                {id: 'board',    icon: 'fa-th-large',  label: 'Board'},
-                {id: 'view',     icon: 'fa-eye',      label: 'View'},
-                {id: 'tools',    icon: 'fa-pencil',   label: 'Tools'},
-                {id: 'rules',    icon: 'fa-cogs',     label: 'Rules'},
-                {id: 'export',   icon: 'fa-exchange',  label: 'Share'}
-    ];
+    // _MOBILE_TABS — extracted to components/layout-shell.js as _MOBILE_TABS
 
-    function _buildSheetContent(){
-                if(!state.bottomSheetOpen){ return null; }
-                return _buildTabContent(state.bottomSheetTab, {sectionTitle: true, sparkline: true}, state, stateRef, refs, dispatch);
-    }
+    // _buildSheetContent — extracted to components/layout-shell.js (inlined in CartographerMobile/ObservatoryMobile)
 
-            // Shared tab content builder used by mobile sheet, desktop rail, and context tray.
-    function _buildTabContent(tabId, options){
-                options = options || {};
-                switch(tabId){
-                    case 'simulate':
-                        return (
-                            <div>
-                                {options.sectionTitle && <div className="sidebar-section-title">Simulate</div>}
-                                {<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                                {<SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                                {options.sparkline && <MobileSparkline state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />}
-                            </div>
-                        );
-                    case 'board':
-                        return (
-                            <div>
-                                {options.sectionTitle && <div className="sidebar-section-title">Board</div>}
-                                {<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                                {<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                            </div>
-                        );
-                    case 'view':
-                        return (
-                            <div>
-                                {options.sectionTitle && <div className="sidebar-section-title">View</div>}
-                                {<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}
-                                {<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                                {<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                            </div>
-                        );
-                    case 'tools':
-                        return (
-                            <div>
-                                {options.sectionTitle && <div className="sidebar-section-title">Tools</div>}
-                                {<ModeControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                                {<ToolsContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-                            </div>
-                        );
-                    case 'rules':  return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
-                    case 'export': return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
-                    default:       return null;
-                }
-    }
+    // _buildTabContent — extracted to components/layout-shell.js as TabContentBuilder
 
 
     function _renderStatsChip(){
