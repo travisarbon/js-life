@@ -1032,8 +1032,167 @@ canvas.display {
   padding: var(--space-sm) 0;
   cursor: pointer; }
 
+/* ── Drop target indicator ────────────────────────────────────────────── */
+.float-panel.drop-target,
+.panel-group.drop-target {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  opacity: 0.85; }
+
+/* ── Panel group (docked/tabbed panels) ──────────────────────────────── */
+.panel-group {
+  position: absolute;
+  min-width: 180px;
+  max-width: 500px;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  background: var(--panel-bg-blur);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--panel-shadow);
+  z-index: calc(var(--z-panels) + 2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; }
+
+.panel-tab-bar {
+  display: flex;
+  flex: 1;
+  overflow-x: auto;
+  gap: 0; }
+
+.panel-tab {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--panel-header-color);
+  opacity: var(--opacity-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity var(--transition-fast), border-color var(--transition-fast); }
+.panel-tab:hover { opacity: 1; }
+.panel-tab-active {
+  opacity: 1;
+  border-bottom-color: var(--accent);
+  font-weight: 600; }
+
+.panel-group .float-panel-header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--panel-header-bg);
+  border-bottom: 1px solid var(--panel-border);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0; }
+.panel-group .float-panel-header:active { cursor: grabbing; }
+
+.panel-group .float-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--space-lg) var(--space-lg) var(--space-2xl); }
+
+.panel-group .float-panel-resize {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: se-resize;
+  opacity: 0.4;
+  touch-action: none; }
+.panel-group .float-panel-resize::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--panel-header-color);
+  border-bottom: 2px solid var(--panel-header-color); }
+
+/* ── Compact mode ────────────────────────────────────────────────────── */
+.float-panel-compact {
+  max-width: 56px !important;
+  min-width: 56px !important;
+  transition: max-width 0.15s ease, min-width 0.15s ease; }
+
+.float-panel-compact .float-panel-title {
+  display: none; }
+
+.float-panel-compact .float-panel-body {
+  padding: var(--space-sm); }
+
+/* Hide text labels in compact mode, show icons only */
+.float-panel-compact .btn .btn-label,
+.float-panel-compact .control-group-label,
+.float-panel-compact .slider-label,
+.float-panel-compact label > span {
+  display: none; }
+
+.float-panel-compact .btn {
+  min-width: 0 !important;
+  padding: var(--space-xs) !important;
+  justify-content: center; }
+
+.float-panel-compact .btn i.fa {
+  margin: 0; }
+
+.compact-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  align-items: center; }
+
+.compact-body .btn {
+  width: 36px;
+  height: 36px; }
+
+/* Hide sliders, selects, and inputs in compact mode — they use pop-outs */
+.float-panel-compact .compact-hidden {
+  display: none; }
+
+/* Pop-out flyout panel */
+.pop-out-panel {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  min-width: 200px;
+  max-width: 300px;
+  background: var(--panel-bg-blur);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--panel-shadow);
+  padding: var(--space-md);
+  z-index: 1;
+  margin-left: var(--space-sm); }
+
+.pop-out-trigger {
+  position: relative; }
+
+/* Compact toggle button styling */
+.float-panel-compact-toggle {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 24px !important;
+  padding: var(--space-xs) var(--space-sm) !important;
+  font-size: var(--text-sm) !important;
+  background: transparent !important;
+  border: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important; }
+
 /* ── Zen mode ─────────────────────────────────────────────────────────── */
 .zen-mode .float-panel,
+.zen-mode .panel-group,
 .zen-mode .panel-menu {
   display: none; }
 

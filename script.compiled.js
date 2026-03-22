@@ -54,14 +54,21 @@ document.addEventListener('DOMContentLoaded', function () {
               var validPanels = ['transport', 'view', 'mode', 'tools', 'board', 'rules', 'stats', 'importExport'];
               var ps = {};
               var allValid = true;
+              var maxZ = 0;
               for (var vi = 0; vi < validPanels.length; vi++) {
                 var pid = validPanels[vi];
                 if (parsed.panelStates[pid] && typeof parsed.panelStates[pid] === 'object') {
+                  var pz = typeof parsed.panelStates[pid].z === 'number' ? parsed.panelStates[pid].z : 0;
+                  if (pz > maxZ) {
+                    maxZ = pz;
+                  }
                   ps[pid] = {
                     open: typeof parsed.panelStates[pid].open === 'boolean' ? parsed.panelStates[pid].open : true,
                     x: typeof parsed.panelStates[pid].x === 'number' ? parsed.panelStates[pid].x : -1,
                     y: typeof parsed.panelStates[pid].y === 'number' ? parsed.panelStates[pid].y : -1,
-                    collapsed: typeof parsed.panelStates[pid].collapsed === 'boolean' ? parsed.panelStates[pid].collapsed : false
+                    collapsed: typeof parsed.panelStates[pid].collapsed === 'boolean' ? parsed.panelStates[pid].collapsed : false,
+                    z: pz,
+                    compact: typeof parsed.panelStates[pid].compact === 'boolean' ? parsed.panelStates[pid].compact : false
                   };
                 } else {
                   allValid = false;
@@ -70,7 +77,14 @@ document.addEventListener('DOMContentLoaded', function () {
               }
               if (allValid) {
                 savedLayout.panelStates = ps;
+                savedLayout.panelZCounter = maxZ + 1;
               }
+            }
+            // Validate panelGroups: array of group objects.
+            if (Array.isArray(parsed.panelGroups)) {
+              savedLayout.panelGroups = parsed.panelGroups.filter(function (g) {
+                return g && typeof g === 'object' && Array.isArray(g.panels) && g.panels.length >= 2 && typeof g.id === 'string';
+              });
             }
           }
         }
@@ -165,51 +179,70 @@ document.addEventListener('DOMContentLoaded', function () {
             open: true,
             x: -1,
             y: -1,
-            collapsed: false
+            collapsed: false,
+            z: 0,
+            compact: false
           },
           view: {
             open: true,
             x: -1,
             y: -1,
-            collapsed: false
+            collapsed: false,
+            z: 0,
+            compact: false
           },
           mode: {
             open: true,
             x: -1,
             y: -1,
-            collapsed: false
+            collapsed: false,
+            z: 0,
+            compact: false
           },
           tools: {
             open: true,
             x: -1,
             y: -1,
-            collapsed: false
+            collapsed: false,
+            z: 0,
+            compact: false
           },
           board: {
             open: true,
             x: -1,
             y: -1,
-            collapsed: false
+            collapsed: false,
+            z: 0,
+            compact: false
           },
           rules: {
             open: true,
             x: -1,
             y: -1,
-            collapsed: false
+            collapsed: false,
+            z: 0,
+            compact: false
           },
           stats: {
             open: true,
             x: -1,
             y: -1,
-            collapsed: false
+            collapsed: false,
+            z: 0,
+            compact: false
           },
           importExport: {
             open: false,
             x: -1,
             y: -1,
-            collapsed: false
+            collapsed: false,
+            z: 0,
+            compact: false
           }
         },
+        panelZCounter: savedLayout.panelZCounter || 1,
+        panelGroups: savedLayout.panelGroups || [],
+        activePopOut: null,
         // Responsive device class
         deviceClass: 'desktop',
         // Bottom sheet (phone modes)
@@ -279,6 +312,24 @@ document.addEventListener('DOMContentLoaded', function () {
       // System clipboard paste: import RLE/pattern text from clipboard.
       this._onPaste = this._handleClipboardPaste.bind(this);
       document.addEventListener('paste', this._onPaste);
+      // Close pop-outs on click outside or Escape.
+      this._onPopOutDismiss = function (e) {
+        if (!self.state.activePopOut) {
+          return;
+        }
+        if (e.type === 'keydown' && e.key === 'Escape') {
+          self._closePopOut();
+          return;
+        }
+        if (e.type === 'mousedown') {
+          var popOut = e.target.closest && e.target.closest('.pop-out-trigger');
+          if (!popOut) {
+            self._closePopOut();
+          }
+        }
+      };
+      document.addEventListener('mousedown', this._onPopOutDismiss);
+      document.addEventListener('keydown', this._onPopOutDismiss);
       // Drag-and-drop file import (desktop).
       var canvasContainer = this._canvas.parentNode;
       this._onDragOver = function (e) {
@@ -413,6 +464,8 @@ document.addEventListener('DOMContentLoaded', function () {
       this._canvas.removeEventListener('wheel', this.onWheel);
       document.removeEventListener('keydown', this.handleKeyDown);
       document.removeEventListener('paste', this._onPaste);
+      document.removeEventListener('mousedown', this._onPopOutDismiss);
+      document.removeEventListener('keydown', this._onPopOutDismiss);
       window.removeEventListener('resize', this._onResize);
       window.removeEventListener('orientationchange', this._onOrientationChange);
       var container = this._canvas.parentNode;
@@ -2743,7 +2796,9 @@ document.addEventListener('DOMContentLoaded', function () {
         className: "panel-overlay-container",
         role: "group",
         "aria-label": "Floating control panels"
-      }, this._renderFloatPanel('transport', 'Simulate', /*#__PURE__*/React.createElement("div", null, this.renderTransportControls(false), this.renderSpeedSlider())), this._renderFloatPanel('board', 'Board', /*#__PURE__*/React.createElement("div", null, this.renderBoardSliders(), this.renderBoundaryControls())), this._renderFloatPanel('view', 'View', /*#__PURE__*/React.createElement("div", null, this.renderViewControls(), this.renderZoomSlider(), this.renderDisplaySettings())), this._renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, this.renderModeControls(), this.renderToolsContent())), this._renderFloatPanel('rules', 'Rules', this.renderRulesSection()), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent()), /*#__PURE__*/React.createElement("div", {
+      }, this._renderFloatPanel('transport', 'Simulate', /*#__PURE__*/React.createElement("div", null, this.renderTransportControls(false), this.renderSpeedSlider())), this._renderFloatPanel('board', 'Board', /*#__PURE__*/React.createElement("div", null, this.renderBoardSliders(), this.renderBoundaryControls())), this._renderFloatPanel('view', 'View', /*#__PURE__*/React.createElement("div", null, this.renderViewControls(), this.renderZoomSlider(), this.renderDisplaySettings())), this._renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, this.renderModeControls(), this.renderToolsContent())), this._renderFloatPanel('rules', 'Rules', this.renderRulesSection()), this._renderFloatPanel('stats', 'Stats', this.renderStats()), this._renderFloatPanel('importExport', 'Import / Export', this.renderExportContent()), this.state.panelGroups.map(function (group) {
+        return self._renderPanelGroup(group);
+      }), /*#__PURE__*/React.createElement("div", {
         className: "panel-menu",
         role: "group",
         "aria-label": "Panel visibility"
@@ -2811,15 +2866,33 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!ps || !ps.open) {
         return null;
       }
+      // Skip panels that are in a group — they render inside the group.
+      if (this._findGroupForPanel(panelId)) {
+        return null;
+      }
+      var isCompact = ps.compact && !ps.collapsed;
+      var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (ps.collapsed ? " float-panel-collapsed" : "") + (isCompact ? " float-panel-compact" : "");
+      var style = {};
+      if (ps.x >= 0) {
+        style.left = ps.x;
+        style.top = ps.y;
+        style.right = 'auto';
+        style.bottom = 'auto';
+        style.transform = 'none';
+      }
+      if (ps.z) {
+        style.zIndex = ps.z;
+      }
       return /*#__PURE__*/React.createElement("div", {
-        className: "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (ps.collapsed ? " float-panel-collapsed" : ""),
-        style: ps.x >= 0 ? {
-          left: ps.x,
-          top: ps.y,
-          right: 'auto',
-          bottom: 'auto',
-          transform: 'none'
-        } : {},
+        className: className,
+        style: style,
+        "data-panel-id": panelId,
+        onMouseDown: function () {
+          self._bringPanelToFront(panelId);
+        },
+        onTouchStart: function () {
+          self._bringPanelToFront(panelId);
+        },
         role: "region",
         "aria-label": label + " panel"
       }, /*#__PURE__*/React.createElement("div", {
@@ -2834,6 +2907,14 @@ document.addEventListener('DOMContentLoaded', function () {
         className: "float-panel-title",
         id: "panel-title-" + panelId
       }, label), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn float-panel-compact-toggle",
+        onClick: function () {
+          self._togglePanelCompact(panelId);
+        },
+        "aria-label": isCompact ? "Expand " + label + " panel width" : "Compact " + label + " panel",
+        title: isCompact ? "Expand panel" : "Compact panel"
+      }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
         type: "button",
         className: "btn float-panel-collapse",
         onClick: function () {
@@ -2850,7 +2931,7 @@ document.addEventListener('DOMContentLoaded', function () {
         "aria-label": "Close " + label + " panel"
       }, "\xD7")), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
         className: "float-panel-body"
-      }, content), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+      }, isCompact ? this._renderCompactBody(panelId) : content), !ps.collapsed && !isCompact && /*#__PURE__*/React.createElement("div", {
         className: "float-panel-resize",
         onMouseDown: function (e) {
           self._startPanelResize(panelId, e);
@@ -2859,6 +2940,510 @@ document.addEventListener('DOMContentLoaded', function () {
           self._startPanelResize(panelId, e);
         }
       }));
+    },
+    _renderCompactBody: function (panelId) {
+      var self = this;
+      var defs = this._getCompactDefs(panelId);
+      if (!defs || defs.length === 0) {
+        return null;
+      }
+      return /*#__PURE__*/React.createElement("div", {
+        className: "compact-body"
+      }, defs.map(function (def) {
+        var isOpen = self._isPopOutOpen(panelId, def.id);
+        return /*#__PURE__*/React.createElement("div", {
+          key: def.id,
+          className: "pop-out-trigger"
+        }, /*#__PURE__*/React.createElement("button", {
+          type: "button",
+          className: "btn" + (def.active ? " active" : ""),
+          onClick: def.popOut ? function () {
+            isOpen ? self._closePopOut() : self._openPopOut(panelId, def.id);
+          } : def.onClick,
+          title: def.title
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fa " + def.icon,
+          "aria-hidden": "true"
+        })), def.popOut && isOpen && /*#__PURE__*/React.createElement("div", {
+          className: "pop-out-panel"
+        }, def.popOut()));
+      }));
+    },
+    _getCompactDefs: function (panelId) {
+      var self = this;
+      switch (panelId) {
+        case 'transport':
+          return [{
+            id: 'play',
+            icon: this.state.running ? 'fa-pause' : 'fa-play',
+            title: 'Play/Pause (Space)',
+            onClick: this.toggleGame,
+            active: this.state.running
+          }, {
+            id: 'step',
+            icon: 'fa-step-forward',
+            title: 'Step (.)',
+            onClick: this.stepGame
+          }, {
+            id: 'back',
+            icon: 'fa-step-backward',
+            title: 'Step backward (,)',
+            onClick: this.stepBack
+          }, {
+            id: 'go',
+            icon: 'fa-fast-forward',
+            title: 'Advance multiple generations',
+            onClick: function () {
+              self.stepN(self.state.stepCount);
+            }
+          }, {
+            id: 'reset',
+            icon: 'fa-refresh',
+            title: 'Randomize (R)',
+            onClick: this.resetGame
+          }, {
+            id: 'empty',
+            icon: 'fa-eraser',
+            title: 'Clear all cells (E)',
+            onClick: this.emptyBoard
+          }, {
+            id: 'undo',
+            icon: 'fa-undo',
+            title: 'Undo (Ctrl+Z)',
+            onClick: this.undo
+          }, {
+            id: 'speed',
+            icon: 'fa-tachometer',
+            title: 'Speed',
+            popOut: function () {
+              return self.renderSpeedSlider();
+            }
+          }];
+        case 'board':
+          return [{
+            id: 'boundary',
+            icon: 'fa-repeat',
+            title: 'Cycle boundary',
+            onClick: this.toggleBoundary,
+            active: this.state.boundary !== 'toroidal'
+          }, {
+            id: 'grid-size',
+            icon: 'fa-th-large',
+            title: 'Grid size',
+            popOut: function () {
+              return self.renderBoardSliders();
+            }
+          }];
+        case 'view':
+          return [{
+            id: 'fit-grid',
+            icon: 'fa-arrows-alt',
+            title: 'Fit Grid',
+            onClick: this.fitView
+          }, {
+            id: 'fit-cells',
+            icon: 'fa-compress',
+            title: 'Fit Cells',
+            onClick: this.fitLiveCells
+          }, {
+            id: 'grid',
+            icon: 'fa-th',
+            title: 'Grid lines (G)',
+            onClick: this.toggleGridLines,
+            active: this.state.gridLines
+          }, {
+            id: 'trails',
+            icon: 'fa-eye',
+            title: 'Trails',
+            onClick: this.toggleTrails,
+            active: this.state.showTrails
+          }, {
+            id: 'minimap',
+            icon: 'fa-map-o',
+            title: 'Minimap (M)',
+            onClick: this.toggleMinimap,
+            active: this.state.showMinimap
+          }, {
+            id: 'zoom',
+            icon: 'fa-search-plus',
+            title: 'Zoom',
+            popOut: function () {
+              return self.renderZoomSlider();
+            }
+          }, {
+            id: 'display',
+            icon: 'fa-paint-brush',
+            title: 'Display settings',
+            popOut: function () {
+              return self.renderDisplaySettings();
+            }
+          }];
+        case 'mode':
+          var defs = [{
+            id: 'draw',
+            icon: 'fa-pencil',
+            title: 'Draw mode (D)',
+            onClick: this.toggleDrawMode,
+            active: this.state.drawMode === 'paint'
+          }, {
+            id: 'preset',
+            icon: 'fa-puzzle-piece',
+            title: 'Preset patterns (P)',
+            onClick: this.togglePresetMode,
+            active: this.state.drawMode === 'preset'
+          }, {
+            id: 'select',
+            icon: 'fa-mouse-pointer',
+            title: 'Select mode (S)',
+            onClick: this.toggleSelectMode,
+            active: this.state.drawMode === 'select'
+          }, {
+            id: 'live-paint',
+            icon: 'fa-paint-brush',
+            title: 'Live Paint',
+            onClick: this.toggleLivePaint,
+            active: this.state.livePaintMode
+          }, {
+            id: 'analyze',
+            icon: 'fa-crosshairs',
+            title: 'Analyze',
+            onClick: this.analyzePattern
+          }, {
+            id: 'tools',
+            icon: 'fa-wrench',
+            title: 'Tool options',
+            popOut: function () {
+              return self.renderToolsContent();
+            }
+          }];
+          if (this.state.boundary !== 'unbounded') {
+            defs.splice(3, 0, {
+              id: 'region',
+              icon: 'fa-th',
+              title: 'Region bounds (B)',
+              onClick: this.toggleRegionMode,
+              active: this.state.drawMode === 'region'
+            });
+          }
+          return defs;
+        case 'rules':
+          return [{
+            id: 'rules',
+            icon: 'fa-cogs',
+            title: 'Rules',
+            popOut: function () {
+              return self.renderRulesSection();
+            }
+          }];
+        case 'stats':
+          return [{
+            id: 'stats',
+            icon: 'fa-bar-chart',
+            title: 'Statistics',
+            popOut: function () {
+              return self.renderStats();
+            }
+          }];
+        case 'importExport':
+          return [{
+            id: 'io',
+            icon: 'fa-exchange',
+            title: 'Import/Export',
+            popOut: function () {
+              return self.renderExportContent();
+            }
+          }];
+        default:
+          return [];
+      }
+    },
+    // ── Panel group rendering (Observatory docking) ──────────────────
+
+    _getPanelLabel: function (panelId) {
+      var PANEL_LABELS = {
+        transport: 'Simulate',
+        board: 'Board',
+        view: 'View',
+        mode: 'Tools',
+        tools: 'Tools',
+        rules: 'Rules',
+        stats: 'Stats',
+        importExport: 'Import / Export'
+      };
+      return PANEL_LABELS[panelId] || panelId;
+    },
+    _getPanelContent: function (panelId) {
+      switch (panelId) {
+        case 'transport':
+          return /*#__PURE__*/React.createElement("div", null, this.renderTransportControls(false), this.renderSpeedSlider());
+        case 'board':
+          return /*#__PURE__*/React.createElement("div", null, this.renderBoardSliders(), this.renderBoundaryControls());
+        case 'view':
+          return /*#__PURE__*/React.createElement("div", null, this.renderViewControls(), this.renderZoomSlider(), this.renderDisplaySettings());
+        case 'mode':
+          return /*#__PURE__*/React.createElement("div", null, this.renderModeControls(), this.renderToolsContent());
+        case 'rules':
+          return this.renderRulesSection();
+        case 'stats':
+          return this.renderStats();
+        case 'importExport':
+          return this.renderExportContent();
+        default:
+          return null;
+      }
+    },
+    _renderPanelGroup: function (group) {
+      var self = this;
+      var panels = this.state.panelStates;
+      // Filter to only open panels in this group.
+      var openPanels = group.panels.filter(function (pid) {
+        return panels[pid] && panels[pid].open;
+      });
+      if (openPanels.length === 0) {
+        return null;
+      }
+      // If only one panel remains open, render as standalone.
+      if (openPanels.length === 1) {
+        var soloId = openPanels[0];
+        var soloLabel = this._getPanelLabel(soloId);
+        return this._renderFloatPanelDirect(soloId, soloLabel, this._getPanelContent(soloId), group);
+      }
+      var activeTab = openPanels.indexOf(group.activeTab) !== -1 ? group.activeTab : openPanels[0];
+      var style = {};
+      if (group.x >= 0) {
+        style.left = group.x;
+        style.top = group.y;
+        style.right = 'auto';
+        style.bottom = 'auto';
+        style.transform = 'none';
+      }
+      if (group.z) {
+        style.zIndex = group.z;
+      }
+      return /*#__PURE__*/React.createElement("div", {
+        className: "float-panel panel-group",
+        style: style,
+        "data-group-id": group.id,
+        onMouseDown: function () {
+          self._bringGroupToFront(group.id);
+        },
+        role: "region",
+        "aria-label": "Panel group"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "float-panel-header",
+        onMouseDown: function (e) {
+          self._startGroupDrag(group.id, e);
+        },
+        onTouchStart: function (e) {
+          self._startGroupDrag(group.id, e);
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "panel-tab-bar"
+      }, openPanels.map(function (pid) {
+        var label = self._getPanelLabel(pid);
+        return /*#__PURE__*/React.createElement("button", {
+          key: pid,
+          type: "button",
+          className: "panel-tab" + (pid === activeTab ? " panel-tab-active" : ""),
+          onClick: function (e) {
+            e.stopPropagation();
+            self._setGroupActiveTab(group.id, pid);
+          },
+          onMouseDown: function (e) {
+            self._startTabDrag(pid, group.id, e);
+          },
+          title: label
+        }, label);
+      })), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn float-panel-close",
+        onClick: function () {
+          self._togglePanelOpen(activeTab);
+        },
+        "aria-label": "Close active panel"
+      }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+        className: "float-panel-body"
+      }, this._getPanelContent(activeTab)), /*#__PURE__*/React.createElement("div", {
+        className: "float-panel-resize",
+        onMouseDown: function (e) {
+          self._startGroupResize(group.id, e);
+        },
+        onTouchStart: function (e) {
+          self._startGroupResize(group.id, e);
+        }
+      }));
+    },
+    // Render a standalone panel that belongs to a group (when group has only 1 open panel).
+    _renderFloatPanelDirect: function (panelId, label, content, group) {
+      var self = this;
+      var ps = this.state.panelStates[panelId];
+      if (!ps || !ps.open) {
+        return null;
+      }
+      var style = {};
+      if (group && group.x >= 0) {
+        style.left = group.x;
+        style.top = group.y;
+        style.right = 'auto';
+        style.bottom = 'auto';
+        style.transform = 'none';
+      } else if (ps.x >= 0) {
+        style.left = ps.x;
+        style.top = ps.y;
+        style.right = 'auto';
+        style.bottom = 'auto';
+        style.transform = 'none';
+      }
+      if (ps.z) {
+        style.zIndex = ps.z;
+      }
+      if (group && group.z) {
+        style.zIndex = group.z;
+      }
+      return /*#__PURE__*/React.createElement("div", {
+        className: "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase(),
+        style: style,
+        "data-panel-id": panelId,
+        onMouseDown: function () {
+          self._bringPanelToFront(panelId);
+        },
+        role: "region",
+        "aria-label": label + " panel"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "float-panel-header",
+        onMouseDown: function (e) {
+          self._startPanelDrag(panelId, e);
+        },
+        onTouchStart: function (e) {
+          self._startPanelDrag(panelId, e);
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "float-panel-title"
+      }, label), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn float-panel-collapse",
+        onClick: function () {
+          self._togglePanelCollapse(panelId);
+        },
+        "aria-expanded": !ps.collapsed
+      }, ps.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "btn float-panel-close",
+        onClick: function () {
+          self._togglePanelOpen(panelId);
+        },
+        "aria-label": "Close " + label + " panel"
+      }, "\xD7")), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+        className: "float-panel-body"
+      }, content));
+    },
+    _startGroupDrag: function (groupId, e) {
+      if (e.target.tagName === 'BUTTON' || e.target.closest && e.target.closest('button')) {
+        return;
+      }
+      e.preventDefault();
+      var panel = e.currentTarget.parentElement;
+      var rect = panel.getBoundingClientRect();
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      var offX = clientX - rect.left;
+      var offY = clientY - rect.top;
+      this._bringGroupToFront(groupId);
+      panel.classList.add('dragging');
+      var self = this;
+      var move = function (ev) {
+        ev.preventDefault();
+        var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        panel.style.left = Math.max(0, Math.min(window.innerWidth - 60, cx - offX)) + 'px';
+        panel.style.top = Math.max(0, Math.min(window.innerHeight - 40, cy - offY)) + 'px';
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.transform = 'none';
+      };
+      var end = function () {
+        panel.classList.remove('dragging');
+        var finalRect = panel.getBoundingClientRect();
+        var groups = JSON.parse(JSON.stringify(self.state.panelGroups));
+        for (var i = 0; i < groups.length; i++) {
+          if (groups[i].id === groupId) {
+            groups[i].x = finalRect.left;
+            groups[i].y = finalRect.top;
+            break;
+          }
+        }
+        self.setState({
+          panelGroups: groups
+        }, function () {
+          self._persistLayout();
+        });
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', end);
+        document.removeEventListener('touchmove', move);
+        document.removeEventListener('touchend', end);
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', end);
+      document.addEventListener('touchmove', move, {
+        passive: false
+      });
+      document.addEventListener('touchend', end);
+    },
+    _startTabDrag: function (panelId, groupId, e) {
+      // Only initiate tab-tear-off if the user drags far enough from starting point.
+      var startX = e.clientX;
+      var startY = e.clientY;
+      var self = this;
+      var threshold = 30;
+      var tornOff = false;
+      var move = function (ev) {
+        if (tornOff) {
+          return;
+        }
+        var dx = ev.clientX - startX;
+        var dy = ev.clientY - startY;
+        if (Math.sqrt(dx * dx + dy * dy) > threshold) {
+          tornOff = true;
+          self._separatePanel(panelId, groupId, ev.clientX - 40, ev.clientY - 10);
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', end);
+        }
+      };
+      var end = function () {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', end);
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', end);
+    },
+    _startGroupResize: function (groupId, e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var panel = e.currentTarget.parentElement;
+      var rect = panel.getBoundingClientRect();
+      var startW = rect.width;
+      var startH = rect.height;
+      var startX = e.touches ? e.touches[0].clientX : e.clientX;
+      var startY = e.touches ? e.touches[0].clientY : e.clientY;
+      var move = function (ev) {
+        ev.preventDefault();
+        var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        panel.style.width = Math.max(180, startW + (cx - startX)) + 'px';
+        panel.style.maxHeight = Math.max(80, startH + (cy - startY)) + 'px';
+      };
+      var end = function () {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', end);
+        document.removeEventListener('touchmove', move);
+        document.removeEventListener('touchend', end);
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', end);
+      document.addEventListener('touchmove', move, {
+        passive: false
+      });
+      document.addEventListener('touchend', end);
     },
     // ── Panel drag (Observatory) ─────────────────────────────────────
 
@@ -2874,6 +3459,7 @@ document.addEventListener('DOMContentLoaded', function () {
       this._fpDragId = panelId;
       this._fpDragOffX = clientX - rect.left;
       this._fpDragOffY = clientY - rect.top;
+      this._bringPanelToFront(panelId);
       panel.classList.add('dragging');
       var self = this;
       this._fpDragMove = function (ev) {
@@ -2887,18 +3473,27 @@ document.addEventListener('DOMContentLoaded', function () {
         panel.style.right = 'auto';
         panel.style.bottom = 'auto';
         panel.style.transform = 'none';
+        // Highlight potential merge targets during drag.
+        self._updateDropIndicator(panelId, newX, newY, panel);
       };
       this._fpDragEnd = function () {
         panel.classList.remove('dragging');
+        self._clearDropIndicator();
         var finalRect = panel.getBoundingClientRect();
-        var panels = JSON.parse(JSON.stringify(self.state.panelStates));
-        panels[panelId].x = finalRect.left;
-        panels[panelId].y = finalRect.top;
-        self.setState({
-          panelStates: panels
-        }, function () {
-          self._persistLayout();
-        });
+        // Check for merge target.
+        var mergeTarget = self._findDropTarget(panelId, finalRect);
+        if (mergeTarget) {
+          self._mergePanels(panelId, mergeTarget);
+        } else {
+          var panels = JSON.parse(JSON.stringify(self.state.panelStates));
+          panels[panelId].x = finalRect.left;
+          panels[panelId].y = finalRect.top;
+          self.setState({
+            panelStates: panels
+          }, function () {
+            self._persistLayout();
+          });
+        }
         document.removeEventListener('mousemove', self._fpDragMove);
         document.removeEventListener('mouseup', self._fpDragEnd);
         document.removeEventListener('touchmove', self._fpDragMove);
@@ -2910,6 +3505,58 @@ document.addEventListener('DOMContentLoaded', function () {
         passive: false
       });
       document.addEventListener('touchend', this._fpDragEnd);
+    },
+    _updateDropIndicator: function (draggedId, dragX, dragY, dragPanel) {
+      var allPanels = document.querySelectorAll('.float-panel, .panel-group');
+      var dragRect = dragPanel.getBoundingClientRect();
+      var found = false;
+      for (var i = 0; i < allPanels.length; i++) {
+        var other = allPanels[i];
+        if (other === dragPanel) {
+          allPanels[i].classList.remove('drop-target');
+          continue;
+        }
+        var otherRect = other.getBoundingClientRect();
+        var overlap = this._rectsOverlap(dragRect, otherRect);
+        if (overlap > 0.3 && !found) {
+          other.classList.add('drop-target');
+          found = true;
+        } else {
+          other.classList.remove('drop-target');
+        }
+      }
+    },
+    _clearDropIndicator: function () {
+      var els = document.querySelectorAll('.drop-target');
+      for (var i = 0; i < els.length; i++) {
+        els[i].classList.remove('drop-target');
+      }
+    },
+    _rectsOverlap: function (a, b) {
+      var overlapX = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+      var overlapY = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+      var overlapArea = overlapX * overlapY;
+      var aArea = a.width * a.height;
+      return aArea > 0 ? overlapArea / aArea : 0;
+    },
+    _findDropTarget: function (draggedId, dragRect) {
+      var allPanels = document.querySelectorAll('.float-panel, .panel-group');
+      for (var i = 0; i < allPanels.length; i++) {
+        var el = allPanels[i];
+        var targetId = el.getAttribute('data-panel-id');
+        var targetGroupId = el.getAttribute('data-group-id');
+        if (!targetId && !targetGroupId) {
+          continue;
+        }
+        if (targetId === draggedId) {
+          continue;
+        }
+        var otherRect = el.getBoundingClientRect();
+        if (this._rectsOverlap(dragRect, otherRect) > 0.3) {
+          return targetId || targetGroupId;
+        }
+      }
+      return null;
     },
     // ── Panel resize (Observatory) ───────────────────────────────────
 

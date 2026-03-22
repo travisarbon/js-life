@@ -177,11 +177,157 @@ var LifeViewMixin = { // eslint-disable-line no-unused-vars
                 railCollapsed: this.state.railCollapsed,
                 railTab:       this.state.railTab,
                 railSide:      this.state.railSide,
-                panelStates:   this.state.panelStates
+                panelStates:   this.state.panelStates,
+                panelGroups:   this.state.panelGroups
             }));
         } catch(e){
             // localStorage full or unavailable — silently ignore.
         }
+    },
+
+    // ── Z-index layering ─────────────────────────────────────────
+
+    _bringPanelToFront : function(panelId){
+        var panels = JSON.parse(JSON.stringify(this.state.panelStates));
+        var next = (this.state.panelZCounter || 1) + 1;
+        panels[panelId].z = next;
+        this.setState({ panelStates: panels, panelZCounter: next });
+    },
+
+    // ── Panel grouping (docking) ─────────────────────────────────
+
+    _generateGroupId : function(){
+        return 'g' + Date.now() + Math.random().toString(36).substr(2, 4);
+    },
+
+    _findGroupForPanel : function(panelId){
+        var groups = this.state.panelGroups;
+        for(var i = 0; i < groups.length; i++){
+            if(groups[i].panels.indexOf(panelId) !== -1){ return groups[i]; }
+        }
+        return null;
+    },
+
+    _mergePanels : function(draggedId, targetId){
+        var groups = JSON.parse(JSON.stringify(this.state.panelGroups));
+        var panels = JSON.parse(JSON.stringify(this.state.panelStates));
+        var dragGroup = null, targetGroup = null;
+        for(var i = 0; i < groups.length; i++){
+            if(groups[i].panels.indexOf(draggedId) !== -1){ dragGroup = groups[i]; }
+            // targetId can be a panel ID or a group ID (starts with 'g').
+            if(groups[i].id === targetId || groups[i].panels.indexOf(targetId) !== -1){ targetGroup = groups[i]; }
+        }
+
+        if(targetGroup){
+            // Add dragged panel to existing target group.
+            if(targetGroup.panels.indexOf(draggedId) === -1){
+                targetGroup.panels.push(draggedId);
+            }
+            targetGroup.activeTab = draggedId;
+            // If dragged was in its own group, dissolve that group.
+            if(dragGroup && dragGroup.id !== targetGroup.id){
+                groups = groups.filter(function(g){ return g.id !== dragGroup.id; });
+            }
+        } else {
+            // Create new group at target's position.
+            var newGroup = {
+                id: this._generateGroupId(),
+                panels: [targetId, draggedId],
+                activeTab: draggedId,
+                x: panels[targetId].x,
+                y: panels[targetId].y,
+                z: (this.state.panelZCounter || 1) + 1
+            };
+            groups.push(newGroup);
+            // If dragged was in a group, remove it.
+            if(dragGroup){
+                dragGroup.panels = dragGroup.panels.filter(function(p){ return p !== draggedId; });
+                if(dragGroup.panels.length < 2){
+                    groups = groups.filter(function(g){ return g.id !== dragGroup.id; });
+                }
+            }
+        }
+
+        var next = (this.state.panelZCounter || 1) + 1;
+        var self = this;
+        this.setState({ panelGroups: groups, panelStates: panels, panelZCounter: next }, function(){ self._persistLayout(); });
+    },
+
+    _separatePanel : function(panelId, groupId, x, y){
+        var groups = JSON.parse(JSON.stringify(this.state.panelGroups));
+        var panels = JSON.parse(JSON.stringify(this.state.panelStates));
+        var next = (this.state.panelZCounter || 1) + 1;
+
+        for(var i = 0; i < groups.length; i++){
+            if(groups[i].id === groupId){
+                groups[i].panels = groups[i].panels.filter(function(p){ return p !== panelId; });
+                if(groups[i].activeTab === panelId){
+                    groups[i].activeTab = groups[i].panels[0] || '';
+                }
+                // Dissolve group if only 1 panel remains.
+                if(groups[i].panels.length < 2){
+                    // Transfer group position to the remaining panel.
+                    var remaining = groups[i].panels[0];
+                    if(remaining){
+                        panels[remaining].x = groups[i].x >= 0 ? groups[i].x : panels[remaining].x;
+                        panels[remaining].y = groups[i].y >= 0 ? groups[i].y : panels[remaining].y;
+                    }
+                    groups.splice(i, 1);
+                }
+                break;
+            }
+        }
+        // Position the separated panel.
+        panels[panelId].x = x;
+        panels[panelId].y = y;
+        panels[panelId].z = next;
+        var self = this;
+        this.setState({ panelGroups: groups, panelStates: panels, panelZCounter: next }, function(){ self._persistLayout(); });
+    },
+
+    _setGroupActiveTab : function(groupId, panelId){
+        var groups = JSON.parse(JSON.stringify(this.state.panelGroups));
+        for(var i = 0; i < groups.length; i++){
+            if(groups[i].id === groupId){
+                groups[i].activeTab = panelId;
+                break;
+            }
+        }
+        var self = this;
+        this.setState({ panelGroups: groups }, function(){ self._persistLayout(); });
+    },
+
+    _bringGroupToFront : function(groupId){
+        var groups = JSON.parse(JSON.stringify(this.state.panelGroups));
+        var next = (this.state.panelZCounter || 1) + 1;
+        for(var i = 0; i < groups.length; i++){
+            if(groups[i].id === groupId){
+                groups[i].z = next;
+                break;
+            }
+        }
+        this.setState({ panelGroups: groups, panelZCounter: next });
+    },
+
+    // ── Compact mode ─────────────────────────────────────────────
+
+    _togglePanelCompact : function(panelId){
+        var panels = JSON.parse(JSON.stringify(this.state.panelStates));
+        panels[panelId].compact = !panels[panelId].compact;
+        var self = this;
+        this.setState({ panelStates: panels }, function(){ self._persistLayout(); });
+    },
+
+    _openPopOut : function(panelId, controlId){
+        this.setState({ activePopOut: panelId + ':' + controlId });
+    },
+
+    _closePopOut : function(){
+        this.setState({ activePopOut: null });
+    },
+
+    _isPopOutOpen : function(panelId, controlId){
+        return this.state.activePopOut === panelId + ':' + controlId;
     },
 
     // ── Focus management ─────────────────────────────────────────
