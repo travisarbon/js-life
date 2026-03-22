@@ -1,4 +1,4 @@
-/* global SimEngine, SimRunner, CanvasRenderer, InputHandler, RegionUtil, PATTERNS, LifeSimUtils, LifeViewUtils */
+/* global SimEngine, SimRunner, CanvasRenderer, InputHandler, RegionUtil, PATTERNS, LifeSimUtils, LifeViewUtils, drawRotationPreview */
 /**
  * Board configuration, drawing modes, and selection utility for LifeBoard component.
  * Handles board resize, rules, patterns, mode toggles, selection, and region management.
@@ -48,7 +48,7 @@ var LifeBoardUtils = { // eslint-disable-line no-unused-vars
         dispatch({type:'MERGE', payload:{selectedPattern: 'Clipboard', patternRotation: 0,
                        drawMode: 'preset', selection: null}});
         refs.drawPending = true;
-        LifeViewUtils.drawRotationPreview(stateRef, dispatch, refs);
+        drawRotationPreview(stateRef, refs);
     },
 
     deleteSelection : function(stateRef, dispatch, refs){

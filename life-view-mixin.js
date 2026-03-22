@@ -1,4 +1,4 @@
-/* global parseKey, STATS_CHIP_REAPPEAR_DELAY */
+/* global parseKey, STATS_CHIP_REAPPEAR_DELAY, drawRotationPreview */
 /**
  * View, layout, and panel management utilities for LifeBoard component.
  * Handles viewport pan/zoom, layout modes, rail/panel/sheet state, focus management.
@@ -418,7 +418,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
             LifeViewUtils._saveFocus(stateRef, dispatch, refs);
             dispatch({type:'MERGE', payload:{bottomSheetOpen: true, bottomSheetClosing: false}});
             LifeViewUtils._focusFirst(stateRef, dispatch, refs, '.bottom-sheet');
-            refs.drawRotationPreview();
+            drawRotationPreview(stateRef, refs);
         }
     },
 
