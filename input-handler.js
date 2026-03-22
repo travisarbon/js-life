@@ -712,18 +712,27 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         event.preventDefault();
         if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
         var canvas = host._canvas;
+        if(!canvas){ return; }
         var cellSize = host.state.cellSize;
+
+        // Normalize deltaY across deltaMode values (line vs pixel vs page).
+        var rawDX = event.deltaX;
+        var rawDY = event.deltaY;
+        if(event.deltaMode === 1){ rawDX *= 16; rawDY *= 16; } // DOM_DELTA_LINE
+        else if(event.deltaMode === 2){ rawDX *= 100; rawDY *= 100; } // DOM_DELTA_PAGE
 
         // ── Zoom (Ctrl+wheel or trackpad pinch) ──────────────────────
         if(event.ctrlKey || event.metaKey){
             var mouse = this.getMousePos(event, canvas);
             // Accumulate zoom delta for smooth trackpad pinch-to-zoom.
-            this._zoomAcc = (this._zoomAcc || 0) - event.deltaY;
-            var zoomThreshold = 15;
+            this._zoomAcc = (this._zoomAcc || 0) - rawDY;
+            var zoomThreshold = 50;
             var steps = Math.trunc(this._zoomAcc / zoomThreshold);
             if(steps === 0){ return; }
+            // Cap to ±3 steps per event for controllable zoom.
+            steps = Math.max(-3, Math.min(3, steps));
             this._zoomAcc -= steps * zoomThreshold;
-            var newCS = Math.max(1, Math.min(32, cellSize + steps));
+            var newCS = Math.max(1, Math.min(128, cellSize + steps));
             if(newCS === cellSize){ return; }
             // Zoom toward cursor: keep the cell under the pointer fixed.
             var cellC = host.state.viewX + mouse.x / cellSize;
@@ -740,22 +749,13 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         var rect = canvas.getBoundingClientRect();
         var displayCellSize = (rect.width > 0 && canvas.width > 0)
             ? cellSize * (rect.width / canvas.width) : cellSize;
-        // Convert pixel deltas to cell offsets.
-        var dc = Math.round(event.deltaX / displayCellSize);
-        var dr = Math.round(event.deltaY / displayCellSize);
-        if(dc === 0 && dr === 0){
-            // Sub-cell scroll — accumulate fractional remainder so slow
-            // trackpad drags still register.
-            this._wheelAccX = (this._wheelAccX || 0) + event.deltaX / displayCellSize;
-            this._wheelAccY = (this._wheelAccY || 0) + event.deltaY / displayCellSize;
-            dc = Math.trunc(this._wheelAccX);
-            dr = Math.trunc(this._wheelAccY);
-            this._wheelAccX -= dc;
-            this._wheelAccY -= dr;
-        } else {
-            this._wheelAccX = 0;
-            this._wheelAccY = 0;
-        }
+        // Always accumulate for consistent behavior across mouse wheel and trackpad.
+        this._wheelAccX = (this._wheelAccX || 0) + rawDX / displayCellSize;
+        this._wheelAccY = (this._wheelAccY || 0) + rawDY / displayCellSize;
+        var dc = Math.trunc(this._wheelAccX);
+        var dr = Math.trunc(this._wheelAccY);
+        this._wheelAccX -= dc;
+        this._wheelAccY -= dr;
         if(dc !== 0 || dr !== 0){
             host.pan(dc, dr);
         }
