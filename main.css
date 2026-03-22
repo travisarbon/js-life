@@ -1333,7 +1333,10 @@ canvas.display {
    regardless of overflow:visible. */
 .panel-group-compact {
   contain: layout style;
-  overflow: visible; }
+  overflow: visible;
+  min-height: 60px; }
+.panel-group-compact[style*="max-height"] .compact-group-body {
+  overflow: hidden; }
 .panel-group-compact .compact-group-body,
 .panel-group-compact .compact-main,
 .panel-group-compact .compact-body {

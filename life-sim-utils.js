@@ -166,10 +166,15 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
     // ── Undo ──────────────────────────────────────────────────────────
 
     pushUndo : function(stateRef, refs, dispatch){
+        var s = stateRef.current;
         refs.undoStack.push({
-            liveCells :   new Map(stateRef.current.liveCells),
-            generations : stateRef.current.generations,
-            regionMask :  new Set(stateRef.current.regionMask)
+            liveCells :        new Map(s.liveCells),
+            generations :      s.generations,
+            regionMask :       new Set(s.regionMask),
+            regionComponents : s.regionComponents,
+            regionBounds :     s.regionBounds,
+            cols :             s.cols,
+            rows :             s.rows
         });
         if(refs.undoStack.length > MAX_UNDO_STACK){ refs.undoStack.shift(); }
         refs.redoStack = [];
@@ -193,10 +198,15 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
     undo : function(stateRef, refs, dispatch){
         if(refs.undoStack.length === 0){ LifeViewUtils._announce(stateRef, refs, dispatch, 'Nothing to undo'); return; }
         // Save current state for redo before restoring.
+        var s = stateRef.current;
         refs.redoStack.push({
-            liveCells: new Map(stateRef.current.liveCells),
-            generations: stateRef.current.generations,
-            regionMask: new Set(stateRef.current.regionMask)
+            liveCells:        new Map(s.liveCells),
+            generations:      s.generations,
+            regionMask:       new Set(s.regionMask),
+            regionComponents: s.regionComponents,
+            regionBounds:     s.regionBounds,
+            cols:             s.cols,
+            rows:             s.rows
         });
         if(refs.redoStack.length > MAX_UNDO_STACK){ refs.redoStack.shift(); }
         var entry = refs.undoStack.pop();
@@ -214,19 +224,29 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         };
         if(entry.regionMask){
             stateUpdate.regionMask = entry.regionMask;
+            stateUpdate.regionComponents = entry.regionComponents;
+            stateUpdate.regionBounds = entry.regionBounds;
+            stateUpdate.cols = entry.cols;
+            stateUpdate.rows = entry.rows;
+            stateUpdate.pendingCols = entry.cols;
+            stateUpdate.pendingRows = entry.rows;
         }
         dispatch({type:'MERGE', payload: stateUpdate});
-        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch, null, entry.regionMask); }
-        else { refs.drawPending = true; }
+        refs.drawPending = true;
     },
 
     redo : function(stateRef, refs, dispatch){
         if(refs.redoStack.length === 0){ LifeViewUtils._announce(stateRef, refs, dispatch, 'Nothing to redo'); return; }
         // Save current state for undo before applying redo.
+        var s = stateRef.current;
         refs.undoStack.push({
-            liveCells: new Map(stateRef.current.liveCells),
-            generations: stateRef.current.generations,
-            regionMask: new Set(stateRef.current.regionMask)
+            liveCells:        new Map(s.liveCells),
+            generations:      s.generations,
+            regionMask:       new Set(s.regionMask),
+            regionComponents: s.regionComponents,
+            regionBounds:     s.regionBounds,
+            cols:             s.cols,
+            rows:             s.rows
         });
         var entry = refs.redoStack.pop();
         refs.tickId++;
@@ -243,10 +263,15 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         };
         if(entry.regionMask){
             stateUpdate.regionMask = entry.regionMask;
+            stateUpdate.regionComponents = entry.regionComponents;
+            stateUpdate.regionBounds = entry.regionBounds;
+            stateUpdate.cols = entry.cols;
+            stateUpdate.rows = entry.rows;
+            stateUpdate.pendingCols = entry.cols;
+            stateUpdate.pendingRows = entry.rows;
         }
         dispatch({type:'MERGE', payload: stateUpdate});
-        if(entry.regionMask){ LifeBoardUtils._recomputeRegion(stateRef, refs, dispatch, null, entry.regionMask); }
-        else { refs.drawPending = true; }
+        refs.drawPending = true;
     },
 
     // Advance N generations at once via SimRunner.
