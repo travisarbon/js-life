@@ -172,7 +172,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         importExport: { open: false, x: -1, y: -1, collapsed: false, z: 0, compact: false }
                     },
                     panelZCounter :    savedLayout.panelZCounter || 1,
-                    panelGroups :      savedLayout.panelGroups || [],
+                    panelGroups :      savedLayout.panelGroups || [{
+                        id: 'g-default', panels: ['transport','view','mode','board','rules','stats'],
+                        activeTab: 'transport', x: 10, y: 50, z: 1, compact: true, compactTabMode: 'sidebar'
+                    }],
                     activePopOut :     null,
                     groupTabDropdownOpen : null,
                     // Responsive device class
