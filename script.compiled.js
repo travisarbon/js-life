@@ -858,6 +858,430 @@ var StatsChip = function StatsChip(props) {
 };
 "use strict";
 
+/* global React, CanvasRenderer, PATTERNS, PATTERN_GROUPS, PATTERN_META,
+          InputHandler, LifeBoardUtils, LifeAnalysisUtils,
+          drawBoard, drawRotationPreview */
+/**
+ * Tools-panel components extracted from LifeBoard.
+ * ModeControls — draw mode toggle buttons + analyze.
+ * ToolsContent — tool sub-type selectors, preset picker, selection actions.
+ * MobileContextPanel — rotation / selection buttons shown on mobile.
+ * Each component receives props: state, stateRef, refs, dispatch
+ */
+
+var ModeControls = function ModeControls(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "mode-controls"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.drawMode === 'paint' ? " active" : ""),
+    onClick: function () {
+      LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch);
+    },
+    title: "Freehand draw mode (D)"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-pencil",
+    "aria-hidden": "true"
+  }), " Draw"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.drawMode === 'preset' ? " active" : ""),
+    onClick: function () {
+      LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch);
+    },
+    title: "Place preset patterns (P)"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-puzzle-piece",
+    "aria-hidden": "true"
+  }), " Preset"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.drawMode === 'select' ? " active" : ""),
+    onClick: function () {
+      LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch);
+    },
+    title: "Select and move cells (S)"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-mouse-pointer",
+    "aria-hidden": "true"
+  }), " Select"), state.boundary !== 'unbounded' && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.drawMode === 'region' ? " active" : ""),
+    onClick: function () {
+      LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch);
+    },
+    title: "Draw/erase region bounds (B)"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-th",
+    "aria-hidden": "true"
+  }), " Region"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-toggle" + (state.livePaintMode ? " active" : ""),
+    onClick: function () {
+      LifeBoardUtils.toggleLivePaint(stateRef, refs, dispatch);
+    },
+    title: "Paint while running"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-paint-brush",
+    "aria-hidden": "true"
+  }), " Live Paint"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch);
+    },
+    disabled: state.analyzing,
+    title: "Detect oscillator/spaceship"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-crosshairs",
+    "aria-hidden": "true"
+  }), " Analyze"));
+};
+var ToolsContent = function ToolsContent(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var filterLc = state.patternFilter.toLowerCase();
+  var patternOptions = Object.keys(PATTERN_GROUPS).map(function (group) {
+    var names = Object.keys(PATTERN_GROUPS[group]).filter(function (name) {
+      return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
+    });
+    if (names.length === 0) {
+      return null;
+    }
+    var opts = names.map(function (name) {
+      var meta = PATTERN_META[name];
+      var title = '';
+      if (meta) {
+        if (meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');else if (meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+      }
+      return /*#__PURE__*/React.createElement("option", {
+        key: name,
+        value: name,
+        title: title
+      }, name);
+    });
+    return /*#__PURE__*/React.createElement("optgroup", {
+      key: group,
+      label: group
+    }, opts);
+  }).filter(function (x) {
+    return x !== null;
+  });
+  if (PATTERNS['Custom']) {
+    patternOptions = patternOptions.concat(/*#__PURE__*/React.createElement("optgroup", {
+      key: "custom",
+      label: "Custom"
+    }, /*#__PURE__*/React.createElement("option", {
+      value: "Custom"
+    }, "Custom")));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tools-content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "btn-section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Draw:"), /*#__PURE__*/React.createElement("select", {
+    value: state.drawTool,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          drawTool: e.target.value,
+          drawMode: 'paint',
+          selection: null
+        }
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "cell"
+  }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
+    value: "line"
+  }, "Line"), /*#__PURE__*/React.createElement("option", {
+    value: "fill"
+  }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-rect"
+  }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-circle"
+  }, "Circle"))), /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Select:"), /*#__PURE__*/React.createElement("select", {
+    value: state.selectTool,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          selectTool: e.target.value,
+          drawMode: 'select',
+          selection: null
+        }
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "rect"
+  }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+    value: "ellipse"
+  }, "Ellipse"), /*#__PURE__*/React.createElement("option", {
+    value: "freeform"
+  }, "Freeform"), /*#__PURE__*/React.createElement("option", {
+    value: "all-visible"
+  }, "All visible"))), state.boundary !== 'unbounded' && /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Region:"), /*#__PURE__*/React.createElement("select", {
+    value: state.regionTool,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          regionTool: e.target.value,
+          drawMode: 'region'
+        }
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "cell"
+  }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
+    value: "line"
+  }, "Line"), /*#__PURE__*/React.createElement("option", {
+    value: "fill"
+  }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-rect"
+  }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
+    value: "shape-circle"
+  }, "Circle"))), /*#__PURE__*/React.createElement("div", {
+    className: "tool-subtype-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "tool-label"
+  }, "Preset:"), /*#__PURE__*/React.createElement("select", {
+    className: "preset-select" + (state.drawMode === 'preset' && state.selectedPattern ? " active" : ""),
+    value: state.selectedPattern || "",
+    onChange: function (e) {
+      LifeBoardUtils.selectPattern(stateRef, refs, dispatch, e);
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Choose preset..."), patternOptions)), /*#__PURE__*/React.createElement("input", {
+    className: "pattern-filter-input",
+    type: "search",
+    placeholder: "Filter patterns...",
+    "aria-label": "Filter patterns",
+    value: state.patternFilter,
+    onChange: function (e) {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          patternFilter: e.target.value
+        }
+      });
+    }
+  }), state.drawMode === 'preset' && state.selectedPattern && /*#__PURE__*/React.createElement("div", {
+    className: "rotation-row"
+  }, /*#__PURE__*/React.createElement("canvas", {
+    className: "rotation-preview",
+    width: "96",
+    height: "96",
+    role: "img",
+    "aria-label": "Pattern rotation preview",
+    ref: function (c) {
+      refs.previewCanvas = c;
+      if (c) requestAnimationFrame(function () {
+        drawRotationPreview(stateRef, refs);
+      });
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "rotation-btns"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-rotate",
+    onClick: function () {
+      LifeBoardUtils.rotateCCW(stateRef, refs, dispatch);
+    },
+    title: "Rotate 90\xB0 counter-clockwise"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-undo",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-rotate",
+    onClick: function () {
+      LifeBoardUtils.rotateCW(stateRef, refs, dispatch);
+    },
+    title: "Rotate 90\xB0 clockwise"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-repeat",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      refs.previewPos = null;
+      dispatch({
+        type: "MERGE",
+        payload: {
+          selectedPattern: null,
+          patternRotation: 0,
+          drawMode: "paint"
+        }
+      });
+      setTimeout(function () {
+        drawBoard(stateRef, refs);
+      }, 0);
+    },
+    "aria-label": "Cancel pattern placement",
+    title: "Cancel placement"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-times",
+    "aria-hidden": "true"
+  })))), state.selection && /*#__PURE__*/React.createElement("div", {
+    className: "buttons buttons-selection"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeBoardUtils.copySelection(stateRef, refs, dispatch);
+    },
+    title: "Copy selected cells",
+    "aria-label": "Copy selected cells"
+  }, "Copy"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeBoardUtils.pasteAsPattern(stateRef, refs, dispatch);
+    },
+    disabled: !state.clipboard || state.clipboard.length === 0,
+    title: "Paste copied cells",
+    "aria-label": "Paste copied cells"
+  }, "Paste"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeBoardUtils.deleteSelection(stateRef, refs, dispatch);
+    },
+    title: "Delete selected cells",
+    "aria-label": "Delete selected cells"
+  }, "Delete"))));
+};
+var MobileContextPanel = function MobileContextPanel(props) {
+  // eslint-disable-line no-unused-vars
+  var state = props.state,
+    stateRef = props.stateRef,
+    refs = props.refs,
+    dispatch = props.dispatch;
+  var showRotation = state.drawMode === 'preset' && state.selectedPattern;
+  var showSelection = state.selection !== null;
+  if (!showRotation && !showSelection) {
+    return null;
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "mobile-context-panel"
+  }, showRotation && /*#__PURE__*/React.createElement("div", {
+    className: "rotation-btns"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-rotate",
+    onClick: function () {
+      LifeBoardUtils.rotateCCW(stateRef, refs, dispatch);
+    },
+    title: "Rotate 90\xB0 counter-clockwise"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-undo",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn btn-rotate",
+    onClick: function () {
+      LifeBoardUtils.rotateCW(stateRef, refs, dispatch);
+    },
+    title: "Rotate 90\xB0 clockwise"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-repeat",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      InputHandler._previewPos = null;
+      dispatch({
+        type: "MERGE",
+        payload: {
+          selectedPattern: null,
+          patternRotation: 0,
+          drawMode: "paint"
+        }
+      });
+      setTimeout(function () {
+        drawBoard(stateRef, refs);
+      }, 0);
+    },
+    "aria-label": "Cancel pattern placement",
+    title: "Cancel placement"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-times",
+    "aria-hidden": "true"
+  }))), showSelection && /*#__PURE__*/React.createElement("div", {
+    className: "buttons buttons-selection"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeBoardUtils.copySelection(stateRef, refs, dispatch);
+    },
+    disabled: !state.selection,
+    title: "Copy selected cells",
+    "aria-label": "Copy selected cells"
+  }, "Copy"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeBoardUtils.pasteAsPattern(stateRef, refs, dispatch);
+    },
+    disabled: !state.clipboard || state.clipboard.length === 0,
+    title: "Paste copied cells",
+    "aria-label": "Paste copied cells"
+  }, "Paste"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      LifeBoardUtils.deleteSelection(stateRef, refs, dispatch);
+    },
+    disabled: !state.selection,
+    title: "Delete selected cells",
+    "aria-label": "Delete selected cells"
+  }, "Delete"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn",
+    onClick: function () {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          selection: null
+        }
+      });
+      setTimeout(function () {
+        drawBoard(stateRef, refs);
+      }, 0);
+    },
+    title: "Clear selection",
+    "aria-label": "Clear selection"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-times",
+    "aria-hidden": "true"
+  }))));
+};
+"use strict";
+
 /* global React, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeViewUtils, LifeInputUtils */
 /**
  * TransportControls — Play/pause/step buttons + step count.
@@ -2395,7 +2819,17 @@ document.addEventListener('DOMContentLoaded', function () {
         case 'tools':
           return /*#__PURE__*/React.createElement("div", null, options.sectionTitle && /*#__PURE__*/React.createElement("div", {
             className: "sidebar-section-title"
-          }, "Tools"), renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch));
+          }, "Tools"), /*#__PURE__*/React.createElement(ModeControls, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }), /*#__PURE__*/React.createElement(ToolsContent, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }));
         case 'rules':
           return /*#__PURE__*/React.createElement(RulesSection, {
             state: state,
@@ -2485,108 +2919,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       }, layoutSwitcher))));
     }
-    function renderMobileContextPanel() {
-      var showRotation = state.drawMode === 'preset' && state.selectedPattern;
-      var showSelection = state.selection !== null;
-      if (!showRotation && !showSelection) {
-        return null;
-      }
-      return /*#__PURE__*/React.createElement("div", {
-        className: "mobile-context-panel"
-      }, showRotation && /*#__PURE__*/React.createElement("div", {
-        className: "rotation-btns"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-rotate",
-        onClick: function () {
-          LifeBoardUtils.rotateCCW(stateRef, refs, dispatch);
-        },
-        title: "Rotate 90\xB0 counter-clockwise"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-undo",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-rotate",
-        onClick: function () {
-          LifeBoardUtils.rotateCW(stateRef, refs, dispatch);
-        },
-        title: "Rotate 90\xB0 clockwise"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-repeat",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          InputHandler._previewPos = null;
-          dispatch({
-            type: "MERGE",
-            payload: {
-              selectedPattern: null,
-              patternRotation: 0,
-              drawMode: "paint"
-            }
-          });
-          setTimeout(function () {
-            drawBoard(stateRef, refs);
-          }, 0);
-        },
-        "aria-label": "Cancel pattern placement",
-        title: "Cancel placement"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-times",
-        "aria-hidden": "true"
-      }))), showSelection && /*#__PURE__*/React.createElement("div", {
-        className: "buttons buttons-selection"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeBoardUtils.copySelection(stateRef, refs, dispatch);
-        },
-        disabled: !state.selection,
-        title: "Copy selected cells",
-        "aria-label": "Copy selected cells"
-      }, "Copy"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeBoardUtils.pasteAsPattern(stateRef, refs, dispatch);
-        },
-        disabled: !state.clipboard || state.clipboard.length === 0,
-        title: "Paste copied cells",
-        "aria-label": "Paste copied cells"
-      }, "Paste"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeBoardUtils.deleteSelection(stateRef, refs, dispatch);
-        },
-        disabled: !state.selection,
-        title: "Delete selected cells",
-        "aria-label": "Delete selected cells"
-      }, "Delete"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          dispatch({
-            type: "MERGE",
-            payload: {
-              selection: null
-            }
-          });
-          setTimeout(function () {
-            drawBoard(stateRef, refs);
-          }, 0);
-        },
-        title: "Clear selection",
-        "aria-label": "Clear selection"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-times",
-        "aria-hidden": "true"
-      }))));
-    }
+
+    // renderMobileContextPanel — extracted to components/tools-panel.js as MobileContextPanel
+
     function renderMobileStatsBar() {
       var population = state.liveCells.size;
       var hist = state.popHistory;
@@ -2865,300 +3200,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // renderBoundaryControls — extracted to components/settings-panels.js as BoundaryControls
 
-    function renderModeControls() {
-      return /*#__PURE__*/React.createElement("div", {
-        className: "mode-controls"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.drawMode === 'paint' ? " active" : ""),
-        onClick: function () {
-          LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch);
-        },
-        title: "Freehand draw mode (D)"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-pencil",
-        "aria-hidden": "true"
-      }), " Draw"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.drawMode === 'preset' ? " active" : ""),
-        onClick: function () {
-          LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch);
-        },
-        title: "Place preset patterns (P)"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-puzzle-piece",
-        "aria-hidden": "true"
-      }), " Preset"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.drawMode === 'select' ? " active" : ""),
-        onClick: function () {
-          LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch);
-        },
-        title: "Select and move cells (S)"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-mouse-pointer",
-        "aria-hidden": "true"
-      }), " Select"), state.boundary !== 'unbounded' && /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.drawMode === 'region' ? " active" : ""),
-        onClick: function () {
-          LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch);
-        },
-        title: "Draw/erase region bounds (B)"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-th",
-        "aria-hidden": "true"
-      }), " Region"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-toggle" + (state.livePaintMode ? " active" : ""),
-        onClick: function () {
-          LifeBoardUtils.toggleLivePaint(stateRef, refs, dispatch);
-        },
-        title: "Paint while running"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-paint-brush",
-        "aria-hidden": "true"
-      }), " Live Paint"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch);
-        },
-        disabled: state.analyzing,
-        title: "Detect oscillator/spaceship"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-crosshairs",
-        "aria-hidden": "true"
-      }), " Analyze"));
-    }
-    function renderToolsContent() {
-      var filterLc = state.patternFilter.toLowerCase();
-      var patternOptions = Object.keys(PATTERN_GROUPS).map(function (group) {
-        var names = Object.keys(PATTERN_GROUPS[group]).filter(function (name) {
-          return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
-        });
-        if (names.length === 0) {
-          return null;
-        }
-        var opts = names.map(function (name) {
-          var meta = PATTERN_META[name];
-          var title = '';
-          if (meta) {
-            if (meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');else if (meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-          }
-          return /*#__PURE__*/React.createElement("option", {
-            key: name,
-            value: name,
-            title: title
-          }, name);
-        });
-        return /*#__PURE__*/React.createElement("optgroup", {
-          key: group,
-          label: group
-        }, opts);
-      }).filter(function (x) {
-        return x !== null;
-      });
-      if (PATTERNS['Custom']) {
-        patternOptions = patternOptions.concat(/*#__PURE__*/React.createElement("optgroup", {
-          key: "custom",
-          label: "Custom"
-        }, /*#__PURE__*/React.createElement("option", {
-          value: "Custom"
-        }, "Custom")));
-      }
-      return /*#__PURE__*/React.createElement("div", {
-        className: "tools-content"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "btn-section"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "tool-subtype-row"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "tool-label"
-      }, "Draw:"), /*#__PURE__*/React.createElement("select", {
-        value: state.drawTool,
-        onChange: function (e) {
-          dispatch({
-            type: "MERGE",
-            payload: {
-              drawTool: e.target.value,
-              drawMode: 'paint',
-              selection: null
-            }
-          });
-        }
-      }, /*#__PURE__*/React.createElement("option", {
-        value: "cell"
-      }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
-        value: "line"
-      }, "Line"), /*#__PURE__*/React.createElement("option", {
-        value: "fill"
-      }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
-        value: "shape-rect"
-      }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
-        value: "shape-circle"
-      }, "Circle"))), /*#__PURE__*/React.createElement("div", {
-        className: "tool-subtype-row"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "tool-label"
-      }, "Select:"), /*#__PURE__*/React.createElement("select", {
-        value: state.selectTool,
-        onChange: function (e) {
-          dispatch({
-            type: "MERGE",
-            payload: {
-              selectTool: e.target.value,
-              drawMode: 'select',
-              selection: null
-            }
-          });
-        }
-      }, /*#__PURE__*/React.createElement("option", {
-        value: "rect"
-      }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
-        value: "ellipse"
-      }, "Ellipse"), /*#__PURE__*/React.createElement("option", {
-        value: "freeform"
-      }, "Freeform"), /*#__PURE__*/React.createElement("option", {
-        value: "all-visible"
-      }, "All visible"))), state.boundary !== 'unbounded' && /*#__PURE__*/React.createElement("div", {
-        className: "tool-subtype-row"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "tool-label"
-      }, "Region:"), /*#__PURE__*/React.createElement("select", {
-        value: state.regionTool,
-        onChange: function (e) {
-          dispatch({
-            type: "MERGE",
-            payload: {
-              regionTool: e.target.value,
-              drawMode: 'region'
-            }
-          });
-        }
-      }, /*#__PURE__*/React.createElement("option", {
-        value: "cell"
-      }, "Cell paint"), /*#__PURE__*/React.createElement("option", {
-        value: "line"
-      }, "Line"), /*#__PURE__*/React.createElement("option", {
-        value: "fill"
-      }, "Flood fill"), /*#__PURE__*/React.createElement("option", {
-        value: "shape-rect"
-      }, "Rectangle"), /*#__PURE__*/React.createElement("option", {
-        value: "shape-circle"
-      }, "Circle"))), /*#__PURE__*/React.createElement("div", {
-        className: "tool-subtype-row"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "tool-label"
-      }, "Preset:"), /*#__PURE__*/React.createElement("select", {
-        className: "preset-select" + (state.drawMode === 'preset' && state.selectedPattern ? " active" : ""),
-        value: state.selectedPattern || "",
-        onChange: function (e) {
-          LifeBoardUtils.selectPattern(stateRef, refs, dispatch, e);
-        }
-      }, /*#__PURE__*/React.createElement("option", {
-        value: ""
-      }, "Choose preset..."), patternOptions)), /*#__PURE__*/React.createElement("input", {
-        className: "pattern-filter-input",
-        type: "search",
-        placeholder: "Filter patterns...",
-        "aria-label": "Filter patterns",
-        value: state.patternFilter,
-        onChange: function (e) {
-          dispatch({
-            type: "MERGE",
-            payload: {
-              patternFilter: e.target.value
-            }
-          });
-        }
-      }), state.drawMode === 'preset' && state.selectedPattern && /*#__PURE__*/React.createElement("div", {
-        className: "rotation-row"
-      }, /*#__PURE__*/React.createElement("canvas", {
-        className: "rotation-preview",
-        width: "96",
-        height: "96",
-        role: "img",
-        "aria-label": "Pattern rotation preview",
-        ref: function (c) {
-          refs.previewCanvas = c;
-          if (c) requestAnimationFrame(function () {
-            drawRotationPreview(stateRef, refs);
-          });
-        }
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "rotation-btns"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-rotate",
-        onClick: function () {
-          LifeBoardUtils.rotateCCW(stateRef, refs, dispatch);
-        },
-        title: "Rotate 90\xB0 counter-clockwise"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-undo",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn btn-rotate",
-        onClick: function () {
-          LifeBoardUtils.rotateCW(stateRef, refs, dispatch);
-        },
-        title: "Rotate 90\xB0 clockwise"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-repeat",
-        "aria-hidden": "true"
-      })), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          refs.previewPos = null;
-          dispatch({
-            type: "MERGE",
-            payload: {
-              selectedPattern: null,
-              patternRotation: 0,
-              drawMode: "paint"
-            }
-          });
-          setTimeout(function () {
-            drawBoard(stateRef, refs);
-          }, 0);
-        },
-        "aria-label": "Cancel pattern placement",
-        title: "Cancel placement"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fa fa-times",
-        "aria-hidden": "true"
-      })))), state.selection && /*#__PURE__*/React.createElement("div", {
-        className: "buttons buttons-selection"
-      }, /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeBoardUtils.copySelection(stateRef, refs, dispatch);
-        },
-        title: "Copy selected cells",
-        "aria-label": "Copy selected cells"
-      }, "Copy"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeBoardUtils.pasteAsPattern(stateRef, refs, dispatch);
-        },
-        disabled: !state.clipboard || state.clipboard.length === 0,
-        title: "Paste copied cells",
-        "aria-label": "Paste copied cells"
-      }, "Paste"), /*#__PURE__*/React.createElement("button", {
-        type: "button",
-        className: "btn",
-        onClick: function () {
-          LifeBoardUtils.deleteSelection(stateRef, refs, dispatch);
-        },
-        title: "Delete selected cells",
-        "aria-label": "Delete selected cells"
-      }, "Delete"))));
-    }
+    // renderModeControls — extracted to components/tools-panel.js as ModeControls
+
+    // renderToolsContent — extracted to components/tools-panel.js as ToolsContent
 
     // renderExportContent — extracted to components/rules-export.js as ExportContent
 
@@ -3334,7 +3378,12 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }), !state.bottomSheetOpen && renderMobileContextPanel(state, stateRef, refs, dispatch), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), /*#__PURE__*/React.createElement(MobileTransportBar, {
+      }), !state.bottomSheetOpen && /*#__PURE__*/React.createElement(MobileContextPanel, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), /*#__PURE__*/React.createElement(MobileTransportBar, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -3395,7 +3444,17 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }))), _renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch))), _renderFloatPanel('rules', 'Rules', /*#__PURE__*/React.createElement(RulesSection, {
+      }))), _renderFloatPanel('mode', 'Tools', /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ModeControls, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), /*#__PURE__*/React.createElement(ToolsContent, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }))), _renderFloatPanel('rules', 'Rules', /*#__PURE__*/React.createElement(RulesSection, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -3476,7 +3535,12 @@ document.addEventListener('DOMContentLoaded', function () {
         stateRef: stateRef,
         refs: refs,
         dispatch: dispatch
-      }), !state.bottomSheetOpen && renderMobileContextPanel(state, stateRef, refs, dispatch), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch));
+      }), !state.bottomSheetOpen && /*#__PURE__*/React.createElement(MobileContextPanel, {
+        state: state,
+        stateRef: stateRef,
+        refs: refs,
+        dispatch: dispatch
+      }), !state.bottomSheetOpen && renderMobileMinimapArea(state, stateRef, refs, dispatch), state.bottomSheetOpen && _renderBottomSheet(sheetContent, state, stateRef, refs, dispatch));
     }
 
     // ── Float panel helper (Observatory) ─────────────────────────────
@@ -3785,7 +3849,12 @@ document.addEventListener('DOMContentLoaded', function () {
             icon: 'fa-wrench',
             title: 'Tool options',
             popOut: function () {
-              return renderToolsContent(state, stateRef, refs, dispatch);
+              return /*#__PURE__*/React.createElement(ToolsContent, {
+                state: state,
+                stateRef: stateRef,
+                refs: refs,
+                dispatch: dispatch
+              });
             }
           }];
           if (state.boundary !== 'unbounded') {
@@ -3921,7 +3990,17 @@ document.addEventListener('DOMContentLoaded', function () {
             dispatch: dispatch
           }));
         case 'mode':
-          return /*#__PURE__*/React.createElement("div", null, renderModeControls(state, stateRef, refs, dispatch), renderToolsContent(state, stateRef, refs, dispatch));
+          return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ModeControls, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }), /*#__PURE__*/React.createElement(ToolsContent, {
+            state: state,
+            stateRef: stateRef,
+            refs: refs,
+            dispatch: dispatch
+          }));
         case 'rules':
           return /*#__PURE__*/React.createElement(RulesSection, {
             state: state,
