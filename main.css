@@ -1186,6 +1186,10 @@ canvas.display {
 .compact-body .btn {
   width: 28px;
   height: 28px; }
+.compact-body .btn.active {
+  background-color: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent); }
 
 /* In compact groups, buttons stack vertically like individual compact panels */
 .panel-group-compact .compact-body {
