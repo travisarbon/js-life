@@ -1186,6 +1186,10 @@ canvas.display {
 .compact-body .btn {
   width: 28px;
   height: 28px; }
+.compact-body .btn.active {
+  background-color: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent); }
 
 /* In compact groups, buttons stack vertically like individual compact panels */
 .panel-group-compact .compact-body {
@@ -1324,16 +1328,18 @@ canvas.display {
   padding: var(--space-sm);
   overflow: visible; }
 
-/* Allow pop-out flyouts to escape compact panel overflow clipping */
-.panel-group-compact,
+/* Allow pop-out flyouts to escape compact panel bounds.
+   Must remove paint containment — contain:paint clips all overflow
+   regardless of overflow:visible. */
+.panel-group-compact {
+  contain: layout style;
+  overflow: visible; }
 .panel-group-compact .compact-group-body,
 .panel-group-compact .compact-main,
 .panel-group-compact .compact-body {
   overflow: visible; }
 
-/* In compact groups, pop-outs must clear the full panel width from their
-   trigger button. The trigger sits inside compact-main; offset the pop-out
-   so it starts past the panel's right edge. */
+/* In compact groups, pop-outs fly out from the panel's right edge. */
 .panel-group-compact .pop-out-panel {
   left: calc(100% + 20px); }
 

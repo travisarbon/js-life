@@ -309,33 +309,34 @@ var _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
     var startH = rect.height;
     var startX = e.touches ? e.touches[0].clientX : e.clientX;
     var startY = e.touches ? e.touches[0].clientY : e.clientY;
-    var group = null;
-    var groups = stateRef.current.panelGroups;
-    for(var gi = 0; gi < groups.length; gi++){
-        if(groups[gi].id === groupId){ group = groups[gi]; break; }
-    }
-    var isCompact = group && !!group.compact;
-    var didToggle = false;
+    // Thresholds with hysteresis to prevent flip-flopping.
+    var compactThreshold = 100;   // shrink below this → go compact
+    var expandThreshold  = 140;   // grow above this → go expanded
+    var toggled = false;
     var move = function(ev){
         ev.preventDefault();
-        if(didToggle) return;
         var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
         var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
         var newW = startW + (cx - startX);
         var newH = startH + (cy - startY);
-        if(!isCompact && newW < 120){
-            didToggle = true;
+        // Read current compact state fresh each move event.
+        var curGroup = null;
+        var gs = stateRef.current.panelGroups;
+        for(var gi = 0; gi < gs.length; gi++){
+            if(gs[gi].id === groupId){ curGroup = gs[gi]; break; }
+        }
+        var curCompact = curGroup && !!curGroup.compact;
+        if(!curCompact && newW < compactThreshold){
+            toggled = true;
             panel.style.width = '';
             panel.style.maxHeight = '';
             LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-        } else if(isCompact && newW > 120){
-            didToggle = true;
-            // Clear inline styles — let CSS handle the expanded layout.
+        } else if(curCompact && newW > expandThreshold){
+            toggled = true;
             panel.style.width = '';
             panel.style.maxHeight = '';
             LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-        } else if(isCompact){
-            // In compact mode, only resize vertically.
+        } else if(curCompact){
             panel.style.maxHeight = Math.max(100, newH) + 'px';
         } else {
             panel.style.width = Math.max(180, newW) + 'px';
@@ -347,9 +348,8 @@ var _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
         document.removeEventListener('mouseup', end);
         document.removeEventListener('touchmove', move);
         document.removeEventListener('touchend', end);
-        // If we toggled compact mode during resize, ensure no stale inline
-        // styles remain that would conflict with the new CSS layout.
-        if(didToggle){
+        // After a toggle, clear stale inline styles so CSS takes over.
+        if(toggled){
             panel.style.width = '';
             panel.style.maxHeight = '';
         }
