@@ -6,7 +6,46 @@
   "globals": {
     "React": "readonly",
     "ReactDOM": "readonly",
-    "GIF": "readonly"
+    "GIF": "readonly",
+    "HelpModal": "readonly",
+    "PopGraphModal": "readonly",
+    "StatsPanel": "readonly",
+    "SparklineSVG": "readonly",
+    "StatsChip": "readonly",
+    "MobileSparkline": "readonly",
+    "TransportControls": "readonly",
+    "MobileTransportBar": "readonly",
+    "CanvasArea": "readonly",
+    "MobileMinimapArea": "readonly",
+    "drawBoard": "readonly",
+    "drawMinimap": "readonly",
+    "drawMinimapMobile": "readonly",
+    "drawRotationPreview": "readonly",
+    "toggleTrails": "readonly",
+    "ViewControls": "readonly",
+    "ZoomSlider": "readonly",
+    "DisplaySettings": "readonly",
+    "BoundaryControls": "readonly",
+    "SpeedSlider": "readonly",
+    "BoardSliders": "readonly",
+    "ModeControls": "readonly",
+    "ToolsContent": "readonly",
+    "MobileContextPanel": "readonly",
+    "RulesSection": "readonly",
+    "ExportContent": "readonly",
+    "RLESection": "readonly",
+    "FloatPanel": "readonly",
+    "FloatPanelDirect": "readonly",
+    "PanelGroup": "readonly",
+    "CompactBody": "readonly",
+    "ObservatoryPanelUtils": "readonly",
+    "CartographerLayout": "readonly",
+    "CartographerMobile": "readonly",
+    "ObservatoryLayout": "readonly",
+    "ObservatoryMobile": "readonly",
+    "BottomSheet": "readonly",
+    "LayoutSwitcher": "readonly",
+    "TabContentBuilder": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2020,
@@ -17,7 +56,7 @@
   "plugins": ["react"],
   "settings": {
     "react": {
-      "version": "16"
+      "version": "19"
     }
   },
   "rules": {

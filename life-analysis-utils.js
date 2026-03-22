@@ -1,83 +1,76 @@
-/* global SimRunner, SimEngine, HashLife, parseKey, overlayAges */
+/* global SimRunner, SimEngine, HashLife, parseKey, overlayAges, LifeViewUtils */
 /**
- * Pattern analysis, help, and GIF recording mixin for LifeBoard component.
+ * Pattern analysis, help, and GIF recording utils for LifeBoard component.
  */
-var LifeAnalysisMixin = { // eslint-disable-line no-unused-vars
+var LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
 
     // ── Help modal ─────────────────────────────────────────────────────
 
-    toggleHelp : function(){
-        var opening = !this.state.showHelp;
-        if(opening){ this._saveFocus(); }
-        var self = this;
-        this.setState({showHelp : opening}, function(){
-            if(opening){ self._focusFirst('.help-modal'); }
-            else { self._restoreFocus(); }
-        });
+    toggleHelp : function(stateRef, dispatch, refs){
+        var opening = !stateRef.current.showHelp;
+        if(opening){ LifeViewUtils._saveFocus(stateRef, dispatch, refs); }
+        dispatch({type:'MERGE', payload:{showHelp : opening}});
+        if(opening){ LifeViewUtils._focusFirst(stateRef, dispatch, refs, '.help-modal'); }
+        else { LifeViewUtils._restoreFocus(stateRef, dispatch, refs); }
     },
 
     // ── GIF recording ─────────────────────────────────────────────────
 
-    toggleRecording : function(){
-        if(this.state.recording){
+    toggleRecording : function(stateRef, dispatch, refs){
+        if(stateRef.current.recording){
             // Stop recording and render.
-            if(this._gif){ this._gif.render(); }
-            this.setState({recording: false});
+            if(refs.gif){ refs.gif.render(); }
+            dispatch({type:'MERGE', payload:{recording: false}});
         } else {
             // Start recording (requires gif.js loaded).
             if(typeof GIF === 'undefined'){
-                this._announce('gif.js is not loaded. Add it to index.html to enable GIF export.');
+                LifeViewUtils._announce(stateRef, dispatch, refs, 'gif.js is not loaded. Add it to index.html to enable GIF export.');
                 return;
             }
-            var self = this;
-            this._gif = new GIF({
+            refs.gif = new GIF({
                 workers:   2,
                 quality:   10,
                 workerScript: 'js/gif.worker.js'
             });
-            this._gif.on('finished', function(blob){
+            refs.gif.on('finished', function(blob){
                 var url  = URL.createObjectURL(blob);
                 var link = document.createElement('a');
                 link.href = url;
-                link.download = 'life-gen' + self.state.generations + '.gif';
+                link.download = 'life-gen' + stateRef.current.generations + '.gif';
                 link.click();
                 setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
-                self._gif = null;
+                refs.gif = null;
             });
-            this.setState({recording: true});
+            dispatch({type:'MERGE', payload:{recording: true}});
         }
     },
 
-    togglePopGraph : function(){
-        var opening = !this.state.showPopGraph;
-        if(opening){ this._saveFocus(); }
-        var self = this;
-        this.setState({showPopGraph: opening}, function(){
-            if(opening){ self._focusFirst('.pop-graph-modal'); }
-            else { self._restoreFocus(); }
-        });
+    togglePopGraph : function(stateRef, dispatch, refs){
+        var opening = !stateRef.current.showPopGraph;
+        if(opening){ LifeViewUtils._saveFocus(stateRef, dispatch, refs); }
+        dispatch({type:'MERGE', payload:{showPopGraph: opening}});
+        if(opening){ LifeViewUtils._focusFirst(stateRef, dispatch, refs, '.pop-graph-modal'); }
+        else { LifeViewUtils._restoreFocus(stateRef, dispatch, refs); }
     },
 
-    analyzePattern : function(){
-        if(this.state.analyzing){ return; }
-        var liveCells = this.state.liveCells;
+    analyzePattern : function(stateRef, dispatch, refs){
+        if(stateRef.current.analyzing){ return; }
+        var liveCells = stateRef.current.liveCells;
         if(liveCells.size === 0){
-            this.setState({analysisResult: 'No live cells to analyze.'});
-            var self0 = this;
-            setTimeout(function(){ self0.setState({analysisResult: null}); }, 3000);
+            dispatch({type:'MERGE', payload:{analysisResult: 'No live cells to analyze.'}});
+            setTimeout(function(){ dispatch({type:'MERGE', payload:{analysisResult: null}}); }, 3000);
             return;
         }
-        this._analysisCancelled = false;
+        refs.analysisCancelled = false;
         var pop = liveCells.size;
         // Scale generation limit based on population to keep analysis responsive.
         var maxGens = pop > 1000 ? 200 : pop > 500 ? 500 : 2000;
-        this.setState({analyzing: true, analysisResult: 'Analyzing\u2026 gen 0/' + maxGens + ' (click to cancel)'});
-        var self = this;
-        var cols = this.state.cols;
-        var rows = this.state.rows;
-        var birth = this.state.birthRule;
-        var survive = this.state.surviveRule;
-        var boundary = this.state.boundary;
+        dispatch({type:'MERGE', payload:{analyzing: true, analysisResult: 'Analyzing\u2026 gen 0/' + maxGens + ' (click to cancel)'}});
+        var cols = stateRef.current.cols;
+        var rows = stateRef.current.rows;
+        var birth = stateRef.current.birthRule;
+        var survive = stateRef.current.surviveRule;
+        var boundary = stateRef.current.boundary;
         var chunkSize = 50;
 
         // Order-independent O(n) hash using Szudzik pairing + XOR mixing.
@@ -128,8 +121,8 @@ var LifeAnalysisMixin = { // eslint-disable-line no-unused-vars
         function finishAnalysis(msg, duration){
             // Restore main simulation's rule key that may have been overwritten.
             SimRunner._hlRuleKey = savedHlRuleKey;
-            self.setState({analysisResult: msg, analyzing: false});
-            setTimeout(function(){ self.setState({analysisResult: null}); }, duration || 5000);
+            dispatch({type:'MERGE', payload:{analysisResult: msg, analyzing: false}});
+            setTimeout(function(){ dispatch({type:'MERGE', payload:{analysisResult: null}}); }, duration || 5000);
         }
 
         function analyzeStep(){
@@ -167,7 +160,7 @@ var LifeAnalysisMixin = { // eslint-disable-line no-unused-vars
         }
 
         function runChunk(){
-            if(self._analysisCancelled){ return; }
+            if(refs.analysisCancelled){ return; }
             if(Date.now() - analysisStartTime > 10000){
                 finishAnalysis('Timed out after 10s (' + gen + ' gens analyzed).');
                 return;
@@ -213,17 +206,16 @@ var LifeAnalysisMixin = { // eslint-disable-line no-unused-vars
                 finishAnalysis('No periodicity detected (' + maxGens + ' gens).');
             } else {
                 // Update progress and yield to UI.
-                self.setState({analysisResult: 'Analyzing\u2026 gen ' + gen + '/' + maxGens + ' (click to cancel)'});
+                dispatch({type:'MERGE', payload:{analysisResult: 'Analyzing\u2026 gen ' + gen + '/' + maxGens + ' (click to cancel)'}});
                 setTimeout(runChunk, 0);
             }
         }
         setTimeout(runChunk, 0);
     },
 
-    cancelAnalysis : function(){
-        this._analysisCancelled = true;
-        this.setState({analysisResult: 'Analysis cancelled.', analyzing: false});
-        var self = this;
-        setTimeout(function(){ self.setState({analysisResult: null}); }, 2000);
+    cancelAnalysis : function(stateRef, dispatch, refs){
+        refs.analysisCancelled = true;
+        dispatch({type:'MERGE', payload:{analysisResult: 'Analysis cancelled.', analyzing: false}});
+        setTimeout(function(){ dispatch({type:'MERGE', payload:{analysisResult: null}}); }, 2000);
     },
 };

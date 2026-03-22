@@ -1080,6 +1080,17 @@ canvas.display {
   border-bottom-color: var(--accent);
   font-weight: 600; }
 
+.panel-tab-icon {
+  display: none;
+  font-size: 14px; }
+
+.panel-tab-bar-icons .panel-tab {
+  padding: var(--space-xs) var(--space-sm); }
+.panel-tab-bar-icons .panel-tab-icon {
+  display: inline-block; }
+.panel-tab-bar-icons .panel-tab-label {
+  display: none; }
+
 .panel-group .float-panel-header {
   display: flex;
   align-items: center;
@@ -1125,6 +1136,21 @@ canvas.display {
 
 .float-panel-compact .float-panel-title {
   display: none; }
+
+.float-panel-compact .float-panel-resize {
+  width: 56px;
+  right: 0;
+  cursor: e-resize; }
+.float-panel-compact .float-panel-resize::after {
+  border-right: none;
+  border-bottom: 2px solid var(--panel-header-color);
+  border-top: none;
+  width: 16px;
+  height: 0;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 4px; }
 
 .float-panel-compact .float-panel-body {
   padding: var(--space-sm); }
@@ -1189,6 +1215,159 @@ canvas.display {
   align-items: center !important;
   justify-content: center !important;
   line-height: 1 !important; }
+
+/* ── Group compact mode ──────────────────────────────────────────────── */
+.panel-group-compact {
+  transition: max-width 0.15s ease, min-width 0.15s ease; }
+
+/* ── Horizontal tab mode (default) ──── */
+.panel-group-compact-horizontal {
+  max-width: 80px !important;
+  min-width: 80px !important; }
+
+.panel-group-compact-horizontal .float-panel-header {
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--space-xs); }
+
+.panel-group-compact-horizontal .panel-tab-bar {
+  flex-wrap: wrap;
+  overflow-x: hidden;
+  justify-content: center;
+  gap: 0; }
+
+.panel-group-compact-horizontal .panel-tab {
+  padding: var(--space-xs);
+  border-bottom: none;
+  border-left: 2px solid transparent; }
+
+.panel-group-compact-horizontal .panel-tab-active {
+  border-left-color: var(--accent);
+  border-bottom-color: transparent; }
+
+/* ── Sidebar tab mode ──── */
+.panel-group-compact-sidebar {
+  max-width: 110px !important;
+  min-width: 110px !important; }
+
+.panel-group-compact-sidebar .float-panel-header {
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0; }
+
+.panel-group-compact-sidebar .panel-tab-bar {
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-right: 1px solid var(--panel-border);
+  gap: 0;
+  padding: var(--space-xs) 0; }
+
+.panel-group-compact-sidebar .panel-tab {
+  padding: var(--space-sm) var(--space-sm);
+  border-bottom: none;
+  border-left: 2px solid transparent; }
+
+.panel-group-compact-sidebar .panel-tab-active {
+  border-left-color: var(--accent);
+  border-bottom-color: transparent; }
+
+.panel-group-compact-sidebar .float-panel-compact-toggle,
+.panel-group-compact-sidebar .float-panel-close,
+.panel-group-compact-sidebar .panel-group-mode-toggle {
+  padding: var(--space-xs) !important; }
+
+/* ── Dropdown tab mode ──── */
+.panel-group-compact-dropdown {
+  max-width: 56px !important;
+  min-width: 56px !important; }
+
+.panel-group-compact-dropdown .float-panel-header {
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--space-xs); }
+
+.panel-tab-dropdown { position: relative; }
+
+.panel-tab-dropdown-trigger {
+  width: 100%;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--panel-header-color);
+  cursor: pointer; }
+
+.panel-tab-dropdown-caret {
+  font-size: 10px;
+  opacity: var(--opacity-muted); }
+
+.panel-tab-dropdown-menu {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  min-width: 140px;
+  background: var(--panel-bg-blur);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--panel-shadow);
+  padding: var(--space-xs) 0;
+  z-index: 10;
+  margin-left: var(--space-xs); }
+
+.panel-tab-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-xs) var(--space-md);
+  background: transparent;
+  border: none;
+  color: var(--panel-header-color);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  opacity: var(--opacity-muted); }
+
+.panel-tab-dropdown-item:hover { opacity: 1; }
+.panel-tab-dropdown-item.active {
+  opacity: 1;
+  font-weight: 600;
+  color: var(--accent); }
+
+/* ── Shared compact group styles ──── */
+.panel-group-compact .float-panel-body {
+  padding: var(--space-sm); }
+
+.panel-group-compact .float-panel-resize {
+  cursor: e-resize; }
+
+.panel-group-compact .float-panel-resize::after {
+  border-right: none;
+  border-bottom: 2px solid var(--panel-header-color);
+  border-top: none;
+  width: 16px;
+  height: 0;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 4px; }
+
+/* Mode toggle button */
+.panel-group-mode-toggle {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 20px !important;
+  padding: 2px var(--space-xs) !important;
+  font-size: 10px !important;
+  background: transparent !important;
+  border: none !important;
+  opacity: var(--opacity-muted); }
+.panel-group-mode-toggle:hover { opacity: 1; }
 
 /* ── Zen mode ─────────────────────────────────────────────────────────── */
 .zen-mode .float-panel,
