@@ -63,7 +63,6 @@ var ExportContent = function ExportContent(props) { // eslint-disable-line no-un
     var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
                     <div className="export-content">
-                        <div className="sidebar-section-title">Share</div>
                         <div className="btn-section">
                             <label className="control-group-label">Export</label>
                             <div className="buttons buttons-export">

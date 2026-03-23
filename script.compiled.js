@@ -3373,8 +3373,6 @@ var ExportContent = function ExportContent(props) {
   return /*#__PURE__*/React.createElement("div", {
     className: "export-content"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "sidebar-section-title"
-  }, "Share"), /*#__PURE__*/React.createElement("div", {
     className: "btn-section"
   }, /*#__PURE__*/React.createElement("label", {
     className: "control-group-label"
@@ -5192,8 +5190,48 @@ document.addEventListener('DOMContentLoaded', function () {
         Midnight: '#4A9ECD',
         Ember: '#C47138'
       };
+      var accentRgbMap = {
+        Teal: '112, 149, 154',
+        Midnight: '74, 158, 205',
+        Ember: '196, 113, 56'
+      };
       var initTheme = stateRef.current.theme || 'Midnight';
       document.documentElement.style.setProperty('--accent', accentMap[initTheme] || '#70959A');
+      document.documentElement.style.setProperty('--accent-rgb', accentRgbMap[initTheme] || '112, 149, 154');
+      // Slider filled-track gradient (WebKit doesn't support ::-webkit-slider-progress)
+      var updateSliderFill = function (slider) {
+        var min = parseFloat(slider.min) || 0;
+        var max = parseFloat(slider.max) || 100;
+        var val = parseFloat(slider.value);
+        var pct = (val - min) / (max - min) * 100;
+        var accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#70959A';
+        slider.style.background = 'linear-gradient(to right, ' + accentColor + ' 0%, ' + accentColor + ' ' + pct + '%, transparent ' + pct + '%, transparent 100%)';
+      };
+      var initSliderFills = function () {
+        var sliders = document.querySelectorAll('input[type="range"]');
+        for (var si = 0; si < sliders.length; si++) {
+          updateSliderFill(sliders[si]);
+          sliders[si].addEventListener('input', function () {
+            updateSliderFill(this);
+          });
+        }
+      };
+      // Defer to allow initial render
+      setTimeout(initSliderFills, 100);
+      // Re-init on dynamic content changes via MutationObserver
+      var sliderObserver = new MutationObserver(function (mutations) {
+        for (var mi = 0; mi < mutations.length; mi++) {
+          if (mutations[mi].addedNodes.length > 0) {
+            setTimeout(initSliderFills, 50);
+            break;
+          }
+        }
+      });
+      sliderObserver.observe(document.getElementById('content') || document.body, {
+        childList: true,
+        subtree: true
+      });
+      refs.sliderObserver = sliderObserver;
       // Attach wheel listener as non-passive so preventDefault works.
       refs.canvas.addEventListener('wheel', function (e) {
         LifeInputUtils.onWheel(stateRef, refs, dispatch, e);
@@ -5438,6 +5476,9 @@ document.addEventListener('DOMContentLoaded', function () {
         refs.trailMap = null;
         InputHandler._paintedCells = {};
         refs.sheetEl = null;
+        if (refs.sliderObserver) {
+          refs.sliderObserver.disconnect();
+        }
       };
     }, []);
 
