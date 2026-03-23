@@ -543,13 +543,67 @@ var CanvasArea = function CanvasArea(props) { // eslint-disable-line no-unused-v
                 );
 };
 
+var _startMinimapDrag = function(e, refs) {
+    e.preventDefault();
+    var el = e.currentTarget.parentElement;
+    var rect = el.getBoundingClientRect();
+    var cx = e.touches ? e.touches[0].clientX : e.clientX;
+    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    var offX = cx - rect.left;
+    var offY = cy - rect.top;
+    el.classList.add('dragging');
+
+    var move = function(ev) {
+        ev.preventDefault();
+        var mx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        var my = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        var newX = Math.max(0, Math.min(window.innerWidth - 60, mx - offX));
+        var newY = Math.max(0, Math.min(window.innerHeight - 40, my - offY));
+        el.style.left = newX + 'px';
+        el.style.top = newY + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        el.style.transform = 'none';
+    };
+    var end = function() {
+        el.classList.remove('dragging');
+        if(!refs.fixedPositions) refs.fixedPositions = {};
+        var finalRect = el.getBoundingClientRect();
+        refs.fixedPositions.minimap = {x: finalRect.left, y: finalRect.top};
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', end);
+        document.removeEventListener('touchmove', move);
+        document.removeEventListener('touchend', end);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', end);
+    document.addEventListener('touchmove', move, {passive: false});
+    document.addEventListener('touchend', end);
+};
+
 var MobileMinimapArea = function MobileMinimapArea(props) { // eslint-disable-line no-unused-vars
     var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 
                 if(!state.showMinimap || refs.minimapHidden){ return null; }
 
                 return (
-                    <div className="mobile-minimap-area">
+                    <div className="mobile-minimap-area draggable-fixed"
+                        ref={function(el){
+                            if(el && refs.fixedPositions && refs.fixedPositions.minimap){
+                                var pos = refs.fixedPositions.minimap;
+                                el.style.left = pos.x + 'px';
+                                el.style.top = pos.y + 'px';
+                                el.style.right = 'auto';
+                                el.style.bottom = 'auto';
+                                el.style.transform = 'none';
+                            }
+                        }}>
+                        <div className="minimap-drag-handle"
+                            onMouseDown={function(e){ _startMinimapDrag(e, refs); }}
+                            onTouchStart={function(e){ _startMinimapDrag(e, refs); }}
+                            title="Drag to reposition minimap">
+                            <i className="fa fa-ellipsis-h" aria-hidden="true"></i>
+                        </div>
                         <canvas className="mobile-minimap-canvas"
                             ref={function(c){ refs.mobileMinimap = c; }}
                             role="img" aria-label="Minimap navigation"

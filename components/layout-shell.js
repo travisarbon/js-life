@@ -31,6 +31,64 @@ var _MOBILE_TABS = [
     {id: 'export',   icon: 'fa-exchange',  label: 'Share'}
 ]; // eslint-disable-line no-unused-vars
 
+/**
+ * Generic drag handler for fixed-position elements (stats, minimap, panel menu).
+ * Attaches mousedown/touchstart to make the element freely draggable.
+ */
+var _startFixedDrag = function(e, refs, key) {
+    if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' ||
+       (e.target.closest && (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('label')))) { return; }
+    e.preventDefault();
+    var el = e.currentTarget;
+    var rect = el.getBoundingClientRect();
+    var cx = e.touches ? e.touches[0].clientX : e.clientX;
+    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    var offX = cx - rect.left;
+    var offY = cy - rect.top;
+    el.classList.add('dragging');
+
+    var move = function(ev) {
+        ev.preventDefault();
+        var mx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        var my = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        var newX = Math.max(0, Math.min(window.innerWidth - 60, mx - offX));
+        var newY = Math.max(0, Math.min(window.innerHeight - 40, my - offY));
+        el.style.left = newX + 'px';
+        el.style.top = newY + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        el.style.transform = 'none';
+    };
+    var end = function() {
+        el.classList.remove('dragging');
+        // Persist position
+        if(refs && key) {
+            var finalRect = el.getBoundingClientRect();
+            if(!refs.fixedPositions) refs.fixedPositions = {};
+            refs.fixedPositions[key] = {x: finalRect.left, y: finalRect.top};
+        }
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', end);
+        document.removeEventListener('touchmove', move);
+        document.removeEventListener('touchend', end);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', end);
+    document.addEventListener('touchmove', move, {passive: false});
+    document.addEventListener('touchend', end);
+};
+
+var _applyFixedPos = function(el, refs, key) {
+    if(el && refs && refs.fixedPositions && refs.fixedPositions[key]) {
+        var pos = refs.fixedPositions[key];
+        el.style.left = pos.x + 'px';
+        el.style.top = pos.y + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        el.style.transform = 'none';
+    }
+};
+
 var TabContentBuilder = function TabContentBuilder(props) { // eslint-disable-line no-unused-vars
     var tabId = props.tabId, options = props.options || {};
     var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
@@ -324,10 +382,10 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                         <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
                     </FloatPanel>
                     {state.showStats &&
-                        <div className="stats-window" role="region" aria-label="Statistics">
-                            <button type="button" className="btn stats-window-close"
-                                onClick={function(){ dispatch({type:'MERGE', payload:{showStats: false}}); }}
-                                aria-label="Hide stats" title="Hide stats" data-tooltip="Hide stats">&times;</button>
+                        <div className="stats-window draggable-fixed" role="region" aria-label="Statistics"
+                            ref={function(el){ _applyFixedPos(el, refs, 'stats'); }}
+                            onMouseDown={function(e){ _startFixedDrag(e, refs, 'stats'); }}
+                            onTouchStart={function(e){ _startFixedDrag(e, refs, 'stats'); }}>
                             <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />
                         </div>
                     }
@@ -336,7 +394,10 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                     </FloatPanel>
                     {state.panelGroups.map(function(group){ return <PanelGroup key={group.id} group={group} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; })}
                     {/* Panel menu */}
-                    <div className="panel-menu" role="group" aria-label="Panel visibility">
+                    <div className="panel-menu draggable-fixed" role="group" aria-label="Panel visibility"
+                        ref={function(el){ _applyFixedPos(el, refs, 'panelMenu'); }}
+                        onMouseDown={function(e){ _startFixedDrag(e, refs, 'panelMenu'); }}
+                        onTouchStart={function(e){ _startFixedDrag(e, refs, 'panelMenu'); }}>
                         <button type="button" className="btn" onClick={function(){ LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch); }} aria-label="Help" title="Keyboard shortcuts (?)" data-tooltip="Help (?)">
                             <i className="fa fa-question-circle" aria-hidden="true"></i>
                         </button>
@@ -384,9 +445,8 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                 <button type="button" className="btn zen-exit-btn"
                     onClick={function(){ LifeViewUtils.toggleZenMode(stateRef, refs, dispatch); }}
                     title="Exit zen mode (Z or Escape)"
-                    aria-label="Exit zen mode"
-                    data-tooltip="Exit zen mode (Z)">
-                    <i className="fa fa-eye" aria-hidden="true"></i>
+                    aria-label="Exit zen mode">
+                    <i className="fa fa-eye" aria-hidden="true"></i>{' Exit Zen'}
                 </button>
             }
             {zenMode && state.zenNotify &&
