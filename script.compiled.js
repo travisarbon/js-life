@@ -1772,28 +1772,7 @@ var _getPanelContent = function (panelId, state, stateRef, refs, dispatch) {
       return null;
   }
 };
-var _checkTabBarOverflow = function (bar, stateRef, refs, dispatch) {
-  bar.classList.remove('panel-tab-bar-icons');
-  if (bar.scrollWidth > bar.clientWidth + 1) {
-    bar.classList.add('panel-tab-bar-icons');
-    // If even icon-only tabs still overflow, switch the group to compact mode
-    // (but not while the user is actively resizing — defer to snap-on-release).
-    if (stateRef && refs && dispatch && !refs.resizingGroup) {
-      // Re-check after class change settles.
-      requestAnimationFrame(function () {
-        if (bar.scrollWidth > bar.clientWidth + 1) {
-          var groupEl = bar.closest('.panel-group');
-          if (groupEl) {
-            var groupId = groupEl.getAttribute('data-group-id');
-            if (groupId) {
-              LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
-            }
-          }
-        }
-      });
-    }
-  }
-};
+var _checkTabBarOverflow = function () {/* no-op: icon-only intermediate state removed */};
 var _observeTabBars = function (stateRef, refs, dispatch) {
   // eslint-disable-line no-unused-vars
   if (refs.tabBarObservers) {
@@ -2983,9 +2962,11 @@ var PanelGroup = function PanelGroup(props) {
       onTouchStart: function (e) {
         _startGroupDrag(group.id, e, stateRef, refs, dispatch);
       }
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "compact-active-label"
-    }, _getPanelLabel(activeTab)), /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fa " + _getPanelIcon(activeTab) + " compact-active-icon",
+      "aria-hidden": "true",
+      title: _getPanelLabel(activeTab)
+    }), /*#__PURE__*/React.createElement("button", {
       type: "button",
       className: "btn float-panel-compact-toggle",
       onClick: function (e) {
@@ -3076,7 +3057,16 @@ var PanelGroup = function PanelGroup(props) {
     "aria-expanded": !group.collapsed,
     "aria-label": group.collapsed ? "Expand panel group" : "Collapse panel group",
     "data-tooltip": group.collapsed ? "Expand" : "Collapse"
-  }, group.collapsed ? "+" : "\u2013")), !group.collapsed && /*#__PURE__*/React.createElement("div", {
+  }, group.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn float-panel-close",
+    onClick: function (e) {
+      e.stopPropagation();
+      _togglePanelOpen(activeTab, stateRef, refs, dispatch);
+    },
+    "aria-label": "Close active panel",
+    "data-tooltip": "Close"
+  }, "\xD7")), !group.collapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
   }, _getPanelContent(activeTab, state, stateRef, refs, dispatch)), !group.collapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",

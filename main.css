@@ -1346,13 +1346,9 @@ canvas.display {
   margin-right: var(--space-xs);
   opacity: var(--opacity-secondary); }
 
-/* When tab bar overflows, switch to icon-only tabs */
-.panel-tab-bar-icons .panel-tab-icon {
-  display: inline; }
-.panel-tab-bar-icons .panel-tab-label {
-  display: none; }
-.panel-tab-bar-icons .panel-tab {
-  padding: var(--space-xs) var(--space-sm); }
+/* Tab bar wraps instead of switching to icon-only mode */
+.panel-tab-bar {
+  flex-wrap: wrap; }
 
 
 .panel-group .float-panel-header {
@@ -1372,7 +1368,7 @@ canvas.display {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding: var(--space-lg) var(--space-lg) var(--space-2xl);
-  min-width: 280px; }
+  min-width: 0; }
 
 .panel-group .float-panel-resize {
   position: absolute;
@@ -1551,6 +1547,10 @@ canvas.display {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0; }
+.panel-group-compact .compact-active-icon {
+  flex: 1;
+  font-size: 14px;
+  opacity: var(--opacity-secondary); }
 
 .panel-group-compact .compact-group-header .btn {
   flex-shrink: 0;
