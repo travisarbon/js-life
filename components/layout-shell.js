@@ -136,14 +136,16 @@ var LayoutSwitcher = function LayoutSwitcher(props) { // eslint-disable-line no-
                 onClick={function(){ LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'cartographer'); }}
                 title="Cartographer: Edge rail with tabs"
                 aria-label="Cartographer layout: edge rail with tabs"
-                aria-pressed={mode === 'cartographer'}>
+                aria-pressed={mode === 'cartographer'}
+                data-tooltip="Cartographer">
                 <i className="fa fa-columns"></i>
             </button>
             <button type="button" className={"btn btn-toggle" + (mode === 'observatory' ? " active" : "")}
                 onClick={function(){ LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'observatory'); }}
                 title="Observatory: Floating panels"
                 aria-label="Observatory layout: floating panels"
-                aria-pressed={mode === 'observatory'}>
+                aria-pressed={mode === 'observatory'}
+                data-tooltip="Observatory">
                 <i className="fa fa-object-ungroup"></i>
             </button>
         </div>
@@ -263,6 +265,27 @@ var CartographerMobile = function CartographerMobile(props) { // eslint-disable-
     );
 };
 
+var _ObservatoryHints = function _ObservatoryHints(props) { // eslint-disable-line no-unused-vars
+    var dismissed = React.useState(function(){ try { return localStorage.getItem('life-obs-hints-seen') === '1'; } catch(e){ return false; } });
+    var seen = dismissed[0], setSeen = dismissed[1];
+    if(seen){ return null; }
+    var dismiss = function(){ setSeen(true); try { localStorage.setItem('life-obs-hints-seen', '1'); } catch(e){/* */} };
+    return (
+        <div className="obs-hints-overlay" role="dialog" aria-label="Quick tips">
+            <div className="obs-hints-card">
+                <h3 className="obs-hints-title">Observatory Tips</h3>
+                <ul className="obs-hints-list">
+                    <li>Drag panel headers to reposition. Drop panels on each other to dock.</li>
+                    <li>Click <b>{"\u00ab"}</b> to compact a panel into icon buttons.</li>
+                    <li>In compact mode, the right column shows context-sensitive actions.</li>
+                    <li>Hover any icon to see what it does.</li>
+                </ul>
+                <button type="button" className="btn obs-hints-dismiss" onClick={dismiss}>Got it</button>
+            </div>
+        </div>
+    );
+};
+
 var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-line no-unused-vars
     var cs = props.cs, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 
@@ -304,7 +327,7 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                         <div className="stats-window" role="region" aria-label="Statistics">
                             <button type="button" className="btn stats-window-close"
                                 onClick={function(){ dispatch({type:'MERGE', payload:{showStats: false}}); }}
-                                aria-label="Hide stats" title="Hide stats">&times;</button>
+                                aria-label="Hide stats" title="Hide stats" data-tooltip="Hide stats">&times;</button>
                             <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />
                         </div>
                     }
@@ -314,13 +337,14 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                     {state.panelGroups.map(function(group){ return <PanelGroup key={group.id} group={group} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; })}
                     {/* Panel menu */}
                     <div className="panel-menu" role="group" aria-label="Panel visibility">
-                        <button type="button" className="btn" onClick={function(){ LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch); }} aria-label="Help" title="Keyboard shortcuts (?)">
+                        <button type="button" className="btn" onClick={function(){ LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch); }} aria-label="Help" title="Keyboard shortcuts (?)" data-tooltip="Help (?)">
                             <i className="fa fa-question-circle" aria-hidden="true"></i>
                         </button>
                         <button type="button" className="btn panel-menu-toggle"
                             onClick={function(){ dispatch({type:"MERGE", payload:{panelMenuOpen: !state.panelMenuOpen}}); }}
                             aria-expanded={!!state.panelMenuOpen}
-                            aria-label="Toggle panel visibility menu">
+                            aria-label="Toggle panel visibility menu"
+                            data-tooltip="Panel visibility">
                             <i className="fa fa-th" aria-hidden="true"></i>
                         </button>
                         {state.panelMenuOpen &&
@@ -348,7 +372,8 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                         <button type="button" className="btn panel-menu-toggle"
                             onClick={function(){ LifeViewUtils.toggleZenMode(stateRef, refs, dispatch); }}
                             title="Zen mode — hide all panels (Z)"
-                            aria-label="Toggle zen mode">
+                            aria-label="Toggle zen mode"
+                            data-tooltip="Zen mode (Z)">
                             <i className="fa fa-compress" aria-hidden="true"></i>
                         </button>
                         <LayoutSwitcher state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
@@ -359,12 +384,17 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                 <button type="button" className="btn zen-exit-btn"
                     onClick={function(){ LifeViewUtils.toggleZenMode(stateRef, refs, dispatch); }}
                     title="Exit zen mode (Z or Escape)"
-                    aria-label="Exit zen mode">
+                    aria-label="Exit zen mode"
+                    data-tooltip="Exit zen mode (Z)">
                     <i className="fa fa-eye" aria-hidden="true"></i>
                 </button>
             }
+            {zenMode && state.zenNotify &&
+                <div className="zen-notify" role="status" aria-live="polite">Zen mode — press Z or Esc to exit</div>
+            }
             {/* Mobile minimap element for tablet/medium screens */}
             <MobileMinimapArea state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
+            {!zenMode && <_ObservatoryHints />}
         </div>
     );
 };

@@ -1034,7 +1034,8 @@ var LayoutSwitcher = function LayoutSwitcher(props) {
     },
     title: "Cartographer: Edge rail with tabs",
     "aria-label": "Cartographer layout: edge rail with tabs",
-    "aria-pressed": mode === 'cartographer'
+    "aria-pressed": mode === 'cartographer',
+    "data-tooltip": "Cartographer"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-columns"
   })), /*#__PURE__*/React.createElement("button", {
@@ -1045,7 +1046,8 @@ var LayoutSwitcher = function LayoutSwitcher(props) {
     },
     title: "Observatory: Floating panels",
     "aria-label": "Observatory layout: floating panels",
-    "aria-pressed": mode === 'observatory'
+    "aria-pressed": mode === 'observatory',
+    "data-tooltip": "Observatory"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-object-ungroup"
   })));
@@ -1269,6 +1271,42 @@ var CartographerMobile = function CartographerMobile(props) {
     dispatch: dispatch
   }));
 };
+var _ObservatoryHints = function _ObservatoryHints(props) {
+  // eslint-disable-line no-unused-vars
+  var dismissed = React.useState(function () {
+    try {
+      return localStorage.getItem('life-obs-hints-seen') === '1';
+    } catch (e) {
+      return false;
+    }
+  });
+  var seen = dismissed[0],
+    setSeen = dismissed[1];
+  if (seen) {
+    return null;
+  }
+  var dismiss = function () {
+    setSeen(true);
+    try {
+      localStorage.setItem('life-obs-hints-seen', '1');
+    } catch (e) {/* */}
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "obs-hints-overlay",
+    role: "dialog",
+    "aria-label": "Quick tips"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "obs-hints-card"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "obs-hints-title"
+  }, "Observatory Tips"), /*#__PURE__*/React.createElement("ul", {
+    className: "obs-hints-list"
+  }, /*#__PURE__*/React.createElement("li", null, "Drag panel headers to reposition. Drop panels on each other to dock."), /*#__PURE__*/React.createElement("li", null, "Click ", /*#__PURE__*/React.createElement("b", null, "\u00ab"), " to compact a panel into icon buttons."), /*#__PURE__*/React.createElement("li", null, "In compact mode, the right column shows context-sensitive actions."), /*#__PURE__*/React.createElement("li", null, "Hover any icon to see what it does.")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn obs-hints-dismiss",
+    onClick: dismiss
+  }, "Got it")));
+};
 var ObservatoryLayout = function ObservatoryLayout(props) {
   // eslint-disable-line no-unused-vars
   var cs = props.cs,
@@ -1414,7 +1452,8 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
       });
     },
     "aria-label": "Hide stats",
-    title: "Hide stats"
+    title: "Hide stats",
+    "data-tooltip": "Hide stats"
   }, "\xD7"), /*#__PURE__*/React.createElement(StatsPanel, {
     state: state,
     refs: refs,
@@ -1452,7 +1491,8 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
       LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch);
     },
     "aria-label": "Help",
-    title: "Keyboard shortcuts (?)"
+    title: "Keyboard shortcuts (?)",
+    "data-tooltip": "Help (?)"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-question-circle",
     "aria-hidden": "true"
@@ -1468,7 +1508,8 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
       });
     },
     "aria-expanded": !!state.panelMenuOpen,
-    "aria-label": "Toggle panel visibility menu"
+    "aria-label": "Toggle panel visibility menu",
+    "data-tooltip": "Panel visibility"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-th",
     "aria-hidden": "true"
@@ -1522,7 +1563,8 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
       LifeViewUtils.toggleZenMode(stateRef, refs, dispatch);
     },
     title: "Zen mode \u2014 hide all panels (Z)",
-    "aria-label": "Toggle zen mode"
+    "aria-label": "Toggle zen mode",
+    "data-tooltip": "Zen mode (Z)"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-compress",
     "aria-hidden": "true"
@@ -1538,16 +1580,21 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
       LifeViewUtils.toggleZenMode(stateRef, refs, dispatch);
     },
     title: "Exit zen mode (Z or Escape)",
-    "aria-label": "Exit zen mode"
+    "aria-label": "Exit zen mode",
+    "data-tooltip": "Exit zen mode (Z)"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-eye",
     "aria-hidden": "true"
-  })), /*#__PURE__*/React.createElement(MobileMinimapArea, {
+  })), zenMode && state.zenNotify && /*#__PURE__*/React.createElement("div", {
+    className: "zen-notify",
+    role: "status",
+    "aria-live": "polite"
+  }, "Zen mode \u2014 press Z or Esc to exit"), /*#__PURE__*/React.createElement(MobileMinimapArea, {
     state: state,
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }));
+  }), !zenMode && /*#__PURE__*/React.createElement(_ObservatoryHints, null));
 };
 var ObservatoryMobile = function ObservatoryMobile(props) {
   // eslint-disable-line no-unused-vars
@@ -2635,14 +2682,25 @@ var CompactBody = function CompactBody(props) {
         if (def.onClick) def.onClick();
         isOpen ? LifeViewUtils._closePopOut(stateRef, refs, dispatch) : LifeViewUtils._openPopOut(stateRef, refs, dispatch, panelId, def.id);
       } : def.onClick,
-      title: def.title
+      title: def.title,
+      "data-tooltip": def.title
     }, def.icon ? /*#__PURE__*/React.createElement("i", {
       className: "fa " + def.icon,
       "aria-hidden": "true"
     }) : null, def.label ? /*#__PURE__*/React.createElement("span", {
       className: "compact-btn-label"
     }, def.label) : null), def.popOut && isOpen && /*#__PURE__*/React.createElement("div", {
-      className: "pop-out-panel"
+      className: "pop-out-panel",
+      tabIndex: "-1",
+      ref: function (el) {
+        if (el) el.focus();
+      },
+      onKeyDown: function (e) {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          LifeViewUtils._closePopOut(stateRef, refs, dispatch);
+        }
+      }
     }, def.popOut()));
   }));
 };
@@ -2663,8 +2721,8 @@ var FloatPanel = function FloatPanel(props) {
   if (LifeViewUtils._findGroupForPanel(stateRef, refs, dispatch, panelId)) {
     return null;
   }
-  var isCompact = ps.compact && !ps.collapsed;
-  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (ps.collapsed ? " float-panel-collapsed" : "") + (isCompact ? " float-panel-compact" : "");
+  var isCompact = !!ps.compact;
+  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCompact ? " float-panel-compact" : "");
   var style = {};
   if (ps.x >= 0) {
     style.left = ps.x;
@@ -2708,24 +2766,18 @@ var FloatPanel = function FloatPanel(props) {
     onClick: function () {
       LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
     },
-    "aria-label": isCompact ? "Expand " + label + " panel width" : "Compact " + label + " panel",
-    title: isCompact ? "Expand panel" : "Compact panel"
+    "aria-label": isCompact ? "Expand " + label + " panel" : "Compact " + label + " panel",
+    title: isCompact ? "Expand panel" : "Compact panel",
+    "data-tooltip": isCompact ? "Expand" : "Compact"
   }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "btn float-panel-collapse",
-    onClick: function () {
-      _togglePanelCollapse(panelId, stateRef, refs, dispatch);
-    },
-    "aria-expanded": !ps.collapsed,
-    "aria-label": ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"
-  }, ps.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-close",
     onClick: function () {
       _togglePanelOpen(panelId, stateRef, refs, dispatch);
     },
-    "aria-label": "Close " + label + " panel"
-  }, "\xD7")), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+    "aria-label": "Close " + label + " panel",
+    "data-tooltip": "Close"
+  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
   }, isCompact ? /*#__PURE__*/React.createElement(CompactBody, {
     panelId: panelId,
@@ -2733,14 +2785,15 @@ var FloatPanel = function FloatPanel(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }) : content), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+  }) : content), /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",
     onMouseDown: function (e) {
       _startPanelResize(panelId, e, stateRef, refs, dispatch);
     },
     onTouchStart: function (e) {
       _startPanelResize(panelId, e, stateRef, refs, dispatch);
-    }
+    },
+    "data-tooltip": "Resize"
   }));
 };
 var FloatPanelDirect = function FloatPanelDirect(props) {
@@ -2757,7 +2810,7 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
   if (!ps || !ps.open) {
     return null;
   }
-  var isCompact = ps.compact && !ps.collapsed;
+  var isCompact = !!ps.compact;
   var style = {};
   if (group && group.x >= 0) {
     style.left = group.x;
@@ -2778,7 +2831,7 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
   if (group && group.z) {
     style.zIndex = group.z;
   }
-  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (ps.collapsed ? " float-panel-collapsed" : "") + (isCompact ? " float-panel-compact" : "");
+  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCompact ? " float-panel-compact" : "");
   return /*#__PURE__*/React.createElement("div", {
     className: className,
     style: style,
@@ -2811,24 +2864,18 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     onClick: function () {
       LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
     },
-    "aria-label": isCompact ? "Expand " + label + " panel width" : "Compact " + label + " panel",
-    title: isCompact ? "Expand panel" : "Compact panel"
+    "aria-label": isCompact ? "Expand " + label + " panel" : "Compact " + label + " panel",
+    title: isCompact ? "Expand panel" : "Compact panel",
+    "data-tooltip": isCompact ? "Expand" : "Compact"
   }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "btn float-panel-collapse",
-    onClick: function () {
-      _togglePanelCollapse(panelId, stateRef, refs, dispatch);
-    },
-    "aria-expanded": !ps.collapsed,
-    "aria-label": ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"
-  }, ps.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-close",
     onClick: function () {
       _togglePanelOpen(panelId, stateRef, refs, dispatch);
     },
-    "aria-label": "Close " + label + " panel"
-  }, "\xD7")), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+    "aria-label": "Close " + label + " panel",
+    "data-tooltip": "Close"
+  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
   }, isCompact ? /*#__PURE__*/React.createElement(CompactBody, {
     panelId: panelId,
@@ -2836,14 +2883,15 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }) : content), !ps.collapsed && /*#__PURE__*/React.createElement("div", {
+  }) : content), /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",
     onMouseDown: function (e) {
       _startPanelResize(panelId, e, stateRef, refs, dispatch);
     },
     onTouchStart: function (e) {
       _startPanelResize(panelId, e, stateRef, refs, dispatch);
-    }
+    },
+    "data-tooltip": "Resize"
   }));
 };
 var PanelGroup = function PanelGroup(props) {
@@ -2901,6 +2949,9 @@ var PanelGroup = function PanelGroup(props) {
       onClick: function (e) {
         e.stopPropagation();
         LifeViewUtils._setGroupActiveTab(stateRef, refs, dispatch, group.id, pid);
+        if (group.collapsed) {
+          _toggleGroupCollapse(group.id, stateRef, refs, dispatch);
+        }
       },
       onMouseDown: function (e) {
         if (!isCompact) _startTabDrag(pid, group.id, e, stateRef, refs, dispatch);
@@ -2941,7 +2992,8 @@ var PanelGroup = function PanelGroup(props) {
         e.stopPropagation();
         LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id);
       },
-      title: "Expand group"
+      title: "Expand group",
+      "data-tooltip": "Expand"
     }, "\u00bb"), /*#__PURE__*/React.createElement("button", {
       type: "button",
       className: "btn float-panel-collapse",
@@ -2950,7 +3002,8 @@ var PanelGroup = function PanelGroup(props) {
         _toggleGroupCollapse(group.id, stateRef, refs, dispatch);
       },
       "aria-expanded": !group.collapsed,
-      "aria-label": group.collapsed ? "Expand panel group" : "Collapse panel group"
+      "aria-label": group.collapsed ? "Expand panel group" : "Collapse panel group",
+      "data-tooltip": group.collapsed ? "Expand" : "Collapse"
     }, group.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
       type: "button",
       className: "btn float-panel-close",
@@ -2958,7 +3011,8 @@ var PanelGroup = function PanelGroup(props) {
         e.stopPropagation();
         _togglePanelOpen(activeTab, stateRef, refs, dispatch);
       },
-      "aria-label": "Close active panel"
+      "aria-label": "Close active panel",
+      "data-tooltip": "Close"
     }, "\xD7")), !group.collapsed && /*#__PURE__*/React.createElement("div", {
       className: "compact-group-body"
     }, /*#__PURE__*/React.createElement("div", {
@@ -3010,7 +3064,8 @@ var PanelGroup = function PanelGroup(props) {
       LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id);
     },
     title: "Minimize to icon strip",
-    "aria-label": "Minimize panel group to compact icon strip"
+    "aria-label": "Minimize panel group to compact icon strip",
+    "data-tooltip": "Compact"
   }, "\u00ab"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-collapse",
@@ -3019,7 +3074,8 @@ var PanelGroup = function PanelGroup(props) {
       _toggleGroupCollapse(group.id, stateRef, refs, dispatch);
     },
     "aria-expanded": !group.collapsed,
-    "aria-label": group.collapsed ? "Expand panel group" : "Collapse panel group"
+    "aria-label": group.collapsed ? "Expand panel group" : "Collapse panel group",
+    "data-tooltip": group.collapsed ? "Expand" : "Collapse"
   }, group.collapsed ? "+" : "\u2013")), !group.collapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
   }, _getPanelContent(activeTab, state, stateRef, refs, dispatch)), !group.collapsed && /*#__PURE__*/React.createElement("div", {
@@ -3248,8 +3304,17 @@ var RulesSection = function RulesSection(props) {
       value: p.rule
     }, p.name);
   })), /*#__PURE__*/React.createElement("label", {
-    className: "slider-title rule-label"
-  }, "Rule (B/S notation)"), /*#__PURE__*/React.createElement("input", {
+    className: "slider-title rule-label",
+    "data-tooltip": "Birth/Survival rules. B3 = dead cell with 3 neighbors is born. S23 = live cell with 2 or 3 neighbors survives.",
+    "data-tooltip-pos": "below"
+  }, "Rule (B/S notation) ", /*#__PURE__*/React.createElement("i", {
+    className: "fa fa-info-circle",
+    "aria-hidden": "true",
+    style: {
+      opacity: 0.5,
+      fontSize: '0.85em'
+    }
+  })), /*#__PURE__*/React.createElement("input", {
     className: "rule-input" + (ruleValid ? "" : " rule-input-invalid"),
     type: "text",
     value: state.ruleString,
@@ -3283,7 +3348,7 @@ var RLESection = function RLESection(props) {
   }, /*#__PURE__*/React.createElement("textarea", {
     className: "rle-input",
     rows: "5",
-    placeholder: "Paste RLE or plaintext pattern\n(from LifeWiki or Golly)",
+    placeholder: "Paste RLE or plaintext pattern here, or drag & drop a file\u2026\n(from LifeWiki or Golly)",
     value: state.rleInput,
     onChange: function (e) {
       LifeIOUtils.setRleInput(stateRef, refs, dispatch, e);
@@ -3321,7 +3386,8 @@ var ExportContent = function ExportContent(props) {
     onClick: function () {
       LifeIOUtils.exportPNG(stateRef, refs, dispatch);
     },
-    title: "Save as PNG"
+    title: "Save as PNG",
+    "data-tooltip": "Save board as PNG image"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-camera",
     "aria-hidden": "true"
@@ -3331,7 +3397,8 @@ var ExportContent = function ExportContent(props) {
     onClick: function () {
       LifeIOUtils.copyRLE(stateRef, refs, dispatch);
     },
-    title: "Copy board as RLE"
+    title: "Copy board as RLE",
+    "data-tooltip": "Copy pattern as RLE to clipboard"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-clipboard",
     "aria-hidden": "true"
@@ -3342,6 +3409,7 @@ var ExportContent = function ExportContent(props) {
       LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch);
     },
     title: "Record an animated GIF",
+    "data-tooltip": "Record animated GIF",
     "aria-label": state.recording ? "Stop recording" : "Record GIF",
     "aria-pressed": state.recording
   }, /*#__PURE__*/React.createElement("i", {
@@ -3354,6 +3422,7 @@ var ExportContent = function ExportContent(props) {
       LifeIOUtils.shareURL(stateRef, refs, dispatch);
     },
     title: "Copy shareable URL to clipboard",
+    "data-tooltip": "Copy shareable URL",
     "aria-label": "Share simulation URL"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-share-alt",
@@ -4548,7 +4617,7 @@ var MobileContextPanel = function MobileContextPanel(props) {
 };
 "use strict";
 
-/* global React, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeViewUtils, LifeInputUtils */
+/* global React, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeViewUtils, LifeInputUtils, SPEED_DELAYS */
 /**
  * TransportControls — Play/pause/step buttons + step count.
  * Props: compact, state, stateRef, refs, dispatch
@@ -4561,6 +4630,8 @@ var TransportControls = function TransportControls(props) {
     dispatch = props.dispatch;
   var compact = props.compact;
   if (compact) {
+    var compactDelay = SPEED_DELAYS[state.speed - 1];
+    var compactSpeedLabel = compactDelay === 0 ? 'Max' : compactDelay + '\u2009ms';
     return /*#__PURE__*/React.createElement("div", {
       className: "transport-controls transport-compact"
     }, /*#__PURE__*/React.createElement("button", {
@@ -4570,6 +4641,7 @@ var TransportControls = function TransportControls(props) {
         LifeSimUtils.toggleGame(stateRef, refs, dispatch);
       },
       title: "Play/Pause (Space)",
+      "data-tooltip": state.running ? "Pause (Space)" : "Play (Space)",
       "aria-label": state.running ? "Pause" : "Play",
       "aria-pressed": state.running
     }, /*#__PURE__*/React.createElement("i", {
@@ -4582,13 +4654,17 @@ var TransportControls = function TransportControls(props) {
         LifeSimUtils.stepGame(stateRef, refs, dispatch);
       },
       title: "Step one generation (.)",
+      "data-tooltip": "Step (.)",
       "aria-label": "Step one generation"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fa fa-step-forward",
       "aria-hidden": "true"
     })), /*#__PURE__*/React.createElement("span", {
-      className: "transport-speed-label"
-    }, "Gen " + state.generations.toLocaleString()));
+      className: "transport-gen-label"
+    }, "Gen " + state.generations.toLocaleString()), /*#__PURE__*/React.createElement("span", {
+      className: "transport-speed-label",
+      "data-tooltip": "Simulation speed"
+    }, compactSpeedLabel));
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "transport-controls"
@@ -5110,6 +5186,14 @@ document.addEventListener('DOMContentLoaded', function () {
       refs.minimapCanvas2.height = 75;
       InputHandler.reset();
       SimRunner.invalidate();
+      // Set initial theme accent color (16.2)
+      var accentMap = {
+        Teal: '#70959A',
+        Midnight: '#4A9ECD',
+        Ember: '#C47138'
+      };
+      var initTheme = stateRef.current.theme || 'Midnight';
+      document.documentElement.style.setProperty('--accent', accentMap[initTheme] || '#70959A');
       // Attach wheel listener as non-passive so preventDefault works.
       refs.canvas.addEventListener('wheel', function (e) {
         LifeInputUtils.onWheel(stateRef, refs, dispatch, e);

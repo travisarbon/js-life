@@ -20,7 +20,7 @@ var RulesSection = function RulesSection(props) { // eslint-disable-line no-unus
                                     return <option key={p.rule} value={p.rule}>{p.name}</option>;
                                 })}
                             </select>
-                            <label className="slider-title rule-label">Rule (B/S notation)</label>
+                            <label className="slider-title rule-label" data-tooltip="Birth/Survival rules. B3 = dead cell with 3 neighbors is born. S23 = live cell with 2 or 3 neighbors survives." data-tooltip-pos="below">Rule (B/S notation) <i className="fa fa-info-circle" aria-hidden="true" style={{opacity:0.5, fontSize:'0.85em'}}></i></label>
                             <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
                                 type="text"
                                 value={state.ruleString}
@@ -45,7 +45,7 @@ var RLESection = function RLESection(props) { // eslint-disable-line no-unused-v
                                 <div className="rle-body">
                                     <textarea className="rle-input"
                                         rows="5"
-                                        placeholder={"Paste RLE or plaintext pattern\n(from LifeWiki or Golly)"}
+                                        placeholder={"Paste RLE or plaintext pattern here, or drag & drop a file\u2026\n(from LifeWiki or Golly)"}
                                         value={state.rleInput}
                                         onChange={function(e){ LifeIOUtils.setRleInput(stateRef, refs, dispatch, e); }} />
                                     <button type="button" className="btn btn-block" onClick={function(){ LifeIOUtils.loadRle(stateRef, refs, dispatch); }} title="Load the RLE or plaintext pattern">Load pattern</button>
@@ -67,10 +67,10 @@ var ExportContent = function ExportContent(props) { // eslint-disable-line no-un
                         <div className="btn-section">
                             <label className="control-group-label">Export</label>
                             <div className="buttons buttons-export">
-                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.exportPNG(stateRef, refs, dispatch); }} title="Save as PNG"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
-                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.copyRLE(stateRef, refs, dispatch); }} title="Copy board as RLE"><i className="fa fa-clipboard" aria-hidden="true"></i> {state.copyRleTooltip ? "Copied!" : "Copy RLE"}</button>
-                                <button type="button" className={"btn btn-toggle" + (state.recording ? " active btn-record" : "")} onClick={function(){ LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch); }} title="Record an animated GIF" aria-label={state.recording ? "Stop recording" : "Record GIF"} aria-pressed={state.recording}><i className={"fa " + (state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {state.recording ? "Stop" : "Record"}</button>
-                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.shareURL(stateRef, refs, dispatch); }} title="Copy shareable URL to clipboard" aria-label="Share simulation URL"><i className="fa fa-share-alt" aria-hidden="true"></i> {state.shareTooltip ? "Copied!" : "Share Link"}</button>
+                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.exportPNG(stateRef, refs, dispatch); }} title="Save as PNG" data-tooltip="Save board as PNG image"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
+                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.copyRLE(stateRef, refs, dispatch); }} title="Copy board as RLE" data-tooltip="Copy pattern as RLE to clipboard"><i className="fa fa-clipboard" aria-hidden="true"></i> {state.copyRleTooltip ? "Copied!" : "Copy RLE"}</button>
+                                <button type="button" className={"btn btn-toggle" + (state.recording ? " active btn-record" : "")} onClick={function(){ LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch); }} title="Record an animated GIF" data-tooltip="Record animated GIF" aria-label={state.recording ? "Stop recording" : "Record GIF"} aria-pressed={state.recording}><i className={"fa " + (state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {state.recording ? "Stop" : "Record"}</button>
+                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.shareURL(stateRef, refs, dispatch); }} title="Copy shareable URL to clipboard" data-tooltip="Copy shareable URL" aria-label="Share simulation URL"><i className="fa fa-share-alt" aria-hidden="true"></i> {state.shareTooltip ? "Copied!" : "Share Link"}</button>
                             </div>
                             {<RLESection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                         </div>

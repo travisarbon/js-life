@@ -235,6 +235,10 @@ function LifeBoard() {
                 refs.minimapCanvas2.height = 75;
                 InputHandler.reset();
                 SimRunner.invalidate();
+                // Set initial theme accent color (16.2)
+                var accentMap = {Teal: '#70959A', Midnight: '#4A9ECD', Ember: '#C47138'};
+                var initTheme = stateRef.current.theme || 'Midnight';
+                document.documentElement.style.setProperty('--accent', accentMap[initTheme] || '#70959A');
                 // Attach wheel listener as non-passive so preventDefault works.
                 refs.canvas.addEventListener('wheel', function(e){ LifeInputUtils.onWheel(stateRef, refs, dispatch, e); }, {passive: false});
                 // Prevent browser zoom (Ctrl+scroll) anywhere on the page.

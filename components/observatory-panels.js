@@ -508,12 +508,15 @@ var CompactBody = function CompactBody(props) { // eslint-disable-line no-unused
                         <button type="button"
                             className={"btn" + (def.active ? " active" : "")}
                             onClick={def.popOut ? function(){ if(def.onClick) def.onClick(); isOpen ? LifeViewUtils._closePopOut(stateRef, refs, dispatch) : LifeViewUtils._openPopOut(stateRef, refs, dispatch, panelId, def.id); } : def.onClick}
-                            title={def.title}>
+                            title={def.title}
+                            data-tooltip={def.title}>
                             {def.icon ? <i className={"fa " + def.icon} aria-hidden="true"></i> : null}
                             {def.label ? <span className="compact-btn-label">{def.label}</span> : null}
                         </button>
                         {def.popOut && isOpen &&
-                            <div className="pop-out-panel">
+                            <div className="pop-out-panel" tabIndex="-1"
+                                ref={function(el){ if(el) el.focus(); }}
+                                onKeyDown={function(e){ if(e.key === 'Escape'){ e.stopPropagation(); LifeViewUtils._closePopOut(stateRef, refs, dispatch); } }}>
                                 {def.popOut()}
                             </div>
                         }
@@ -531,9 +534,8 @@ var FloatPanel = function FloatPanel(props) { // eslint-disable-line no-unused-v
     if(!ps || !ps.open){ return null; }
     // Skip panels that are in a group — they render inside the group.
     if(LifeViewUtils._findGroupForPanel(stateRef, refs, dispatch, panelId)){ return null; }
-    var isCompact = ps.compact && !ps.collapsed;
+    var isCompact = !!ps.compact;
     var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() +
-        (ps.collapsed ? " float-panel-collapsed" : "") +
         (isCompact ? " float-panel-compact" : "");
     var style = {};
     if(ps.x >= 0){ style.left = ps.x; style.top = ps.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
@@ -550,26 +552,23 @@ var FloatPanel = function FloatPanel(props) { // eslint-disable-line no-unused-v
                 <span className="float-panel-title" id={"panel-title-" + panelId}>{label}</span>
                 <button type="button" className="btn float-panel-compact-toggle"
                     onClick={function(){ LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId); }}
-                    aria-label={isCompact ? "Expand " + label + " panel width" : "Compact " + label + " panel"}
-                    title={isCompact ? "Expand panel" : "Compact panel"}>
+                    aria-label={isCompact ? "Expand " + label + " panel" : "Compact " + label + " panel"}
+                    title={isCompact ? "Expand panel" : "Compact panel"}
+                    data-tooltip={isCompact ? "Expand" : "Compact"}>
                     {isCompact ? "\u00bb" : "\u00ab"}
-                </button>
-                <button type="button" className="btn float-panel-collapse"
-                    onClick={function(){ _togglePanelCollapse(panelId, stateRef, refs, dispatch); }}
-                    aria-expanded={!ps.collapsed}
-                    aria-label={ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"}>
-                    {ps.collapsed ? "+" : "\u2013"}
                 </button>
                 <button type="button" className="btn float-panel-close"
                     onClick={function(){ _togglePanelOpen(panelId, stateRef, refs, dispatch); }}
-                    aria-label={"Close " + label + " panel"}>&times;</button>
+                    aria-label={"Close " + label + " panel"}
+                    data-tooltip="Close">&times;</button>
             </div>
-            {!ps.collapsed && <div className="float-panel-body">
+            <div className="float-panel-body">
                 {isCompact ? <CompactBody panelId={panelId} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} /> : content}
-            </div>}
-            {!ps.collapsed && <div className="float-panel-resize"
+            </div>
+            <div className="float-panel-resize"
                 onMouseDown={function(e){ _startPanelResize(panelId, e, stateRef, refs, dispatch); }}
-                onTouchStart={function(e){ _startPanelResize(panelId, e, stateRef, refs, dispatch); }}></div>}
+                onTouchStart={function(e){ _startPanelResize(panelId, e, stateRef, refs, dispatch); }}
+                data-tooltip="Resize"></div>
         </div>
     );
 };
@@ -578,14 +577,13 @@ var FloatPanelDirect = function FloatPanelDirect(props) { // eslint-disable-line
     var panelId = props.panelId, label = props.label, content = props.content, group = props.group, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
     var ps = state.panelStates[panelId];
     if(!ps || !ps.open){ return null; }
-    var isCompact = ps.compact && !ps.collapsed;
+    var isCompact = !!ps.compact;
     var style = {};
     if(group && group.x >= 0){ style.left = group.x; style.top = group.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
     else if(ps.x >= 0){ style.left = ps.x; style.top = ps.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
     if(ps.z){ style.zIndex = ps.z; }
     if(group && group.z){ style.zIndex = group.z; }
     var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() +
-        (ps.collapsed ? " float-panel-collapsed" : "") +
         (isCompact ? " float-panel-compact" : "");
     return (
         <div className={className} style={style}
@@ -600,26 +598,23 @@ var FloatPanelDirect = function FloatPanelDirect(props) { // eslint-disable-line
                 <span className="float-panel-title" id={"panel-title-" + panelId}>{label}</span>
                 <button type="button" className="btn float-panel-compact-toggle"
                     onClick={function(){ LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId); }}
-                    aria-label={isCompact ? "Expand " + label + " panel width" : "Compact " + label + " panel"}
-                    title={isCompact ? "Expand panel" : "Compact panel"}>
+                    aria-label={isCompact ? "Expand " + label + " panel" : "Compact " + label + " panel"}
+                    title={isCompact ? "Expand panel" : "Compact panel"}
+                    data-tooltip={isCompact ? "Expand" : "Compact"}>
                     {isCompact ? "\u00bb" : "\u00ab"}
-                </button>
-                <button type="button" className="btn float-panel-collapse"
-                    onClick={function(){ _togglePanelCollapse(panelId, stateRef, refs, dispatch); }}
-                    aria-expanded={!ps.collapsed}
-                    aria-label={ps.collapsed ? "Expand " + label + " panel" : "Collapse " + label + " panel"}>
-                    {ps.collapsed ? "+" : "\u2013"}
                 </button>
                 <button type="button" className="btn float-panel-close"
                     onClick={function(){ _togglePanelOpen(panelId, stateRef, refs, dispatch); }}
-                    aria-label={"Close " + label + " panel"}>&times;</button>
+                    aria-label={"Close " + label + " panel"}
+                    data-tooltip="Close">&times;</button>
             </div>
-            {!ps.collapsed && <div className="float-panel-body">
+            <div className="float-panel-body">
                 {isCompact ? <CompactBody panelId={panelId} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} /> : content}
-            </div>}
-            {!ps.collapsed && <div className="float-panel-resize"
+            </div>
+            <div className="float-panel-resize"
                 onMouseDown={function(e){ _startPanelResize(panelId, e, stateRef, refs, dispatch); }}
-                onTouchStart={function(e){ _startPanelResize(panelId, e, stateRef, refs, dispatch); }}></div>}
+                onTouchStart={function(e){ _startPanelResize(panelId, e, stateRef, refs, dispatch); }}
+                data-tooltip="Resize"></div>
         </div>
     );
 };
@@ -649,7 +644,7 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
         return (
             <button key={pid} type="button"
                 className={"panel-tab" + (pid === activeTab ? " panel-tab-active" : "")}
-                onClick={function(e){ e.stopPropagation(); LifeViewUtils._setGroupActiveTab(stateRef, refs, dispatch, group.id, pid); }}
+                onClick={function(e){ e.stopPropagation(); LifeViewUtils._setGroupActiveTab(stateRef, refs, dispatch, group.id, pid); if(group.collapsed){ _toggleGroupCollapse(group.id, stateRef, refs, dispatch); } }}
                 onMouseDown={function(e){ if(!isCompact) _startTabDrag(pid, group.id, e, stateRef, refs, dispatch); }}
                 title={label}>
                 <i className={"fa " + _getPanelIcon(pid) + " panel-tab-icon"} aria-hidden="true"></i>
@@ -670,15 +665,16 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
                     <span className="compact-active-label">{_getPanelLabel(activeTab)}</span>
                     <button type="button" className="btn float-panel-compact-toggle"
                         onClick={function(e){ e.stopPropagation(); LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
-                        title="Expand group">{"\u00bb"}</button>
+                        title="Expand group" data-tooltip="Expand">{"\u00bb"}</button>
                     <button type="button" className="btn float-panel-collapse"
                         onClick={function(e){ e.stopPropagation(); _toggleGroupCollapse(group.id, stateRef, refs, dispatch); }}
                         aria-expanded={!group.collapsed}
-                        aria-label={group.collapsed ? "Expand panel group" : "Collapse panel group"}>
+                        aria-label={group.collapsed ? "Expand panel group" : "Collapse panel group"}
+                        data-tooltip={group.collapsed ? "Expand" : "Collapse"}>
                         {group.collapsed ? "+" : "\u2013"}</button>
                     <button type="button" className="btn float-panel-close"
                         onClick={function(e){ e.stopPropagation(); _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
-                        aria-label="Close active panel">&times;</button>
+                        aria-label="Close active panel" data-tooltip="Close">&times;</button>
                 </div>
                 {!group.collapsed && <div className="compact-group-body">
                     <div className="compact-icon-rail">
@@ -713,11 +709,13 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
                 <button type="button" className="btn float-panel-compact-toggle"
                     onClick={function(){ LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
                     title="Minimize to icon strip"
-                    aria-label="Minimize panel group to compact icon strip">{"\u00ab"}</button>
+                    aria-label="Minimize panel group to compact icon strip"
+                    data-tooltip="Compact">{"\u00ab"}</button>
                 <button type="button" className="btn float-panel-collapse"
                     onClick={function(e){ e.stopPropagation(); _toggleGroupCollapse(group.id, stateRef, refs, dispatch); }}
                     aria-expanded={!group.collapsed}
-                    aria-label={group.collapsed ? "Expand panel group" : "Collapse panel group"}>
+                    aria-label={group.collapsed ? "Expand panel group" : "Collapse panel group"}
+                    data-tooltip={group.collapsed ? "Expand" : "Collapse"}>
                     {group.collapsed ? "+" : "\u2013"}</button>
             </div>
             {!group.collapsed && <div className="float-panel-body">

@@ -367,9 +367,13 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         if(entering){
             payload._zenMinimapWas = stateRef.current.showMinimap;
             payload.showMinimap = false;
+            payload.zenNotify = true;
+            // Clear the notification after animation completes
+            setTimeout(function(){ dispatch({type:'MERGE', payload:{zenNotify: false}}); }, 2600);
         } else {
             if(stateRef.current._zenMinimapWas){ payload.showMinimap = true; }
             payload._zenMinimapWas = false;
+            payload.zenNotify = false;
         }
         dispatch({type:'MERGE', payload: payload});
         refs.drawPending = true;

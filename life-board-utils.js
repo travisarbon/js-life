@@ -130,7 +130,11 @@ var LifeBoardUtils = { // eslint-disable-line no-unused-vars
     },
 
     setTheme : function(stateRef, refs, dispatch, e){
-        dispatch({type:'MERGE', payload:{theme: e.target.value}});
+        var theme = e.target.value;
+        dispatch({type:'MERGE', payload:{theme: theme}});
+        // Set theme-specific accent color on :root (16.2)
+        var accentMap = {Teal: '#70959A', Midnight: '#4A9ECD', Ember: '#C47138'};
+        document.documentElement.style.setProperty('--accent', accentMap[theme] || '#70959A');
         refs.drawPending = true;
     },
 

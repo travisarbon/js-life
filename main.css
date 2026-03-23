@@ -372,6 +372,25 @@ canvas.display {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   font-size: var(--text-sm); }
+/* Custom styled selects — override native appearance (7.1) */
+#content select,
+.toolbar-step-select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2370959A'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 6px;
+  padding-right: 24px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+#content select:hover,
+.toolbar-step-select:hover {
+  border-color: var(--accent); }
+#content select:focus-visible,
+.toolbar-step-select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(112, 149, 154, 0.2); }
 #content .pattern-filter-input::placeholder {
   color: var(--btn-color);
   opacity: var(--opacity-muted); }
@@ -471,6 +490,64 @@ canvas.display {
   border-radius: 50%;
   border: 2px solid var(--panel-bg); }
 
+/* Slider thumb shadow */
+#content .slider-row input[type="range"]::-webkit-slider-thumb {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+#content .slider-row input[type="range"]::-moz-range-thumb {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+/* Slider focus ring */
+#content .slider-row input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px; }
+
+/* Slider thumb hover state */
+#content .slider-row input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+#content .slider-row input[type="range"]:hover::-moz-range-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+
+/* Slider thumb active/dragging state */
+#content .slider-row input[type="range"]:active::-webkit-slider-thumb {
+  background: var(--accent);
+  transform: scale(1.1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+#content .slider-row input[type="range"]:active::-moz-range-thumb {
+  background: var(--accent);
+  transform: scale(1.1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+
+/* ── Custom scrollbar styling ────────────────────────────────────────── */
+.float-panel-body,
+.rail-tab-content,
+.bottom-sheet-content,
+.panel-group .float-panel-body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128,128,128,0.3) transparent; }
+.float-panel-body::-webkit-scrollbar,
+.rail-tab-content::-webkit-scrollbar,
+.bottom-sheet-content::-webkit-scrollbar,
+.panel-group .float-panel-body::-webkit-scrollbar {
+  width: 6px; }
+.float-panel-body::-webkit-scrollbar-track,
+.rail-tab-content::-webkit-scrollbar-track,
+.bottom-sheet-content::-webkit-scrollbar-track,
+.panel-group .float-panel-body::-webkit-scrollbar-track {
+  background: transparent; }
+.float-panel-body::-webkit-scrollbar-thumb,
+.rail-tab-content::-webkit-scrollbar-thumb,
+.bottom-sheet-content::-webkit-scrollbar-thumb,
+.panel-group .float-panel-body::-webkit-scrollbar-thumb {
+  background: rgba(128,128,128,0.3);
+  border-radius: 3px; }
+.float-panel-body::-webkit-scrollbar-thumb:hover,
+.rail-tab-content::-webkit-scrollbar-thumb:hover,
+.bottom-sheet-content::-webkit-scrollbar-thumb:hover,
+.panel-group .float-panel-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(128,128,128,0.5); }
+
 /* ── RLE import ───────────────────────────────────────────────────────────── */
 #content .rle-section {
   display: flex;
@@ -494,6 +571,11 @@ canvas.display {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   resize: vertical; }
+#content .rle-input {
+  border-style: dashed;
+  border-width: 1.5px; }
+#content .rle-input:focus {
+  border-style: solid; }
 #content .rle-error {
   margin: 0;
   font-size: var(--text-sm);
@@ -582,6 +664,32 @@ canvas.display {
 .btn-toggle:active {
   animation: btn-press 0.15s ease-out; }
 
+/* Action button press feedback (3.2.3) — brief scale for non-toggle buttons */
+#content .btn:not(.btn-toggle):active {
+  transform: scale(0.96);
+  transition: transform 80ms ease; }
+
+/* Toggle indicator dot — distinguishes toggles from action buttons (8.3) */
+#content .btn-toggle::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-color);
+  background: transparent;
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast); }
+#content .btn-toggle.active::before {
+  background: var(--accent-text);
+  border-color: var(--accent-text); }
+/* Hide toggle dot in compact mode to save space */
+.compact-body .btn-toggle::before,
+.float-panel-compact .btn-toggle::before,
+.transport-strip .btn-toggle::before,
+.mobile-transport-bar .btn-toggle::before {
+  display: none; }
+
 /* ── Recording indicator ─────────────────────────────────────────────────── */
 @keyframes rec-pulse {
   0%, 100% { opacity: 1; }
@@ -607,10 +715,10 @@ canvas.display {
 /* Control group sub-labels (e.g. Transport / View / Mode within Simulate tab) */
 .control-group-label {
   display: block;
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.4;
+  letter-spacing: 0.05em;
+  opacity: var(--opacity-muted);
   margin-top: var(--space-lg);
   margin-bottom: var(--space-sm);
   border-top: 1px solid var(--separator-color);
@@ -810,7 +918,8 @@ canvas.display {
 #content input:focus-visible,
 #content textarea:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px; }
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px rgba(112, 149, 154, 0.25); }
 
 /* ════════════════════════════════════════════════════════════════════════════
    LAYOUT MODE SYSTEM
@@ -968,7 +1077,7 @@ canvas.display {
   gap: var(--space-md);
   padding: var(--space-md) var(--space-xl);
   background: var(--panel-bg-blur);
-  border: 1px solid var(--panel-border);
+  border: 1.5px solid var(--separator-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--panel-shadow);
   z-index: calc(var(--z-panels) + 3); }
@@ -1113,6 +1222,10 @@ canvas.display {
   position: fixed;
   top: var(--space-xl);
   right: var(--space-xl);
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
   background: var(--panel-bg-blur);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-md);
@@ -1124,6 +1237,11 @@ canvas.display {
   max-height: calc(100vh - 40px);
   max-height: calc(100dvh - 40px);
   overflow-y: auto; }
+@supports (backdrop-filter: blur(1px)) {
+  .panel-menu {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); }
+}
 
 .panel-menu label {
   display: flex;
@@ -1162,7 +1280,7 @@ canvas.display {
   gap: 0; }
 
 .panel-tab {
-  padding: var(--space-xs) var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1182,7 +1300,7 @@ canvas.display {
 
 .panel-tab-icon {
   display: inline;
-  font-size: 12px;
+  font-size: 16px;
   margin-right: var(--space-xs);
   opacity: var(--opacity-secondary); }
 
@@ -1329,7 +1447,7 @@ canvas.display {
   position: absolute;
   left: 100%;
   top: 0;
-  min-width: 200px;
+  min-width: 220px;
   max-width: 300px;
   background: var(--panel-bg-blur);
   border: 1px solid var(--panel-border);
@@ -1432,7 +1550,7 @@ canvas.display {
 
 .panel-group-compact .compact-icon-rail .panel-tab-icon {
   display: inline;
-  font-size: 13px; }
+  font-size: 16px; }
 .panel-group-compact .compact-icon-rail .panel-tab-label {
   display: none; }
 
@@ -1515,7 +1633,8 @@ canvas.display {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-md);
   box-shadow: var(--panel-shadow);
-  pointer-events: auto; }
+  pointer-events: auto;
+  font-variant-numeric: tabular-nums; }
 .stats-window-close {
   position: absolute;
   top: var(--space-xs);
@@ -1756,6 +1875,12 @@ canvas.display {
   flex-wrap: wrap;
   gap: var(--space-md);
   align-items: center; }
+/* Visual grouping container for expanded transport (3.1.2) */
+.transport-controls:not(.transport-compact) {
+  padding: var(--space-md);
+  background: var(--input-bg);
+  border: 1px solid var(--separator-color);
+  border-radius: var(--radius-md); }
 
 .transport-controls .btn {
   width: auto;
@@ -1772,6 +1897,17 @@ canvas.display {
   padding: var(--space-sm) var(--space-lg);
   min-height: var(--touch-desktop); }
 
+.transport-gen-label {
+  font-size: var(--text-sm);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-variant-numeric: tabular-nums;
+  opacity: var(--opacity-primary);
+  white-space: nowrap;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
+  letter-spacing: -0.01em; }
+
 .transport-speed-label {
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
@@ -1785,6 +1921,10 @@ canvas.display {
   flex-wrap: wrap;
   gap: var(--space-md);
   margin-top: var(--space-md); }
+/* Active tool accent bar — Tools/mode panel buttons get a left accent (3.3.1) */
+.mode-controls .btn-toggle.active {
+  border-left: 3px solid var(--accent-text);
+  padding-left: calc(var(--space-lg) - 3px); }
 
 .view-controls .btn,
 .mode-controls .btn {
@@ -1843,7 +1983,32 @@ canvas.display {
   font-size: var(--text-sm); }
 
 .panel-menu-item input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--input-bg);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
   margin: 0; }
+.panel-menu-item input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent); }
+.panel-menu-item input[type="checkbox"]:checked::after {
+  content: '\2713';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--accent-text);
+  font-size: 11px;
+  line-height: 1; }
+.panel-menu-item input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px; }
 
 /* ── Float panel default positions ───────────────────────────────────── */
 .float-panel-transport { top: 10px; left: 50%; transform: translateX(-50%); }
@@ -2501,3 +2666,151 @@ canvas.display {
 /* C14 — Float panel collapsed state alignment */
 .float-panel-collapsed .float-panel-body {
   display: none; }
+
+/* ── Enhanced tooltips ──────────────────────────────────────────────── */
+/* All elements with title already show native tooltips. This adds
+   styled tooltips via [data-tooltip] attribute for key controls. */
+[data-tooltip] {
+  position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  z-index: 9999; }
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transition-delay: 400ms; }
+/* Tooltip arrow */
+[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  z-index: 9999; }
+[data-tooltip]:hover::before,
+[data-tooltip]:focus-visible::before {
+  opacity: 1;
+  transition-delay: 400ms; }
+/* Position below for top-aligned elements */
+[data-tooltip-pos="below"]::after {
+  bottom: auto;
+  top: calc(100% + 6px); }
+[data-tooltip-pos="below"]::before {
+  bottom: auto;
+  top: calc(100% + 2px);
+  border-top-color: transparent;
+  border-bottom-color: rgba(0, 0, 0, 0.9); }
+
+/* Zen mode notification */
+.zen-notify {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+  animation: zen-notify-fade 2.5s ease forwards; }
+@keyframes zen-notify-fade {
+  0%, 60% { opacity: 1; }
+  100% { opacity: 0; } }
+
+/* ── Onboarding hints (13.2) ──────────────────────────────────────── */
+.obs-hints-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: backdrop-fade-in var(--transition-normal) ease; }
+.obs-hints-card {
+  background: var(--modal-bg);
+  color: var(--content-color);
+  padding: var(--space-xl) var(--space-2xl);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px var(--shadow-color-strong);
+  max-width: 380px;
+  width: 90vw;
+  animation: panelFadeIn 0.2s ease; }
+.obs-hints-title {
+  margin: 0 0 var(--space-lg);
+  font-size: var(--text-base);
+  text-transform: uppercase;
+  letter-spacing: 0.06em; }
+.obs-hints-list {
+  margin: 0 0 var(--space-xl);
+  padding-left: var(--space-xl);
+  font-size: var(--text-sm);
+  line-height: 1.6; }
+.obs-hints-list li {
+  margin-bottom: var(--space-md); }
+.obs-hints-dismiss {
+  width: 100%;
+  font-weight: 600; }
+
+/* ── Audit: Dark mode transport & stats contrast (9.2, 10.1, 10.2) ── */
+html.dark-mode .transport-strip {
+  background: rgba(20, 20, 24, 0.85);
+  border-color: rgba(255,255,255,0.15); }
+html.dark-mode .stats-window {
+  background: rgba(20, 20, 24, 0.85); }
+
+/* ── Audit: Typography hierarchy — tabular nums (14.1-14.3) ────────── */
+.stats .stat-row,
+.transport-speed-label,
+.slider-title {
+  font-variant-numeric: tabular-nums; }
+
+/* ── Audit: Panel content spacing consistency (2.4, 15.1-15.3) ─────── */
+.view-controls + .sliders,
+.mode-controls + .tools-content,
+.transport-controls + .sliders {
+  margin-top: var(--space-lg); }
+
+/* ── Audit: Light theme panel layering (16.1, 16.3) ─────────────── */
+html:not(.dark-mode) .float-panel,
+html:not(.dark-mode) .panel-group {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+html:not(.dark-mode) .transport-strip {
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+html:not(.dark-mode) .stats-window {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+
+/* ── Audit: Minimap light theme adaptation and interaction (11.1-11.3) */
+html:not(.dark-mode) .mobile-minimap-canvas {
+  border-color: var(--border-color);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.mobile-minimap-canvas {
+  cursor: crosshair; }
+.mobile-minimap-canvas:active {
+  cursor: grabbing; }
