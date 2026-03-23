@@ -10,7 +10,7 @@ var TransportControls = function TransportControls(props) { // eslint-disable-li
                 if(compact){
                     return (
                         <div className="transport-controls transport-compact">
-                            <button type="button" className={"btn btn-toggle" + (state.running ? " active" : "")} onClick={function(){ LifeSimUtils.toggleGame(stateRef, refs, dispatch); }} title="Play/Pause (Space)" aria-label={state.running ? "Pause" : "Play"}><i className={"fa " + (state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i></button>
+                            <button type="button" className={"btn btn-toggle" + (state.running ? " active" : "")} onClick={function(){ LifeSimUtils.toggleGame(stateRef, refs, dispatch); }} title="Play/Pause (Space)" aria-label={state.running ? "Pause" : "Play"} aria-pressed={state.running}><i className={"fa " + (state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i></button>
                             <button type="button" className="btn" onClick={function(){ LifeSimUtils.stepGame(stateRef, refs, dispatch); }} title="Step one generation (.)" aria-label="Step one generation"><i className="fa fa-step-forward" aria-hidden="true"></i></button>
                             <span className="transport-speed-label">{"Gen " + state.generations.toLocaleString()}</span>
                         </div>
@@ -18,15 +18,15 @@ var TransportControls = function TransportControls(props) { // eslint-disable-li
                 }
                 return (
                     <div className="transport-controls">
-                        <button type="button" className={"btn btn-toggle" + (state.running ? " active" : "")} onClick={function(){ LifeSimUtils.toggleGame(stateRef, refs, dispatch); }} title="Start or pause the simulation (Space)"><i className={"fa " + (state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i> {state.running ? "Pause" : "Play"}</button>
+                        <button type="button" className={"btn btn-toggle" + (state.running ? " active" : "")} onClick={function(){ LifeSimUtils.toggleGame(stateRef, refs, dispatch); }} title="Start or pause the simulation (Space)" aria-pressed={state.running}><i className={"fa " + (state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i> {state.running ? "Pause" : "Play"}</button>
                         <button type="button" className="btn" onClick={function(){ LifeSimUtils.stepGame(stateRef, refs, dispatch); }} title="Advance one generation (Enter)"><i className="fa fa-step-forward" aria-hidden="true"></i> Step</button>
                         <button type="button" className="btn" onClick={function(){ LifeSimUtils.stepBack(stateRef, refs, dispatch); }} title="Step backward (,)" disabled={refs.genHistory && refs.genHistory.length === 0}><i className="fa fa-step-backward" aria-hidden="true"></i> Back</button>
                         <select className="toolbar-step-select" value={state.stepCount} onChange={function(e){ LifeBoardUtils.setStepCount(stateRef, refs, dispatch, e); }} title="Advance N generations">
-                            <option value="1">+1</option>
-                            <option value="10">+10</option>
-                            <option value="50">+50</option>
-                            <option value="100">+100</option>
-                            <option value="500">+500</option>
+                            <option value="1">1 gen</option>
+                            <option value="10">10 gen</option>
+                            <option value="50">50 gen</option>
+                            <option value="100">100 gen</option>
+                            <option value="500">500 gen</option>
                         </select>
                         <button type="button" className="btn" onClick={function(){ LifeSimUtils.stepN(stateRef, refs, dispatch, state.stepCount); }} title="Advance multiple generations"><i className="fa fa-fast-forward" aria-hidden="true"></i> Go</button>
                         <button type="button" className="btn" onClick={function(){ LifeBoardUtils.resetGame(stateRef, refs, dispatch); }} title="Randomize the board (R)"><i className="fa fa-refresh" aria-hidden="true"></i> Reset</button>

@@ -36,7 +36,7 @@ var SparklineSVG = function SparklineSVG(props) { // eslint-disable-line no-unus
         <div className="sparkline-wrap">
             <div className="sparkline-header">
                 <span className="sparkline-title" onClick={function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); }} style={{cursor:'pointer'}} title="Click for full population graph">{"Pop: " + population.toLocaleString() + trendArrow}</span>
-                <span className="sparkline-peak">{"peak " + maxPop.toLocaleString() + (state.sessionPeakPop > maxPop ? " \xb7 all " + state.sessionPeakPop.toLocaleString() : "")}</span>
+                <span className="sparkline-peak">{"peak " + maxPop.toLocaleString() + (state.sessionPeakPop > maxPop ? " \xb7 all-time " + state.sessionPeakPop.toLocaleString() : "")}</span>
             </div>
             <svg className="sparkline" width="100%" height={vbH}
                  viewBox={"0 0 " + vbW + " " + vbH}
@@ -52,7 +52,7 @@ var SparklineSVG = function SparklineSVG(props) { // eslint-disable-line no-unus
             </svg>
             <div className="sparkline-footer">
                 <span className="sparkline-gps">{gpsText || ''}</span>
-                <span>{"← " + spanLabel + " →"}</span>
+                <span>{spanLabel}</span>
             </div>
         </div>
     );

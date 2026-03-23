@@ -99,6 +99,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
         link.download = 'game-of-life-gen-' + stateRef.current.generations + '.png';
         link.href = refs.canvas.toDataURL('image/png');
         link.click();
+        LifeViewUtils._announce(stateRef, refs, dispatch, 'PNG exported');
     },
 
     // ── RLE export ────────────────────────────────────────────────────
@@ -110,6 +111,8 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
         if(navigator.clipboard && navigator.clipboard.writeText){
             navigator.clipboard.writeText(rle).then(function(){
                 LifeViewUtils._announce(stateRef, refs, dispatch, 'RLE copied to clipboard');
+                dispatch({type:'MERGE', payload:{copyRleTooltip: true}});
+                setTimeout(function(){ dispatch({type:'MERGE', payload:{copyRleTooltip: false}}); }, 2000);
             }).catch(function(){
                 LifeViewUtils._announce(stateRef, refs, dispatch, 'Could not copy to clipboard. Select and copy manually.');
             });

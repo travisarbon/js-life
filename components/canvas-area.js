@@ -218,7 +218,9 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
                     var mc = refs.minimapCanvas;
                     var mctx = mc.getContext('2d');
                     mctx.clearRect(0, 0, mmW, mmH);
-                    mctx.fillStyle = 'rgba(10,14,26,0.85)';
+                    var _bgHex = theme.bg || '#0A0E1A';
+                    var _bgR = parseInt(_bgHex.slice(1,3),16), _bgG = parseInt(_bgHex.slice(3,5),16), _bgB = parseInt(_bgHex.slice(5,7),16);
+                    mctx.fillStyle = 'rgba(' + _bgR + ',' + _bgG + ',' + _bgB + ',0.85)';
                     mctx.fillRect(0, 0, mmW, mmH);
                     mctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
                     var _mmOC = mmOriginC, _mmOR = mmOriginR, _mmCols = cols, _mmRows = rows;
@@ -365,7 +367,9 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
                 }
 
                 var mmCtx = refs.minimapCanvas.getContext('2d');
-                mmCtx.fillStyle = 'rgba(10,14,26,0.85)';
+                var _mbHex = theme.bg || '#0A0E1A';
+                var _mbR = parseInt(_mbHex.slice(1,3),16), _mbG = parseInt(_mbHex.slice(3,5),16), _mbB = parseInt(_mbHex.slice(5,7),16);
+                mmCtx.fillStyle = 'rgba(' + _mbR + ',' + _mbG + ',' + _mbB + ',0.85)';
                 mmCtx.fillRect(0, 0, mmW_css, mmH_css);
 
                 var cellW = mmW_css / mmRegionCols;

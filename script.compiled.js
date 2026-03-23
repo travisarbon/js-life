@@ -237,7 +237,11 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
     var mc = refs.minimapCanvas;
     var mctx = mc.getContext('2d');
     mctx.clearRect(0, 0, mmW, mmH);
-    mctx.fillStyle = 'rgba(10,14,26,0.85)';
+    var _bgHex = theme.bg || '#0A0E1A';
+    var _bgR = parseInt(_bgHex.slice(1, 3), 16),
+      _bgG = parseInt(_bgHex.slice(3, 5), 16),
+      _bgB = parseInt(_bgHex.slice(5, 7), 16);
+    mctx.fillStyle = 'rgba(' + _bgR + ',' + _bgG + ',' + _bgB + ',0.85)';
     mctx.fillRect(0, 0, mmW, mmH);
     mctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
     var _mmOC = mmOriginC,
@@ -403,7 +407,11 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
     refs.minimapCanvas.height = mmH_css;
   }
   var mmCtx = refs.minimapCanvas.getContext('2d');
-  mmCtx.fillStyle = 'rgba(10,14,26,0.85)';
+  var _mbHex = theme.bg || '#0A0E1A';
+  var _mbR = parseInt(_mbHex.slice(1, 3), 16),
+    _mbG = parseInt(_mbHex.slice(3, 5), 16),
+    _mbB = parseInt(_mbHex.slice(5, 7), 16);
+  mmCtx.fillStyle = 'rgba(' + _mbR + ',' + _mbG + ',' + _mbB + ',0.85)';
   mmCtx.fillRect(0, 0, mmW_css, mmH_css);
   var cellW = mmW_css / mmRegionCols;
   var cellH = mmH_css / mmRegionRows;
@@ -687,6 +695,8 @@ var HelpModal = function HelpModal(props) {
   var onClose = function () {
     LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch);
   };
+  var isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
+  var mod = isMac ? '\u2318' : 'Ctrl+';
   return /*#__PURE__*/React.createElement("div", {
     className: "help-overlay",
     onClick: onClose,
@@ -694,6 +704,10 @@ var HelpModal = function HelpModal(props) {
     "aria-modal": "true",
     "aria-labelledby": "help-dialog-title",
     onKeyDown: function (e) {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
       if (e.key === 'Tab') {
         var modal = e.currentTarget.querySelector('.help-modal');
         if (!modal) return;
@@ -722,7 +736,13 @@ var HelpModal = function HelpModal(props) {
   }, /*#__PURE__*/React.createElement("h3", {
     className: "help-title",
     id: "help-dialog-title"
-  }, "Controls"), /*#__PURE__*/React.createElement("table", {
+  }, "Quick Reference"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn help-close-x",
+    onClick: onClose,
+    "aria-label": "Close",
+    title: "Close"
+  }, "\xD7"), /*#__PURE__*/React.createElement("table", {
     className: "help-table"
   }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
     colSpan: "2",
@@ -736,7 +756,7 @@ var HelpModal = function HelpModal(props) {
     className: "key-label"
   }, ","), " ", /*#__PURE__*/React.createElement("span", {
     className: "key-hint"
-  }, "(Comma)")), /*#__PURE__*/React.createElement("td", null, "Step backward")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Scroll / Trackpad"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Right-drag"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "D"), /*#__PURE__*/React.createElement("td", null, "Switch to Draw mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "P"), /*#__PURE__*/React.createElement("td", null, "Switch to Preset mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "B"), /*#__PURE__*/React.createElement("td", null, "Switch to Region mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "G"), /*#__PURE__*/React.createElement("td", null, "Toggle grid lines")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "T"), /*#__PURE__*/React.createElement("td", null, "Toggle trails")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+  }, "(Comma)")), /*#__PURE__*/React.createElement("td", null, "Step backward")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, mod + "Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, mod + "Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Scroll / Trackpad"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Right-drag"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, mod + "C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, mod + "V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "D"), /*#__PURE__*/React.createElement("td", null, "Switch to Draw mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "P"), /*#__PURE__*/React.createElement("td", null, "Switch to Preset mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "B"), /*#__PURE__*/React.createElement("td", null, "Switch to Region mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "G"), /*#__PURE__*/React.createElement("td", null, "Toggle grid lines")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "T"), /*#__PURE__*/React.createElement("td", null, "Toggle trails")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
     colSpan: "2",
     scope: "colgroup",
     style: {
@@ -760,7 +780,7 @@ var HelpModal = function HelpModal(props) {
       fontWeight: 'normal',
       textAlign: 'left'
     }
-  }, "File import")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Drag & drop"), /*#__PURE__*/React.createElement("td", null, "Drop .rle/.cells file on canvas")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste RLE text from clipboard")))), /*#__PURE__*/React.createElement("button", {
+  }, "File import")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Drag & drop"), /*#__PURE__*/React.createElement("td", null, "Drop .rle/.cells file on canvas")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, mod + "V"), /*#__PURE__*/React.createElement("td", null, "Paste RLE text from clipboard")))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn help-close",
     onClick: onClose,
@@ -1012,7 +1032,8 @@ var LayoutSwitcher = function LayoutSwitcher(props) {
       LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'cartographer');
     },
     title: "Cartographer: Edge rail with tabs",
-    "aria-label": "Cartographer layout: edge rail with tabs"
+    "aria-label": "Cartographer layout: edge rail with tabs",
+    "aria-pressed": mode === 'cartographer'
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-columns"
   })), /*#__PURE__*/React.createElement("button", {
@@ -1022,7 +1043,8 @@ var LayoutSwitcher = function LayoutSwitcher(props) {
       LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'observatory');
     },
     title: "Observatory: Floating panels",
-    "aria-label": "Observatory layout: floating panels"
+    "aria-label": "Observatory layout: floating panels",
+    "aria-pressed": mode === 'observatory'
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-object-ungroup"
   })));
@@ -1437,9 +1459,35 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     className: "fa fa-th",
     "aria-hidden": "true"
   })), state.panelMenuOpen && /*#__PURE__*/React.createElement("div", {
+    className: "panel-menu-backdrop",
+    "aria-hidden": "true",
+    onClick: function () {
+      dispatch({
+        type: "MERGE",
+        payload: {
+          panelMenuOpen: false
+        }
+      });
+    }
+  }), state.panelMenuOpen && /*#__PURE__*/React.createElement("div", {
     className: "panel-menu-list",
     role: "group",
-    "aria-label": "Panel toggles"
+    "aria-label": "Panel toggles",
+    tabIndex: "-1",
+    ref: function (el) {
+      if (el) el.focus();
+    },
+    onKeyDown: function (e) {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        dispatch({
+          type: "MERGE",
+          payload: {
+            panelMenuOpen: false
+          }
+        });
+      }
+    }
   }, ['transport', 'board', 'view', 'mode', 'rules', 'importExport'].map(function (id) {
     var label = ObservatoryPanelUtils.getPanelLabel(id);
     return /*#__PURE__*/React.createElement("label", {
@@ -1583,7 +1631,9 @@ var _getPanelIcon = function (panelId) {
 var _getPanelContent = function (panelId, state, stateRef, refs, dispatch) {
   switch (panelId) {
     case 'transport':
-      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(TransportControls, {
+      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section-title"
+      }, "Simulate"), /*#__PURE__*/React.createElement(TransportControls, {
         compact: false,
         state: state,
         stateRef: stateRef,
@@ -1596,7 +1646,9 @@ var _getPanelContent = function (panelId, state, stateRef, refs, dispatch) {
         dispatch: dispatch
       }));
     case 'board':
-      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(BoardSliders, {
+      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section-title"
+      }, "Board"), /*#__PURE__*/React.createElement(BoardSliders, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -1628,7 +1680,9 @@ var _getPanelContent = function (panelId, state, stateRef, refs, dispatch) {
         dispatch: dispatch
       }));
     case 'mode':
-      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ModeControls, {
+      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section-title"
+      }, "Tools"), /*#__PURE__*/React.createElement(ModeControls, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -2244,7 +2298,7 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
             className: "compact-popout-content sliders"
           }, /*#__PURE__*/React.createElement("label", {
             className: "slider-title"
-          }, "Fill Density (on Reset)"), /*#__PURE__*/React.createElement("div", {
+          }, "Random Fill Density"), /*#__PURE__*/React.createElement("div", {
             className: "slider-row"
           }, /*#__PURE__*/React.createElement("input", {
             type: "range",
@@ -3174,7 +3228,8 @@ var RLESection = function RLESection(props) {
     className: "btn btn-rle-toggle btn-block" + (state.showRle ? " active" : ""),
     onClick: function () {
       LifeIOUtils.toggleRle(stateRef, refs, dispatch);
-    }
+    },
+    "aria-pressed": state.showRle
   }, "Import RLE / Plaintext")), state.showRle && /*#__PURE__*/React.createElement("div", {
     className: "rle-body"
   }, /*#__PURE__*/React.createElement("textarea", {
@@ -3230,14 +3285,15 @@ var ExportContent = function ExportContent(props) {
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-clipboard",
     "aria-hidden": "true"
-  }), " Copy RLE"), /*#__PURE__*/React.createElement("button", {
+  }), " ", state.copyRleTooltip ? "Copied!" : "Copy RLE"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn btn-toggle" + (state.recording ? " active btn-record" : ""),
     onClick: function () {
       LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch);
     },
     title: "Record an animated GIF",
-    "aria-label": state.recording ? "Stop recording" : "Record GIF"
+    "aria-label": state.recording ? "Stop recording" : "Record GIF",
+    "aria-pressed": state.recording
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa " + (state.recording ? "fa-stop" : "fa-circle"),
     "aria-hidden": "true"
@@ -3303,7 +3359,8 @@ var ViewControls = function ViewControls(props) {
     onClick: function () {
       LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch);
     },
-    title: "Toggle grid lines (G)"
+    title: "Toggle grid lines (G)",
+    "aria-pressed": state.gridLines
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-th",
     "aria-hidden": "true"
@@ -3313,7 +3370,8 @@ var ViewControls = function ViewControls(props) {
     onClick: function () {
       onToggleTrails(stateRef, refs, dispatch);
     },
-    title: "Show ghost trails"
+    title: "Show ghost trails",
+    "aria-pressed": state.showTrails
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-sun-o",
     "aria-hidden": "true"
@@ -3323,7 +3381,8 @@ var ViewControls = function ViewControls(props) {
     onClick: function () {
       LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch);
     },
-    title: "Show/hide minimap (M)"
+    title: "Show/hide minimap (M)",
+    "aria-pressed": state.showMinimap
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-map-o",
     "aria-hidden": "true"
@@ -3338,7 +3397,8 @@ var ViewControls = function ViewControls(props) {
         }
       });
     },
-    title: "Show/hide stats overlay"
+    title: "Show/hide stats overlay",
+    "aria-pressed": state.showStats
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-bar-chart",
     "aria-hidden": "true"
@@ -3392,7 +3452,12 @@ var DisplaySettings = function DisplaySettings(props) {
       key: t,
       value: t
     }, t);
-  })), /*#__PURE__*/React.createElement("select", {
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "control-group-label",
+    style: {
+      marginTop: 'var(--space-sm)'
+    }
+  }, "Mode"), /*#__PURE__*/React.createElement("select", {
     className: "rule-preset-select",
     "aria-label": "Dark mode preference",
     value: state.darkModePref,
@@ -3402,11 +3467,11 @@ var DisplaySettings = function DisplaySettings(props) {
     title: "UI dark mode preference"
   }, /*#__PURE__*/React.createElement("option", {
     value: "system"
-  }, "Mode: System"), /*#__PURE__*/React.createElement("option", {
+  }, "System"), /*#__PURE__*/React.createElement("option", {
     value: "light"
-  }, "Mode: Light"), /*#__PURE__*/React.createElement("option", {
+  }, "Light"), /*#__PURE__*/React.createElement("option", {
     value: "dark"
-  }, "Mode: Dark"))));
+  }, "Dark"))));
 };
 var BoundaryControls = function BoundaryControls(props) {
   // eslint-disable-line no-unused-vars
@@ -3426,7 +3491,8 @@ var BoundaryControls = function BoundaryControls(props) {
     onClick: function () {
       LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch);
     },
-    title: "Cycle boundary: Wrap / Hard / Infinite"
+    title: "Cycle boundary: Wrap / Hard / Infinite",
+    "aria-pressed": state.boundary !== 'toroidal'
   }, state.boundary === 'toroidal' ? /*#__PURE__*/React.createElement("i", {
     className: "fa fa-repeat",
     "aria-hidden": "true"
@@ -3575,7 +3641,7 @@ var BoardSliders = function BoardSliders(props) {
     className: "sliders"
   }, /*#__PURE__*/React.createElement("label", {
     className: "slider-title"
-  }, "Fill Density (on Reset)"), /*#__PURE__*/React.createElement("div", {
+  }, "Random Fill Density"), /*#__PURE__*/React.createElement("div", {
     className: "slider-row"
   }, /*#__PURE__*/React.createElement("input", {
     type: "range",
@@ -3648,7 +3714,7 @@ var SparklineSVG = function SparklineSVG(props) {
     title: "Click for full population graph"
   }, "Pop: " + population.toLocaleString() + trendArrow), /*#__PURE__*/React.createElement("span", {
     className: "sparkline-peak"
-  }, "peak " + maxPop.toLocaleString() + (state.sessionPeakPop > maxPop ? " \xb7 all " + state.sessionPeakPop.toLocaleString() : ""))), /*#__PURE__*/React.createElement("svg", {
+  }, "peak " + maxPop.toLocaleString() + (state.sessionPeakPop > maxPop ? " \xb7 all-time " + state.sessionPeakPop.toLocaleString() : ""))), /*#__PURE__*/React.createElement("svg", {
     className: "sparkline",
     width: "100%",
     height: vbH,
@@ -3681,7 +3747,7 @@ var SparklineSVG = function SparklineSVG(props) {
     className: "sparkline-footer"
   }, /*#__PURE__*/React.createElement("span", {
     className: "sparkline-gps"
-  }, gpsText || ''), /*#__PURE__*/React.createElement("span", null, "← " + spanLabel + " →")));
+  }, gpsText || ''), /*#__PURE__*/React.createElement("span", null, spanLabel)));
 };
 var MobileSparkline = function MobileSparkline(props) {
   // eslint-disable-line no-unused-vars
@@ -3787,7 +3853,8 @@ var ModeControls = function ModeControls(props) {
     onClick: function () {
       LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch);
     },
-    title: "Freehand draw mode (D)"
+    title: "Freehand draw mode (D)",
+    "aria-pressed": state.drawMode === 'paint'
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-pencil",
     "aria-hidden": "true"
@@ -3797,7 +3864,8 @@ var ModeControls = function ModeControls(props) {
     onClick: function () {
       LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch);
     },
-    title: "Place preset patterns (P)"
+    title: "Place preset patterns (P)",
+    "aria-pressed": state.drawMode === 'preset'
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-puzzle-piece",
     "aria-hidden": "true"
@@ -3807,7 +3875,8 @@ var ModeControls = function ModeControls(props) {
     onClick: function () {
       LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch);
     },
-    title: "Select and move cells (S)"
+    title: "Select and move cells (S)",
+    "aria-pressed": state.drawMode === 'select'
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-mouse-pointer",
     "aria-hidden": "true"
@@ -3817,7 +3886,8 @@ var ModeControls = function ModeControls(props) {
     onClick: function () {
       LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch);
     },
-    title: "Draw/erase region bounds (B)"
+    title: "Draw/erase region bounds (B)",
+    "aria-pressed": state.drawMode === 'region'
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-th",
     "aria-hidden": "true"
@@ -3827,7 +3897,8 @@ var ModeControls = function ModeControls(props) {
     onClick: function () {
       LifeBoardUtils.toggleLivePaint(stateRef, refs, dispatch);
     },
-    title: "Paint while running"
+    title: "Paint while running",
+    "aria-pressed": state.livePaintMode
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-paint-brush",
     "aria-hidden": "true"
@@ -4449,7 +4520,8 @@ var TransportControls = function TransportControls(props) {
         LifeSimUtils.toggleGame(stateRef, refs, dispatch);
       },
       title: "Play/Pause (Space)",
-      "aria-label": state.running ? "Pause" : "Play"
+      "aria-label": state.running ? "Pause" : "Play",
+      "aria-pressed": state.running
     }, /*#__PURE__*/React.createElement("i", {
       className: "fa " + (state.running ? "fa-pause" : "fa-play"),
       "aria-hidden": "true"
@@ -4476,7 +4548,8 @@ var TransportControls = function TransportControls(props) {
     onClick: function () {
       LifeSimUtils.toggleGame(stateRef, refs, dispatch);
     },
-    title: "Start or pause the simulation (Space)"
+    title: "Start or pause the simulation (Space)",
+    "aria-pressed": state.running
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa " + (state.running ? "fa-pause" : "fa-play"),
     "aria-hidden": "true"
@@ -4510,15 +4583,15 @@ var TransportControls = function TransportControls(props) {
     title: "Advance N generations"
   }, /*#__PURE__*/React.createElement("option", {
     value: "1"
-  }, "+1"), /*#__PURE__*/React.createElement("option", {
+  }, "1 gen"), /*#__PURE__*/React.createElement("option", {
     value: "10"
-  }, "+10"), /*#__PURE__*/React.createElement("option", {
+  }, "10 gen"), /*#__PURE__*/React.createElement("option", {
     value: "50"
-  }, "+50"), /*#__PURE__*/React.createElement("option", {
+  }, "50 gen"), /*#__PURE__*/React.createElement("option", {
     value: "100"
-  }, "+100"), /*#__PURE__*/React.createElement("option", {
+  }, "100 gen"), /*#__PURE__*/React.createElement("option", {
     value: "500"
-  }, "+500")), /*#__PURE__*/React.createElement("button", {
+  }, "500 gen")), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn",
     onClick: function () {
@@ -4816,6 +4889,7 @@ function initState() {
     }(),
     stepCount: 1,
     shareTooltip: false,
+    copyRleTooltip: false,
     showPopGraph: false,
     analysisResult: null,
     analyzing: false,

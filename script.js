@@ -152,6 +152,7 @@ function initState(){
                     darkModePref :    (function(){ try { return localStorage.getItem('life-dark-mode-pref') || 'dark'; } catch(e){ return 'dark'; } })(),
                     stepCount :       1,
                     shareTooltip :    false,
+                    copyRleTooltip : false,
                     showPopGraph :    false,
                     analysisResult :  null,
                     analyzing :       false,

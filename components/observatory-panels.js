@@ -25,10 +25,10 @@ var _getPanelIcon = function(panelId){
 
 var _getPanelContent = function(panelId, state, stateRef, refs, dispatch){
     switch(panelId){
-        case 'transport': return <div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
-        case 'board': return <div>{<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
+        case 'transport': return <div><div className="sidebar-section-title">Simulate</div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
+        case 'board': return <div><div className="sidebar-section-title">Board</div>{<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
         case 'view': return <div><div className="sidebar-section-title">View</div>{<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}{<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
-        case 'mode': return <div>{<ModeControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<ToolsContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
+        case 'mode': return <div><div className="sidebar-section-title">Tools</div>{<ModeControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<ToolsContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
         case 'rules': return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
         case 'importExport': return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
         default: return null;
@@ -421,7 +421,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
             boardDefs.push(
                 {id:'density', icon: 'fa-braille', title: 'Fill density', popOut: function(){
                     return (<div className="compact-popout-content sliders">
-                        <label className="slider-title">Fill Density (on Reset)</label>
+                        <label className="slider-title">Random Fill Density</label>
                         <div className="slider-row">
                             <input type="range" min="2" max="7" aria-label="Fill density" value={9 - state.sparseness}
                                 onChange={function(e){ LifeBoardUtils.setDensity(stateRef, refs, dispatch, e); }} />

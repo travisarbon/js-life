@@ -38,7 +38,8 @@ var RLESection = function RLESection(props) { // eslint-disable-line no-unused-v
                         <div className="rle-section">
                             <div className="buttons rle-toggle-row">
                                 <button type="button" className={"btn btn-rle-toggle btn-block" + (state.showRle ? " active" : "")}
-                                    onClick={function(){ LifeIOUtils.toggleRle(stateRef, refs, dispatch); }}>Import RLE / Plaintext</button>
+                                    onClick={function(){ LifeIOUtils.toggleRle(stateRef, refs, dispatch); }}
+                                    aria-pressed={state.showRle}>Import RLE / Plaintext</button>
                             </div>
                             {state.showRle &&
                                 <div className="rle-body">
@@ -66,8 +67,8 @@ var ExportContent = function ExportContent(props) { // eslint-disable-line no-un
                         <div className="btn-section">
                             <div className="buttons buttons-export">
                                 <button type="button" className="btn" onClick={function(){ LifeIOUtils.exportPNG(stateRef, refs, dispatch); }} title="Save as PNG"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
-                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.copyRLE(stateRef, refs, dispatch); }} title="Copy board as RLE"><i className="fa fa-clipboard" aria-hidden="true"></i> Copy RLE</button>
-                                <button type="button" className={"btn btn-toggle" + (state.recording ? " active btn-record" : "")} onClick={function(){ LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch); }} title="Record an animated GIF" aria-label={state.recording ? "Stop recording" : "Record GIF"}><i className={"fa " + (state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {state.recording ? "Stop" : "Record"}</button>
+                                <button type="button" className="btn" onClick={function(){ LifeIOUtils.copyRLE(stateRef, refs, dispatch); }} title="Copy board as RLE"><i className="fa fa-clipboard" aria-hidden="true"></i> {state.copyRleTooltip ? "Copied!" : "Copy RLE"}</button>
+                                <button type="button" className={"btn btn-toggle" + (state.recording ? " active btn-record" : "")} onClick={function(){ LifeAnalysisUtils.toggleRecording(stateRef, refs, dispatch); }} title="Record an animated GIF" aria-label={state.recording ? "Stop recording" : "Record GIF"} aria-pressed={state.recording}><i className={"fa " + (state.recording ? "fa-stop" : "fa-circle")} aria-hidden="true"></i> {state.recording ? "Stop" : "Record"}</button>
                                 <button type="button" className="btn" onClick={function(){ LifeIOUtils.shareURL(stateRef, refs, dispatch); }} title="Copy shareable URL to clipboard" aria-label="Share simulation URL"><i className="fa fa-share-alt" aria-hidden="true"></i> {state.shareTooltip ? "Copied!" : "Share Link"}</button>
                             </div>
                             {<RLESection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}

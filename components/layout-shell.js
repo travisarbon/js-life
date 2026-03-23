@@ -135,13 +135,15 @@ var LayoutSwitcher = function LayoutSwitcher(props) { // eslint-disable-line no-
             <button type="button" className={"btn btn-toggle" + (mode === 'cartographer' ? " active" : "")}
                 onClick={function(){ LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'cartographer'); }}
                 title="Cartographer: Edge rail with tabs"
-                aria-label="Cartographer layout: edge rail with tabs">
+                aria-label="Cartographer layout: edge rail with tabs"
+                aria-pressed={mode === 'cartographer'}>
                 <i className="fa fa-columns"></i>
             </button>
             <button type="button" className={"btn btn-toggle" + (mode === 'observatory' ? " active" : "")}
                 onClick={function(){ LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'observatory'); }}
                 title="Observatory: Floating panels"
-                aria-label="Observatory layout: floating panels">
+                aria-label="Observatory layout: floating panels"
+                aria-pressed={mode === 'observatory'}>
                 <i className="fa fa-object-ungroup"></i>
             </button>
         </div>
@@ -319,7 +321,14 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                             <i className="fa fa-th" aria-hidden="true"></i>
                         </button>
                         {state.panelMenuOpen &&
-                            <div className="panel-menu-list" role="group" aria-label="Panel toggles">
+                            <div className="panel-menu-backdrop" aria-hidden="true"
+                                onClick={function(){ dispatch({type:"MERGE", payload:{panelMenuOpen: false}}); }}></div>
+                        }
+                        {state.panelMenuOpen &&
+                            <div className="panel-menu-list" role="group" aria-label="Panel toggles"
+                                tabIndex="-1"
+                                ref={function(el){ if(el) el.focus(); }}
+                                onKeyDown={function(e){ if(e.key === 'Escape'){ e.stopPropagation(); dispatch({type:"MERGE", payload:{panelMenuOpen: false}}); } }}>
                                 {['transport','board','view','mode','rules','importExport'].map(function(id){
                                     var label = ObservatoryPanelUtils.getPanelLabel(id);
                                     return (
