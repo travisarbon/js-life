@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Game of Life</title>
+    <title>JS Life — Conway's Game of Life</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Interactive cellular automaton simulator with multiple rules, themes, and tools.">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src https://cdnjs.cloudflare.com; script-src 'self'; img-src 'self' data: blob:; upgrade-insecure-requests">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧬</text></svg>">
     <!-- Subresource Integrity (SRI) hashes prevent CDN-compromise attacks. -->
@@ -31,6 +32,8 @@
     <script src="script.compiled.js"></script>
 </head>
 <body>
+<a href="#life-canvas" className="sr-only" class="sr-only">Skip to simulation</a>
 <div id="content"></div>
+<noscript><p style="padding:2em;text-align:center">JavaScript is required to run this simulation.</p></noscript>
 </body>
 </html>

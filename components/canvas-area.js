@@ -528,6 +528,7 @@ var CanvasArea = function CanvasArea(props) { // eslint-disable-line no-unused-v
                             role = "application"
                             aria-roledescription = "Game of Life grid"
                             aria-label = "Conway's Game of Life simulation canvas"
+                            aria-description = "Click to toggle cells. Arrow keys to pan. Ctrl+scroll to zoom. Press ? for help."
                             draggable     = {false}
                             onMouseDown   = {function(e){ LifeInputUtils.onMouseDown(stateRef, refs, dispatch, e); }}
                             onMouseMove   = {function(e){ LifeInputUtils.onMouseMove(stateRef, refs, dispatch, e); }}

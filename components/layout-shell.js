@@ -302,6 +302,9 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                     </FloatPanel>
                     {state.showStats &&
                         <div className="stats-window" role="region" aria-label="Statistics">
+                            <button type="button" className="btn stats-window-close"
+                                onClick={function(){ dispatch({type:'MERGE', payload:{showStats: false}}); }}
+                                aria-label="Hide stats" title="Hide stats">&times;</button>
                             <StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />
                         </div>
                     }

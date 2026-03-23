@@ -65,6 +65,7 @@ var ExportContent = function ExportContent(props) { // eslint-disable-line no-un
                     <div className="export-content">
                         <div className="sidebar-section-title">Share</div>
                         <div className="btn-section">
+                            <label className="control-group-label">Export</label>
                             <div className="buttons buttons-export">
                                 <button type="button" className="btn" onClick={function(){ LifeIOUtils.exportPNG(stateRef, refs, dispatch); }} title="Save as PNG"><i className="fa fa-camera" aria-hidden="true"></i> Export PNG</button>
                                 <button type="button" className="btn" onClick={function(){ LifeIOUtils.copyRLE(stateRef, refs, dispatch); }} title="Copy board as RLE"><i className="fa fa-clipboard" aria-hidden="true"></i> {state.copyRleTooltip ? "Copied!" : "Copy RLE"}</button>

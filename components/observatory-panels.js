@@ -373,7 +373,14 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
                 {id:'play', icon: state.running ? 'fa-pause' : 'fa-play', title: 'Play/Pause (Space)', onClick: function(){ LifeSimUtils.toggleGame(stateRef, refs, dispatch); }, active: state.running},
                 {id:'step', icon: 'fa-step-forward', title: 'Step (.)', onClick: function(){ LifeSimUtils.stepGame(stateRef, refs, dispatch); }},
                 {id:'back', icon: 'fa-step-backward', title: 'Step backward (,)', onClick: function(){ LifeSimUtils.stepBack(stateRef, refs, dispatch); }},
-                {id:'go', icon: 'fa-fast-forward', title: 'Advance multiple generations', onClick: function(){ LifeSimUtils.stepN(stateRef, refs, dispatch, state.stepCount); }},
+                {id:'go', icon: 'fa-fast-forward', title: 'Advance ' + state.stepCount + ' generations', onClick: function(){ LifeSimUtils.stepN(stateRef, refs, dispatch, state.stepCount); }, popOut: function(){
+                    return (<div className="compact-popout-content">
+                        <select className="toolbar-step-select" value={state.stepCount} onChange={function(e){ LifeBoardUtils.setStepCount(stateRef, refs, dispatch, e); }} title="Step count" style={{width:'100%'}}>
+                            <option value="1">1 gen</option><option value="10">10 gen</option><option value="50">50 gen</option><option value="100">100 gen</option><option value="500">500 gen</option>
+                        </select>
+                        <button type="button" className="btn btn-block" style={{marginTop:'var(--space-sm)'}} onClick={function(){ LifeSimUtils.stepN(stateRef, refs, dispatch, state.stepCount); }}>Go</button>
+                    </div>);
+                }},
                 {id:'reset', icon: 'fa-refresh', title: 'Randomize (R)', onClick: function(){ LifeBoardUtils.resetGame(stateRef, refs, dispatch); }},
                 {id:'empty', icon: 'fa-eraser', title: 'Clear all cells (E)', onClick: function(){ LifeBoardUtils.emptyBoard(stateRef, refs, dispatch); }},
                 {id:'undo', icon: 'fa-undo', title: 'Undo (Ctrl+Z)', onClick: function(){ LifeSimUtils.undo(stateRef, refs, dispatch); }},

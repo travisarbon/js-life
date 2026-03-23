@@ -605,6 +605,7 @@ var CanvasArea = function CanvasArea(props) {
     role: "application",
     "aria-roledescription": "Game of Life grid",
     "aria-label": "Conway's Game of Life simulation canvas",
+    "aria-description": "Click to toggle cells. Arrow keys to pan. Ctrl+scroll to zoom. Press ? for help.",
     draggable: false,
     onMouseDown: function (e) {
       LifeInputUtils.onMouseDown(stateRef, refs, dispatch, e);
@@ -1401,7 +1402,20 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     className: "stats-window",
     role: "region",
     "aria-label": "Statistics"
-  }, /*#__PURE__*/React.createElement(StatsPanel, {
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn stats-window-close",
+    onClick: function () {
+      dispatch({
+        type: 'MERGE',
+        payload: {
+          showStats: false
+        }
+      });
+    },
+    "aria-label": "Hide stats",
+    title: "Hide stats"
+  }, "\xD7"), /*#__PURE__*/React.createElement(StatsPanel, {
     state: state,
     refs: refs,
     stateRef: stateRef,
@@ -2140,9 +2154,43 @@ var _getCompactDefs = function (panelId, state, stateRef, refs, dispatch) {
       }, {
         id: 'go',
         icon: 'fa-fast-forward',
-        title: 'Advance multiple generations',
+        title: 'Advance ' + state.stepCount + ' generations',
         onClick: function () {
           LifeSimUtils.stepN(stateRef, refs, dispatch, state.stepCount);
+        },
+        popOut: function () {
+          return /*#__PURE__*/React.createElement("div", {
+            className: "compact-popout-content"
+          }, /*#__PURE__*/React.createElement("select", {
+            className: "toolbar-step-select",
+            value: state.stepCount,
+            onChange: function (e) {
+              LifeBoardUtils.setStepCount(stateRef, refs, dispatch, e);
+            },
+            title: "Step count",
+            style: {
+              width: '100%'
+            }
+          }, /*#__PURE__*/React.createElement("option", {
+            value: "1"
+          }, "1 gen"), /*#__PURE__*/React.createElement("option", {
+            value: "10"
+          }, "10 gen"), /*#__PURE__*/React.createElement("option", {
+            value: "50"
+          }, "50 gen"), /*#__PURE__*/React.createElement("option", {
+            value: "100"
+          }, "100 gen"), /*#__PURE__*/React.createElement("option", {
+            value: "500"
+          }, "500 gen")), /*#__PURE__*/React.createElement("button", {
+            type: "button",
+            className: "btn btn-block",
+            style: {
+              marginTop: 'var(--space-sm)'
+            },
+            onClick: function () {
+              LifeSimUtils.stepN(stateRef, refs, dispatch, state.stepCount);
+            }
+          }, "Go"));
         }
       }, {
         id: 'reset',
@@ -3263,7 +3311,9 @@ var ExportContent = function ExportContent(props) {
     className: "sidebar-section-title"
   }, "Share"), /*#__PURE__*/React.createElement("div", {
     className: "btn-section"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "control-group-label"
+  }, "Export"), /*#__PURE__*/React.createElement("div", {
     className: "buttons buttons-export"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
