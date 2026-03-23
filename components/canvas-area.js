@@ -47,7 +47,7 @@ var drawBoard = function drawBoard(stateRef, refs) { // eslint-disable-line no-u
                 ctx.fillStyle = theme.bg;
                 ctx.fillRect(0, 0, canvasW, canvasH);
                 if(!isUnbounded && state.regionMask && state.regionMask.size > 0){
-                    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+                    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--overlay-light').trim() || 'rgba(0,0,0,0.35)';
                     ctx.fillRect(0, 0, canvasW, canvasH);
                     CanvasRenderer.clearRegionCells(ctx, state.regionMask, startR, startC, endR, endC, viewX, viewY, cellSize, theme.bg);
                 }

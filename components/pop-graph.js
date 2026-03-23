@@ -44,17 +44,17 @@ var PopGraphModal = function PopGraphModal(props) { // eslint-disable-line no-un
             }}>
             <div className="pop-graph-modal" onClick={function(e){ e.stopPropagation(); }}>
                 <h3 className="help-title" id="popgraph-dialog-title">Population History</h3>
-                <p style={{fontSize:'0.8em',opacity:0.7,margin:'0 0 8px'}}>{hist.length + ' generations recorded \xB7 peak ' + maxPop.toLocaleString()}</p>
-                <svg width="100%" viewBox={"0 0 " + vbW + " " + vbH} style={{background:'rgba(0,0,0,0.15)',borderRadius:'4px'}} role="img" aria-label="Population history graph">
+                <p className="pop-graph-subtitle">{hist.length + ' generations recorded \xB7 peak ' + maxPop.toLocaleString()}</p>
+                <svg width="100%" viewBox={"0 0 " + vbW + " " + vbH} className="pop-graph-svg" role="img" aria-label="Population history graph">
                     {yLabels.map(function(yl, idx){
                         return <g key={idx}>
-                            <line x1={padL} y1={yl.y} x2={vbW - padR} y2={yl.y} stroke="rgba(255,255,255,0.15)" strokeWidth="0.5"/>
-                            <text x={padL - 5} y={yl.y + 4} textAnchor="end" fill="rgba(255,255,255,0.6)" fontSize="10">{yl.val.toLocaleString()}</text>
+                            <line x1={padL} y1={yl.y} x2={vbW - padR} y2={yl.y} stroke={'var(--graph-grid)'} strokeWidth="0.5"/>
+                            <text x={padL - 5} y={yl.y + 4} textAnchor="end" fill={'var(--graph-label)'} fontSize="10">{yl.val.toLocaleString()}</text>
                         </g>;
                     })}
-                    <text x={padL + plotW / 2} y={vbH - 2} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9">Generation</text>
-                    <polyline fill="none" stroke={CanvasRenderer._aliveRGB || '#70959A'} strokeWidth="1.5" points={points}/>
-                    <polygon fill={CanvasRenderer._aliveRGB ? CanvasRenderer._aliveRGB.replace('rgb', 'rgba').replace(')', ',0.2)') : 'rgba(112,149,154,0.2)'} points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
+                    <text x={padL + plotW / 2} y={vbH - 2} textAnchor="middle" fill={'var(--graph-label-secondary)'} fontSize="9">Generation</text>
+                    <polyline fill="none" stroke={'var(--accent)'} strokeWidth="1.5" points={points}/>
+                    <polygon fill={'rgba(var(--accent-rgb), 0.2)'} points={padL + ',' + (padT + plotH) + ' ' + points + ' ' + (padL + plotW) + ',' + (padT + plotH)}/>
                 </svg>
                 <button type="button" className="btn help-close" onClick={onClose} title="Close" aria-label="Close population graph">Close</button>
             </div>

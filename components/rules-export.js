@@ -20,7 +20,7 @@ var RulesSection = function RulesSection(props) { // eslint-disable-line no-unus
                                     return <option key={p.rule} value={p.rule}>{p.name}</option>;
                                 })}
                             </select>
-                            <label className="slider-title rule-label" data-tooltip="Birth/Survival rules. B3 = dead cell with 3 neighbors is born. S23 = live cell with 2 or 3 neighbors survives." data-tooltip-pos="below">Rule (B/S notation) <i className="fa fa-info-circle" aria-hidden="true" style={{opacity:0.5, fontSize:'0.85em'}}></i></label>
+                            <label className="slider-title rule-label" data-tooltip="Birth/Survival rules. B3 = dead cell with 3 neighbors is born. S23 = live cell with 2 or 3 neighbors survives." data-tooltip-pos="below">Rule (B/S notation) <i className="fa fa-info-circle info-hint" aria-hidden="true"></i></label>
                             <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")}
                                 type="text"
                                 value={state.ruleString}
