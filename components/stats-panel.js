@@ -10,7 +10,7 @@ var SparklineSVG = function SparklineSVG(props) { // eslint-disable-line no-unus
     var now2 = Date.now();
     var gpsText = (refs.measuredGps > 0 &&
         (state.running || now2 < (refs.gpsDisplayUntil || 0)))
-        ? refs.measuredGps.toFixed(1) + '\u00a0gen/s' : null;
+        ? refs.measuredGps.toFixed(1) + '\u00a0gen/s' : '\u2014\u00a0gen/s';
     var fullHist = state.popHistory;
     var trendArrow = '';
     if(fullHist.length >= 5){

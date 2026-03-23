@@ -56,7 +56,7 @@ var TabContentBuilder = function TabContentBuilder(props) { // eslint-disable-li
             return (
                 <div>
                     {options.sectionTitle && <div className="sidebar-section-title">View</div>}
-                    {<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}
+                    <ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />
                     {<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                     {<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
                 </div>
@@ -197,7 +197,7 @@ var CartographerLayout = function CartographerLayout(props) { // eslint-disable-
                         </button>
                     </div>
                 </div>
-                {!state.railCollapsed && <div className="rail-stats">{<StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />}</div>}
+                {!state.railCollapsed && state.showStats !== false && <div className="rail-stats">{<StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />}</div>}
                 <div className="rail-tabs" role="tablist" aria-label="Control categories">
                     {tabs.map(function(tab){
                         var isActive = state.railTab === tab.id;
@@ -208,7 +208,8 @@ var CartographerLayout = function CartographerLayout(props) { // eslint-disable-
                                 role="tab"
                                 aria-selected={isActive}
                                 aria-controls={"rail-panel-" + tab.id}
-                                aria-label={tab.label}>
+                                aria-label={tab.label}
+                                title={tab.label}>
                                 <i className={"fa " + tab.icon} aria-hidden="true"></i>
                                 {!state.railCollapsed && <span className="rail-tab-label">{tab.label}</span>}
                             </button>
@@ -251,7 +252,7 @@ var CartographerMobile = function CartographerMobile(props) { // eslint-disable-
     return (
         <div className="layout-cartographer layout-mobile">
             <CanvasArea cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
-            {!state.bottomSheetOpen && !refs.statsChipHidden && <StatsChip state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
+            {!state.bottomSheetOpen && !refs.statsChipHidden && state.showStats !== false && <StatsChip state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
             {!state.bottomSheetOpen && <MobileContextPanel state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
             {!state.bottomSheetOpen && <MobileMinimapArea state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
             {<MobileTransportBar state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
@@ -336,7 +337,7 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                             onClick={function(){ LifeViewUtils.toggleZenMode(stateRef, refs, dispatch); }}
                             title="Zen mode — hide all panels (Z)"
                             aria-label="Toggle zen mode">
-                            <i className="fa fa-eye-slash" aria-hidden="true"></i>
+                            <i className="fa fa-compress" aria-hidden="true"></i>
                         </button>
                         <LayoutSwitcher state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
                     </div>
@@ -365,7 +366,7 @@ var ObservatoryMobile = function ObservatoryMobile(props) { // eslint-disable-li
         <div className="layout-observatory layout-mobile">
             <CanvasArea cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
             {<MobileTransportBar state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
-            {!state.bottomSheetOpen && !refs.statsChipHidden && <StatsChip state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
+            {!state.bottomSheetOpen && !refs.statsChipHidden && state.showStats !== false && <StatsChip state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
             {!state.bottomSheetOpen && <MobileContextPanel state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
             {!state.bottomSheetOpen && <MobileMinimapArea state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}
             {state.bottomSheetOpen && <BottomSheet sheetContent={sheetContent} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}

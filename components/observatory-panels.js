@@ -13,7 +13,7 @@
 // ── Helper functions ─────────────────────────────────────────────────
 
 var _getPanelLabel = function(panelId){
-    var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', rules:'Rules', importExport:'Share'};
+    var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', rules:'Rules', importExport:'Share', stats:'Stats'};
     return PANEL_LABELS[panelId] || panelId;
 };
 
@@ -27,7 +27,7 @@ var _getPanelContent = function(panelId, state, stateRef, refs, dispatch){
     switch(panelId){
         case 'transport': return <div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
         case 'board': return <div>{<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
-        case 'view': return <div>{<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}{<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
+        case 'view': return <div><div className="sidebar-section-title">View</div>{<ViewControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} onToggleTrails={toggleTrails} />}{<ZoomSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
         case 'mode': return <div>{<ModeControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<ToolsContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
         case 'rules': return <RulesSection state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
         case 'importExport': return <ExportContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
@@ -698,10 +698,8 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
                 {tabArea}
                 <button type="button" className="btn float-panel-compact-toggle"
                     onClick={function(){ LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
-                    title="Compact group">{"\u00ab"}</button>
-                <button type="button" className="btn float-panel-close"
-                    onClick={function(){ _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
-                    aria-label="Close active panel">&times;</button>
+                    title="Minimize to icon strip"
+                    aria-label="Minimize panel group to compact icon strip">{"\u00ab"}</button>
             </div>
             <div className="float-panel-body">
                 {_getPanelContent(activeTab, state, stateRef, refs, dispatch)}

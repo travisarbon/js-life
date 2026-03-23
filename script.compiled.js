@@ -722,9 +722,21 @@ var HelpModal = function HelpModal(props) {
   }, /*#__PURE__*/React.createElement("h3", {
     className: "help-title",
     id: "help-dialog-title"
-  }, "Keyboard Shortcuts"), /*#__PURE__*/React.createElement("table", {
+  }, "Controls"), /*#__PURE__*/React.createElement("table", {
     className: "help-table"
-  }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Space"), /*#__PURE__*/React.createElement("td", null, "Play / Pause")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "."), /*#__PURE__*/React.createElement("td", null, "Step one generation")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Shift+."), /*#__PURE__*/React.createElement("td", null, "Step N generations")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, ","), /*#__PURE__*/React.createElement("td", null, "Step backward")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Scroll / Trackpad"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Right-drag"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "D"), /*#__PURE__*/React.createElement("td", null, "Switch to Draw mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "P"), /*#__PURE__*/React.createElement("td", null, "Switch to Preset mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "B"), /*#__PURE__*/React.createElement("td", null, "Switch to Region mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "G"), /*#__PURE__*/React.createElement("td", null, "Toggle grid lines")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "T"), /*#__PURE__*/React.createElement("td", null, "Toggle trails")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+  }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+    colSpan: "2",
+    scope: "colgroup",
+    className: "help-section-heading"
+  }, "Keyboard shortcuts")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Space"), /*#__PURE__*/React.createElement("td", null, "Play / Pause")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+    className: "key-label"
+  }, "."), " ", /*#__PURE__*/React.createElement("span", {
+    className: "key-hint"
+  }, "(Period)")), /*#__PURE__*/React.createElement("td", null, "Step one generation")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Shift+."), /*#__PURE__*/React.createElement("td", null, "Step N generations")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+    className: "key-label"
+  }, ","), " ", /*#__PURE__*/React.createElement("span", {
+    className: "key-hint"
+  }, "(Comma)")), /*#__PURE__*/React.createElement("td", null, "Step backward")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "R"), /*#__PURE__*/React.createElement("td", null, "Reset (random fill)")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "E"), /*#__PURE__*/React.createElement("td", null, "Empty board")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Z"), /*#__PURE__*/React.createElement("td", null, "Undo")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "S"), /*#__PURE__*/React.createElement("td", null, "Export PNG")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "X"), /*#__PURE__*/React.createElement("td", null, "Copy board as RLE")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "F"), /*#__PURE__*/React.createElement("td", null, "Fit live cells in view")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+Wheel"), /*#__PURE__*/React.createElement("td", null, "Zoom in / out")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Scroll / Trackpad"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Arrows"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Right-drag"), /*#__PURE__*/React.createElement("td", null, "Pan viewport")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "["), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CCW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "]"), /*#__PURE__*/React.createElement("td", null, "Rotate pattern CW")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+C"), /*#__PURE__*/React.createElement("td", null, "Copy selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Ctrl+V"), /*#__PURE__*/React.createElement("td", null, "Paste selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Del"), /*#__PURE__*/React.createElement("td", null, "Delete selection")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "Esc"), /*#__PURE__*/React.createElement("td", null, "Cancel / close")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "D"), /*#__PURE__*/React.createElement("td", null, "Switch to Draw mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "P"), /*#__PURE__*/React.createElement("td", null, "Switch to Preset mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "B"), /*#__PURE__*/React.createElement("td", null, "Switch to Region mode")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "G"), /*#__PURE__*/React.createElement("td", null, "Toggle grid lines")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "T"), /*#__PURE__*/React.createElement("td", null, "Toggle trails")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "M"), /*#__PURE__*/React.createElement("td", null, "Toggle minimap")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", null, "?"), /*#__PURE__*/React.createElement("td", null, "Show / hide this help")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
     colSpan: "2",
     scope: "colgroup",
     style: {
@@ -1106,7 +1118,7 @@ var CartographerLayout = function CartographerLayout(props) {
   }) : /*#__PURE__*/React.createElement("i", {
     className: "fa fa-chevron-right",
     "aria-hidden": "true"
-  })))), !state.railCollapsed && /*#__PURE__*/React.createElement("div", {
+  })))), !state.railCollapsed && state.showStats !== false && /*#__PURE__*/React.createElement("div", {
     className: "rail-stats"
   }, /*#__PURE__*/React.createElement(StatsPanel, {
     state: state,
@@ -1128,7 +1140,8 @@ var CartographerLayout = function CartographerLayout(props) {
       role: "tab",
       "aria-selected": isActive,
       "aria-controls": "rail-panel-" + tab.id,
-      "aria-label": tab.label
+      "aria-label": tab.label,
+      title: tab.label
     }, /*#__PURE__*/React.createElement("i", {
       className: "fa " + tab.icon,
       "aria-hidden": "true"
@@ -1205,7 +1218,7 @@ var CartographerMobile = function CartographerMobile(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }), !state.bottomSheetOpen && !refs.statsChipHidden && /*#__PURE__*/React.createElement(StatsChip, {
+  }), !state.bottomSheetOpen && !refs.statsChipHidden && state.showStats !== false && /*#__PURE__*/React.createElement(StatsChip, {
     state: state,
     stateRef: stateRef,
     refs: refs,
@@ -1449,7 +1462,7 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     title: "Zen mode \u2014 hide all panels (Z)",
     "aria-label": "Toggle zen mode"
   }, /*#__PURE__*/React.createElement("i", {
-    className: "fa fa-eye-slash",
+    className: "fa fa-compress",
     "aria-hidden": "true"
   })), /*#__PURE__*/React.createElement(LayoutSwitcher, {
     state: state,
@@ -1505,7 +1518,7 @@ var ObservatoryMobile = function ObservatoryMobile(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }), !state.bottomSheetOpen && !refs.statsChipHidden && /*#__PURE__*/React.createElement(StatsChip, {
+  }), !state.bottomSheetOpen && !refs.statsChipHidden && state.showStats !== false && /*#__PURE__*/React.createElement(StatsChip, {
     state: state,
     stateRef: stateRef,
     refs: refs,
@@ -1551,7 +1564,8 @@ var _getPanelLabel = function (panelId) {
     view: 'View',
     mode: 'Tools',
     rules: 'Rules',
-    importExport: 'Share'
+    importExport: 'Share',
+    stats: 'Stats'
   };
   return PANEL_LABELS[panelId] || panelId;
 };
@@ -1594,7 +1608,9 @@ var _getPanelContent = function (panelId, state, stateRef, refs, dispatch) {
         dispatch: dispatch
       }));
     case 'view':
-      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(ViewControls, {
+      return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-section-title"
+      }, "View"), /*#__PURE__*/React.createElement(ViewControls, {
         state: state,
         stateRef: stateRef,
         refs: refs,
@@ -2862,15 +2878,9 @@ var PanelGroup = function PanelGroup(props) {
     onClick: function () {
       LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id);
     },
-    title: "Compact group"
-  }, "\u00ab"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "btn float-panel-close",
-    onClick: function () {
-      _togglePanelOpen(activeTab, stateRef, refs, dispatch);
-    },
-    "aria-label": "Close active panel"
-  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+    title: "Minimize to icon strip",
+    "aria-label": "Minimize panel group to compact icon strip"
+  }, "\u00ab")), /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
   }, _getPanelContent(activeTab, state, stateRef, refs, dispatch)), /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",
@@ -3200,7 +3210,7 @@ var ExportContent = function ExportContent(props) {
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-share-alt",
     "aria-hidden": "true"
-  }), " ", state.shareTooltip ? "Copied!" : "Share")), /*#__PURE__*/React.createElement(RLESection, {
+  }), " ", state.shareTooltip ? "Copied!" : "Share Link")), /*#__PURE__*/React.createElement(RLESection, {
     state: state,
     stateRef: stateRef,
     refs: refs,
@@ -3552,7 +3562,7 @@ var SparklineSVG = function SparklineSVG(props) {
     dispatch = props.dispatch;
   var population = state.liveCells.size;
   var now2 = Date.now();
-  var gpsText = refs.measuredGps > 0 && (state.running || now2 < (refs.gpsDisplayUntil || 0)) ? refs.measuredGps.toFixed(1) + '\u00a0gen/s' : null;
+  var gpsText = refs.measuredGps > 0 && (state.running || now2 < (refs.gpsDisplayUntil || 0)) ? refs.measuredGps.toFixed(1) + '\u00a0gen/s' : '\u2014\u00a0gen/s';
   var fullHist = state.popHistory;
   var trendArrow = '';
   if (fullHist.length >= 5) {
@@ -4396,7 +4406,8 @@ var TransportControls = function TransportControls(props) {
       onClick: function () {
         LifeSimUtils.toggleGame(stateRef, refs, dispatch);
       },
-      title: "Play/Pause (Space)"
+      title: "Play/Pause (Space)",
+      "aria-label": state.running ? "Pause" : "Play"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fa " + (state.running ? "fa-pause" : "fa-play"),
       "aria-hidden": "true"
@@ -4406,11 +4417,12 @@ var TransportControls = function TransportControls(props) {
       onClick: function () {
         LifeSimUtils.stepGame(stateRef, refs, dispatch);
       },
-      title: "Step (.)"
+      title: "Step one generation (.)",
+      "aria-label": "Step one generation"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fa fa-step-forward",
       "aria-hidden": "true"
-    }), " Step"), /*#__PURE__*/React.createElement("span", {
+    })), /*#__PURE__*/React.createElement("span", {
       className: "transport-speed-label"
     }, "Gen " + state.generations.toLocaleString()));
   }
@@ -4500,7 +4512,7 @@ var TransportControls = function TransportControls(props) {
     onClick: function () {
       LifeSimUtils.undo(stateRef, refs, dispatch);
     },
-    title: "Undo last edit (Ctrl+Z)"
+    title: "Undo last board edit (Ctrl+Z)"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-undo",
     "aria-hidden": "true"

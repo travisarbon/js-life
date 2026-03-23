@@ -22,13 +22,14 @@ var HelpModal = function HelpModal(props) { // eslint-disable-line no-unused-var
                 }
             }}>
             <div className="help-modal" onClick={function(e){ e.stopPropagation(); }}>
-                <h3 className="help-title" id="help-dialog-title">Keyboard Shortcuts</h3>
+                <h3 className="help-title" id="help-dialog-title">Controls</h3>
                 <table className="help-table">
                     <tbody>
+                        <tr><th colSpan="2" scope="colgroup" className="help-section-heading">Keyboard shortcuts</th></tr>
                         <tr><td>Space</td><td>Play / Pause</td></tr>
-                        <tr><td>.</td><td>Step one generation</td></tr>
+                        <tr><td><span className="key-label">.</span> <span className="key-hint">(Period)</span></td><td>Step one generation</td></tr>
                         <tr><td>Shift+.</td><td>Step N generations</td></tr>
-                        <tr><td>,</td><td>Step backward</td></tr>
+                        <tr><td><span className="key-label">,</span> <span className="key-hint">(Comma)</span></td><td>Step backward</td></tr>
                         <tr><td>R</td><td>Reset (random fill)</td></tr>
                         <tr><td>E</td><td>Empty board</td></tr>
                         <tr><td>Ctrl+Z</td><td>Undo</td></tr>
