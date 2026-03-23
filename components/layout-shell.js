@@ -113,7 +113,7 @@ var BottomSheet = function BottomSheet(props) { // eslint-disable-line no-unused
                     aria-label={state.bottomSheetTab + " controls"}>
                     {sheetContent}
                     {layoutSwitcher &&
-                        <div style={{padding:'8px 12px 0', borderTop:'1px solid var(--panel-border)'}}>
+                        <div className="sheet-footer">
                             {layoutSwitcher}
                         </div>
                     }
@@ -228,7 +228,7 @@ var CartographerLayout = function CartographerLayout(props) { // eslint-disable-
                     </div>
                 }
                 {!state.railCollapsed &&
-                    <div style={{padding:'8px 12px', borderTop:'1px solid var(--panel-border)', flexShrink:0}}>
+                    <div className="rail-footer">
                         <LayoutSwitcher state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
                     </div>
                 }

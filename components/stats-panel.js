@@ -35,7 +35,7 @@ var SparklineSVG = function SparklineSVG(props) { // eslint-disable-line no-unus
     return (
         <div className="sparkline-wrap">
             <div className="sparkline-header">
-                <span className="sparkline-title" onClick={function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); }} style={{cursor:'pointer'}} title="Click for full population graph">{"Pop: " + population.toLocaleString() + trendArrow}</span>
+                <span className="sparkline-title clickable" onClick={function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); }} title="Click for full population graph">{"Pop: " + population.toLocaleString() + trendArrow}</span>
                 <span className="sparkline-peak">{"peak " + maxPop.toLocaleString() + (state.sessionPeakPop > maxPop ? " \xb7 all-time " + state.sessionPeakPop.toLocaleString() : "")}</span>
             </div>
             <svg className="sparkline" width="100%" height={vbH}
@@ -43,10 +43,10 @@ var SparklineSVG = function SparklineSVG(props) { // eslint-disable-line no-unus
                  preserveAspectRatio="none"
                  role="img" aria-label="Population sparkline">
                 <line x1="0" y1={vbH - 0.5} x2={vbW} y2={vbH - 0.5}
-                      stroke="rgba(244,233,225,0.25)" strokeWidth="1"/>
+                      stroke={'var(--graph-grid)'} strokeWidth="1"/>
                 <line x1="0" y1={padT + innerH / 2} x2={vbW} y2={padT + innerH / 2}
-                      stroke="rgba(244,233,225,0.1)" strokeWidth="0.5"/>
-                <polyline points={sparkPts} fill="none" stroke={CanvasRenderer._aliveRGB || '#70959A'}
+                      stroke={'var(--graph-grid)'} strokeWidth="0.5"/>
+                <polyline points={sparkPts} fill="none" stroke={'var(--accent)'}
                           strokeWidth="1.5" strokeLinejoin="round"
                           strokeLinecap="round"/>
             </svg>

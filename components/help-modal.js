@@ -57,12 +57,12 @@ var HelpModal = function HelpModal(props) { // eslint-disable-line no-unused-var
                         <tr><td>T</td><td>Toggle trails</td></tr>
                         <tr><td>M</td><td>Toggle minimap</td></tr>
                         <tr><td>?</td><td>Show / hide this help</td></tr>
-                        <tr><th colSpan="2" scope="colgroup" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:'normal',textAlign:'left'}}>Touch gestures</th></tr>
+                        <tr><th colSpan="2" scope="colgroup" className="help-section-heading">Touch gestures</th></tr>
                         <tr><td>Tap</td><td>Paint / place cell</td></tr>
                         <tr><td>Pinch</td><td>Zoom in / out</td></tr>
                         <tr><td>2-finger drag</td><td>Pan viewport</td></tr>
                         <tr><td>Long press</td><td>Show cell coordinates</td></tr>
-                        <tr><th colSpan="2" scope="colgroup" style={{paddingTop:'10px',opacity:0.55,fontSize:'0.85em',textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:'normal',textAlign:'left'}}>File import</th></tr>
+                        <tr><th colSpan="2" scope="colgroup" className="help-section-heading">File import</th></tr>
                         <tr><td>Drag &amp; drop</td><td>Drop .rle/.cells file on canvas</td></tr>
                         <tr><td>{mod + "V"}</td><td>Paste RLE text from clipboard</td></tr>
                     </tbody>

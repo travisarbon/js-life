@@ -49,7 +49,7 @@ var DisplaySettings = function DisplaySettings(props) { // eslint-disable-line n
                                     return <option key={t} value={t}>{t}</option>;
                                 })}
                             </select>
-                            <label className="control-group-label" style={{marginTop:'var(--space-sm)'}}>Mode</label>
+                            <label className="control-group-label control-label-spaced">Mode</label>
                             <select className="rule-preset-select"
                                 aria-label="Dark mode preference"
                                 value={state.darkModePref}
@@ -70,7 +70,7 @@ var BoundaryControls = function BoundaryControls(props) { // eslint-disable-line
                     <div className="boundary-controls">
                         <label className="control-group-label">Boundary</label>
                         <div className="view-controls">
-                            <button type="button" className={"btn btn-toggle" + (state.boundary !== 'toroidal' ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }} title="Cycle boundary: Wrap / Hard / Infinite" aria-pressed={state.boundary !== 'toroidal'}>{state.boundary === 'toroidal' ? <i className="fa fa-repeat" aria-hidden="true"></i> : state.boundary === 'finite' ? <i className="fa fa-stop" aria-hidden="true"></i> : null}{state.boundary === 'unbounded' ? <span style={{fontWeight:700}}>{"\u221E "}</span> : " "}{state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "Infinite"}</button>
+                            <button type="button" className={"btn btn-toggle" + (state.boundary !== 'toroidal' ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }} title="Cycle boundary: Wrap / Hard / Infinite" aria-pressed={state.boundary !== 'toroidal'}>{state.boundary === 'toroidal' ? <i className="fa fa-repeat" aria-hidden="true"></i> : state.boundary === 'finite' ? <i className="fa fa-stop" aria-hidden="true"></i> : null}{state.boundary === 'unbounded' ? <span className="boundary-infinity">{"\u221E "}</span> : " "}{state.boundary === 'toroidal' ? "Wrap" : state.boundary === 'finite' ? "Hard" : "Infinite"}</button>
                         </div>
                     </div>
                 );
@@ -133,7 +133,7 @@ var BoardSliders = function BoardSliders(props) { // eslint-disable-line no-unus
                             </div>
                         </div>}
                         {isUnbounded && <div className="sliders">
-                            <label className="slider-title" style={{fontStyle:'italic'}}>No bounding box — infinite canvas</label>
+                            <label className="slider-title unbounded-label">No bounding box — infinite canvas</label>
                         </div>}
                         <div className="sliders">
                             <label className="slider-title">Random Fill Density</label>

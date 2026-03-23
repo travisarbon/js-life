@@ -24,7 +24,7 @@ function lifeReducer(state, action) {
 function initState(){
                 var cols = 100;
                 var rows = 100;
-                // On mobile, default to 8px/cell; on desktop, 5px/cell.
+                // On mobile, default to 8px/cell; on desktop, 10px/cell.
                 // Center the view on the grid for all screen sizes.
                 var isMobileInit = window.innerWidth <= 900 ||
                     (window.matchMedia && window.matchMedia('(orientation: landscape) and (max-height: 550px)').matches);
