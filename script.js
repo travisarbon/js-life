@@ -15,7 +15,9 @@
 function lifeReducer(state, action) {
     switch(action.type) {
         case 'MERGE': return Object.assign({}, state, action.payload);
-        default:      return Object.assign({}, state, action.payload);
+        default:
+            if(typeof console !== 'undefined'){ console.warn('lifeReducer: unrecognized action type:', action.type); }
+            return Object.assign({}, state, action.payload);
     }
 }
 

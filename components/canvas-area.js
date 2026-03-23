@@ -502,7 +502,7 @@ function panMinimapElement(e, stateRef, refs, dispatch){
                 var mmOR = mmWorld ? mmWorld.originR : 0;
                 var newVX = Math.round(frac_c * mmCols + mmOC - (refs.canvas.width  / state.cellSize) / 2);
                 var newVY = Math.round(frac_r * mmRows + mmOR - (refs.canvas.height / state.cellSize) / 2);
-                var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch, newVX, newVY, state.cols, state.rows, state.cellSize);
+                var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch, newVX, newVY);
 
                 dispatch({type:"MERGE", payload:{viewX: clamped.viewX, viewY: clamped.viewY}}); setTimeout(function(){ drawBoard(stateRef, refs); }, 0);
 }

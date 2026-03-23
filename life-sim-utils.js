@@ -286,7 +286,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         var survive   = stateRef.current.surviveRule;
         var boundary  = stateRef.current.boundary;
         var gen = stateRef.current.generations;
-        var popHistory = stateRef.current.popHistory;
+        var popHistory = stateRef.current.popHistory.slice();
         var peak = stateRef.current.sessionPeakPop || 0;
 
         // Fast path: unbounded — SimRunner handles HashLife batch internally

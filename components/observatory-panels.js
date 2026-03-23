@@ -76,15 +76,23 @@ var _observeTabBars = function(stateRef, refs, dispatch){ // eslint-disable-line
 // ── State toggle helpers ─────────────────────────────────────────────
 
 var _togglePanelOpen = function(panelId, stateRef, refs, dispatch){
-    var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
-    panels[panelId].open = !panels[panelId].open;
+    var panels = Object.assign({}, stateRef.current.panelStates);
+    panels[panelId] = Object.assign({}, panels[panelId], {open: !panels[panelId].open});
     dispatch({type:"MERGE", payload:{panelStates: panels}}); setTimeout(function(){ LifeViewUtils._persistLayout(stateRef, refs); }, 0);
 };
 
 var _togglePanelCollapse = function(panelId, stateRef, refs, dispatch){
-    var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
-    panels[panelId].collapsed = !panels[panelId].collapsed;
+    var panels = Object.assign({}, stateRef.current.panelStates);
+    panels[panelId] = Object.assign({}, panels[panelId], {collapsed: !panels[panelId].collapsed});
     dispatch({type:"MERGE", payload:{panelStates: panels}}); setTimeout(function(){ LifeViewUtils._persistLayout(stateRef, refs); }, 0);
+};
+
+var _toggleGroupCollapse = function(groupId, stateRef, refs, dispatch){
+    var groups = stateRef.current.panelGroups.map(function(g){
+        return g.id === groupId ? Object.assign({}, g, {collapsed: !g.collapsed}) : g;
+    });
+    dispatch({type:"MERGE", payload:{panelGroups: groups}});
+    setTimeout(function(){ LifeViewUtils._persistLayout(stateRef, refs); }, 0);
 };
 
 // ── Imperative drag/resize handlers ──────────────────────────────────
@@ -170,9 +178,8 @@ var _startPanelDrag = function(panelId, e, stateRef, refs, dispatch){
         if(mergeTarget){
             LifeViewUtils._mergePanels(stateRef, refs, dispatch, panelId, mergeTarget);
         } else {
-            var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
-            panels[panelId].x = finalRect.left;
-            panels[panelId].y = finalRect.top;
+            var panels = Object.assign({}, stateRef.current.panelStates);
+            panels[panelId] = Object.assign({}, panels[panelId], {x: finalRect.left, y: finalRect.top});
             dispatch({type:"MERGE", payload:{panelStates: panels}}); setTimeout(function(){ LifeViewUtils._persistLayout(stateRef, refs); }, 0);
         }
         document.removeEventListener('mousemove', refs.fpDragMove);
@@ -255,14 +262,9 @@ var _startGroupDrag = function(groupId, e, stateRef, refs, dispatch){
     var end = function(){
         panel.classList.remove('dragging');
         var finalRect = panel.getBoundingClientRect();
-        var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
-        for(var i = 0; i < groups.length; i++){
-            if(groups[i].id === groupId){
-                groups[i].x = finalRect.left;
-                groups[i].y = finalRect.top;
-                break;
-            }
-        }
+        var groups = stateRef.current.panelGroups.map(function(g){
+            return g.id === groupId ? Object.assign({}, g, {x: finalRect.left, y: finalRect.top}) : g;
+        });
         dispatch({type:"MERGE", payload:{panelGroups: groups}}); setTimeout(function(){ LifeViewUtils._persistLayout(stateRef, refs); }, 0);
         document.removeEventListener('mousemove', move);
         document.removeEventListener('mouseup', end);
@@ -662,21 +664,26 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
                     <button type="button" className="btn float-panel-compact-toggle"
                         onClick={function(e){ e.stopPropagation(); LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
                         title="Expand group">{"\u00bb"}</button>
+                    <button type="button" className="btn float-panel-collapse"
+                        onClick={function(e){ e.stopPropagation(); _toggleGroupCollapse(group.id, stateRef, refs, dispatch); }}
+                        aria-expanded={!group.collapsed}
+                        aria-label={group.collapsed ? "Expand panel group" : "Collapse panel group"}>
+                        {group.collapsed ? "+" : "\u2013"}</button>
                     <button type="button" className="btn float-panel-close"
                         onClick={function(e){ e.stopPropagation(); _togglePanelOpen(activeTab, stateRef, refs, dispatch); }}
                         aria-label="Close active panel">&times;</button>
                 </div>
-                <div className="compact-group-body">
+                {!group.collapsed && <div className="compact-group-body">
                     <div className="compact-icon-rail">
                         {tabButtons}
                     </div>
                     <div className="compact-main">
                         <CompactBody panelId={activeTab} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
                     </div>
-                </div>
-                <div className="float-panel-resize"
+                </div>}
+                {!group.collapsed && <div className="float-panel-resize"
                     onMouseDown={function(e){ _startGroupResize(group.id, e, stateRef, refs, dispatch); }}
-                    onTouchStart={function(e){ _startGroupResize(group.id, e, stateRef, refs, dispatch); }}></div>
+                    onTouchStart={function(e){ _startGroupResize(group.id, e, stateRef, refs, dispatch); }}></div>}
             </div>
         );
     }
@@ -700,13 +707,18 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
                     onClick={function(){ LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, group.id); }}
                     title="Minimize to icon strip"
                     aria-label="Minimize panel group to compact icon strip">{"\u00ab"}</button>
+                <button type="button" className="btn float-panel-collapse"
+                    onClick={function(e){ e.stopPropagation(); _toggleGroupCollapse(group.id, stateRef, refs, dispatch); }}
+                    aria-expanded={!group.collapsed}
+                    aria-label={group.collapsed ? "Expand panel group" : "Collapse panel group"}>
+                    {group.collapsed ? "+" : "\u2013"}</button>
             </div>
-            <div className="float-panel-body">
+            {!group.collapsed && <div className="float-panel-body">
                 {_getPanelContent(activeTab, state, stateRef, refs, dispatch)}
-            </div>
-            <div className="float-panel-resize"
+            </div>}
+            {!group.collapsed && <div className="float-panel-resize"
                 onMouseDown={function(e){ _startGroupResize(group.id, e, stateRef, refs, dispatch); }}
-                onTouchStart={function(e){ _startGroupResize(group.id, e, stateRef, refs, dispatch); }}></div>
+                onTouchStart={function(e){ _startGroupResize(group.id, e, stateRef, refs, dispatch); }}></div>}
         </div>
     );
 };
@@ -722,6 +734,7 @@ var ObservatoryPanelUtils = { // eslint-disable-line no-unused-vars
     _observeTabBars: _observeTabBars,
     _togglePanelOpen: _togglePanelOpen,
     _togglePanelCollapse: _togglePanelCollapse,
+    _toggleGroupCollapse: _toggleGroupCollapse,
     _startGroupDrag: _startGroupDrag,
     _startTabDrag: _startTabDrag,
     _startGroupResize: _startGroupResize,
@@ -736,5 +749,6 @@ var ObservatoryPanelUtils = { // eslint-disable-line no-unused-vars
     getPanelIcon: _getPanelIcon,
     getPanelContent: _getPanelContent,
     togglePanelOpen: function(panelId, state, stateRef, refs, dispatch){ _togglePanelOpen(panelId, stateRef, refs, dispatch); },
-    togglePanelCollapse: function(panelId, state, stateRef, refs, dispatch){ _togglePanelCollapse(panelId, stateRef, refs, dispatch); }
+    togglePanelCollapse: function(panelId, state, stateRef, refs, dispatch){ _togglePanelCollapse(panelId, stateRef, refs, dispatch); },
+    toggleGroupCollapse: function(groupId, state, stateRef, refs, dispatch){ _toggleGroupCollapse(groupId, stateRef, refs, dispatch); }
 };

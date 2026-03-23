@@ -1001,8 +1001,13 @@ canvas.display {
   margin-right: var(--space-xs);
   opacity: var(--opacity-secondary);
   font-size: var(--text-xs); }
-.float-panel-compact .float-panel-title { display: none; }
-.float-panel-compact .float-panel-icon { margin-right: 0; }
+.float-panel-compact .float-panel-title {
+  display: inline;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap; }
+.float-panel-compact .float-panel-icon { margin-right: var(--space-xs); }
 
 /* ── Float panel collapsed ────────────────────────────────────────────── */
 .float-panel-collapsed .float-panel-body {

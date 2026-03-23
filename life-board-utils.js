@@ -255,7 +255,7 @@ var LifeBoardUtils = { // eslint-disable-line no-unused-vars
             if(newRegionMask.has(key)){ newLiveCells.set(key, age); }
         });
         var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch,
-            stateRef.current.viewX, stateRef.current.viewY, newCols, newRows, stateRef.current.cellSize);
+            stateRef.current.viewX, stateRef.current.viewY);
         refs.minimapDirty = true;
         SimRunner.invalidate();
         CanvasRenderer.invalidateRegionCache();

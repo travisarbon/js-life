@@ -553,7 +553,7 @@ function panMinimapElement(e, stateRef, refs, dispatch) {
   var mmOR = mmWorld ? mmWorld.originR : 0;
   var newVX = Math.round(frac_c * mmCols + mmOC - refs.canvas.width / state.cellSize / 2);
   var newVY = Math.round(frac_r * mmRows + mmOR - refs.canvas.height / state.cellSize / 2);
-  var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch, newVX, newVY, state.cols, state.rows, state.cellSize);
+  var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch, newVX, newVY);
   dispatch({
     type: "MERGE",
     payload: {
@@ -1702,8 +1702,10 @@ var _observeTabBars = function (stateRef, refs, dispatch) {
 // ── State toggle helpers ─────────────────────────────────────────────
 
 var _togglePanelOpen = function (panelId, stateRef, refs, dispatch) {
-  var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
-  panels[panelId].open = !panels[panelId].open;
+  var panels = Object.assign({}, stateRef.current.panelStates);
+  panels[panelId] = Object.assign({}, panels[panelId], {
+    open: !panels[panelId].open
+  });
   dispatch({
     type: "MERGE",
     payload: {
@@ -1715,12 +1717,30 @@ var _togglePanelOpen = function (panelId, stateRef, refs, dispatch) {
   }, 0);
 };
 var _togglePanelCollapse = function (panelId, stateRef, refs, dispatch) {
-  var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
-  panels[panelId].collapsed = !panels[panelId].collapsed;
+  var panels = Object.assign({}, stateRef.current.panelStates);
+  panels[panelId] = Object.assign({}, panels[panelId], {
+    collapsed: !panels[panelId].collapsed
+  });
   dispatch({
     type: "MERGE",
     payload: {
       panelStates: panels
+    }
+  });
+  setTimeout(function () {
+    LifeViewUtils._persistLayout(stateRef, refs);
+  }, 0);
+};
+var _toggleGroupCollapse = function (groupId, stateRef, refs, dispatch) {
+  var groups = stateRef.current.panelGroups.map(function (g) {
+    return g.id === groupId ? Object.assign({}, g, {
+      collapsed: !g.collapsed
+    }) : g;
+  });
+  dispatch({
+    type: "MERGE",
+    payload: {
+      panelGroups: groups
     }
   });
   setTimeout(function () {
@@ -1817,9 +1837,11 @@ var _startPanelDrag = function (panelId, e, stateRef, refs, dispatch) {
     if (mergeTarget) {
       LifeViewUtils._mergePanels(stateRef, refs, dispatch, panelId, mergeTarget);
     } else {
-      var panels = JSON.parse(JSON.stringify(stateRef.current.panelStates));
-      panels[panelId].x = finalRect.left;
-      panels[panelId].y = finalRect.top;
+      var panels = Object.assign({}, stateRef.current.panelStates);
+      panels[panelId] = Object.assign({}, panels[panelId], {
+        x: finalRect.left,
+        y: finalRect.top
+      });
       dispatch({
         type: "MERGE",
         payload: {
@@ -1913,14 +1935,12 @@ var _startGroupDrag = function (groupId, e, stateRef, refs, dispatch) {
   var end = function () {
     panel.classList.remove('dragging');
     var finalRect = panel.getBoundingClientRect();
-    var groups = JSON.parse(JSON.stringify(stateRef.current.panelGroups));
-    for (var i = 0; i < groups.length; i++) {
-      if (groups[i].id === groupId) {
-        groups[i].x = finalRect.left;
-        groups[i].y = finalRect.top;
-        break;
-      }
-    }
+    var groups = stateRef.current.panelGroups.map(function (g) {
+      return g.id === groupId ? Object.assign({}, g, {
+        x: finalRect.left,
+        y: finalRect.top
+      }) : g;
+    });
     dispatch({
       type: "MERGE",
       payload: {
@@ -2822,13 +2842,22 @@ var PanelGroup = function PanelGroup(props) {
       title: "Expand group"
     }, "\u00bb"), /*#__PURE__*/React.createElement("button", {
       type: "button",
+      className: "btn float-panel-collapse",
+      onClick: function (e) {
+        e.stopPropagation();
+        _toggleGroupCollapse(group.id, stateRef, refs, dispatch);
+      },
+      "aria-expanded": !group.collapsed,
+      "aria-label": group.collapsed ? "Expand panel group" : "Collapse panel group"
+    }, group.collapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
       className: "btn float-panel-close",
       onClick: function (e) {
         e.stopPropagation();
         _togglePanelOpen(activeTab, stateRef, refs, dispatch);
       },
       "aria-label": "Close active panel"
-    }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+    }, "\xD7")), !group.collapsed && /*#__PURE__*/React.createElement("div", {
       className: "compact-group-body"
     }, /*#__PURE__*/React.createElement("div", {
       className: "compact-icon-rail"
@@ -2840,7 +2869,7 @@ var PanelGroup = function PanelGroup(props) {
       stateRef: stateRef,
       refs: refs,
       dispatch: dispatch
-    }))), /*#__PURE__*/React.createElement("div", {
+    }))), !group.collapsed && /*#__PURE__*/React.createElement("div", {
       className: "float-panel-resize",
       onMouseDown: function (e) {
         _startGroupResize(group.id, e, stateRef, refs, dispatch);
@@ -2880,9 +2909,18 @@ var PanelGroup = function PanelGroup(props) {
     },
     title: "Minimize to icon strip",
     "aria-label": "Minimize panel group to compact icon strip"
-  }, "\u00ab")), /*#__PURE__*/React.createElement("div", {
+  }, "\u00ab"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "btn float-panel-collapse",
+    onClick: function (e) {
+      e.stopPropagation();
+      _toggleGroupCollapse(group.id, stateRef, refs, dispatch);
+    },
+    "aria-expanded": !group.collapsed,
+    "aria-label": group.collapsed ? "Expand panel group" : "Collapse panel group"
+  }, group.collapsed ? "+" : "\u2013")), !group.collapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
-  }, _getPanelContent(activeTab, state, stateRef, refs, dispatch)), /*#__PURE__*/React.createElement("div", {
+  }, _getPanelContent(activeTab, state, stateRef, refs, dispatch)), !group.collapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",
     onMouseDown: function (e) {
       _startGroupResize(group.id, e, stateRef, refs, dispatch);
@@ -2905,6 +2943,7 @@ var ObservatoryPanelUtils = {
   _observeTabBars: _observeTabBars,
   _togglePanelOpen: _togglePanelOpen,
   _togglePanelCollapse: _togglePanelCollapse,
+  _toggleGroupCollapse: _toggleGroupCollapse,
   _startGroupDrag: _startGroupDrag,
   _startTabDrag: _startTabDrag,
   _startGroupResize: _startGroupResize,
@@ -2923,6 +2962,9 @@ var ObservatoryPanelUtils = {
   },
   togglePanelCollapse: function (panelId, state, stateRef, refs, dispatch) {
     _togglePanelCollapse(panelId, stateRef, refs, dispatch);
+  },
+  toggleGroupCollapse: function (groupId, state, stateRef, refs, dispatch) {
+    _toggleGroupCollapse(groupId, stateRef, refs, dispatch);
   }
 };
 "use strict";
@@ -4622,6 +4664,9 @@ function lifeReducer(state, action) {
     case 'MERGE':
       return Object.assign({}, state, action.payload);
     default:
+      if (typeof console !== 'undefined') {
+        console.warn('lifeReducer: unrecognized action type:', action.type);
+      }
       return Object.assign({}, state, action.payload);
   }
 }

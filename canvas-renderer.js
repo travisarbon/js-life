@@ -1,4 +1,4 @@
-/* global parseKey, SimEngine, PATTERNS, RegionUtil */
+/* global parseKey, SimEngine, PATTERNS, RegionUtil, COLOR_STEPS */
 /**
  * Canvas rendering module for Game of Life (R02, R05).
  * Decouples imperative canvas drawing from the React component.
@@ -44,7 +44,6 @@ var CanvasRenderer = { // eslint-disable-line no-unused-vars
     // ── Cell rendering ───────────────────────────────────────────────────────
 
     drawCells: function(ctx, liveCells, startR, startC, endR, endC, viewX, viewY, cellSize, colorPalette){
-        var COLOR_STEPS = 63;
         var viewArea = (endR - startR) * (endC - startC);
         if(liveCells.size < viewArea * 0.3){
             // Sparse: iterate live cells, batch by color.

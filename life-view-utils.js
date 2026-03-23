@@ -22,14 +22,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         if(refs.canvasSizeCacheKey === cacheKey && refs.canvasSizeCache){
             return refs.canvasSizeCache;
         }
-        var maxW, maxH;
-
-            // All layouts: canvas fills full viewport
-            maxW = winW;
-            maxH = winH;
-
-        // Infinite canvas: always fill the available space regardless of boundary mode.
-        var w = maxW, h = maxH;
+        var w = winW, h = winH;
         var result = {w: w, h: h, displayW: w, displayH: h};
         refs.canvasSizeCacheKey = cacheKey;
         refs.canvasSizeCache = result;
@@ -44,8 +37,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
 
     pan : function(stateRef, refs, dispatch, dc, dr){
         var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch,
-            stateRef.current.viewX + dc, stateRef.current.viewY + dr,
-            stateRef.current.cols, stateRef.current.rows, stateRef.current.cellSize);
+            stateRef.current.viewX + dc, stateRef.current.viewY + dr);
         dispatch({type:'MERGE', payload:{viewX: clamped.viewX, viewY: clamped.viewY}}); refs.drawPending = true;
     },
 
@@ -88,24 +80,23 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         var cols = rb ? rb.maxC - rb.minC + 1 : stateRef.current.cols;
         var rows = rb ? rb.maxR - rb.minR + 1 : stateRef.current.rows;
         if(cols <= 0 || rows <= 0){ return; }
-        // Use actual canvas dimensions for accurate fit calculation.
-        var effW = refs.canvas ? refs.canvas.width : (typeof window !== 'undefined' ? window.innerWidth : 846);
-        var effH = refs.canvas ? refs.canvas.height : (typeof window !== 'undefined' ? window.innerHeight : 900);
-        // Apply the same aspect-ratio constraint as getCanvasSize.
-        var fitAspect = cols / rows;
-        if(effW / effH > fitAspect){
-            effW = Math.max(1, Math.round(effH * fitAspect));
-        } else if(effH / effW > 1 / fitAspect){
-            effH = Math.max(1, Math.round(effW / fitAspect));
-        }
-        // Add padding around bounding box so its border is visible on the infinite canvas.
+        // Use layout dimensions for accurate fit calculation.
+        var cs = LifeViewUtils.getCanvasSize(stateRef, refs, dispatch);
+        var canvasW = cs.displayW;
+        var canvasH = cs.displayH;
+        // Add padding around bounding box so its border is visible.
         var padCols = Math.max(2, Math.round(cols * 0.05));
         var padRows = Math.max(2, Math.round(rows * 0.05));
         var totalCols = cols + padCols * 2;
         var totalRows = rows + padRows * 2;
         // Largest integer cellSize where the padded area fits in the canvas.
-        var newCS = Math.max(1, Math.floor(Math.min(effW / totalCols, effH / totalRows)));
-        dispatch({type:'MERGE', payload:{cellSize: newCS, viewX: originC - padCols, viewY: originR - padRows}}); refs.drawPending = true;
+        var newCS = Math.max(1, Math.floor(Math.min(canvasW / totalCols, canvasH / totalRows)));
+        // Center the grid in the viewport.
+        var visibleCols = Math.ceil(canvasW / newCS);
+        var visibleRows = Math.ceil(canvasH / newCS);
+        var viewX = originC - padCols - (visibleCols - totalCols) / 2;
+        var viewY = originR - padRows - (visibleRows - totalRows) / 2;
+        dispatch({type:'MERGE', payload:{cellSize: newCS, viewX: Math.round(viewX), viewY: Math.round(viewY)}}); refs.drawPending = true;
     },
 
     fitLiveCells : function(stateRef, refs, dispatch){
@@ -123,13 +114,17 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         var padR = Math.max(2, Math.round(spanR * 0.1));
         var padC = Math.max(2, Math.round(spanC * 0.1));
         var totalR = spanR + padR * 2, totalC = spanC + padC * 2;
-        // Use actual canvas dimensions for accurate fit calculation.
-        var effW = refs.canvas ? refs.canvas.width : (typeof window !== 'undefined' ? window.innerWidth : 846);
-        var effH = refs.canvas ? refs.canvas.height : (typeof window !== 'undefined' ? window.innerHeight : 900);
-        var newCS = Math.max(1, Math.floor(Math.min(effW / totalC, effH / totalR)));
-        var newVX = minC - padC;
-        var newVY = minR - padR;
-        dispatch({type:'MERGE', payload:{cellSize: newCS, viewX: newVX, viewY: newVY}}); refs.drawPending = true;
+        // Use layout dimensions for accurate fit calculation.
+        var cs = LifeViewUtils.getCanvasSize(stateRef, refs, dispatch);
+        var canvasW = cs.displayW;
+        var canvasH = cs.displayH;
+        var newCS = Math.max(1, Math.floor(Math.min(canvasW / totalC, canvasH / totalR)));
+        // Center the live cells in the viewport.
+        var visibleCols = Math.ceil(canvasW / newCS);
+        var visibleRows = Math.ceil(canvasH / newCS);
+        var newVX = minC - padC - (visibleCols - totalC) / 2;
+        var newVY = minR - padR - (visibleRows - totalR) / 2;
+        dispatch({type:'MERGE', payload:{cellSize: newCS, viewX: Math.round(newVX), viewY: Math.round(newVY)}}); refs.drawPending = true;
     },
 
     setZoom : function(stateRef, refs, dispatch, e){
@@ -137,8 +132,7 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         if(isNaN(newCS) || newCS < 1){ return; }
         newCS = Math.max(1, Math.min(128, newCS));
         var clamped = LifeViewUtils.clampView(stateRef, refs, dispatch,
-            stateRef.current.viewX, stateRef.current.viewY,
-            stateRef.current.cols, stateRef.current.rows, newCS);
+            stateRef.current.viewX, stateRef.current.viewY);
         dispatch({type:'MERGE', payload:{cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY}}); refs.drawPending = true;
     },
 

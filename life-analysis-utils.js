@@ -2,6 +2,8 @@
 /**
  * Pattern analysis, help, and GIF recording utils for LifeBoard component.
  */
+var _gcd = function(a, b){ return b === 0 ? a : _gcd(b, a % b); };
+
 var LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
 
     // ── Help modal ─────────────────────────────────────────────────────
@@ -183,9 +185,8 @@ var LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
                         msg = 'Oscillator \u2014 period ' + period;
                     } else {
                         var speed = Math.max(dr, dc);
-                        var gcd = function(a, b){ return b === 0 ? a : gcd(b, a % b); };
                         var sn = Math.round(speed);
-                        var g = gcd(sn, period);
+                        var g = _gcd(sn, period);
                         var num = sn / g;
                         var den = period / g;
                         var dir = (dr > dc + 0.01) ? (dc > 0.01 ? 'diagonal' : 'vertical')

@@ -43,7 +43,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
                     return;
                 }
                 PATTERNS['Custom'] = result.cells;
-                refs.previewPos = null;
+                InputHandler._previewPos = null;
                 dispatch({type:'MERGE', payload:{
                     selectedPattern : 'Custom',
                     patternRotation : 0,

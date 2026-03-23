@@ -123,7 +123,7 @@ var PATTERN_META = { // eslint-disable-line no-unused-vars
     'Boat':                { type: 'Still life',  cells: 5 },
     'Tub':                 { type: 'Still life',  cells: 4 },
     'Ship':                { type: 'Still life',  cells: 6 },
-    'Barge':               { type: 'Still life',  cells: 7 },
+    'Barge':               { type: 'Still life',  cells: 6 },
     'Long boat':           { type: 'Still life',  cells: 7 },
     'Pond':                { type: 'Still life',  cells: 8 },
     'Blinker':             { type: 'Oscillator',  period: 2,  cells: 3 },
@@ -149,5 +149,5 @@ var PATTERN_META = { // eslint-disable-line no-unused-vars
     'Herschel':            { type: 'Methuselah',  lifespan: 128,  cells: 7 },
     'Rabbits':             { type: 'Methuselah',  lifespan: 17331, cells: 9 },
     'Gosper Glider Gun':   { type: 'Gun',         period: 30, cells: 36 },
-    'Simkin Glider Gun':   { type: 'Gun',         period: 120, cells: 36 }
+    'Simkin Glider Gun':   { type: 'Gun',         period: 120, cells: 32 }
 };

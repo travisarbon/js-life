@@ -55,7 +55,7 @@ var SimRunner = { // eslint-disable-line no-unused-vars
                         clipped.set(key, age);
                     }
                 });
-                this._hlStale = true;
+                if(clipped.size !== newLiveCells.size){ this._hlStale = true; }
                 return clipped;
             }
             var clippedRect = new Map();
@@ -65,7 +65,7 @@ var SimRunner = { // eslint-disable-line no-unused-vars
                     clippedRect.set(key, age);
                 }
             });
-            this._hlStale = true;
+            if(clippedRect.size !== newLiveCells.size){ this._hlStale = true; }
             return clippedRect;
         }
         return newLiveCells;
