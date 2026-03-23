@@ -346,9 +346,13 @@ canvas.display {
 #content .buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   width: 100%;
-  box-sizing: border-box; }
+  box-sizing: border-box;
+  background: var(--input-bg);
+  border: 1px solid var(--separator-color);
+  padding: var(--space-md);
+  border-radius: var(--radius-md); }
 /* Secondary button row: 3-column grid for view/mode toggles. */
 #content .buttons-secondary {
   grid-template-columns: repeat(3, 1fr);
@@ -393,9 +397,9 @@ canvas.display {
   white-space: nowrap;
   min-width: 42px; }
 #content .btn-toggle.active {
-  background-color: rgba(var(--accent-rgb), 0.18);
+  background-color: rgba(var(--accent-rgb), 0.28);
   color: var(--accent);
-  border-color: rgba(var(--accent-rgb), 0.4);
+  border-color: rgba(var(--accent-rgb), 0.5);
   border-bottom: 2px solid var(--accent);
   padding-bottom: calc(var(--space-sm) - 2px); }
 
@@ -725,8 +729,8 @@ canvas.display {
   flex-shrink: 0;
   transition: background-color var(--transition-fast), border-color var(--transition-fast); }
 #content .btn-toggle.active::before {
-  background: var(--accent-text);
-  border-color: var(--accent-text); }
+  background: var(--accent);
+  border-color: var(--accent); }
 /* Hide toggle dot in compact mode to save space */
 .compact-body .btn-toggle::before,
 .float-panel-compact .btn-toggle::before,
@@ -912,16 +916,23 @@ canvas.display {
 
 /* ── Grid presets ──────────────────────────────────────────────────────── */
 .grid-presets {
-  display: flex;
-  gap: var(--space-sm);
+  display: inline-flex;
+  gap: 2px;
   flex-wrap: wrap;
-  margin-top: var(--space-sm); }
+  margin-top: var(--space-sm);
+  background: var(--input-bg);
+  border: 1px solid var(--separator-color);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  width: auto; }
 .grid-presets .btn-xs {
   font-size: var(--text-xs);
-  padding: var(--space-sm) var(--space-md);
-  min-height: 24px;
-  min-width: auto;
-  width: auto; }
+  padding: var(--space-xs) var(--space-sm);
+  min-height: 0;
+  min-width: 0;
+  width: auto;
+  line-height: 1.2;
+  border-radius: var(--radius-sm); }
 
 /* ── Analysis overlay ─────────────────────────────────────────────────── */
 .analysis-result {
@@ -1698,7 +1709,7 @@ canvas.display {
   transform: translateX(-50%);
   bottom: 4px; }
 
-/* ── Stats window (fixed, non-draggable) ─────────────────────────────── */
+/* ── Stats window (fixed, draggable) ──────────────────────────────────── */
 .stats-window {
   position: fixed;
   left: var(--space-md);
@@ -1754,7 +1765,9 @@ canvas.display {
   border-radius: var(--radius-md) !important;
   padding: var(--space-sm) var(--space-md) !important;
   min-width: 0 !important;
-  min-height: 0 !important; }
+  min-height: 0 !important;
+  width: fit-content !important;
+  max-width: fit-content !important; }
 .zen-exit-btn:hover {
   opacity: 0.8; }
 
@@ -2001,8 +2014,12 @@ canvas.display {
 .mode-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-md);
-  margin-top: var(--space-md); }
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  background: var(--input-bg);
+  border: 1px solid var(--separator-color);
+  padding: var(--space-md);
+  border-radius: var(--radius-md); }
 /* Active tool accent bar — Tools/mode panel buttons get a left accent (3.3.1) */
 .mode-controls .btn-toggle.active {
   border-left: 3px solid var(--accent-text);
@@ -2939,6 +2956,44 @@ html:not(.dark-mode) .mobile-minimap-canvas {
   cursor: pointer; }
 .full-width {
   width: 100%; }
+
+/* ── Draggable fixed elements ─────────────────────────────────────────── */
+.draggable-fixed {
+  cursor: grab;
+  user-select: none; }
+.draggable-fixed:active,
+.draggable-fixed.dragging {
+  cursor: grabbing; }
+.draggable-fixed.dragging {
+  transition: none; }
+
+.minimap-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 14px;
+  cursor: grab;
+  opacity: var(--opacity-muted);
+  font-size: 10px;
+  color: var(--panel-header-color);
+  user-select: none; }
+.minimap-drag-handle:active {
+  cursor: grabbing; }
+.minimap-drag-handle:hover {
+  opacity: 1; }
+
+/* Give minimap area a panel-like background when shown */
+.mobile-minimap-area.draggable-fixed {
+  background: var(--panel-bg-blur);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--panel-shadow);
+  padding: var(--space-xs); }
+@supports (backdrop-filter: blur(1px)) {
+  .mobile-minimap-area.draggable-fixed {
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur)); }
+}
 
 /* Hide redundant section titles inside float panels (already shown in header) */
 .float-panel-body > div > .sidebar-section-title:first-child {

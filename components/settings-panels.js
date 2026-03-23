@@ -9,6 +9,8 @@ var ViewControls = function ViewControls(props) { // eslint-disable-line no-unus
     var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
     var onToggleTrails = props.onToggleTrails;
                 return (
+                    <div>
+                    <label className="control-group-label">Visibility</label>
                     <div className="view-controls">
                         <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitView(stateRef, refs, dispatch); }} title="Zoom to fit entire grid"><i className="fa fa-arrows-alt" aria-hidden="true"></i> Fit Grid</button>
                         <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitLiveCells(stateRef, refs, dispatch); }} title="Zoom to fit live cells"><i className="fa fa-compress" aria-hidden="true"></i> Fit Cells</button>
@@ -16,6 +18,7 @@ var ViewControls = function ViewControls(props) { // eslint-disable-line no-unus
                         <button type="button" className={"btn btn-toggle" + (state.showTrails ? " active" : "")} onClick={function(){ onToggleTrails(stateRef, refs, dispatch); }} title="Show ghost trails" aria-pressed={state.showTrails}><i className="fa fa-sun-o" aria-hidden="true"></i> Trails</button>
                         <button type="button" className={"btn btn-toggle" + (state.showMinimap ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch); }} title="Show/hide minimap (M)" aria-pressed={state.showMinimap}><i className="fa fa-map-o" aria-hidden="true"></i> Minimap</button>
                         <button type="button" className={"btn btn-toggle" + (state.showStats ? " active" : "")} onClick={function(){ dispatch({type:'MERGE', payload:{showStats: !state.showStats}}); }} title="Show/hide stats overlay" aria-pressed={state.showStats}><i className="fa fa-bar-chart" aria-hidden="true"></i> Stats</button>
+                    </div>
                     </div>
                 );
 };

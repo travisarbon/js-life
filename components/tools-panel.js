@@ -12,6 +12,8 @@
 var ModeControls = function ModeControls(props) { // eslint-disable-line no-unused-vars
     var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
+                    <div>
+                    <label className="control-group-label">Mode</label>
                     <div className="mode-controls">
                         <button type="button" className={"btn btn-toggle" + (state.drawMode === 'paint' ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch); }} title="Freehand draw mode (D)" aria-pressed={state.drawMode === 'paint'}><i className="fa fa-pencil" aria-hidden="true"></i> Draw</button>
                         <button type="button" className={"btn btn-toggle" + (state.drawMode === 'preset' ? " active" : "")} onClick={function(){ LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch); }} title="Place preset patterns (P)" aria-pressed={state.drawMode === 'preset'}><i className="fa fa-puzzle-piece" aria-hidden="true"></i> Preset</button>
@@ -19,6 +21,7 @@ var ModeControls = function ModeControls(props) { // eslint-disable-line no-unus
                         {state.boundary !== 'unbounded' && <button type="button" className={"btn btn-toggle" + (state.drawMode === 'region' ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch); }} title="Draw/erase region bounds (B)" aria-pressed={state.drawMode === 'region'}><i className="fa fa-th" aria-hidden="true"></i> Region</button>}
                         <button type="button" className={"btn btn-toggle" + (state.livePaintMode ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleLivePaint(stateRef, refs, dispatch); }} title="Paint while running" aria-pressed={state.livePaintMode}><i className="fa fa-paint-brush" aria-hidden="true"></i> Live Paint</button>
                         <button type="button" className="btn" onClick={function(){ LifeAnalysisUtils.analyzePattern(stateRef, refs, dispatch); }} disabled={state.analyzing} title="Detect oscillator/spaceship"><i className="fa fa-crosshairs" aria-hidden="true"></i> Analyze</button>
+                    </div>
                     </div>
                 );
 };
