@@ -2010,49 +2010,7 @@ var _startFixedDrag = function (el, e) {
   document.addEventListener('touchend', onEnd);
 };
 var _startPanelResize = function (panelId, e, stateRef, refs, dispatch) {
-  e.preventDefault();
-  e.stopPropagation();
-  var panel = e.currentTarget.parentElement;
-  var rect = panel.getBoundingClientRect();
-  var startW = rect.width;
-  var startH = rect.height;
-  var startX = e.touches ? e.touches[0].clientX : e.clientX;
-  var startY = e.touches ? e.touches[0].clientY : e.clientY;
-  var isCompact = stateRef.current.panelStates[panelId] && stateRef.current.panelStates[panelId].compact;
-  var didToggle = false;
-  var move = function (ev) {
-    ev.preventDefault();
-    if (didToggle) return;
-    var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
-    var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-    var newW = startW + (cx - startX);
-    var newH = startH + (cy - startY);
-    if (!isCompact && newW < 120) {
-      didToggle = true;
-      panel.style.width = '';
-      panel.style.maxHeight = '';
-      LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
-    } else if (isCompact && newW > 120) {
-      didToggle = true;
-      panel.style.width = Math.max(180, newW) + 'px';
-      LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
-    } else if (!isCompact) {
-      panel.style.width = Math.max(180, newW) + 'px';
-      panel.style.maxHeight = Math.max(80, newH) + 'px';
-    }
-  };
-  var end = function () {
-    document.removeEventListener('mousemove', move);
-    document.removeEventListener('mouseup', end);
-    document.removeEventListener('touchmove', move);
-    document.removeEventListener('touchend', end);
-  };
-  document.addEventListener('mousemove', move);
-  document.addEventListener('mouseup', end);
-  document.addEventListener('touchmove', move, {
-    passive: false
-  });
-  document.addEventListener('touchend', end);
+  _startUnifiedResize(e, stateRef, refs, dispatch, { panelId: panelId });
 };
 var _startGroupDrag = function (groupId, e, stateRef, refs, dispatch) {
   if (e.target.tagName === 'BUTTON' || e.target.closest && e.target.closest('button')) {
@@ -2153,6 +2111,9 @@ var _startTabDrag = function (panelId, groupId, e, stateRef, refs, dispatch) {
   document.addEventListener('mouseup', end);
 };
 var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
+  _startUnifiedResize(e, stateRef, refs, dispatch, { groupId: groupId });
+};
+var _startUnifiedResize = function (e, stateRef, refs, dispatch, opts) {
   e.preventDefault();
   e.stopPropagation();
   var panel = e.currentTarget.parentElement;
@@ -2161,18 +2122,19 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
   var startH = rect.height;
   var startX = e.touches ? e.touches[0].clientX : e.clientX;
   var startY = e.touches ? e.touches[0].clientY : e.clientY;
-  // Snap thresholds (applied on mouse-up, not during drag).
   var compactSnapThreshold = 100;
-  var curGroup = null;
-  var gs = stateRef.current.panelGroups;
-  for (var gi = 0; gi < gs.length; gi++) {
-    if (gs[gi].id === groupId) {
-      curGroup = gs[gi];
-      break;
+  var groupId = opts && opts.groupId;
+  var panelId = opts && opts.panelId;
+  var isCompact = false;
+  if (groupId) {
+    var gs = stateRef.current.panelGroups;
+    for (var gi = 0; gi < gs.length; gi++) {
+      if (gs[gi].id === groupId) { isCompact = !!gs[gi].compact; break; }
     }
+  } else if (panelId) {
+    var ps = stateRef.current.panelStates[panelId];
+    isCompact = ps && !!ps.compact;
   }
-  var isCompact = curGroup && !!curGroup.compact;
-  // Suppress _checkTabBarOverflow auto-compact during resize.
   refs.resizingGroup = true;
   var move = function (ev) {
     ev.preventDefault();
@@ -2180,17 +2142,14 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
     var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
     var newH = startH + (cy - startY);
     if (isCompact) {
-      // Compact: vertical resize only.
       var body = panel.querySelector('.compact-group-body') || panel.querySelector('.compact-body');
       var minH = 60;
-      if (body) {
-        minH = body.scrollHeight + (panel.offsetHeight - panel.clientHeight) + 40;
-      }
+      if (body) { minH = body.scrollHeight + (panel.offsetHeight - panel.clientHeight) + 40; }
       panel.style.maxHeight = Math.max(minH, newH) + 'px';
     } else {
-      // Expanded: allow width to track cursor freely during drag.
       var newW = startW + (cx - startX);
       panel.style.width = Math.max(60, newW) + 'px';
+      panel.style.maxWidth = 'none';
       panel.style.maxHeight = Math.max(80, newH) + 'px';
     }
   };
@@ -2201,23 +2160,22 @@ var _startGroupResize = function (groupId, e, stateRef, refs, dispatch) {
     document.removeEventListener('touchend', end);
     refs.resizingGroup = false;
     if (!isCompact) {
-      // Snap to nearest of three sizes based on final width.
       var finalW = panel.getBoundingClientRect().width;
       if (finalW < compactSnapThreshold) {
-        // Snap to compact mode.
         panel.style.width = '';
         panel.style.maxHeight = '';
-        LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
+        panel.style.maxWidth = '';
+        if (groupId) {
+          LifeViewUtils._toggleGroupCompact(stateRef, refs, dispatch, groupId);
+        } else if (panelId) {
+          LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
+        }
       }
-      // Otherwise keep the inline width; the ResizeObserver on the
-      // tab bar naturally switches between text and icon-only tabs.
     }
   };
   document.addEventListener('mousemove', move);
   document.addEventListener('mouseup', end);
-  document.addEventListener('touchmove', move, {
-    passive: false
-  });
+  document.addEventListener('touchmove', move, { passive: false });
   document.addEventListener('touchend', end);
 };
 
