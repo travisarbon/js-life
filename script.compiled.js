@@ -2773,7 +2773,9 @@ var FloatPanel = function FloatPanel(props) {
   }
   var isCompact = !!ps.compact;
   var isCollapsed = !!ps.collapsed;
-  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCompact ? " float-panel-compact" : "") + (isCollapsed ? " float-panel-collapsed" : "");
+  var className = isCompact
+    ? "float-panel panel-group panel-group-compact"
+    : "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCollapsed ? " float-panel-collapsed" : "");
   var style = {};
   if (ps.x >= 0) {
     style.left = ps.x;
@@ -2785,6 +2787,76 @@ var FloatPanel = function FloatPanel(props) {
   if (ps.z) {
     style.zIndex = ps.z;
   }
+  if (isCompact) {
+    // Compact mode: render with same structure as PanelGroup compact
+    return /*#__PURE__*/React.createElement("div", {
+      className: className,
+      style: style,
+      "data-panel-id": panelId,
+      onMouseDown: function () {
+        LifeViewUtils._bringPanelToFront(stateRef, refs, dispatch, panelId);
+      },
+      role: "region",
+      "aria-label": label + " panel"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "compact-group-header",
+      onMouseDown: function (e) {
+        _startPanelDrag(panelId, e, stateRef, refs, dispatch);
+      },
+      onTouchStart: function (e) {
+        _startPanelDrag(panelId, e, stateRef, refs, dispatch);
+      }
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fa " + _getPanelIcon(panelId) + " compact-active-icon",
+      "aria-hidden": "true",
+      title: label
+    }), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "btn float-panel-compact-toggle",
+      onClick: function (e) {
+        e.stopPropagation();
+        LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
+      },
+      title: "Expand panel",
+      "data-tooltip": "Expand"
+    }, "\u00bb"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "btn float-panel-collapse",
+      onClick: function (e) {
+        e.stopPropagation();
+        _togglePanelCollapse(panelId, stateRef, refs, dispatch);
+      },
+      "aria-expanded": !isCollapsed,
+      "data-tooltip": isCollapsed ? "Expand" : "Collapse"
+    }, isCollapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "btn float-panel-close",
+      onClick: function (e) {
+        e.stopPropagation();
+        _togglePanelOpen(panelId, stateRef, refs, dispatch);
+      },
+      "data-tooltip": "Close"
+    }, "\xD7")), !isCollapsed && /*#__PURE__*/React.createElement("div", {
+      className: "compact-group-body"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "compact-main"
+    }, /*#__PURE__*/React.createElement(CompactBody, {
+      panelId: panelId,
+      state: state,
+      stateRef: stateRef,
+      refs: refs,
+      dispatch: dispatch
+    }))), !isCollapsed && /*#__PURE__*/React.createElement("div", {
+      className: "float-panel-resize",
+      onMouseDown: function (e) {
+        _startPanelResize(panelId, e, stateRef, refs, dispatch);
+      },
+      onTouchStart: function (e) {
+        _startPanelResize(panelId, e, stateRef, refs, dispatch);
+      }
+    }));
+  }
+  // Expanded mode
   return /*#__PURE__*/React.createElement("div", {
     className: className,
     style: style,
@@ -2814,7 +2886,7 @@ var FloatPanel = function FloatPanel(props) {
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa " + _getPanelIcon(panelId) + " panel-tab-icon",
     "aria-hidden": "true"
-  }), !isCompact && /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/React.createElement("span", {
     className: "panel-tab-label"
   }, label))), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -2822,10 +2894,9 @@ var FloatPanel = function FloatPanel(props) {
     onClick: function () {
       LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
     },
-    "aria-label": isCompact ? "Expand " + label + " panel" : "Compact " + label + " panel",
-    title: isCompact ? "Expand panel" : "Compact panel",
-    "data-tooltip": isCompact ? "Expand" : "Compact"
-  }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
+    title: "Compact panel",
+    "data-tooltip": "Compact"
+  }, "\u00ab"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-collapse",
     onClick: function (e) {
@@ -2833,7 +2904,6 @@ var FloatPanel = function FloatPanel(props) {
       _togglePanelCollapse(panelId, stateRef, refs, dispatch);
     },
     "aria-expanded": !isCollapsed,
-    "aria-label": isCollapsed ? "Expand panel" : "Collapse panel",
     "data-tooltip": isCollapsed ? "Expand" : "Collapse"
   }, isCollapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -2841,17 +2911,10 @@ var FloatPanel = function FloatPanel(props) {
     onClick: function () {
       _togglePanelOpen(panelId, stateRef, refs, dispatch);
     },
-    "aria-label": "Close " + label + " panel",
     "data-tooltip": "Close"
   }, "\xD7")), !isCollapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
-  }, isCompact ? /*#__PURE__*/React.createElement(CompactBody, {
-    panelId: panelId,
-    state: state,
-    stateRef: stateRef,
-    refs: refs,
-    dispatch: dispatch
-  }) : content), !isCollapsed && /*#__PURE__*/React.createElement("div", {
+  }, content), !isCollapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",
     onMouseDown: function (e) {
       _startPanelResize(panelId, e, stateRef, refs, dispatch);
@@ -2898,7 +2961,63 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
   if (group && group.z) {
     style.zIndex = group.z;
   }
-  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCompact ? " float-panel-compact" : "") + (isCollapsed ? " float-panel-collapsed" : "");
+  var className = isCompact
+    ? "float-panel panel-group panel-group-compact"
+    : "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCollapsed ? " float-panel-collapsed" : "");
+  if (isCompact) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: className,
+      style: style,
+      "data-panel-id": panelId,
+      onMouseDown: function () {
+        LifeViewUtils._bringPanelToFront(stateRef, refs, dispatch, panelId);
+      },
+      role: "region",
+      "aria-label": label + " panel"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "compact-group-header",
+      onMouseDown: function (e) {
+        _startPanelDrag(panelId, e, stateRef, refs, dispatch);
+      },
+      onTouchStart: function (e) {
+        _startPanelDrag(panelId, e, stateRef, refs, dispatch);
+      }
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fa " + _getPanelIcon(panelId) + " compact-active-icon",
+      "aria-hidden": "true",
+      title: label
+    }), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "btn float-panel-compact-toggle",
+      onClick: function (e) { e.stopPropagation(); LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId); },
+      "data-tooltip": "Expand"
+    }, "\u00bb"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "btn float-panel-collapse",
+      onClick: function (e) { e.stopPropagation(); _togglePanelCollapse(panelId, stateRef, refs, dispatch); },
+      "aria-expanded": !isCollapsed,
+      "data-tooltip": isCollapsed ? "Expand" : "Collapse"
+    }, isCollapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "btn float-panel-close",
+      onClick: function (e) { e.stopPropagation(); _togglePanelOpen(panelId, stateRef, refs, dispatch); },
+      "data-tooltip": "Close"
+    }, "\xD7")), !isCollapsed && /*#__PURE__*/React.createElement("div", {
+      className: "compact-group-body"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "compact-main"
+    }, /*#__PURE__*/React.createElement(CompactBody, {
+      panelId: panelId,
+      state: state,
+      stateRef: stateRef,
+      refs: refs,
+      dispatch: dispatch
+    }))), !isCollapsed && /*#__PURE__*/React.createElement("div", {
+      className: "float-panel-resize",
+      onMouseDown: function (e) { _startPanelResize(panelId, e, stateRef, refs, dispatch); },
+      onTouchStart: function (e) { _startPanelResize(panelId, e, stateRef, refs, dispatch); }
+    }));
+  }
   return /*#__PURE__*/React.createElement("div", {
     className: className,
     style: style,
@@ -2928,7 +3047,7 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa " + _getPanelIcon(panelId) + " panel-tab-icon",
     "aria-hidden": "true"
-  }), !isCompact && /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/React.createElement("span", {
     className: "panel-tab-label"
   }, label))), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -2936,10 +3055,8 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     onClick: function () {
       LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
     },
-    "aria-label": isCompact ? "Expand " + label + " panel" : "Compact " + label + " panel",
-    title: isCompact ? "Expand panel" : "Compact panel",
-    "data-tooltip": isCompact ? "Expand" : "Compact"
-  }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
+    "data-tooltip": "Compact"
+  }, "\u00ab"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-collapse",
     onClick: function (e) {
@@ -2947,7 +3064,6 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
       _togglePanelCollapse(panelId, stateRef, refs, dispatch);
     },
     "aria-expanded": !isCollapsed,
-    "aria-label": isCollapsed ? "Expand panel" : "Collapse panel",
     "data-tooltip": isCollapsed ? "Expand" : "Collapse"
   }, isCollapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -2955,17 +3071,10 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     onClick: function () {
       _togglePanelOpen(panelId, stateRef, refs, dispatch);
     },
-    "aria-label": "Close " + label + " panel",
     "data-tooltip": "Close"
   }, "\xD7")), !isCollapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
-  }, isCompact ? /*#__PURE__*/React.createElement(CompactBody, {
-    panelId: panelId,
-    state: state,
-    stateRef: stateRef,
-    refs: refs,
-    dispatch: dispatch
-  }) : content), !isCollapsed && /*#__PURE__*/React.createElement("div", {
+  }, content), !isCollapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",
     onMouseDown: function (e) {
       _startPanelResize(panelId, e, stateRef, refs, dispatch);
