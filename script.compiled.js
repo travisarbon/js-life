@@ -2071,30 +2071,50 @@ var _startGroupDrag = function (groupId, e, stateRef, refs, dispatch) {
     ev.preventDefault();
     var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
     var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-    panel.style.left = Math.max(0, Math.min(window.innerWidth - 60, cx - offX)) + 'px';
-    panel.style.top = Math.max(0, Math.min(window.innerHeight - 40, cy - offY)) + 'px';
+    var newX = Math.max(0, Math.min(window.innerWidth - 60, cx - offX));
+    var newY = Math.max(0, Math.min(window.innerHeight - 40, cy - offY));
+    panel.style.left = newX + 'px';
+    panel.style.top = newY + 'px';
     panel.style.right = 'auto';
     panel.style.bottom = 'auto';
     panel.style.transform = 'none';
+    _updateDropIndicator(groupId, newX, newY, panel);
   };
   var end = function () {
     panel.classList.remove('dragging');
+    _clearDropIndicator();
     var finalRect = panel.getBoundingClientRect();
-    var groups = stateRef.current.panelGroups.map(function (g) {
-      return g.id === groupId ? Object.assign({}, g, {
-        x: finalRect.left,
-        y: finalRect.top
-      }) : g;
-    });
-    dispatch({
-      type: "MERGE",
-      payload: {
-        panelGroups: groups
+    var mergeTarget = _findDropTarget(groupId, finalRect);
+    if (mergeTarget) {
+      // Merge all panels from this group into the target
+      var dragGroup = null;
+      var gs = stateRef.current.panelGroups;
+      for (var gi = 0; gi < gs.length; gi++) {
+        if (gs[gi].id === groupId) { dragGroup = gs[gi]; break; }
       }
-    });
-    setTimeout(function () {
-      LifeViewUtils._persistLayout(stateRef, refs);
-    }, 0);
+      if (dragGroup) {
+        var panelsToMerge = dragGroup.panels.slice();
+        for (var pi = 0; pi < panelsToMerge.length; pi++) {
+          LifeViewUtils._mergePanels(stateRef, refs, dispatch, panelsToMerge[pi], mergeTarget);
+        }
+      }
+    } else {
+      var groups = stateRef.current.panelGroups.map(function (g) {
+        return g.id === groupId ? Object.assign({}, g, {
+          x: finalRect.left,
+          y: finalRect.top
+        }) : g;
+      });
+      dispatch({
+        type: "MERGE",
+        payload: {
+          panelGroups: groups
+        }
+      });
+      setTimeout(function () {
+        LifeViewUtils._persistLayout(stateRef, refs);
+      }, 0);
+    }
     document.removeEventListener('mousemove', move);
     document.removeEventListener('mouseup', end);
     document.removeEventListener('touchmove', move);
@@ -2752,7 +2772,8 @@ var FloatPanel = function FloatPanel(props) {
     return null;
   }
   var isCompact = !!ps.compact;
-  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCompact ? " float-panel-compact" : "");
+  var isCollapsed = !!ps.collapsed;
+  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCompact ? " float-panel-compact" : "") + (isCollapsed ? " float-panel-collapsed" : "");
   var style = {};
   if (ps.x >= 0) {
     style.left = ps.x;
@@ -2784,13 +2805,18 @@ var FloatPanel = function FloatPanel(props) {
     onTouchStart: function (e) {
       _startPanelDrag(panelId, e, stateRef, refs, dispatch);
     }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-tab-bar"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "panel-tab panel-tab-active",
+    style: { pointerEvents: 'none' }
   }, /*#__PURE__*/React.createElement("i", {
-    className: "fa " + _getPanelIcon(panelId) + " float-panel-icon",
+    className: "fa " + _getPanelIcon(panelId) + " panel-tab-icon",
     "aria-hidden": "true"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "float-panel-title",
-    id: "panel-title-" + panelId
-  }, label), /*#__PURE__*/React.createElement("button", {
+  }), !isCompact && /*#__PURE__*/React.createElement("span", {
+    className: "panel-tab-label"
+  }, label))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-compact-toggle",
     onClick: function () {
@@ -2801,13 +2827,23 @@ var FloatPanel = function FloatPanel(props) {
     "data-tooltip": isCompact ? "Expand" : "Compact"
   }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
     type: "button",
+    className: "btn float-panel-collapse",
+    onClick: function (e) {
+      e.stopPropagation();
+      _togglePanelCollapse(panelId, stateRef, refs, dispatch);
+    },
+    "aria-expanded": !isCollapsed,
+    "aria-label": isCollapsed ? "Expand panel" : "Collapse panel",
+    "data-tooltip": isCollapsed ? "Expand" : "Collapse"
+  }, isCollapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     className: "btn float-panel-close",
     onClick: function () {
       _togglePanelOpen(panelId, stateRef, refs, dispatch);
     },
     "aria-label": "Close " + label + " panel",
     "data-tooltip": "Close"
-  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+  }, "\xD7")), !isCollapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
   }, isCompact ? /*#__PURE__*/React.createElement(CompactBody, {
     panelId: panelId,
@@ -2815,7 +2851,7 @@ var FloatPanel = function FloatPanel(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }) : content), /*#__PURE__*/React.createElement("div", {
+  }) : content), !isCollapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",
     onMouseDown: function (e) {
       _startPanelResize(panelId, e, stateRef, refs, dispatch);
@@ -2841,6 +2877,7 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     return null;
   }
   var isCompact = !!ps.compact;
+  var isCollapsed = !!ps.collapsed;
   var style = {};
   if (group && group.x >= 0) {
     style.left = group.x;
@@ -2861,7 +2898,7 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
   if (group && group.z) {
     style.zIndex = group.z;
   }
-  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCompact ? " float-panel-compact" : "");
+  var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() + (isCompact ? " float-panel-compact" : "") + (isCollapsed ? " float-panel-collapsed" : "");
   return /*#__PURE__*/React.createElement("div", {
     className: className,
     style: style,
@@ -2882,13 +2919,18 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     onTouchStart: function (e) {
       _startPanelDrag(panelId, e, stateRef, refs, dispatch);
     }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "panel-tab-bar"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "panel-tab panel-tab-active",
+    style: { pointerEvents: 'none' }
   }, /*#__PURE__*/React.createElement("i", {
-    className: "fa " + _getPanelIcon(panelId) + " float-panel-icon",
+    className: "fa " + _getPanelIcon(panelId) + " panel-tab-icon",
     "aria-hidden": "true"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "float-panel-title",
-    id: "panel-title-" + panelId
-  }, label), /*#__PURE__*/React.createElement("button", {
+  }), !isCompact && /*#__PURE__*/React.createElement("span", {
+    className: "panel-tab-label"
+  }, label))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "btn float-panel-compact-toggle",
     onClick: function () {
@@ -2899,13 +2941,23 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     "data-tooltip": isCompact ? "Expand" : "Compact"
   }, isCompact ? "\u00bb" : "\u00ab"), /*#__PURE__*/React.createElement("button", {
     type: "button",
+    className: "btn float-panel-collapse",
+    onClick: function (e) {
+      e.stopPropagation();
+      _togglePanelCollapse(panelId, stateRef, refs, dispatch);
+    },
+    "aria-expanded": !isCollapsed,
+    "aria-label": isCollapsed ? "Expand panel" : "Collapse panel",
+    "data-tooltip": isCollapsed ? "Expand" : "Collapse"
+  }, isCollapsed ? "+" : "\u2013"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     className: "btn float-panel-close",
     onClick: function () {
       _togglePanelOpen(panelId, stateRef, refs, dispatch);
     },
     "aria-label": "Close " + label + " panel",
     "data-tooltip": "Close"
-  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+  }, "\xD7")), !isCollapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-body"
   }, isCompact ? /*#__PURE__*/React.createElement(CompactBody, {
     panelId: panelId,
@@ -2913,7 +2965,7 @@ var FloatPanelDirect = function FloatPanelDirect(props) {
     stateRef: stateRef,
     refs: refs,
     dispatch: dispatch
-  }) : content), /*#__PURE__*/React.createElement("div", {
+  }) : content), !isCollapsed && /*#__PURE__*/React.createElement("div", {
     className: "float-panel-resize",
     onMouseDown: function (e) {
       _startPanelResize(panelId, e, stateRef, refs, dispatch);
