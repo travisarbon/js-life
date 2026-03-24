@@ -357,9 +357,16 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
                     mmRegionCols = mmMXC - mmMC + pad2m * 2;
                 }
                 var MOBILE_MM_CSS_W = Math.min(120, Math.round(window.innerWidth * 0.3));
+                var MOBILE_MM_CSS_H = Math.min(160, Math.round(window.innerHeight * 0.2));
                 var mmAspect = mmRegionCols / Math.max(1, mmRegionRows);
-                var mmH_css = Math.round(MOBILE_MM_CSS_W / mmAspect);
-                var mmW_css = MOBILE_MM_CSS_W;
+                var mmW_css, mmH_css;
+                if(mmAspect >= 1){
+                    mmW_css = MOBILE_MM_CSS_W;
+                    mmH_css = Math.min(Math.round(mmW_css / mmAspect), MOBILE_MM_CSS_H);
+                } else {
+                    mmH_css = MOBILE_MM_CSS_H;
+                    mmW_css = Math.min(Math.round(mmH_css * mmAspect), MOBILE_MM_CSS_W);
+                }
 
                 if(refs.minimapCanvas.width !== mmW_css || refs.minimapCanvas.height !== mmH_css){
                     refs.minimapCanvas.width  = mmW_css;
