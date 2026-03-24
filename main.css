@@ -1650,8 +1650,8 @@ html.dark-mode .toolbar-step-select {
 .panel-group-compact .compact-group-header {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
+  gap: 0;
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) 0;
   min-height: 24px;
   background: var(--panel-header-bg);
   border-bottom: 1px solid var(--panel-border);
@@ -1672,8 +1672,10 @@ html.dark-mode .toolbar-step-select {
   text-overflow: ellipsis;
   min-width: 0; }
 .panel-group-compact .compact-active-icon {
-  flex: 1;
-  font-size: 14px;
+  width: 34px;
+  flex-shrink: 0;
+  font-size: 16px;
+  text-align: center;
   opacity: var(--opacity-secondary); }
 
 .panel-group-compact .compact-group-header .btn {
@@ -1737,11 +1739,12 @@ html.dark-mode .toolbar-step-select {
   padding: var(--space-sm);
   overflow: visible; }
 
-/* Allow pop-out flyouts to escape compact panel bounds.
-   Must remove paint containment — contain:paint clips all overflow
-   regardless of overflow:visible. */
+/* Pop-out flyouts must escape compact panel bounds.
+   contain:layout creates a stacking context that traps pop-out z-index
+   and can prevent native <select> dropdowns from rendering above the panel.
+   Use contain:style only to avoid clipping. */
 .panel-group-compact {
-  contain: layout style;
+  contain: style;
   overflow: visible;
   min-height: 60px; }
 .panel-group-compact[style*="max-height"] .compact-group-body {
@@ -1756,7 +1759,7 @@ html.dark-mode .toolbar-step-select {
   left: calc(100% + 20px); }
 
 .float-panel-compact {
-  contain: layout style;
+  contain: style;
   overflow: visible; }
 
 .float-panel-compact .float-panel-body {
