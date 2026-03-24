@@ -591,9 +591,29 @@ var CanvasArea = function CanvasArea(props) {
   }, /*#__PURE__*/React.createElement("canvas", {
     className: "display",
     ref: function (c) {
+      if (refs.canvas && refs.canvas !== c) {
+        if (refs._canvasWheelHandler) {
+          refs.canvas.removeEventListener('wheel', refs._canvasWheelHandler);
+        }
+        var oldContainer = refs.canvas.parentNode;
+        if (oldContainer && refs.onDragOver) {
+          oldContainer.removeEventListener('dragover', refs.onDragOver);
+          oldContainer.removeEventListener('dragleave', refs.onDragLeave);
+          oldContainer.removeEventListener('drop', refs.onDrop);
+        }
+      }
       refs.canvas = c;
       if (c) {
         refs.drawPending = true;
+        if (refs._canvasWheelHandler) {
+          c.addEventListener('wheel', refs._canvasWheelHandler, { passive: false });
+        }
+        var container = c.parentNode;
+        if (container && refs.onDragOver) {
+          container.addEventListener('dragover', refs.onDragOver);
+          container.addEventListener('dragleave', refs.onDragLeave);
+          container.addEventListener('drop', refs.onDrop);
+        }
       }
     },
     width: cs.w,
@@ -5255,9 +5275,10 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       refs.sliderObserver = sliderObserver;
       // Attach wheel listener as non-passive so preventDefault works.
-      refs.canvas.addEventListener('wheel', function (e) {
+      refs._canvasWheelHandler = function (e) {
         LifeInputUtils.onWheel(stateRef, refs, dispatch, e);
-      }, {
+      };
+      refs.canvas.addEventListener('wheel', refs._canvasWheelHandler, {
         passive: false
       });
       // Prevent browser zoom (Ctrl+scroll) anywhere on the page.
