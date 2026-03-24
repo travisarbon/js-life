@@ -196,6 +196,26 @@ html.dark-mode {
   --canvas-bg-dark: #241c1a;
   --canvas-bg-light: #f0ebe4;
 }
+[data-theme="violet"] {
+  --accent-color-dark: #7B4FB8;
+  --canvas-bg-dark: #1c1a26;
+  --canvas-bg-light: #eee8f4;
+}
+[data-theme="forest"] {
+  --accent-color-dark: #3d7a42;
+  --canvas-bg-dark: #1a221a;
+  --canvas-bg-light: #e8ede4;
+}
+[data-theme="rose"] {
+  --accent-color-dark: #a84862;
+  --canvas-bg-dark: #261a1e;
+  --canvas-bg-light: #f0e6ea;
+}
+[data-theme="sepia"] {
+  --accent-color-dark: #7d6040;
+  --canvas-bg-dark: #22201a;
+  --canvas-bg-light: #ede8de;
+}
 
 body {
   margin: 0;
@@ -2229,7 +2249,7 @@ html.dark-mode .toolbar-step-select {
 
 .bottom-sheet-tabs {
   display: flex;
-  gap: var(--space-sm);
+  gap: 2px;
   border-bottom: 1px solid var(--panel-border);
   margin-bottom: var(--space-md);
   overflow-x: auto; }
@@ -2240,7 +2260,7 @@ html.dark-mode .toolbar-step-select {
   text-align: center;
   border-left: none;
   border-bottom: 2px solid transparent;
-  padding: 10px 14px;
+  padding: 10px 6px;
   font-size: 13px;
   color: var(--text-secondary);
   min-width: 0;
