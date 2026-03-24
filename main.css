@@ -1347,23 +1347,20 @@ html.dark-mode .toolbar-step-select {
   width: 20px;
   height: 20px;
   cursor: se-resize;
-  opacity: 0;
+  opacity: 0.35;
   touch-action: none;
   transition: opacity var(--transition-fast); }
 .float-panel-resize:hover {
   opacity: 0.8; }
-.float-panel:hover .float-panel-resize {
-  opacity: 0.35; }
 .float-panel-resize::after {
   content: '';
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 10px;
-  height: 10px;
-  background: radial-gradient(circle, var(--panel-header-color) 1.5px, transparent 1.5px);
-  background-size: 5px 5px;
-  background-position: bottom right; }
+  bottom: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--panel-header-color);
+  border-bottom: 2px solid var(--panel-header-color); }
 
 /* ── Panel show/hide menu ─────────────────────────────────────────────── */
 .panel-menu {
@@ -1504,24 +1501,7 @@ html.dark-mode .toolbar-step-select {
   padding: var(--space-lg) var(--space-lg) var(--space-2xl);
   min-width: 0; }
 
-.panel-group .float-panel-resize {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 20px;
-  height: 20px;
-  cursor: se-resize;
-  opacity: 0.4;
-  touch-action: none; }
-.panel-group .float-panel-resize::after {
-  content: '';
-  position: absolute;
-  bottom: 3px;
-  right: 3px;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--panel-header-color);
-  border-bottom: 2px solid var(--panel-header-color); }
+/* panel-group resize inherits from .float-panel-resize above */
 
 /* ── Compact mode ────────────────────────────────────────────────────── */
 .float-panel-compact {
@@ -3164,14 +3144,10 @@ html:not(.dark-mode) .mobile-minimap-canvas {
   box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.3), 0 8px 32px rgba(0,0,0,0.4);
   transition: box-shadow 0.15s ease, border-color 0.15s ease; }
 
-/* ── 3.5: Resize handle visibility on hover ──────────────────────────── */
-.float-panel-resize {
-  opacity: 0;
-  transition: opacity 0.2s ease; }
-.float-panel:hover .float-panel-resize {
-  opacity: 0.4; }
+/* ── 3.5: Resize handle visibility ────────────────────────────────────── */
+/* Base visibility set above; boost on hover */
 .float-panel-resize:hover {
-  opacity: 0.7 !important; }
+  opacity: 0.8 !important; }
 
 /* ── 3.6: Panel appear animation ─────────────────────────────────────── */
 @keyframes panelIn {
