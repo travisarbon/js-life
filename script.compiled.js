@@ -2018,26 +2018,24 @@ var _startPanelResize = function (panelId, e, stateRef, refs, dispatch) {
   var startH = rect.height;
   var startX = e.touches ? e.touches[0].clientX : e.clientX;
   var startY = e.touches ? e.touches[0].clientY : e.clientY;
+  var compactSnapThreshold = 100;
   var isCompact = stateRef.current.panelStates[panelId] && stateRef.current.panelStates[panelId].compact;
-  var didToggle = false;
+  refs.resizingGroup = true;
   var move = function (ev) {
     ev.preventDefault();
-    if (didToggle) return;
     var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
     var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-    var newW = startW + (cx - startX);
     var newH = startH + (cy - startY);
-    if (!isCompact && newW < 120) {
-      didToggle = true;
-      panel.style.width = '';
-      panel.style.maxHeight = '';
-      LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
-    } else if (isCompact && newW > 120) {
-      didToggle = true;
-      panel.style.width = Math.max(180, newW) + 'px';
-      LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
-    } else if (!isCompact) {
-      panel.style.width = Math.max(180, newW) + 'px';
+    if (isCompact) {
+      var body = panel.querySelector('.compact-group-body') || panel.querySelector('.compact-body');
+      var minH = 60;
+      if (body) {
+        minH = body.scrollHeight + (panel.offsetHeight - panel.clientHeight) + 40;
+      }
+      panel.style.maxHeight = Math.max(minH, newH) + 'px';
+    } else {
+      var newW = startW + (cx - startX);
+      panel.style.width = Math.max(60, newW) + 'px';
       panel.style.maxHeight = Math.max(80, newH) + 'px';
     }
   };
@@ -2046,6 +2044,15 @@ var _startPanelResize = function (panelId, e, stateRef, refs, dispatch) {
     document.removeEventListener('mouseup', end);
     document.removeEventListener('touchmove', move);
     document.removeEventListener('touchend', end);
+    refs.resizingGroup = false;
+    if (!isCompact) {
+      var finalW = panel.getBoundingClientRect().width;
+      if (finalW < compactSnapThreshold) {
+        panel.style.width = '';
+        panel.style.maxHeight = '';
+        LifeViewUtils._togglePanelCompact(stateRef, refs, dispatch, panelId);
+      }
+    }
   };
   document.addEventListener('mousemove', move);
   document.addEventListener('mouseup', end);
