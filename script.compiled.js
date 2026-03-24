@@ -284,7 +284,8 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
         mctx.setLineDash([]);
       }
     }
-    mctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    var _mmDark = document.documentElement.classList.contains('dark-mode');
+    mctx.strokeStyle = _mmDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)';
     mctx.lineWidth = 1;
     mctx.strokeRect(0.5, 0.5, mmW - 1, mmH - 1);
     refs.minimapDirty = false;
@@ -296,7 +297,8 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
   var vy1 = mmY + Math.round((viewY - mmOriginR) / rows * mmH);
   var vw = Math.max(2, Math.round(visCols / cols * mmW));
   var vh = Math.max(2, Math.round(visRows / rows * mmH));
-  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  var _vpDark = document.documentElement.classList.contains('dark-mode');
+  ctx.strokeStyle = _vpDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.5)';
   ctx.lineWidth = 1;
   var clampX = Math.max(vx1, mmX);
   var clampY = Math.max(vy1, mmY);
@@ -450,7 +452,8 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
       mmCtx.setLineDash([]);
     }
   }
-  mmCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+  var _mmDarkM = document.documentElement.classList.contains('dark-mode');
+  mmCtx.strokeStyle = _mmDarkM ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)';
   mmCtx.lineWidth = 1;
   mmCtx.strokeRect(0.5, 0.5, mmW_css - 1, mmH_css - 1);
   var vpVisColsM = refs.canvas ? refs.canvas.width / cellSize : 100;
@@ -464,7 +467,8 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
   var vpClampR = Math.min(mmW_css, vpX + vpW),
     vpClampB = Math.min(mmH_css, vpY + vpH);
   if (vpClampR > vpClampX && vpClampB > vpClampY) {
-    mmCtx.strokeStyle = 'rgba(255,255,255,0.75)';
+    var _vpDarkM = document.documentElement.classList.contains('dark-mode');
+    mmCtx.strokeStyle = _vpDarkM ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.5)';
     mmCtx.lineWidth = 1;
     mmCtx.strokeRect(vpClampX + 0.5, vpClampY + 0.5, vpClampR - vpClampX, vpClampB - vpClampY);
   }
