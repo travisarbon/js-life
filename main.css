@@ -3061,25 +3061,30 @@ html:not(.dark-mode) .mobile-minimap-canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 16px;
+  height: 18px;
   cursor: grab;
-  font-size: 14px;
-  letter-spacing: 2px;
-  color: var(--text-secondary);
+  font-size: 16px;
+  letter-spacing: 1px;
+  color: var(--text-icon);
   user-select: none;
-  border-bottom: 1px solid var(--border-subtle); }
+  background: var(--panel-header-bg);
+  flex-shrink: 0; }
 .minimap-drag-handle:active {
   cursor: grabbing; }
 .minimap-drag-handle:hover {
-  color: var(--text-primary); }
+  color: var(--text-primary);
+  background: var(--surface-hover); }
 
 /* Give minimap area a panel-like background when shown */
 .mobile-minimap-area.draggable-fixed {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  padding: 0 !important;
   background: var(--panel-bg-blur);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-md);
   box-shadow: var(--panel-shadow);
-  padding: var(--space-xs); }
+  overflow: hidden; }
 @supports (backdrop-filter: blur(1px)) {
   .mobile-minimap-area.draggable-fixed {
     backdrop-filter: blur(var(--glass-blur));
