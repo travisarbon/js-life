@@ -3043,7 +3043,9 @@ html:not(.dark-mode) .mobile-minimap-canvas {
   border-color: var(--border-color);
   box-shadow: 0 1px 4px var(--shadow-color); }
 .mobile-minimap-canvas {
-  cursor: crosshair; }
+  cursor: crosshair;
+  max-width: 50vw;
+  max-height: 25vh; }
 .mobile-minimap-canvas:active {
   cursor: grabbing; }
 
@@ -3119,7 +3121,9 @@ html:not(.dark-mode) .mobile-minimap-canvas {
 /* Give minimap area a panel-like container with glass effect */
 .mobile-minimap-area.draggable-fixed {
   flex-direction: column !important;
-  align-items: stretch !important;
+  align-items: center !important;
+  width: fit-content;
+  max-width: 50vw;
   padding: 0 !important;
   background: var(--panel-bg-blur);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -3128,6 +3132,8 @@ html:not(.dark-mode) .mobile-minimap-canvas {
   border-radius: var(--radius-lg);
   box-shadow: var(--panel-shadow);
   overflow: hidden; }
+.mobile-minimap-area.draggable-fixed .minimap-drag-handle {
+  align-self: stretch; }
 
 /* Hide redundant section titles inside float panels (already shown in header) */
 .float-panel-body > div > .sidebar-section-title:first-child {
