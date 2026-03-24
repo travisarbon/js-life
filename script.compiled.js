@@ -127,7 +127,7 @@ var drawBoard = function drawBoard(stateRef, refs) {
   }
 
   // Minimap overlay.
-  var useMobileMinimap = state.deviceClass === 'phone-portrait' || state.deviceClass === 'phone-landscape' || state.deviceClass === 'tablet' || typeof window !== 'undefined' && window.innerWidth <= 1200;
+  var useMobileMinimap = true;
   if (state.showMinimap && (isUnbounded || cols > 0 && rows > 0)) {
     if (useMobileMinimap) {
       drawMinimapMobile(stateRef, refs, liveCells, cols, rows, viewX, viewY, cellSize, theme);

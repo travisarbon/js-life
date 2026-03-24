@@ -2375,6 +2375,21 @@ html.dark-mode .toolbar-step-select {
     width: 260px; }
   .layout-observatory .float-panel {
     max-width: 400px; }
+  /* Show minimap element on all desktop sizes */
+  .mobile-minimap-area {
+    display: flex;
+    justify-content: center;
+    position: fixed;
+    bottom: 60px;
+    right: var(--space-md);
+    left: auto;
+    z-index: var(--z-panels);
+    padding: 0; }
+  .mobile-minimap-canvas {
+    border: 1px solid var(--separator-strong);
+    border-radius: var(--radius-sm);
+    cursor: crosshair;
+    touch-action: none; }
 }
 
 /* ── Medium screens / large tablets (901px–1200px) ───────────────────── */
