@@ -2386,10 +2386,21 @@ html.dark-mode .toolbar-step-select {
     z-index: var(--z-panels);
     padding: 0; }
   .mobile-minimap-canvas {
-    border: 1px solid var(--separator-strong);
-    border-radius: var(--radius-sm);
+    border: none;
+    border-radius: 0;
     cursor: crosshair;
     touch-action: none; }
+  /* Place minimap on the opposite side from the Cartographer rail */
+  .rail.rail-right ~ .mobile-minimap-area {
+    right: auto;
+    left: var(--space-md); }
+  .rail.rail-left ~ .mobile-minimap-area {
+    left: auto;
+    right: var(--space-md); }
+  /* When rail is hidden, keep minimap on the default (right) side */
+  .rail.rail-hidden ~ .mobile-minimap-area {
+    left: auto;
+    right: var(--space-md); }
 }
 
 /* ── Medium screens / large tablets (901px–1200px) ───────────────────── */
@@ -2402,28 +2413,7 @@ html.dark-mode .toolbar-step-select {
   .layout-observatory .float-panel-tools { top: 60px; left: auto; right: 10px; }
   .layout-observatory .float-panel-board { bottom: 60px; left: 10px; right: auto; top: auto; }
 
-  /* Show mobile minimap element on medium screens */
-  .mobile-minimap-area {
-    display: flex;
-    justify-content: center;
-    position: fixed;
-    bottom: 60px;
-    right: var(--space-md);
-    left: auto;
-    z-index: var(--z-panels);
-    padding: 0; }
-  .mobile-minimap-canvas {
-    border: 1px solid var(--separator-strong);
-    border-radius: var(--radius-sm);
-    cursor: crosshair;
-    touch-action: none; }
-  /* Place minimap on the opposite side from the Cartographer rail */
-  .rail-right ~ .mobile-minimap-area {
-    right: auto;
-    left: var(--space-md); }
-  .rail-left ~ .mobile-minimap-area {
-    left: auto;
-    right: var(--space-md); }
+  /* Medium screens: minimap position (inherits from >=901px block) */
 }
 
 /* ── Phone / tablet portrait (<=900px) ────────────────────────────────── */
@@ -2509,8 +2499,8 @@ html.dark-mode .toolbar-step-select {
     z-index: calc(var(--z-panels) + 2);
     padding: 0; }
   .mobile-minimap-canvas {
-    border: 1px solid var(--separator-strong);
-    border-radius: var(--radius-sm);
+    border: none;
+    border-radius: 0;
     cursor: crosshair;
     touch-action: none; }
   .mobile-sheet-backdrop {
@@ -3076,35 +3066,42 @@ html:not(.dark-mode) .mobile-minimap-canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 18px;
+  gap: var(--space-xs);
+  height: 20px;
   cursor: grab;
-  font-size: 16px;
-  letter-spacing: 1px;
-  color: var(--text-icon);
   user-select: none;
   background: var(--panel-header-bg);
-  flex-shrink: 0; }
+  border-bottom: 1px solid var(--panel-border);
+  flex-shrink: 0;
+  padding: 0 var(--space-md);
+  transition: background-color var(--transition-fast); }
+/* Three-dot grip indicator */
+.minimap-drag-handle::before {
+  content: '';
+  display: block;
+  width: 20px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-muted); }
 .minimap-drag-handle:active {
   cursor: grabbing; }
 .minimap-drag-handle:hover {
-  color: var(--text-primary);
   background: var(--surface-hover); }
+.minimap-drag-handle:hover::before {
+  background: var(--text-secondary); }
 
-/* Give minimap area a panel-like background when shown */
+/* Give minimap area a panel-like container with glass effect */
 .mobile-minimap-area.draggable-fixed {
   flex-direction: column !important;
   align-items: stretch !important;
   padding: 0 !important;
   background: var(--panel-bg-blur);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   border: 1px solid var(--panel-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--panel-shadow);
   overflow: hidden; }
-@supports (backdrop-filter: blur(1px)) {
-  .mobile-minimap-area.draggable-fixed {
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur)); }
-}
 
 /* Hide redundant section titles inside float panels (already shown in header) */
 .float-panel-body > div > .sidebar-section-title:first-child {

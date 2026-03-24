@@ -399,7 +399,8 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
     mmRegionRows = mmMXR - mmMR + pad2m * 2;
     mmRegionCols = mmMXC - mmMC + pad2m * 2;
   }
-  var MOBILE_MM_CSS_W = Math.min(120, Math.round(window.innerWidth * 0.3));
+  var _mmMaxW = window.innerWidth > 900 ? 200 : 120;
+  var MOBILE_MM_CSS_W = Math.min(_mmMaxW, Math.round(window.innerWidth * 0.3));
   var mmAspect = mmRegionCols / Math.max(1, mmRegionRows);
   var mmH_css = Math.round(MOBILE_MM_CSS_W / mmAspect);
   var mmW_css = MOBILE_MM_CSS_W;
@@ -658,7 +659,7 @@ var MobileMinimapArea = function MobileMinimapArea(props) {
   }, /*#__PURE__*/React.createElement("div", {
     className: "minimap-drag-handle",
     "aria-hidden": "true"
-  }, "\u2261"), /*#__PURE__*/React.createElement("canvas", {
+  }), /*#__PURE__*/React.createElement("canvas", {
     className: "mobile-minimap-canvas",
     ref: function (c) {
       refs.mobileMinimap = c;
