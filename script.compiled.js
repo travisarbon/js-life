@@ -284,8 +284,7 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
         mctx.setLineDash([]);
       }
     }
-    var _mmDark = document.documentElement.classList.contains('dark-mode');
-    mctx.strokeStyle = _mmDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)';
+    mctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.25)';
     mctx.lineWidth = 1;
     mctx.strokeRect(0.5, 0.5, mmW - 1, mmH - 1);
     refs.minimapDirty = false;
@@ -297,8 +296,7 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
   var vy1 = mmY + Math.round((viewY - mmOriginR) / rows * mmH);
   var vw = Math.max(2, Math.round(visCols / cols * mmW));
   var vh = Math.max(2, Math.round(visRows / rows * mmH));
-  var _vpDark = document.documentElement.classList.contains('dark-mode');
-  ctx.strokeStyle = _vpDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.5)';
+  ctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.9)';
   ctx.lineWidth = 1;
   var clampX = Math.max(vx1, mmX);
   var clampY = Math.max(vy1, mmY);
@@ -319,8 +317,7 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
     arrowPx = Math.max(mmX + 6, Math.min(mmX + mmW - 6, arrowPx));
     arrowPy = Math.max(mmY + 6, Math.min(mmY + mmH - 6, arrowPy));
     ctx.save();
-    var _arrowDark = document.documentElement.classList.contains('dark-mode');
-    ctx.fillStyle = _arrowDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.6)';
+    ctx.fillStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.9)';
     ctx.translate(arrowPx, arrowPy);
     ctx.rotate(arrowAngle);
     ctx.beginPath();
@@ -453,8 +450,7 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
       mmCtx.setLineDash([]);
     }
   }
-  var _mmDarkM = document.documentElement.classList.contains('dark-mode');
-  mmCtx.strokeStyle = _mmDarkM ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)';
+  mmCtx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.25)';
   mmCtx.lineWidth = 1;
   mmCtx.strokeRect(0.5, 0.5, mmW_css - 1, mmH_css - 1);
   var vpVisColsM = refs.canvas ? refs.canvas.width / cellSize : 100;
@@ -468,8 +464,7 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
   var vpClampR = Math.min(mmW_css, vpX + vpW),
     vpClampB = Math.min(mmH_css, vpY + vpH);
   if (vpClampR > vpClampX && vpClampB > vpClampY) {
-    var _vpDarkM = document.documentElement.classList.contains('dark-mode');
-    mmCtx.strokeStyle = _vpDarkM ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.5)';
+    mmCtx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.9)';
     mmCtx.lineWidth = 1;
     mmCtx.strokeRect(vpClampX + 0.5, vpClampY + 0.5, vpClampR - vpClampX, vpClampB - vpClampY);
   }
@@ -485,8 +480,7 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
     apxM = Math.max(6, Math.min(mmW_css - 6, apxM));
     apyM = Math.max(6, Math.min(mmH_css - 6, apyM));
     mmCtx.save();
-    var _arrowDarkM = document.documentElement.classList.contains('dark-mode');
-    mmCtx.fillStyle = _arrowDarkM ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.6)';
+    mmCtx.fillStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.9)';
     mmCtx.translate(apxM, apyM);
     mmCtx.rotate(aaM);
     mmCtx.beginPath();
