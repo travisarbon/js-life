@@ -1803,20 +1803,14 @@ html.dark-mode .toolbar-step-select {
   box-shadow: var(--panel-shadow);
   pointer-events: auto;
   font-variant-numeric: tabular-nums;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
-.stats-window-close {
-  position: absolute;
-  top: var(--space-xs);
-  right: var(--space-xs);
-  background: none !important;
-  border: none !important;
-  color: var(--panel-header-color);
-  opacity: var(--opacity-muted);
-  font-size: var(--text-sm);
-  padding: 0 var(--space-xs);
-  cursor: pointer;
-  line-height: 1; }
-.stats-window-close:hover { opacity: 1; }
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  cursor: grab;
+  user-select: none; }
+.stats-window:active,
+.stats-window.dragging {
+  cursor: grabbing; }
+.stats-window.dragging {
+  transition: none; }
 
 /* ── Zen mode ─────────────────────────────────────────────────────────── */
 .zen-mode .float-panel,

@@ -319,7 +319,8 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
     arrowPx = Math.max(mmX + 6, Math.min(mmX + mmW - 6, arrowPx));
     arrowPy = Math.max(mmY + 6, Math.min(mmY + mmH - 6, arrowPy));
     ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    var _arrowDark = document.documentElement.classList.contains('dark-mode');
+    ctx.fillStyle = _arrowDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.6)';
     ctx.translate(arrowPx, arrowPy);
     ctx.rotate(arrowAngle);
     ctx.beginPath();
@@ -484,7 +485,8 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
     apxM = Math.max(6, Math.min(mmW_css - 6, apxM));
     apyM = Math.max(6, Math.min(mmH_css - 6, apyM));
     mmCtx.save();
-    mmCtx.fillStyle = 'rgba(255,255,255,0.85)';
+    var _arrowDarkM = document.documentElement.classList.contains('dark-mode');
+    mmCtx.fillStyle = _arrowDarkM ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.6)';
     mmCtx.translate(apxM, apyM);
     mmCtx.rotate(aaM);
     mmCtx.beginPath();
@@ -656,8 +658,13 @@ var MobileMinimapArea = function MobileMinimapArea(props) {
     return null;
   }
   return /*#__PURE__*/React.createElement("div", {
-    className: "mobile-minimap-area"
-  }, /*#__PURE__*/React.createElement("canvas", {
+    className: "mobile-minimap-area draggable-fixed",
+    onMouseDown: function (e) { _startFixedDrag(e.currentTarget, e); },
+    onTouchStart: function (e) { _startFixedDrag(e.currentTarget, e); }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "minimap-drag-handle",
+    "aria-hidden": "true"
+  }, "\u2261"), /*#__PURE__*/React.createElement("canvas", {
     className: "mobile-minimap-canvas",
     ref: function (c) {
       refs.mobileMinimap = c;
@@ -1443,24 +1450,13 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     refs: refs,
     dispatch: dispatch
   })), state.showStats && /*#__PURE__*/React.createElement("div", {
-    className: "stats-window",
+    className: "stats-window draggable-fixed",
     role: "region",
-    "aria-label": "Statistics"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "btn stats-window-close",
-    onClick: function () {
-      dispatch({
-        type: 'MERGE',
-        payload: {
-          showStats: false
-        }
-      });
-    },
-    "aria-label": "Hide stats",
-    title: "Hide stats",
-    "data-tooltip": "Hide stats"
-  }, "\xD7"), /*#__PURE__*/React.createElement(StatsPanel, {
+    "aria-label": "Statistics",
+    style: { cursor: 'grab' },
+    onMouseDown: function (e) { _startFixedDrag(e.currentTarget, e); },
+    onTouchStart: function (e) { _startFixedDrag(e.currentTarget, e); }
+  }, /*#__PURE__*/React.createElement(StatsPanel, {
     state: state,
     refs: refs,
     stateRef: stateRef,
@@ -1964,6 +1960,39 @@ var _startPanelDrag = function (panelId, e, stateRef, refs, dispatch) {
     passive: false
   });
   document.addEventListener('touchend', refs.fpDragEnd);
+};
+/* Drag utility for fixed-position widgets (stats window, minimap) */
+var _startFixedDrag = function (el, e) {
+  if (e.target.tagName === 'BUTTON' || e.target.tagName === 'CANVAS' || (e.target.closest && e.target.closest('button'))) return;
+  e.preventDefault();
+  var rect = el.getBoundingClientRect();
+  var cx = e.touches ? e.touches[0].clientX : e.clientX;
+  var cy = e.touches ? e.touches[0].clientY : e.clientY;
+  var offX = cx - rect.left, offY = cy - rect.top;
+  el.classList.add('dragging');
+  var onMove = function (ev) {
+    ev.preventDefault();
+    var mx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    var my = ev.touches ? ev.touches[0].clientY : ev.clientY;
+    var newX = Math.max(0, Math.min(window.innerWidth - 40, mx - offX));
+    var newY = Math.max(0, Math.min(window.innerHeight - 40, my - offY));
+    el.style.left = newX + 'px';
+    el.style.top = newY + 'px';
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    el.style.transform = 'none';
+  };
+  var onEnd = function () {
+    el.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onEnd);
 };
 var _startPanelResize = function (panelId, e, stateRef, refs, dispatch) {
   e.preventDefault();
