@@ -406,7 +406,7 @@ var LifeBoardUtils = { // eslint-disable-line no-unused-vars
             var pr = pattern[i][0] + offsetR;
             var pc = pattern[i][1] + offsetC;
             var pkey = pr + ',' + pc;
-            if(isUnbounded || regionMask.has(pkey)){
+            if(isUnbounded || (regionMask && regionMask.has(pkey))){
                 newLiveCells.set(pkey, 1);
             }
         }
