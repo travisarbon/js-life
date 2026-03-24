@@ -85,6 +85,38 @@ var THEMES = {
         youngR: 230,  youngG: 200,  youngB: 160,
         grid:   'rgba(0,0,0,0.15)',
         sel:    'rgba(196,113,58,0.25)'
+    },
+    'Violet': {
+        bg: '#F8F5FF',
+        bgDark: '#1c1a26',
+        aliveR: 138,  aliveG: 92,   aliveB: 196,
+        youngR: 200,  youngG: 180,  youngB: 230,
+        grid:   'rgba(0,0,0,0.15)',
+        sel:    'rgba(138,92,196,0.25)'
+    },
+    'Forest': {
+        bg: '#F5F8F2',
+        bgDark: '#1a221a',
+        aliveR: 76,   aliveG: 140,  aliveB: 80,
+        youngR: 170,  youngG: 210,  youngB: 165,
+        grid:   'rgba(0,0,0,0.15)',
+        sel:    'rgba(76,140,80,0.25)'
+    },
+    'Rose': {
+        bg: '#FFF5F7',
+        bgDark: '#261a1e',
+        aliveR: 190,  aliveG: 82,   aliveB: 110,
+        youngR: 235,  youngG: 185,  youngB: 195,
+        grid:   'rgba(0,0,0,0.15)',
+        sel:    'rgba(190,82,110,0.25)'
+    },
+    'Sepia': {
+        bg: '#FAF6EE',
+        bgDark: '#22201a',
+        aliveR: 143,  aliveG: 110,  aliveB: 70,
+        youngR: 210,  youngG: 190,  youngB: 160,
+        grid:   'rgba(0,0,0,0.15)',
+        sel:    'rgba(143,110,70,0.25)'
     }
 };
 

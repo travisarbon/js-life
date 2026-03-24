@@ -133,8 +133,8 @@ var LifeBoardUtils = { // eslint-disable-line no-unused-vars
         var theme = e.target.value;
         dispatch({type:'MERGE', payload:{theme: theme}});
         // Set theme-specific accent color on :root (16.2)
-        var accentMap = {Teal: '#70959A', Midnight: '#4A9ECD', Ember: '#C47138'};
-        var accentRgbMap = {Teal: '112, 149, 154', Midnight: '74, 158, 205', Ember: '196, 113, 56'};
+        var accentMap = {Teal: '#70959A', Midnight: '#4A9ECD', Ember: '#C47138', Violet: '#8A5CC4', Forest: '#4C8C50', Rose: '#BE526E', Sepia: '#8F6E46'};
+        var accentRgbMap = {Teal: '112, 149, 154', Midnight: '74, 158, 205', Ember: '196, 113, 56', Violet: '138, 92, 196', Forest: '76, 140, 80', Rose: '190, 82, 110', Sepia: '143, 110, 70'};
         document.documentElement.style.setProperty('--accent', accentMap[theme] || '#70959A');
         document.documentElement.style.setProperty('--accent-rgb', accentRgbMap[theme] || '112, 149, 154');
         document.documentElement.setAttribute('data-theme', theme.toLowerCase());
