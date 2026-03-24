@@ -241,6 +241,7 @@ function LifeBoard() {
                 var initTheme = stateRef.current.theme || 'Midnight';
                 document.documentElement.style.setProperty('--accent', accentMap[initTheme] || '#70959A');
                 document.documentElement.style.setProperty('--accent-rgb', accentRgbMap[initTheme] || '112, 149, 154');
+                document.documentElement.setAttribute('data-theme', initTheme.toLowerCase());
                 // Slider filled-track gradient (WebKit doesn't support ::-webkit-slider-progress)
                 var updateSliderFill = function(slider){
                     var min = parseFloat(slider.min) || 0;

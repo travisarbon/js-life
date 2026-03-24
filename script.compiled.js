@@ -237,7 +237,8 @@ var drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, li
     var mc = refs.minimapCanvas;
     var mctx = mc.getContext('2d');
     mctx.clearRect(0, 0, mmW, mmH);
-    var _bgHex = theme.bg || '#0A0E1A';
+    var _isDark = document.documentElement.classList.contains('dark-mode');
+    var _bgHex = (_isDark && theme.bgDark) ? theme.bgDark : (theme.bg || '#0A0E1A');
     var _bgR = parseInt(_bgHex.slice(1, 3), 16),
       _bgG = parseInt(_bgHex.slice(3, 5), 16),
       _bgB = parseInt(_bgHex.slice(5, 7), 16);
@@ -407,7 +408,8 @@ var drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, co
     refs.minimapCanvas.height = mmH_css;
   }
   var mmCtx = refs.minimapCanvas.getContext('2d');
-  var _mbHex = theme.bg || '#0A0E1A';
+  var _isDarkM = document.documentElement.classList.contains('dark-mode');
+  var _mbHex = (_isDarkM && theme.bgDark) ? theme.bgDark : (theme.bg || '#0A0E1A');
   var _mbR = parseInt(_mbHex.slice(1, 3), 16),
     _mbG = parseInt(_mbHex.slice(3, 5), 16),
     _mbB = parseInt(_mbHex.slice(5, 7), 16);
@@ -1032,7 +1034,7 @@ var LayoutSwitcher = function LayoutSwitcher(props) {
     onClick: function () {
       LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'cartographer');
     },
-    title: "Cartographer: Edge rail with tabs",
+    title: "Cartographer (sidebar layout)",
     "aria-label": "Cartographer layout: edge rail with tabs",
     "aria-pressed": mode === 'cartographer',
     "data-tooltip": "Cartographer"
@@ -1044,7 +1046,7 @@ var LayoutSwitcher = function LayoutSwitcher(props) {
     onClick: function () {
       LifeViewUtils.setLayoutMode(stateRef, refs, dispatch, 'observatory');
     },
-    title: "Observatory: Floating panels",
+    title: "Observatory (floating panels)",
     "aria-label": "Observatory layout: floating panels",
     "aria-pressed": mode === 'observatory',
     "data-tooltip": "Observatory"
@@ -1114,7 +1116,7 @@ var CartographerLayout = function CartographerLayout(props) {
       LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch);
     },
     "aria-label": "Help",
-    title: "Keyboard shortcuts (?)"
+    title: "Help & Keyboard Shortcuts"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-question-circle",
     "aria-hidden": "true"
@@ -1491,7 +1493,7 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
       LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch);
     },
     "aria-label": "Help",
-    title: "Keyboard shortcuts (?)",
+    title: "Help & Keyboard Shortcuts",
     "data-tooltip": "Help (?)"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-question-circle",
@@ -1509,6 +1511,7 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     },
     "aria-expanded": !!state.panelMenuOpen,
     "aria-label": "Toggle panel visibility menu",
+    title: "Panel Visibility",
     "data-tooltip": "Panel visibility"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fa fa-th",
@@ -1562,7 +1565,7 @@ var ObservatoryLayout = function ObservatoryLayout(props) {
     onClick: function () {
       LifeViewUtils.toggleZenMode(stateRef, refs, dispatch);
     },
-    title: "Zen mode \u2014 hide all panels (Z)",
+    title: "Zen Mode",
     "aria-label": "Toggle zen mode",
     "data-tooltip": "Zen mode (Z)"
   }, /*#__PURE__*/React.createElement("i", {
@@ -3244,7 +3247,7 @@ var PopGraphModal = function PopGraphModal(props) {
     fontSize: "9"
   }, "Generation"), /*#__PURE__*/React.createElement("polyline", {
     fill: "none",
-    stroke: CanvasRenderer._aliveRGB || '#70959A',
+    stroke: 'var(--accent)',
     strokeWidth: "1.5",
     points: points
   }), /*#__PURE__*/React.createElement("polygon", {
@@ -3846,7 +3849,7 @@ var SparklineSVG = function SparklineSVG(props) {
   }), /*#__PURE__*/React.createElement("polyline", {
     points: sparkPts,
     fill: "none",
-    stroke: CanvasRenderer._aliveRGB || '#70959A',
+    stroke: 'var(--accent)',
     strokeWidth: "1.5",
     strokeLinejoin: "round",
     strokeLinecap: "round"
@@ -5188,6 +5191,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var initTheme = stateRef.current.theme || 'Midnight';
       document.documentElement.style.setProperty('--accent', accentMap[initTheme] || '#70959A');
       document.documentElement.style.setProperty('--accent-rgb', accentRgbMap[initTheme] || '112, 149, 154');
+      document.documentElement.setAttribute('data-theme', initTheme.toLowerCase());
       // Slider filled-track gradient (WebKit doesn't support ::-webkit-slider-progress)
       var updateSliderFill = function (slider) {
         var min = parseFloat(slider.min) || 0;

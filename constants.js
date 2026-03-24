@@ -64,6 +64,7 @@ var SPEED_DELAYS = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
 var THEMES = {
     'Teal': {
         bg: '#FFFFFF',
+        bgDark: '#1a2424',
         aliveR: 112,  aliveG: 149,  aliveB: 154,
         youngR: 200,  youngG: 220,  youngB: 222,
         grid:   'rgba(0,0,0,0.15)',
@@ -71,6 +72,7 @@ var THEMES = {
     },
     'Midnight': {
         bg: '#0A0E1A',
+        bgDark: '#0A0E1A',
         aliveR: 74,   aliveG: 158,  aliveB: 205,
         youngR: 150,  youngG: 190,  youngB: 225,
         grid:   'rgba(255,255,255,0.12)',
@@ -78,6 +80,7 @@ var THEMES = {
     },
     'Ember': {
         bg: '#FFF8F0',
+        bgDark: '#241c1a',
         aliveR: 196,  aliveG: 113,  aliveB: 58,
         youngR: 230,  youngG: 200,  youngB: 160,
         grid:   'rgba(0,0,0,0.15)',

@@ -137,6 +137,7 @@ var LifeBoardUtils = { // eslint-disable-line no-unused-vars
         var accentRgbMap = {Teal: '112, 149, 154', Midnight: '74, 158, 205', Ember: '196, 113, 56'};
         document.documentElement.style.setProperty('--accent', accentMap[theme] || '#70959A');
         document.documentElement.style.setProperty('--accent-rgb', accentRgbMap[theme] || '112, 149, 154');
+        document.documentElement.setAttribute('data-theme', theme.toLowerCase());
         refs.drawPending = true;
     },
 
