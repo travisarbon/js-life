@@ -3,7 +3,7 @@
  * Input delegation and keyboard utility object for LifeBoard component.
  * Delegates mouse/touch/wheel events to InputHandler and handles keyboard shortcuts.
  */
-var LifeInputUtils = { // eslint-disable-line no-unused-vars
+const LifeInputUtils = { // eslint-disable-line no-unused-vars
 
     /**
      * Build a thin shim that looks like `this` to InputHandler,
@@ -94,12 +94,12 @@ var LifeInputUtils = { // eslint-disable-line no-unused-vars
     // ── Keyboard ──────────────────────────────────────────────────────
 
     handleKeyDown : function(stateRef, refs, dispatch, e){
-        var tag = e.target.tagName;
+        const tag = e.target.tagName;
         // Allow Escape everywhere; allow single-key shortcuts even when a
         // button is focused (buttons capture Enter/Space but not letter keys).
-        var inTextInput = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.target.isContentEditable;
+        const inTextInput = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.target.isContentEditable;
         if(e.key !== 'Escape' && inTextInput){ return; }
-        var handled = true;
+        let handled = true;
         switch(e.key){
             case ' ':
                 e.preventDefault();
@@ -207,7 +207,7 @@ var LifeInputUtils = { // eslint-disable-line no-unused-vars
         }
         // Dispatch registered shortcuts (d, p, b, g, t, …).
         if(!handled && !e.ctrlKey && !e.metaKey && !e.altKey){
-            var entry = refs.shortcuts[e.key.toLowerCase()];
+            const entry = refs.shortcuts[e.key.toLowerCase()];
             if(entry){
                 e.preventDefault();
                 entry.handler();

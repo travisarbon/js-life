@@ -1,25 +1,25 @@
-/* global React, LifeAnalysisUtils */
+/* global LifeAnalysisUtils */
 /**
  * HelpModal — keyboard shortcuts overlay dialog.
  * Props: showHelp, stateRef, refs, dispatch
  */
-var HelpModal = function HelpModal(props) { // eslint-disable-line no-unused-vars
+const HelpModal = function HelpModal(props) { // eslint-disable-line no-unused-vars
     if(!props.showHelp){ return null; }
-    var stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var onClose = function(){ LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch); };
-    var isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
-    var mod = isMac ? '\u2318' : 'Ctrl+';
+    const stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const onClose = function(){ LifeAnalysisUtils.toggleHelp(stateRef, refs, dispatch); };
+    const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
+    const mod = isMac ? '\u2318' : 'Ctrl+';
     return (
         <div className="help-overlay" onClick={onClose}
             role="dialog" aria-modal="true" aria-labelledby="help-dialog-title"
             onKeyDown={function(e){
                 if(e.key === 'Escape'){ onClose(); return; }
                 if(e.key === 'Tab'){
-                    var modal = e.currentTarget.querySelector('.help-modal');
+                    const modal = e.currentTarget.querySelector('.help-modal');
                     if(!modal) return;
-                    var focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                    const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
                     if(focusable.length === 0) return;
-                    var first = focusable[0], last = focusable[focusable.length - 1];
+                    const first = focusable[0], last = focusable[focusable.length - 1];
                     if(e.shiftKey){ if(document.activeElement === first){ e.preventDefault(); last.focus(); } }
                     else { if(document.activeElement === last){ e.preventDefault(); first.focus(); } }
                 }

@@ -1,31 +1,31 @@
-/* global React, CanvasRenderer, LifeAnalysisUtils */
+/* global LifeAnalysisUtils */
 /**
  * PopGraphModal — full population history graph overlay.
  * Props: showPopGraph, popHistory, stateRef, refs, dispatch
  */
-var PopGraphModal = function PopGraphModal(props) { // eslint-disable-line no-unused-vars
+const PopGraphModal = function PopGraphModal(props) { // eslint-disable-line no-unused-vars
     if(!props.showPopGraph){ return null; }
-    var hist = props.popHistory;
+    const hist = props.popHistory;
     if(!hist || hist.length < 2){ return null; }
-    var stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var onClose = function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); };
+    const stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const onClose = function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); };
 
-    var maxPop = 0;
-    for(var i = 0; i < hist.length; i++){ if(hist[i] > maxPop){ maxPop = hist[i]; } }
+    let maxPop = 0;
+    for(let i = 0; i < hist.length; i++){ if(hist[i] > maxPop){ maxPop = hist[i]; } }
     if(maxPop === 0){ maxPop = 1; }
-    var vbW = 600, vbH = 200, padT = 10, padB = 20, padL = 50, padR = 10;
-    var plotW = vbW - padL - padR;
-    var plotH = vbH - padT - padB;
-    var points = hist.map(function(p, idx){
-        var x = padL + (idx / (hist.length - 1)) * plotW;
-        var y = padT + (1 - p / maxPop) * plotH;
+    const vbW = 600, vbH = 200, padT = 10, padB = 20, padL = 50, padR = 10;
+    const plotW = vbW - padL - padR;
+    const plotH = vbH - padT - padB;
+    const points = hist.map(function(p, idx){
+        const x = padL + (idx / (hist.length - 1)) * plotW;
+        const y = padT + (1 - p / maxPop) * plotH;
         return x.toFixed(1) + ',' + y.toFixed(1);
     }).join(' ');
-    var yLabels = [];
-    var ySteps = 4;
-    for(var yi = 0; yi <= ySteps; yi++){
-        var val = Math.round(maxPop * (1 - yi / ySteps));
-        var yy = padT + (yi / ySteps) * plotH;
+    const yLabels = [];
+    const ySteps = 4;
+    for(let yi = 0; yi <= ySteps; yi++){
+        const val = Math.round(maxPop * (1 - yi / ySteps));
+        const yy = padT + (yi / ySteps) * plotH;
         yLabels.push({val: val, y: yy});
     }
     return (
@@ -33,11 +33,11 @@ var PopGraphModal = function PopGraphModal(props) { // eslint-disable-line no-un
             role="dialog" aria-modal="true" aria-labelledby="popgraph-dialog-title"
             onKeyDown={function(e){
                 if(e.key === 'Tab'){
-                    var modal = e.currentTarget.querySelector('.pop-graph-modal');
+                    const modal = e.currentTarget.querySelector('.pop-graph-modal');
                     if(!modal) return;
-                    var focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                    const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
                     if(focusable.length === 0) return;
-                    var first = focusable[0], last = focusable[focusable.length - 1];
+                    const first = focusable[0], last = focusable[focusable.length - 1];
                     if(e.shiftKey){ if(document.activeElement === first){ e.preventDefault(); last.focus(); } }
                     else { if(document.activeElement === last){ e.preventDefault(); first.focus(); } }
                 }

@@ -11,31 +11,31 @@
 
 // ── Constants ────────────────────────────────────────────────────────────────
 /* eslint-disable no-unused-vars */
-var MAX_UNDO_STACK = 30;
-var MAX_POP_HISTORY = 10000;
-var MAX_TRAIL_MAP = 50000;
-var TRAIL_MAX_VALUE = 20;
-var TRAIL_PRUNE_THRESHOLD = 5;
-var MAX_CELL_IMPORT = 100000;
-var MAX_FILE_SIZE = 500000;
-var MAX_HL_COORD = 1000000;
-var HL_GC_THRESHOLD = 2000000;
-var STABLE_COUNT_THRESHOLD = 2;
-var GPS_DISPLAY_DURATION = 3000;
-var LONG_PRESS_DELAY = 420;
-var MAX_STEP_COUNT = 10000;
-var COLOR_STEPS = 63;
-var MAX_AGE = 65535;
-var MAX_FLOOD_FILL = 100000;
-var ANALYSIS_TIMEOUT = 10000;
-var STATS_CHIP_REAPPEAR_DELAY = 1500;
+const MAX_UNDO_STACK = 30;
+const MAX_POP_HISTORY = 10000;
+const MAX_TRAIL_MAP = 50000;
+const TRAIL_MAX_VALUE = 20;
+const TRAIL_PRUNE_THRESHOLD = 5;
+const MAX_CELL_IMPORT = 100000;
+const MAX_FILE_SIZE = 500000;
+const MAX_HL_COORD = 1000000;
+const HL_GC_THRESHOLD = 2000000;
+const STABLE_COUNT_THRESHOLD = 2;
+const GPS_DISPLAY_DURATION = 3000;
+const LONG_PRESS_DELAY = 420;
+const MAX_STEP_COUNT = 10000;
+const COLOR_STEPS = 63;
+const MAX_AGE = 65535;
+const MAX_FLOOD_FILL = 100000;
+const ANALYSIS_TIMEOUT = 10000;
+const STATS_CHIP_REAPPEAR_DELAY = 1500;
 
 // ── Board key utilities ──────────────────────────────────────────────────────
 // Encapsulates the "r,c" string key format used by the cell Map.
 
 // Parse a "r,c" map key into [row, col] integers.
 function parseKey(key) {
-    var i = key.indexOf(',');
+    const i = key.indexOf(',');
     if(i < 0){
         console.warn('parseKey: malformed key "' + key + '"');
         return [0, 0];
@@ -44,7 +44,7 @@ function parseKey(key) {
 }
 
 // ── Rule presets ──────────────────────────────────────────────────────────────
-var RULE_PRESETS = [
+const RULE_PRESETS = [
     { name: 'Conway (B3/S23)',                rule: 'B3/S23' },
     { name: 'HighLife (B36/S23)',             rule: 'B36/S23' },
     { name: 'Day & Night (B3678/S34678)',     rule: 'B3678/S34678' },
@@ -56,12 +56,12 @@ var RULE_PRESETS = [
 ];
 
 // Delay in ms per generation, indexed by speed 1-10.
-var SPEED_DELAYS = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
+const SPEED_DELAYS = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
 
 // ── Color themes ──────────────────────────────────────────────────────────────
 // Each theme defines alive/young RGB channels for age-gradient rendering plus
 // canvas background and grid/selection overlay colours.
-var THEMES = {
+const THEMES = {
     'Teal': {
         bg: '#FFFFFF',
         bgDark: '#1a2424',
@@ -122,7 +122,7 @@ var THEMES = {
 
 // ── Format detection helper (shared between file drop and manual import) ─────
 function detectAndParsePattern(text) {
-    var result;
+    let result;
     if(/^#Life\s+1\.06/m.test(text)){
         result = SimEngine.parseLife106(text);
     } else if(/^#Life\s+1\.05/m.test(text)){
@@ -138,11 +138,11 @@ function detectAndParsePattern(text) {
 // ── Age overlay for HashLife ──────────────────────────────────────────────────
 // Computes cell ages by diffing old Map (key→age) against new cell list [[r,c],...].
 function overlayAges(oldLiveCells, newCellList, ageIncrement) {
-    var inc = ageIncrement || 1;
-    var newMap = new Map();
-    for (var i = 0; i < newCellList.length; i++) {
-        var key = newCellList[i][0] + ',' + newCellList[i][1];
-        var oldAge = oldLiveCells.get(key);
+    const inc = ageIncrement || 1;
+    const newMap = new Map();
+    for (let i = 0; i < newCellList.length; i++) {
+        const key = newCellList[i][0] + ',' + newCellList[i][1];
+        const oldAge = oldLiveCells.get(key);
         newMap.set(key, oldAge !== undefined ? Math.min(oldAge + inc, MAX_AGE) : 1);
     }
     return newMap;
@@ -150,13 +150,13 @@ function overlayAges(oldLiveCells, newCellList, ageIncrement) {
 
 // ── SimEngine ─────────────────────────────────────────────────────────────────
 // Pure simulation functions isolated from React state for testability and reuse.
-var SimEngine = {
+const SimEngine = {
 
     // Returns a sparse Map keyed by "r,c" with value = age.
     buildLiveCells : function(cols, rows, sparseness){
-        var map = new Map();
-        for(var r = 0; r < rows; r++){
-            for(var c = 0; c < cols; c++){
+        const map = new Map();
+        for(let r = 0; r < rows; r++){
+            for(let c = 0; c < cols; c++){
                 if(Math.random() < (1 / sparseness)){
                     map.set(r + ',' + c, 1);
                 }
@@ -168,13 +168,13 @@ var SimEngine = {
     // Async version of buildLiveCells for large boards (> 250K cells).
     // Yields to the browser via setTimeout every ~50K cells to prevent UI freeze.
     buildLiveCellsAsync : function(cols, rows, sparseness, callback){
-        var map = new Map();
-        var r = 0;
-        var CHUNK = Math.max(1, Math.floor(50000 / cols));
+        const map = new Map();
+        let r = 0;
+        const CHUNK = Math.max(1, Math.floor(50000 / cols));
         function doChunk(){
-            var end = Math.min(r + CHUNK, rows);
+            const end = Math.min(r + CHUNK, rows);
             for(; r < end; r++){
-                for(var c = 0; c < cols; c++){
+                for(let c = 0; c < cols; c++){
                     if(Math.random() < (1 / sparseness)){
                         map.set(r + ',' + c, 1);
                     }
@@ -189,9 +189,9 @@ var SimEngine = {
     // Returns bounding box {minR, maxR, minC, maxC} of live cells, or null if empty.
     getBoundingBox : function(liveCells){
         if(liveCells.size === 0) return null;
-        var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+        let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
         liveCells.forEach(function(age, key){
-            var rc = parseKey(key), r = rc[0], c = rc[1];
+            const rc = parseKey(key), r = rc[0], c = rc[1];
             if(r < minR) minR = r; if(r > maxR) maxR = r;
             if(c < minC) minC = c; if(c > maxC) maxC = c;
         });
@@ -202,18 +202,18 @@ var SimEngine = {
     // restricts candidates and results to region membership.
     _computeNext : function(liveCells, cols, rows, birth, survive, toroidal, mask){
         if(rows <= 0 || cols <= 0){ return new Map(); }
-        var birthLut = new Uint8Array(9);
-        var surviveLut = new Uint8Array(9);
-        for(var bi = 0; bi < birth.length; bi++){ birthLut[birth[bi]] = 1; }
-        for(var si = 0; si < survive.length; si++){ surviveLut[survive[si]] = 1; }
-        var candidates = new Map();
+        const birthLut = new Uint8Array(9);
+        const surviveLut = new Uint8Array(9);
+        for(let bi = 0; bi < birth.length; bi++){ birthLut[birth[bi]] = 1; }
+        for(let si = 0; si < survive.length; si++){ surviveLut[survive[si]] = 1; }
+        const candidates = new Map();
         liveCells.forEach(function(age, key){
-            var _krc = parseKey(key), kr = _krc[0], kc = _krc[1];
+            const _krc = parseKey(key), kr = _krc[0], kc = _krc[1];
             candidates.set(key, _krc);
-            for(var dr = -1; dr <= 1; dr++){
-                for(var dc = -1; dc <= 1; dc++){
+            for(let dr = -1; dr <= 1; dr++){
+                for(let dc = -1; dc <= 1; dc++){
                     if(dr === 0 && dc === 0){ continue; }
-                    var nr, nc;
+                    let nr, nc;
                     if(toroidal){
                         nr = (kr + dr + rows) % rows;
                         nc = (kc + dc + cols) % cols;
@@ -221,22 +221,22 @@ var SimEngine = {
                         nr = kr + dr; nc = kc + dc;
                         if(nr < 0 || nr >= rows || nc < 0 || nc >= cols){ continue; }
                     }
-                    var nk = nr + ',' + nc;
+                    const nk = nr + ',' + nc;
                     if(!candidates.has(nk) && (!mask || mask.has(nk))){
                         candidates.set(nk, [nr, nc]);
                     }
                 }
             }
         });
-        var newLiveCells = new Map();
+        const newLiveCells = new Map();
         candidates.forEach(function(pos, key){
             if(mask && !mask.has(key)){ return; }
-            var r = pos[0], c = pos[1];
-            var count = 0;
-            for(var dr = -1; dr <= 1; dr++){
-                for(var dc = -1; dc <= 1; dc++){
+            const r = pos[0], c = pos[1];
+            let count = 0;
+            for(let dr = -1; dr <= 1; dr++){
+                for(let dc = -1; dc <= 1; dc++){
                     if(dr === 0 && dc === 0){ continue; }
-                    var nr, nc;
+                    let nr, nc;
                     if(toroidal){
                         nr = (r + dr + rows) % rows;
                         nc = (c + dc + cols) % cols;
@@ -247,8 +247,8 @@ var SimEngine = {
                     if(liveCells.has(nr + ',' + nc)){ count++; }
                 }
             }
-            var wasAlive = liveCells.has(key);
-            var alive = wasAlive ? surviveLut[count] : birthLut[count];
+            const wasAlive = liveCells.has(key);
+            const alive = wasAlive ? surviveLut[count] : birthLut[count];
             if(alive){
                 newLiveCells.set(key, wasAlive ? Math.min((liveCells.get(key) || 0) + 1, MAX_AGE) : 1);
             }
@@ -272,17 +272,17 @@ var SimEngine = {
 
     // Serialises live cells to RLE string (header + wrapped body).
     boardToRLE : function(liveCells, ruleString){
-        var bb = SimEngine.getBoundingBox(liveCells);
+        const bb = SimEngine.getBoundingBox(liveCells);
         if(!bb || !isFinite(bb.maxR)){ return ''; }
-        var minR = bb.minR, maxR = bb.maxR, minC = bb.minC, maxC = bb.maxC;
-        var W = maxC - minC + 1;
-        var H = maxR - minR + 1;
-        var header = 'x = ' + W + ', y = ' + H + ', rule = ' + ruleString + '\n';
-        var rleData = '';
-        for(var row = minR; row <= maxR; row++){
-            var runChar = null, runLen = 0, rowStr = '';
-            for(var col = minC; col <= maxC; col++){
-                var ch = liveCells.has(row + ',' + col) ? 'o' : 'b';
+        const minR = bb.minR, maxR = bb.maxR, minC = bb.minC, maxC = bb.maxC;
+        const W = maxC - minC + 1;
+        const H = maxR - minR + 1;
+        const header = 'x = ' + W + ', y = ' + H + ', rule = ' + ruleString + '\n';
+        let rleData = '';
+        for(let row = minR; row <= maxR; row++){
+            let runChar = null, runLen = 0, rowStr = '';
+            for(let col = minC; col <= maxC; col++){
+                const ch = liveCells.has(row + ',' + col) ? 'o' : 'b';
                 if(ch === runChar){
                     runLen++;
                 } else {
@@ -299,9 +299,9 @@ var SimEngine = {
         rleData += '!';
         // Wrap lines at ~70 chars, breaking only after a complete token
         // (after 'o', 'b', '$', or '!') to avoid splitting run-length numbers.
-        var wrapped = '';
-        var line = '';
-        for(var k = 0; k < rleData.length; k++){
+        let wrapped = '';
+        let line = '';
+        for(let k = 0; k < rleData.length; k++){
             line += rleData[k];
             if(line.length >= 70 && /[ob$!]/.test(rleData[k])){
                 wrapped += line + '\n';
@@ -314,38 +314,38 @@ var SimEngine = {
 
     // Parses standard RLE format into [[row, col], ...].
     parseRLE : function(text){
-        var lines = text.split(/\r?\n/);
-        var dataLines = lines.filter(function(l){ return l.charAt(0) !== '#'; });
-        var headerIdx = -1;
-        for(var i = 0; i < dataLines.length; i++){
+        const lines = text.split(/\r?\n/);
+        const dataLines = lines.filter(function(l){ return l.charAt(0) !== '#'; });
+        let headerIdx = -1;
+        for(let i = 0; i < dataLines.length; i++){
             if(/x\s*=/i.test(dataLines[i])){ headerIdx = i; break; }
         }
         // Extract rule from header if present.
-        var parsedRule = null;
+        let parsedRule = null;
         if(headerIdx >= 0){
-            var ruleMatch = dataLines[headerIdx].match(/rule\s*=\s*([^\s,]+)/i);
+            const ruleMatch = dataLines[headerIdx].match(/rule\s*=\s*([^\s,]+)/i);
             if(ruleMatch){ parsedRule = ruleMatch[1]; }
         }
-        var dataStart = headerIdx >= 0 ? headerIdx + 1 : 0;
-        var data = dataLines.slice(dataStart).join('').replace(/\s/g, '');
-        var cells = [];
-        var row = 0, col = 0, countStr = '';
-        var MAX_COORD = 100000;
-        for(var k = 0; k < data.length; k++){
-            var ch = data[k];
+        const dataStart = headerIdx >= 0 ? headerIdx + 1 : 0;
+        const data = dataLines.slice(dataStart).join('').replace(/\s/g, '');
+        const cells = [];
+        let row = 0, col = 0, countStr = '';
+        const MAX_COORD = 100000;
+        for(let k = 0; k < data.length; k++){
+            const ch = data[k];
             if(ch >= '0' && ch <= '9'){
                 countStr += ch;
             } else if(ch === 'b' || ch === 'o'){
-                var n = countStr ? parseInt(countStr, 10) : 1;
+                let n = countStr ? parseInt(countStr, 10) : 1;
                 if(isNaN(n) || n < 1){ n = 1; }
                 if(n > MAX_COORD){ n = MAX_COORD; }
                 if(ch === 'o'){
-                    for(var j = 0; j < n && cells.length < MAX_CELL_IMPORT; j++){ cells.push([row, col + j]); }
+                    for(let j = 0; j < n && cells.length < MAX_CELL_IMPORT; j++){ cells.push([row, col + j]); }
                 }
                 col += n;
                 countStr = '';
             } else if(ch === '$'){
-                var n2 = countStr ? parseInt(countStr, 10) : 1;
+                let n2 = countStr ? parseInt(countStr, 10) : 1;
                 if(n2 > MAX_COORD){ n2 = MAX_COORD; }
                 row += n2;
                 col = 0;
@@ -353,69 +353,69 @@ var SimEngine = {
             } else if(ch === '!'){ break; }
             if(row > MAX_COORD || col > MAX_COORD){ break; }
         }
-        var truncated = cells.length > MAX_CELL_IMPORT;
+        const truncated = cells.length > MAX_CELL_IMPORT;
         if(truncated){ cells.length = MAX_CELL_IMPORT; }
         return {cells : cells, truncated: truncated, rule: parsedRule};
     },
 
     // Parses LifeWiki plaintext (.cells) format into [[row, col], ...].
     parsePlaintext : function(text){
-        var lines = text.split(/\r?\n/);
-        var cells = [];
-        var row = 0;
-        for(var i = 0; i < lines.length; i++){
-            var line = lines[i];
+        const lines = text.split(/\r?\n/);
+        const cells = [];
+        let row = 0;
+        for(let i = 0; i < lines.length; i++){
+            const line = lines[i];
             if(line.charAt(0) === '!' || line.charAt(0) === '#'){ continue; }
-            for(var col = 0; col < line.length; col++){
-                var ch = line.charAt(col);
+            for(let col = 0; col < line.length; col++){
+                const ch = line.charAt(col);
                 if(ch === 'O' || ch === 'o' || ch === '*'){
                     cells.push([row, col]);
                 }
             }
             row++;
         }
-        var truncated = cells.length > MAX_CELL_IMPORT;
+        const truncated = cells.length > MAX_CELL_IMPORT;
         if(truncated){ cells.length = MAX_CELL_IMPORT; }
         return {cells : cells, truncated: truncated};
     },
 
     // Parses Life 1.06 format: header "#Life 1.06", then one "x y" per live cell.
     parseLife106 : function(text){
-        var lines = text.split(/\r?\n/);
-        var cells = [];
-        for(var i = 0; i < lines.length; i++){
-            var line = lines[i].trim();
+        const lines = text.split(/\r?\n/);
+        const cells = [];
+        for(let i = 0; i < lines.length; i++){
+            const line = lines[i].trim();
             if(line === '' || line.charAt(0) === '#'){ continue; }
-            var parts = line.split(/\s+/);
+            const parts = line.split(/\s+/);
             if(parts.length >= 2){
-                var x = parseInt(parts[0], 10);
-                var y = parseInt(parts[1], 10);
+                const x = parseInt(parts[0], 10);
+                const y = parseInt(parts[1], 10);
                 if(!isNaN(x) && !isNaN(y)){
                     cells.push([y, x]); // Life 1.06 uses x,y; we store row,col
                 }
             }
         }
-        var truncated = cells.length > MAX_CELL_IMPORT;
+        const truncated = cells.length > MAX_CELL_IMPORT;
         if(truncated){ cells.length = MAX_CELL_IMPORT; }
         return {cells : cells, truncated: truncated};
     },
 
     // Parses Life 1.05 format: header "#Life 1.05", #D descriptions, #P x y origin blocks.
     parseLife105 : function(text){
-        var lines = text.split(/\r?\n/);
-        var cells = [];
-        var originX = 0, originY = 0;
-        for(var i = 0; i < lines.length; i++){
-            var line = lines[i];
+        const lines = text.split(/\r?\n/);
+        const cells = [];
+        let originX = 0, originY = 0;
+        for(let i = 0; i < lines.length; i++){
+            const line = lines[i];
             if(line.indexOf('#P') === 0){
-                var parts = line.substring(2).trim().split(/\s+/);
+                const parts = line.substring(2).trim().split(/\s+/);
                 originX = parseInt(parts[0], 10) || 0;
                 originY = parseInt(parts[1], 10) || 0;
-                var rowOffset = 0;
-                for(var j = i + 1; j < lines.length; j++){
-                    var bline = lines[j];
+                let rowOffset = 0;
+                for(let j = i + 1; j < lines.length; j++){
+                    const bline = lines[j];
                     if(bline.charAt(0) === '#' || bline.trim() === ''){ i = j - 1; break; }
-                    for(var col = 0; col < bline.length; col++){
+                    for(let col = 0; col < bline.length; col++){
                         if(bline.charAt(col) === '*'){
                             cells.push([originY + rowOffset, originX + col]);
                         }
@@ -427,28 +427,28 @@ var SimEngine = {
         }
         // Normalize to non-negative coordinates.
         if(cells.length > 0){
-            var minR = cells[0][0], minC = cells[0][1];
-            for(var k = 1; k < cells.length; k++){
+            let minR = cells[0][0], minC = cells[0][1];
+            for(let k = 1; k < cells.length; k++){
                 if(cells[k][0] < minR){ minR = cells[k][0]; }
                 if(cells[k][1] < minC){ minC = cells[k][1]; }
             }
             if(minR < 0 || minC < 0){
-                for(var k2 = 0; k2 < cells.length; k2++){
+                for(let k2 = 0; k2 < cells.length; k2++){
                     cells[k2] = [cells[k2][0] - minR, cells[k2][1] - minC];
                 }
             }
         }
-        var truncated = cells.length > MAX_CELL_IMPORT;
+        const truncated = cells.length > MAX_CELL_IMPORT;
         if(truncated){ cells.length = MAX_CELL_IMPORT; }
         return {cells : cells, truncated: truncated};
     },
 
     // Rotates a [[row,col],...] pattern 90° CW, `steps` times.
     rotatePattern : function(cells, steps){
-        var result = cells.slice();
-        for(var s = 0; s < steps; s++){
-            var maxR = 0;
-            for(var k = 0; k < result.length; k++){
+        let result = cells.slice();
+        for(let s = 0; s < steps; s++){
+            let maxR = 0;
+            for(let k = 0; k < result.length; k++){
                 if(result[k][0] > maxR){ maxR = result[k][0]; }
             }
             result = result.map(function(cell){

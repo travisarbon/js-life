@@ -10,7 +10,7 @@
  * Global exposed: InputHandler
  */
 
-var InputHandler = { // eslint-disable-line no-unused-vars
+const InputHandler = { // eslint-disable-line no-unused-vars
 
     // ── Internal drag/interaction state ──────────────────────────────────────
     _dragging: false,
@@ -52,7 +52,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
      *  Returns true if the cell is allowed (unbounded mode, no region, or in-region). */
     _cellInRegion: function(r, c, host){
         if(host.state.boundary === 'unbounded') return true;
-        var mask = host.state.regionMask;
+        const mask = host.state.regionMask;
         if(!mask || mask.size === 0) return true;
         return mask.has(r + ',' + c);
     },
@@ -61,14 +61,14 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
     /** Bresenham line: returns [[r,c],...] from (r0,c0) to (r1,c1). */
     bresenhamLine: function(r0, c0, r1, c1){
-        var cells = [];
-        var dr = Math.abs(r1 - r0), dc = Math.abs(c1 - c0);
-        var sr = r0 < r1 ? 1 : -1, sc = c0 < c1 ? 1 : -1;
-        var err = dr - dc;
+        const cells = [];
+        const dr = Math.abs(r1 - r0), dc = Math.abs(c1 - c0);
+        const sr = r0 < r1 ? 1 : -1, sc = c0 < c1 ? 1 : -1;
+        let err = dr - dc;
         while(true){
             cells.push([r0, c0]);
             if(r0 === r1 && c0 === c1){ break; }
-            var e2 = 2 * err;
+            const e2 = 2 * err;
             if(e2 > -dc){ err -= dc; r0 += sr; }
             if(e2 < dr) { err += dr; c0 += sc; }
         }
@@ -77,15 +77,15 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
     /** Compute cells inside ellipse from bounding rect. */
     ellipseCells: function(c1, r1, c2, r2){
-        var cells = [];
-        var rr1 = Math.min(r1, r2), rr2 = Math.max(r1, r2);
-        var cc1 = Math.min(c1, c2), cc2 = Math.max(c1, c2);
-        var cx = (cc1 + cc2) / 2, cy = (rr1 + rr2) / 2;
-        var rx = (cc2 - cc1) / 2, ry = (rr2 - rr1) / 2;
-        for(var r = rr1; r <= rr2; r++)
-            for(var c = cc1; c <= cc2; c++){
-                var dx = rx > 0.001 ? (c - cx) / (rx + 0.5) : 0;
-                var dy = ry > 0.001 ? (r - cy) / (ry + 0.5) : 0;
+        const cells = [];
+        const rr1 = Math.min(r1, r2), rr2 = Math.max(r1, r2);
+        const cc1 = Math.min(c1, c2), cc2 = Math.max(c1, c2);
+        const cx = (cc1 + cc2) / 2, cy = (rr1 + rr2) / 2;
+        const rx = (cc2 - cc1) / 2, ry = (rr2 - rr1) / 2;
+        for(let r = rr1; r <= rr2; r++)
+            for(let c = cc1; c <= cc2; c++){
+                const dx = rx > 0.001 ? (c - cx) / (rx + 0.5) : 0;
+                const dy = ry > 0.001 ? (r - cy) / (ry + 0.5) : 0;
                 if(dx*dx + dy*dy <= 1) cells.push([r, c]);
             }
         return cells;
@@ -93,11 +93,11 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
     /** Ray-casting point-in-polygon test. polygon is array of {c,r}. */
     pointInPolygon: function(px, py, polygon){
-        var inside = false;
-        var n = polygon.length;
-        for(var i = 0, j = n - 1; i < n; j = i++){
-            var xi = polygon[i].c, yi = polygon[i].r;
-            var xj = polygon[j].c, yj = polygon[j].r;
+        let inside = false;
+        const n = polygon.length;
+        for(let i = 0, j = n - 1; i < n; j = i++){
+            const xi = polygon[i].c, yi = polygon[i].r;
+            const xj = polygon[j].c, yj = polygon[j].r;
             if(((yi > py) !== (yj > py)) &&
                (px < (xj - xi) * (py - yi) / (yj - yi) + xi)){
                 inside = !inside;
@@ -110,35 +110,35 @@ var InputHandler = { // eslint-disable-line no-unused-vars
      *  If regionMask is provided (and non-empty), cells outside it are excluded. */
     getSelectionCells: function(sel, regionMask){
         if(!sel){ return []; }
-        var hasRegion = regionMask && regionMask.size > 0;
-        var type = sel.type || 'rect';
+        const hasRegion = regionMask && regionMask.size > 0;
+        const type = sel.type || 'rect';
         if(type === 'rect'){
-            var cells = [];
-            var r1 = Math.min(sel.r1, sel.r2), r2 = Math.max(sel.r1, sel.r2);
-            var c1 = Math.min(sel.c1, sel.c2), c2 = Math.max(sel.c1, sel.c2);
-            for(var r = r1; r <= r2; r++)
-                for(var c = c1; c <= c2; c++)
+            const cells = [];
+            const r1 = Math.min(sel.r1, sel.r2), r2 = Math.max(sel.r1, sel.r2);
+            const c1 = Math.min(sel.c1, sel.c2), c2 = Math.max(sel.c1, sel.c2);
+            for(let r = r1; r <= r2; r++)
+                for(let c = c1; c <= c2; c++)
                     if(!hasRegion || regionMask.has(r + ',' + c))
                         cells.push([r, c]);
             return cells;
         }
         if(type === 'ellipse'){
-            var r1e = Math.min(sel.r1, sel.r2), r2e = Math.max(sel.r1, sel.r2);
-            var c1e = Math.min(sel.c1, sel.c2), c2e = Math.max(sel.c1, sel.c2);
-            var cxe = (c1e + c2e) / 2, cye = (r1e + r2e) / 2;
-            var rxe = (c2e - c1e) / 2, rye = (r2e - r1e) / 2;
-            var ecells = [];
-            for(var re = r1e; re <= r2e; re++)
-                for(var ce = c1e; ce <= c2e; ce++){
-                    var ddx = (cxe > 0 || rxe > 0) ? (ce - cxe) / (rxe + 0.5) : 0;
-                    var ddy = (cye > 0 || rye > 0) ? (re - cye) / (rye + 0.5) : 0;
+            const r1e = Math.min(sel.r1, sel.r2), r2e = Math.max(sel.r1, sel.r2);
+            const c1e = Math.min(sel.c1, sel.c2), c2e = Math.max(sel.c1, sel.c2);
+            const cxe = (c1e + c2e) / 2, cye = (r1e + r2e) / 2;
+            const rxe = (c2e - c1e) / 2, rye = (r2e - r1e) / 2;
+            const ecells = [];
+            for(let re = r1e; re <= r2e; re++)
+                for(let ce = c1e; ce <= c2e; ce++){
+                    const ddx = (cxe > 0 || rxe > 0) ? (ce - cxe) / (rxe + 0.5) : 0;
+                    const ddy = (cye > 0 || rye > 0) ? (re - cye) / (rye + 0.5) : 0;
                     if(ddx*ddx + ddy*ddy <= 1 && (!hasRegion || regionMask.has(re + ',' + ce)))
                         ecells.push([re, ce]);
                 }
             return ecells;
         }
         if(type === 'freeform' || type === 'all-visible'){
-            var raw = sel.cells || [];
+            const raw = sel.cells || [];
             if(!hasRegion) return raw;
             return raw.filter(function(rc){ return regionMask.has(rc[0] + ',' + rc[1]); });
         }
@@ -147,18 +147,18 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
     /** BFS flood fill: returns [[r,c],...] of connected cells matching startAlive. */
     floodFillCells: function(startC, startR, liveCells, cols, rows, boundary, startAlive, regionMask){
-        var isUnbounded = boundary === 'unbounded';
-        var maxFlood = 100000;
-        var queue = [[startR, startC]];
-        var result = [];
-        var visited = new Set();
+        const isUnbounded = boundary === 'unbounded';
+        const maxFlood = 100000;
+        const queue = [[startR, startC]];
+        const result = [];
+        const visited = new Set();
         while(queue.length){
             if(result.length >= maxFlood){ break; }
-            var cur = queue.pop();
-            var key = cur[0] + ',' + cur[1];
+            const cur = queue.pop();
+            const key = cur[0] + ',' + cur[1];
             if(visited.has(key)){ continue; }
             visited.add(key);
-            var rr = cur[0], cc = cur[1];
+            const rr = cur[0], cc = cur[1];
             // Use region mask for bounds checking if available.
             if(!isUnbounded){
                 if(regionMask && regionMask.size > 0){
@@ -167,7 +167,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
                     continue;
                 }
             }
-            var isAlive = liveCells.has(key);
+            const isAlive = liveCells.has(key);
             if(isAlive !== startAlive){ continue; }
             result.push([rr, cc]);
             queue.push([rr+1, cc], [rr-1, cc], [rr, cc+1], [rr, cc-1]);
@@ -179,9 +179,9 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
     /** Convert mouse/touch event to canvas pixel coordinates. */
     getMousePos: function(event, canvas){
-        var rect = canvas.getBoundingClientRect();
-        var scaleX = canvas.width  / rect.width;
-        var scaleY = canvas.height / rect.height;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width  / rect.width;
+        const scaleY = canvas.height / rect.height;
         return {
             x: (event.clientX - rect.left) * scaleX,
             y: (event.clientY - rect.top)  * scaleY
@@ -190,7 +190,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
     /** Convert mouse/touch event to board cell coordinates. */
     getCellPos: function(event, canvas, viewX, viewY, cellSize){
-        var mouse = this.getMousePos(event, canvas);
+        const mouse = this.getMousePos(event, canvas);
         return {
             c: viewX + Math.floor(mouse.x / cellSize),
             r: viewY + Math.floor(mouse.y / cellSize)
@@ -200,18 +200,18 @@ var InputHandler = { // eslint-disable-line no-unused-vars
     /** Pan momentum animation. */
     _startPanMomentum: function(vx, vy, host){
         if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
-        var self = this;
-        var friction = 0.92;
-        var cellSize = host.state.cellSize;
+        const self = this;
+        const friction = 0.92;
+        const cellSize = host.state.cellSize;
         function tick(){
             vx *= friction;
             vy *= friction;
             if(Math.abs(vx) < 0.05 && Math.abs(vy) < 0.05){ return; }
-            var dCols = -vx * 16 / cellSize;
-            var dRows = -vy * 16 / cellSize;
-            var newVX = host.state.viewX + Math.round(dCols);
-            var newVY = host.state.viewY + Math.round(dRows);
-            var clamped = host.clampView(newVX, newVY,
+            const dCols = -vx * 16 / cellSize;
+            const dRows = -vy * 16 / cellSize;
+            const newVX = host.state.viewX + Math.round(dCols);
+            const newVY = host.state.viewY + Math.round(dRows);
+            const clamped = host.clampView(newVX, newVY,
                 host.state.cols, host.state.rows, cellSize);
             if(clamped.viewX === host.state.viewX && clamped.viewY === host.state.viewY){ return; }
             host.setState({viewX: clamped.viewX, viewY: clamped.viewY},
@@ -226,22 +226,22 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
     onMouseDown: function(event, host){
         event.preventDefault();
-        var canvas = host._canvas;
+        const canvas = host._canvas;
         // Minimap click.
         if(event.button === 0 && host._minimapRect && host.state.showMinimap && host.state.drawMode !== 'select'){
-            var mouse = this.getMousePos(event, canvas);
-            var mm = host._minimapRect;
+            const mouse = this.getMousePos(event, canvas);
+            const mm = host._minimapRect;
             if(mm.w > 0 && mm.h > 0 &&
                mouse.x >= mm.x && mouse.x <= mm.x + mm.w &&
                mouse.y >= mm.y && mouse.y <= mm.y + mm.h){
-                var frac_c = (mouse.x - mm.x) / mm.w;
-                var frac_r = (mouse.y - mm.y) / mm.h;
-                var mmWorldCols = mm.worldCols || host.state.cols;
-                var mmWorldRows = mm.worldRows || host.state.rows;
-                var mmOC = mm.originC || 0, mmOR = mm.originR || 0;
-                var newVX = Math.round(frac_c * mmWorldCols + mmOC - (canvas.width / host.state.cellSize) / 2);
-                var newVY = Math.round(frac_r * mmWorldRows + mmOR - (canvas.height / host.state.cellSize) / 2);
-                var clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, host.state.cellSize);
+                const frac_c = (mouse.x - mm.x) / mm.w;
+                const frac_r = (mouse.y - mm.y) / mm.h;
+                const mmWorldCols = mm.worldCols || host.state.cols;
+                const mmWorldRows = mm.worldRows || host.state.rows;
+                const mmOC = mm.originC || 0, mmOR = mm.originR || 0;
+                const newVX = Math.round(frac_c * mmWorldCols + mmOC - (canvas.width / host.state.cellSize) / 2);
+                const newVY = Math.round(frac_r * mmWorldRows + mmOR - (canvas.height / host.state.cellSize) / 2);
+                const clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, host.state.cellSize);
                 host.setState({viewX: clamped.viewX, viewY: clamped.viewY}, function(){ host.drawBoard(); });
                 this._minimapDragging = true;
                 return;
@@ -269,8 +269,8 @@ var InputHandler = { // eslint-disable-line no-unused-vars
             return;
         }
         if(event.button !== 0){ return; }
-        var pos = this.getCellPos(event, canvas, host.state.viewX, host.state.viewY, host.state.cellSize);
-        var c = pos.c, r = pos.r;
+        const pos = this.getCellPos(event, canvas, host.state.viewX, host.state.viewY, host.state.cellSize);
+        const c = pos.c, r = pos.r;
 
         // Pan mode.
         if(host.state.panMode){
@@ -284,11 +284,11 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
         // Selection mode.
         if(host.state.drawMode === 'select'){
-            var selectTool = host.state.selectTool || 'rect';
+            const selectTool = host.state.selectTool || 'rect';
             if(selectTool === 'all-visible'){ host.selectAllVisible(); return; }
             this._selStart = {c: c, r: r};
             this._lassoPath = [];
-            var selType = selectTool === 'ellipse' ? 'ellipse' : (selectTool === 'freeform' ? 'freeform' : 'rect');
+            const selType = selectTool === 'ellipse' ? 'ellipse' : (selectTool === 'freeform' ? 'freeform' : 'rect');
             host.setState({selection: {type: selType, c1: c, r1: r, c2: c, r2: r, path: [], cells: []}},
                 function(){ host.drawBoard(); });
             return;
@@ -305,14 +305,14 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         // Region drawing mode.
         if(host.state.drawMode === 'region'){
             host.setState({running: false});
-            var regionTool = host.state.regionTool || 'shape-rect';
-            var regionKey = r + ',' + c;
-            var startInRegion = host.state.regionMask.has(regionKey);
+            const regionTool = host.state.regionTool || 'shape-rect';
+            const regionKey = r + ',' + c;
+            const startInRegion = host.state.regionMask.has(regionKey);
 
             if(regionTool === 'fill'){
                 // Flood fill on region mask.
                 host.pushUndo();
-                var fillKeys = RegionUtil.floodFillRegion(r, c, host.state.regionMask, 100000);
+                const fillKeys = RegionUtil.floodFillRegion(r, c, host.state.regionMask, 100000);
                 this._regionErasing = startInRegion;
                 if(startInRegion){
                     host._mutateRegion(null, fillKeys);
@@ -342,19 +342,19 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         }
 
         // Paint mode.
-        var drawTool = host.state.drawTool || 'cell';
+        const drawTool = host.state.drawTool || 'cell';
         // Check region bounds before pausing the simulation.
         if(!this._cellInRegion(r, c, host)){ return; }
         if(!host.state.livePaintMode){ host.setState({running: false}); }
         if(drawTool === 'fill'){
-            var startAlive = host.state.liveCells.has(r + ',' + c);
+            const startAlive = host.state.liveCells.has(r + ',' + c);
             this._drawErasing = startAlive;
             host.pushUndo();
-            var fillCells = this.floodFillCells(c, r, host.state.liveCells, host.state.cols, host.state.rows, host.state.boundary, startAlive, host.state.regionMask);
+            const fillCells = this.floodFillCells(c, r, host.state.liveCells, host.state.cols, host.state.rows, host.state.boundary, startAlive, host.state.regionMask);
             host._minimapDirty = true;
             SimRunner.invalidate();
             host.setState(function(prevState){
-                var newLiveCells = new Map(prevState.liveCells);
+                const newLiveCells = new Map(prevState.liveCells);
                 fillCells.forEach(function(rc){
                     if(startAlive){ newLiveCells.delete(rc[0]+','+rc[1]); }
                     else { newLiveCells.set(rc[0]+','+rc[1], 1); }
@@ -372,7 +372,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
             return;
         }
         // Default: single-cell paint.
-        var key = r + ',' + c;
+        const key = r + ',' + c;
         host.pushUndo();
         this._dragging = true;
         this._dragStatus = host.state.liveCells.has(key) ? 0 : 1;
@@ -382,18 +382,18 @@ var InputHandler = { // eslint-disable-line no-unused-vars
     },
 
     onMouseMove: function(event, host){
-        var canvas = host._canvas;
+        const canvas = host._canvas;
         // Pan drag.
         if(this._panDragging && this._panStart){
-            var dx = event.clientX - this._panStart.x;
-            var dy = event.clientY - this._panStart.y;
-            var cellSize = host.state.cellSize;
-            var rect = canvas.getBoundingClientRect();
-            var displayCellSize = (rect.width > 0 && canvas.width > 0)
+            const dx = event.clientX - this._panStart.x;
+            const dy = event.clientY - this._panStart.y;
+            const cellSize = host.state.cellSize;
+            const rect = canvas.getBoundingClientRect();
+            const displayCellSize = (rect.width > 0 && canvas.width > 0)
                 ? cellSize * (rect.width / canvas.width) : cellSize;
-            var dcells = -Math.round(dx / displayCellSize);
-            var drows  = -Math.round(dy / displayCellSize);
-            var clamped = host.clampView(
+            const dcells = -Math.round(dx / displayCellSize);
+            const drows  = -Math.round(dy / displayCellSize);
+            const clamped = host.clampView(
                 this._panStart.vx + dcells, this._panStart.vy + drows,
                 host.state.cols, host.state.rows, cellSize);
             host.setState({viewX: clamped.viewX, viewY: clamped.viewY},
@@ -401,23 +401,23 @@ var InputHandler = { // eslint-disable-line no-unused-vars
             return;
         }
 
-        var pos = this.getCellPos(event, canvas, host.state.viewX, host.state.viewY, host.state.cellSize);
-        var c = pos.c, r = pos.r;
+        const pos = this.getCellPos(event, canvas, host.state.viewX, host.state.viewY, host.state.cellSize);
+        const c = pos.c, r = pos.r;
 
         // Hover cell.
-        var newHover = {c: c, r: r};
-        var ph = host.state.hoverCell;
-        var hoverChanged = (!!newHover !== !!ph) ||
+        const newHover = {c: c, r: r};
+        const ph = host.state.hoverCell;
+        const hoverChanged = (!!newHover !== !!ph) ||
             (newHover && ph && (newHover.c !== ph.c || newHover.r !== ph.r));
         if(hoverChanged){ host.setState({hoverCell: newHover}); }
 
         // Selection drag.
         if(host.state.drawMode === 'select' && this._selStart){
-            var bc = c, br = r;
-            var selectTool = host.state.selectTool || 'rect';
+            const bc = c, br = r;
+            const selectTool = host.state.selectTool || 'rect';
             if(selectTool === 'freeform'){
-                var path = this._lassoPath;
-                var last = path.length > 0 ? path[path.length - 1] : null;
+                const path = this._lassoPath;
+                const last = path.length > 0 ? path[path.length - 1] : null;
                 if(!last || last.c !== bc || last.r !== br){
                     path.push({c: bc, r: br});
                     host.setState({selection: {type:'freeform', path: path.slice(), cells: []}},
@@ -425,9 +425,9 @@ var InputHandler = { // eslint-disable-line no-unused-vars
                 }
                 return;
             }
-            var prev2 = host.state.selection;
+            const prev2 = host.state.selection;
             if(prev2 && prev2.c2 === bc && prev2.r2 === br){ return; }
-            var selType = selectTool === 'ellipse' ? 'ellipse' : 'rect';
+            const selType = selectTool === 'ellipse' ? 'ellipse' : 'rect';
             host.setState({selection: {type: selType, c1: this._selStart.c, r1: this._selStart.r, c2: bc, r2: br}},
                 function(){ host.drawBoard(); });
             return;
@@ -435,25 +435,25 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
         // Draw tool preview.
         if(this._drawToolStart && host.state.drawMode === 'paint'){
-            var drawTool = host.state.drawTool || 'cell';
+            const drawTool = host.state.drawTool || 'cell';
             if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                var tc = c, tr = r;
-                var ds = this._drawToolStart;
-                var rawCells;
+                const tc = c, tr = r;
+                const ds = this._drawToolStart;
+                let rawCells;
                 if(drawTool === 'line'){
                     rawCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
                 } else if(drawTool === 'shape-rect'){
                     rawCells = [];
-                    var rMin = Math.min(ds.r, tr), rMax = Math.max(ds.r, tr);
-                    var cMin = Math.min(ds.c, tc), cMax = Math.max(ds.c, tc);
-                    for(var pr = rMin; pr <= rMax; pr++)
-                        for(var pc = cMin; pc <= cMax; pc++)
+                    const rMin = Math.min(ds.r, tr), rMax = Math.max(ds.r, tr);
+                    const cMin = Math.min(ds.c, tc), cMax = Math.max(ds.c, tc);
+                    for(let pr = rMin; pr <= rMax; pr++)
+                        for(let pc = cMin; pc <= cMax; pc++)
                             rawCells.push([pr, pc]);
                 } else {
                     rawCells = this.ellipseCells(ds.c, ds.r, tc, tr);
                 }
                 // Filter to region bounds.
-                var selfDT = this;
+                const selfDT = this;
                 this._drawPreviewCells = rawCells.filter(function(rc){ return selfDT._cellInRegion(rc[0], rc[1], host); });
                 host.drawBoard();
                 return;
@@ -462,9 +462,9 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
         // Region tool preview (rubber-band shapes).
         if(this._regionToolStart && host.state.drawMode === 'region'){
-            var regionTool = host.state.regionTool || 'shape-rect';
+            const regionTool = host.state.regionTool || 'shape-rect';
             if(regionTool === 'line' || regionTool === 'shape-rect' || regionTool === 'shape-circle'){
-                var rds = this._regionToolStart;
+                const rds = this._regionToolStart;
                 if(regionTool === 'line'){
                     this._regionPreviewKeys = RegionUtil.lineKeys(rds.r, rds.c, r, c);
                 } else if(regionTool === 'shape-rect'){
@@ -479,7 +479,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
         // Region cell-by-cell painting drag.
         if(this._regionDragging && host.state.drawMode === 'region'){
-            var rgKey = r + ',' + c;
+            const rgKey = r + ',' + c;
             if(this._regionPaintedKeys[rgKey] === undefined){
                 this._regionPaintedKeys[rgKey] = this._regionDragStatus;
                 host.drawBoard();
@@ -489,24 +489,24 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
         // Minimap drag.
         if(this._minimapDragging && host._minimapRect && host.state.showMinimap){
-            var mm = host._minimapRect;
-            var mmMouse = this.getMousePos(event, canvas);
-            var frac_c = Math.max(0, Math.min(1, (mmMouse.x - mm.x) / mm.w));
-            var frac_r = Math.max(0, Math.min(1, (mmMouse.y - mm.y) / mm.h));
-            var mmWC2 = mm.worldCols || host.state.cols;
-            var mmWR2 = mm.worldRows || host.state.rows;
-            var mmOC2 = mm.originC || 0, mmOR2 = mm.originR || 0;
-            var newVX = Math.round(frac_c * mmWC2 + mmOC2 - (canvas.width / host.state.cellSize) / 2);
-            var newVY = Math.round(frac_r * mmWR2 + mmOR2 - (canvas.height / host.state.cellSize) / 2);
-            var clampedMm = host.clampView(newVX, newVY, host.state.cols, host.state.rows, host.state.cellSize);
+            const mm = host._minimapRect;
+            const mmMouse = this.getMousePos(event, canvas);
+            const frac_c = Math.max(0, Math.min(1, (mmMouse.x - mm.x) / mm.w));
+            const frac_r = Math.max(0, Math.min(1, (mmMouse.y - mm.y) / mm.h));
+            const mmWC2 = mm.worldCols || host.state.cols;
+            const mmWR2 = mm.worldRows || host.state.rows;
+            const mmOC2 = mm.originC || 0, mmOR2 = mm.originR || 0;
+            const newVX = Math.round(frac_c * mmWC2 + mmOC2 - (canvas.width / host.state.cellSize) / 2);
+            const newVY = Math.round(frac_r * mmWR2 + mmOR2 - (canvas.height / host.state.cellSize) / 2);
+            const clampedMm = host.clampView(newVX, newVY, host.state.cols, host.state.rows, host.state.cellSize);
             host.setState({viewX: clampedMm.viewX, viewY: clampedMm.viewY}, function(){ host.drawBoard(); });
             return;
         }
 
         // Pattern preview.
         if(host.state.drawMode === 'preset' && host.state.selectedPattern){
-            var newPos = {c: c, r: r};
-            var prev = this._previewPos;
+            const newPos = {c: c, r: r};
+            const prev = this._previewPos;
             if(prev && newPos && prev.c === newPos.c && prev.r === newPos.r){ return; }
             this._previewPos = newPos;
             host.drawBoard();
@@ -516,7 +516,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         // Cell painting.
         if(!this._dragging){ return; }
         if(!this._cellInRegion(r, c, host)){ return; }
-        var paintKey = r + ',' + c;
+        const paintKey = r + ',' + c;
         if(this._paintedCells[paintKey] !== undefined){ return; }
         this._paintedCells[paintKey] = this._dragStatus;
         host.drawBoard();
@@ -530,19 +530,19 @@ var InputHandler = { // eslint-disable-line no-unused-vars
             this._panStart = null;
         }
         if(host.state.drawMode === 'select' && this._selStart){
-            var selectTool = host.state.selectTool || 'rect';
+            const selectTool = host.state.selectTool || 'rect';
             if(selectTool === 'freeform'){
-                var path = this._lassoPath;
+                const path = this._lassoPath;
                 if(path.length >= 3){
-                    var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+                    let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
                     path.forEach(function(p){ if(p.r<minR)minR=p.r; if(p.r>maxR)maxR=p.r; if(p.c<minC)minC=p.c; if(p.c>maxC)maxC=p.c; });
-                    var fcells = [];
-                    var fcols = host.state.cols, frows = host.state.rows;
-                    var self = this;
-                    var isUnboundedSel = host.state.boundary === 'unbounded';
-                    var fMask = (!isUnboundedSel && host.state.regionMask && host.state.regionMask.size > 0) ? host.state.regionMask : null;
-                    for(var fr = minR; fr <= maxR; fr++)
-                        for(var fc = minC; fc <= maxC; fc++)
+                    const fcells = [];
+                    const fcols = host.state.cols, frows = host.state.rows;
+                    const self = this;
+                    const isUnboundedSel = host.state.boundary === 'unbounded';
+                    const fMask = (!isUnboundedSel && host.state.regionMask && host.state.regionMask.size > 0) ? host.state.regionMask : null;
+                    for(let fr = minR; fr <= maxR; fr++)
+                        for(let fc = minC; fc <= maxC; fc++)
                             if((isUnboundedSel || (fc>=0 && fc<fcols && fr>=0 && fr<frows)) &&
                                (!fMask || fMask.has(fr + ',' + fc)) &&
                                self.pointInPolygon(fc, fr, path))
@@ -556,9 +556,9 @@ var InputHandler = { // eslint-disable-line no-unused-vars
                 host.drawBoard();
                 return;
             }
-            var sel = host.state.selection;
+            const sel = host.state.selection;
             if(sel){
-                var normType = sel.type || 'rect';
+                const normType = sel.type || 'rect';
                 host.setState({selection: {
                     type: normType,
                     r1: Math.min(sel.r1, sel.r2), c1: Math.min(sel.c1, sel.c2),
@@ -570,10 +570,10 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         }
         // Apply region rubber-band tools.
         if(this._regionToolStart && host.state.drawMode === 'region'){
-            var regionPreview = this._regionPreviewKeys;
+            const regionPreview = this._regionPreviewKeys;
             this._regionToolStart = null;
             this._regionPreviewKeys = [];
-            var regionErasing = this._regionErasing;
+            const regionErasing = this._regionErasing;
             CanvasRenderer.invalidateRegionCache();
             if(regionErasing){
                 host._mutateRegion(null, regionPreview);
@@ -585,10 +585,10 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         // Apply region cell-by-cell painting.
         if(this._regionDragging && host.state.drawMode === 'region'){
             this._regionDragging = false;
-            var rPainted = this._regionPaintedKeys;
-            var addKeys = [], removeKeys = [];
-            var rKeys = Object.keys(rPainted);
-            for(var rki = 0; rki < rKeys.length; rki++){
+            const rPainted = this._regionPaintedKeys;
+            const addKeys = [], removeKeys = [];
+            const rKeys = Object.keys(rPainted);
+            for(let rki = 0; rki < rKeys.length; rki++){
                 if(rPainted[rKeys[rki]] === 1){ addKeys.push(rKeys[rki]); }
                 else { removeKeys.push(rKeys[rki]); }
             }
@@ -602,16 +602,16 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         }
         // Apply rubber-band tools.
         if(this._drawToolStart && host.state.drawMode === 'paint'){
-            var drawTool = host.state.drawTool || 'cell';
+            const drawTool = host.state.drawTool || 'cell';
             if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                var previewCells = this._drawPreviewCells;
+                const previewCells = this._drawPreviewCells;
                 this._drawToolStart = null;
                 this._drawPreviewCells = [];
                 host._minimapDirty = true;
                 SimRunner.invalidate();
-                var erasing = this._drawErasing;
+                const erasing = this._drawErasing;
                 host.setState(function(prevState){
-                    var newLiveCells = new Map(prevState.liveCells);
+                    const newLiveCells = new Map(prevState.liveCells);
                     previewCells.forEach(function(rc){
                         if(erasing){ newLiveCells.delete(rc[0]+','+rc[1]); }
                         else { newLiveCells.set(rc[0]+','+rc[1], 1); }
@@ -623,8 +623,8 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         }
         if(!this._dragging){ return; }
         this._dragging = false;
-        var paintedCells = this._paintedCells;
-        var newLiveCells = new Map(host.state.liveCells);
+        const paintedCells = this._paintedCells;
+        const newLiveCells = new Map(host.state.liveCells);
         Object.keys(paintedCells).forEach(function(k){
             if(paintedCells[k] === 1){ newLiveCells.set(k, 1); }
             else { newLiveCells.delete(k); }
@@ -682,15 +682,15 @@ var InputHandler = { // eslint-disable-line no-unused-vars
 
     /** Paint a single cell directly on canvas (immediate visual feedback). */
     paintCellDirect: function(c, r, host){
-        var canvas = host._canvas;
+        const canvas = host._canvas;
         if(!canvas){ return; }
-        var ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d");
         if(!ctx){ return; }
-        var cellSize = host.state.cellSize;
-        var viewX = host.state.viewX, viewY = host.state.viewY;
-        var theme = THEMES[host.state.theme] || THEMES['Teal'];
-        var px = (c - viewX) * cellSize;
-        var py = (r - viewY) * cellSize;
+        const cellSize = host.state.cellSize;
+        const viewX = host.state.viewX, viewY = host.state.viewY;
+        const theme = THEMES[host.state.theme] || THEMES['Teal'];
+        const px = (c - viewX) * cellSize;
+        const py = (r - viewY) * cellSize;
         ctx.fillStyle = this._dragStatus === 1
             ? ('rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')')
             : theme.bg;
@@ -711,42 +711,42 @@ var InputHandler = { // eslint-disable-line no-unused-vars
     onWheel: function(event, host){
         event.preventDefault();
         if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
-        var canvas = host._canvas;
+        const canvas = host._canvas;
         if(!canvas){ return; }
-        var cellSize = host.state.cellSize;
+        const cellSize = host.state.cellSize;
 
         // Normalize deltaY across deltaMode values (line vs pixel vs page).
-        var rawDX = event.deltaX;
-        var rawDY = event.deltaY;
+        let rawDX = event.deltaX;
+        let rawDY = event.deltaY;
         if(event.deltaMode === 1){ rawDX *= 16; rawDY *= 16; } // DOM_DELTA_LINE
         else if(event.deltaMode === 2){ rawDX *= 100; rawDY *= 100; } // DOM_DELTA_PAGE
 
         // ── Zoom (Ctrl+wheel or trackpad pinch) ──────────────────────
         if(event.ctrlKey || event.metaKey){
-            var mouse = this.getMousePos(event, canvas);
-            var delta = rawDY > 0 ? -1 : 1;
-            var newCS = Math.max(1, Math.min(128, cellSize + delta));
+            const mouse = this.getMousePos(event, canvas);
+            const delta = rawDY > 0 ? -1 : 1;
+            const newCS = Math.max(1, Math.min(128, cellSize + delta));
             if(newCS === cellSize){ return; }
             // Zoom toward cursor: keep the cell under the pointer fixed.
-            var cellC = host.state.viewX + mouse.x / cellSize;
-            var cellR = host.state.viewY + mouse.y / cellSize;
-            var newVX = Math.round(cellC - mouse.x / newCS);
-            var newVY = Math.round(cellR - mouse.y / newCS);
-            var clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, newCS);
+            const cellC = host.state.viewX + mouse.x / cellSize;
+            const cellR = host.state.viewY + mouse.y / cellSize;
+            const newVX = Math.round(cellC - mouse.x / newCS);
+            const newVY = Math.round(cellR - mouse.y / newCS);
+            const clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, newCS);
             host.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
                 function(){ host.drawBoard(); });
             return;
         }
 
         // ── Pan (plain scroll / trackpad two-finger drag) ────────────
-        var rect = canvas.getBoundingClientRect();
-        var displayCellSize = (rect.width > 0 && canvas.width > 0)
+        const rect = canvas.getBoundingClientRect();
+        const displayCellSize = (rect.width > 0 && canvas.width > 0)
             ? cellSize * (rect.width / canvas.width) : cellSize;
         // Always accumulate for consistent behavior across mouse wheel and trackpad.
         this._wheelAccX = (this._wheelAccX || 0) + rawDX / displayCellSize;
         this._wheelAccY = (this._wheelAccY || 0) + rawDY / displayCellSize;
-        var dc = Math.trunc(this._wheelAccX);
-        var dr = Math.trunc(this._wheelAccY);
+        const dc = Math.trunc(this._wheelAccX);
+        const dr = Math.trunc(this._wheelAccY);
         this._wheelAccX -= dc;
         this._wheelAccY -= dr;
         if(dc !== 0 || dr !== 0){
@@ -760,7 +760,7 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         event.preventDefault();
         if(this._panMomentumFrame){ cancelAnimationFrame(this._panMomentumFrame); this._panMomentumFrame = null; }
         clearTimeout(this._longPressTimer);
-        var canvas = host._canvas;
+        const canvas = host._canvas;
         if(!event.touches || event.touches.length === 0){ return; }
         if(event.touches.length === 2){
             this._dragging = false;
@@ -780,12 +780,12 @@ var InputHandler = { // eslint-disable-line no-unused-vars
                 host._startLoop();
             }
             this._wasRunningBeforeTouch = false;
-            var t0 = event.touches[0], t1 = event.touches[1];
-            var pMidX = (t0.clientX + t1.clientX) / 2;
-            var pMidY = (t0.clientY + t1.clientY) / 2;
-            var pRect = canvas.getBoundingClientRect();
-            var pScaleX = canvas.width / pRect.width;
-            var pScaleY = canvas.height / pRect.height;
+            const t0 = event.touches[0], t1 = event.touches[1];
+            const pMidX = (t0.clientX + t1.clientX) / 2;
+            const pMidY = (t0.clientY + t1.clientY) / 2;
+            const pRect = canvas.getBoundingClientRect();
+            const pScaleX = canvas.width / pRect.width;
+            const pScaleY = canvas.height / pRect.height;
             this._pinchStart = {
                 dist: Math.sqrt(
                     (t1.clientX - t0.clientX) * (t1.clientX - t0.clientX) +
@@ -800,9 +800,9 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         }
         this._pinchStart = null;
         this._wasPinching = false;
-        var t = event.touches[0];
-        var self = this;
-        var pos = this.getCellPos({clientX: t.clientX, clientY: t.clientY}, canvas,
+        const t = event.touches[0];
+        const self = this;
+        const pos = this.getCellPos({clientX: t.clientX, clientY: t.clientY}, canvas,
             host.state.viewX, host.state.viewY, host.state.cellSize);
         // Always allow interaction — region mask handles boundary enforcement.
         {
@@ -834,44 +834,44 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         event.preventDefault();
         clearTimeout(this._longPressTimer);
         this._longPressTimer = null;
-        var canvas = host._canvas;
+        const canvas = host._canvas;
         if(event.touches.length === 2 && this._pinchStart){
-            var t0 = event.touches[0], t1 = event.touches[1];
-            var newDist = Math.sqrt(
+            const t0 = event.touches[0], t1 = event.touches[1];
+            const newDist = Math.sqrt(
                 (t1.clientX - t0.clientX) * (t1.clientX - t0.clientX) +
                 (t1.clientY - t0.clientY) * (t1.clientY - t0.clientY));
-            var newMidX = (t0.clientX + t1.clientX) / 2;
-            var newMidY = (t0.clientY + t1.clientY) / 2;
-            var scale = this._pinchStart.dist > 0 ? newDist / this._pinchStart.dist : 1;
-            var newCS = Math.max(1, Math.min(128, Math.round(this._pinchStart.cellSize * scale)));
-            var pzRect = canvas.getBoundingClientRect();
-            var pzScaleX = canvas.width / pzRect.width;
-            var pzScaleY = canvas.height / pzRect.height;
-            var midCanvasX = (newMidX - pzRect.left) * pzScaleX;
-            var midCanvasY = (newMidY - pzRect.top) * pzScaleY;
-            var newVX = Math.round(this._pinchStart.cellC - midCanvasX / newCS);
-            var newVY = Math.round(this._pinchStart.cellR - midCanvasY / newCS);
-            var clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, newCS);
+            const newMidX = (t0.clientX + t1.clientX) / 2;
+            const newMidY = (t0.clientY + t1.clientY) / 2;
+            const scale = this._pinchStart.dist > 0 ? newDist / this._pinchStart.dist : 1;
+            const newCS = Math.max(1, Math.min(128, Math.round(this._pinchStart.cellSize * scale)));
+            const pzRect = canvas.getBoundingClientRect();
+            const pzScaleX = canvas.width / pzRect.width;
+            const pzScaleY = canvas.height / pzRect.height;
+            const midCanvasX = (newMidX - pzRect.left) * pzScaleX;
+            const midCanvasY = (newMidY - pzRect.top) * pzScaleY;
+            const newVX = Math.round(this._pinchStart.cellC - midCanvasX / newCS);
+            const newVY = Math.round(this._pinchStart.cellR - midCanvasY / newCS);
+            const clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, newCS);
             host.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
                 function(){ host.drawBoard(); });
             return;
         }
         if(event.touches.length !== 1){ return; }
         if(this._wasPinching){ return; }
-        var t = event.touches[0];
+        const t = event.touches[0];
         if(host.state.panMode && this._panDragging && this._panStart){
-            var dx = t.clientX - this._panStart.x;
-            var dy = t.clientY - this._panStart.y;
-            var cs2 = host.state.cellSize;
-            var panRect = canvas.getBoundingClientRect();
-            var displayCS = (panRect.width > 0 && canvas.width > 0)
+            const dx = t.clientX - this._panStart.x;
+            const dy = t.clientY - this._panStart.y;
+            const cs2 = host.state.cellSize;
+            const panRect = canvas.getBoundingClientRect();
+            const displayCS = (panRect.width > 0 && canvas.width > 0)
                 ? cs2 * (panRect.width / canvas.width) : cs2;
-            var newVX2 = this._panStart.vx - Math.round(dx / displayCS);
-            var newVY2 = this._panStart.vy - Math.round(dy / displayCS);
-            var clamped2 = host.clampView(newVX2, newVY2, host.state.cols, host.state.rows, cs2);
+            const newVX2 = this._panStart.vx - Math.round(dx / displayCS);
+            const newVY2 = this._panStart.vy - Math.round(dy / displayCS);
+            const clamped2 = host.clampView(newVX2, newVY2, host.state.cols, host.state.rows, cs2);
             host.setState({viewX: clamped2.viewX, viewY: clamped2.viewY},
                 function(){ host.drawBoard(); });
-            var now = Date.now();
+            const now = Date.now();
             this._panVelocity = {
                 vx: (dx - (this._panLastDx || 0)) / Math.max(1, now - (this._panLastTime || now)),
                 vy: (dy - (this._panLastDy || 0)) / Math.max(1, now - (this._panLastTime || now))
@@ -902,8 +902,8 @@ var InputHandler = { // eslint-disable-line no-unused-vars
                 this._panDragging = false;
                 this._panStart = null;
                 if(this._panVelocity){
-                    var vel = this._panVelocity;
-                    var speed = Math.sqrt(vel.vx * vel.vx + vel.vy * vel.vy);
+                    const vel = this._panVelocity;
+                    const speed = Math.sqrt(vel.vx * vel.vx + vel.vy * vel.vy);
                     if(speed > 0.15){ this._startPanMomentum(vel.vx, vel.vy, host); }
                 }
                 this._panVelocity = null;

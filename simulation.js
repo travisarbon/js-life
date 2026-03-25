@@ -9,7 +9,7 @@
  * Global exposed: SimRunner
  */
 
-var SimRunner = { // eslint-disable-line no-unused-vars
+const SimRunner = { // eslint-disable-line no-unused-vars
 
     // ── Internal HashLife state ──────────────────────────────────────────────
     _hlRoot: null,
@@ -45,11 +45,11 @@ var SimRunner = { // eslint-disable-line no-unused-vars
             return this._toroidalStep(liveCells, cols, rows, birth, survive, regionMask, regionComponents);
         }
         // HashLife path.
-        var newLiveCells = this._hashLifeStep(liveCells, birth, survive);
+        const newLiveCells = this._hashLifeStep(liveCells, birth, survive);
         if(boundary === 'finite'){
             // Clip to region mask (or fall back to rectangular bounds).
             if(regionMask && regionMask.size > 0){
-                var clipped = new Map();
+                const clipped = new Map();
                 newLiveCells.forEach(function(age, key){
                     if(regionMask.has(key)){
                         clipped.set(key, age);
@@ -58,9 +58,9 @@ var SimRunner = { // eslint-disable-line no-unused-vars
                 if(clipped.size !== newLiveCells.size){ this._hlStale = true; }
                 return clipped;
             }
-            var clippedRect = new Map();
+            const clippedRect = new Map();
             newLiveCells.forEach(function(age, key){
-                var _rc = parseKey(key), r = _rc[0], c = _rc[1];
+                const _rc = parseKey(key), r = _rc[0], c = _rc[1];
                 if(r >= 0 && r < rows && c >= 0 && c < cols){
                     clippedRect.set(key, age);
                 }
@@ -85,50 +85,50 @@ var SimRunner = { // eslint-disable-line no-unused-vars
         }
 
         // Multi-component or non-rectangular: per-component toroidal simulation.
-        var result = new Map();
-        var components = regionComponents || [{
+        const result = new Map();
+        const components = regionComponents || [{
             cells: regionMask,
             minR: 0, maxR: rows - 1, minC: 0, maxC: cols - 1
         }];
 
-        for(var ci = 0; ci < components.length; ci++){
-            var comp = components[ci];
-            var compCols = comp.maxC - comp.minC + 1;
-            var compRows = comp.maxR - comp.minR + 1;
+        for(let ci = 0; ci < components.length; ci++){
+            const comp = components[ci];
+            const compCols = comp.maxC - comp.minC + 1;
+            const compRows = comp.maxR - comp.minR + 1;
             if(compCols <= 0 || compRows <= 0) continue;
 
             // Extract live cells belonging to this component.
-            var compLive = new Map();
+            const compLive = new Map();
             liveCells.forEach(function(age, key){
                 if(comp.cells.has(key)){
                     // Translate to local coordinates (0-based within component bounding rect).
-                    var _rc = parseKey(key);
-                    var localR = _rc[0] - comp.minR;
-                    var localC = _rc[1] - comp.minC;
+                    const _rc = parseKey(key);
+                    const localR = _rc[0] - comp.minR;
+                    const localC = _rc[1] - comp.minC;
                     compLive.set(localR + ',' + localC, age);
                 }
             });
 
             // Build a local mask for the component (translated to 0-based).
-            var localMask = new Set();
+            const localMask = new Set();
             comp.cells.forEach(function(key){
-                var i = key.indexOf(',');
-                var r = parseInt(key.substring(0, i), 10) - comp.minR;
-                var c = parseInt(key.substring(i + 1), 10) - comp.minC;
+                const i = key.indexOf(',');
+                const r = parseInt(key.substring(0, i), 10) - comp.minR;
+                const c = parseInt(key.substring(i + 1), 10) - comp.minC;
                 localMask.add(r + ',' + c);
             });
 
             // Run toroidal simulation within component bounding rect.
-            var compNext = SimEngine.computeNextGenerationMasked(
+            const compNext = SimEngine.computeNextGenerationMasked(
                 compLive, compCols, compRows, birth, survive, localMask
             );
 
             // Translate results back to global coordinates and add to result.
             compNext.forEach(function(age, key){
-                var _rc = parseKey(key);
-                var globalR = _rc[0] + comp.minR;
-                var globalC = _rc[1] + comp.minC;
-                var globalKey = globalR + ',' + globalC;
+                const _rc = parseKey(key);
+                const globalR = _rc[0] + comp.minR;
+                const globalC = _rc[1] + comp.minC;
+                const globalKey = globalR + ',' + globalC;
                 // Only keep if in the component's region mask.
                 if(comp.cells.has(globalKey)){
                     result.set(globalKey, age);
@@ -150,11 +150,11 @@ var SimRunner = { // eslint-disable-line no-unused-vars
             return this._hashLifeBatchStep(liveCells, birth, survive, n);
         }
         // Toroidal / finite: per-step loop.
-        var pops = [];
-        var peak = 0;
-        for(var i = 0; i < n; i++){
+        const pops = [];
+        let peak = 0;
+        for(let i = 0; i < n; i++){
             liveCells = this.step(liveCells, cols, rows, birth, survive, boundary, regionMask, regionComponents);
-            var pop = liveCells.size;
+            const pop = liveCells.size;
             pops.push(pop);
             if(pop > peak){ peak = pop; }
         }
@@ -164,7 +164,7 @@ var SimRunner = { // eslint-disable-line no-unused-vars
     // ── Internal HashLife methods ────────────────────────────────────────────
 
     _ensureRules: function(birth, survive){
-        var ruleKey = birth.join(',') + '/' + survive.join(',');
+        const ruleKey = birth.join(',') + '/' + survive.join(',');
         if(ruleKey !== this._hlRuleKey){
             HashLife.init(birth, survive);
             this._hlRuleKey = ruleKey;
@@ -174,14 +174,14 @@ var SimRunner = { // eslint-disable-line no-unused-vars
 
     _rebuildIfStale: function(liveCells){
         if(this._hlStale || !this._hlRoot){
-            var cells = [];
+            const cells = [];
             liveCells.forEach(function(age, key){
-                var _rc = parseKey(key), r = _rc[0], c = _rc[1];
+                const _rc = parseKey(key), r = _rc[0], c = _rc[1];
                 if(r > -MAX_HL_COORD && r < MAX_HL_COORD && c > -MAX_HL_COORD && c < MAX_HL_COORD){
                     cells.push([r, c]);
                 }
             });
-            var tree = HashLife.fromCellList(cells);
+            const tree = HashLife.fromCellList(cells);
             this._hlRoot = tree.root;
             this._hlOffR = tree.offR;
             this._hlOffC = tree.offC;
@@ -191,12 +191,12 @@ var SimRunner = { // eslint-disable-line no-unused-vars
 
     _advanceOne: function(){
         while(HashLife.needsExpand(this._hlRoot)){
-            var lvl = this._hlRoot.level;
+            const lvl = this._hlRoot.level;
             this._hlRoot = HashLife.expandTree(this._hlRoot);
             this._hlOffR += (1 << (lvl - 1));
             this._hlOffC += (1 << (lvl - 1));
         }
-        var level = this._hlRoot.level;
+        let level = this._hlRoot.level;
         this._hlRoot = HashLife.expandTree(this._hlRoot);
         this._hlOffR += (1 << (level - 1));
         this._hlOffC += (1 << (level - 1));
@@ -206,10 +206,10 @@ var SimRunner = { // eslint-disable-line no-unused-vars
         this._hlOffR -= (1 << (level - 2));
         this._hlOffC -= (1 << (level - 2));
 
-        var prevLevel = this._hlRoot.level;
+        const prevLevel = this._hlRoot.level;
         this._hlRoot = HashLife.trimTree(this._hlRoot);
-        var newLevel = this._hlRoot.level;
-        for(var lv = prevLevel; lv > newLevel; lv--){
+        const newLevel = this._hlRoot.level;
+        for(let lv = prevLevel; lv > newLevel; lv--){
             this._hlOffR -= (1 << (lv - 2));
             this._hlOffC -= (1 << (lv - 2));
         }
@@ -219,8 +219,8 @@ var SimRunner = { // eslint-disable-line no-unused-vars
         this._ensureRules(birth, survive);
         this._rebuildIfStale(liveCells);
         this._advanceOne();
-        var newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
-        var result = overlayAges(liveCells, newCells);
+        const newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
+        const result = overlayAges(liveCells, newCells);
         this.gcIfNeeded();
         return result;
     },
@@ -228,16 +228,16 @@ var SimRunner = { // eslint-disable-line no-unused-vars
     _hashLifeBatchStep: function(liveCells, birth, survive, numGens){
         this._ensureRules(birth, survive);
         this._rebuildIfStale(liveCells);
-        var pops = [];
-        var peak = 0;
-        for(var i = 0; i < numGens; i++){
+        const pops = [];
+        let peak = 0;
+        for(let i = 0; i < numGens; i++){
             this._advanceOne();
-            var pop = this._hlRoot.population;
+            const pop = this._hlRoot.population;
             pops.push(pop);
             if(pop > peak){ peak = pop; }
         }
-        var newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
-        var result = overlayAges(liveCells, newCells, numGens);
+        const newCells = HashLife.toCellList(this._hlRoot, this._hlOffR, this._hlOffC);
+        const result = overlayAges(liveCells, newCells, numGens);
         this.gcIfNeeded();
         return { liveCells: result, pops: pops, peak: peak };
     }

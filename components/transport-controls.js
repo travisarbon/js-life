@@ -1,15 +1,15 @@
-/* global React, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeViewUtils, LifeInputUtils, SPEED_DELAYS */
+/* global LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeViewUtils, SPEED_DELAYS */
 /**
  * TransportControls — Play/pause/step buttons + step count.
  * Props: compact, state, stateRef, refs, dispatch
  */
-var TransportControls = function TransportControls(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var compact = props.compact;
+const TransportControls = function TransportControls(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const compact = props.compact;
 
                 if(compact){
-                    var compactDelay = SPEED_DELAYS[state.speed - 1];
-                    var compactSpeedLabel = compactDelay === 0 ? 'Max' : compactDelay + '\u2009ms';
+                    const compactDelay = SPEED_DELAYS[state.speed - 1];
+                    const compactSpeedLabel = compactDelay === 0 ? 'Max' : compactDelay + '\u2009ms';
                     return (
                         <div className="transport-controls transport-compact">
                             <button type="button" className={"btn btn-toggle" + (state.running ? " active" : "")} onClick={function(){ LifeSimUtils.toggleGame(stateRef, refs, dispatch); }} title="Play/Pause (Space)" data-tooltip={state.running ? "Pause (Space)" : "Play (Space)"} aria-label={state.running ? "Pause" : "Play"} aria-pressed={state.running}><i className={"fa " + (state.running ? "fa-pause" : "fa-play")} aria-hidden="true"></i></button>
@@ -43,8 +43,8 @@ var TransportControls = function TransportControls(props) { // eslint-disable-li
  * MobileTransportBar — Mobile transport bar.
  * Props: state, stateRef, refs, dispatch
  */
-var MobileTransportBar = function MobileTransportBar(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const MobileTransportBar = function MobileTransportBar(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 
                 return (
                     <div className="mobile-transport-bar" role="toolbar" aria-label="Simulation transport">

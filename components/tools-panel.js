@@ -1,4 +1,4 @@
-/* global React, CanvasRenderer, PATTERNS, PATTERN_GROUPS, PATTERN_META,
+/* global PATTERNS, PATTERN_GROUPS, PATTERN_META,
           InputHandler, LifeBoardUtils, LifeAnalysisUtils,
           drawBoard, drawRotationPreview */
 /**
@@ -9,8 +9,8 @@
  * Each component receives props: state, stateRef, refs, dispatch
  */
 
-var ModeControls = function ModeControls(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const ModeControls = function ModeControls(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
                     <div>
                     <label className="control-group-label">Mode</label>
@@ -26,18 +26,18 @@ var ModeControls = function ModeControls(props) { // eslint-disable-line no-unus
                 );
 };
 
-var ToolsContent = function ToolsContent(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const ToolsContent = function ToolsContent(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 
-                var filterLc = state.patternFilter.toLowerCase();
-                var patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
-                    var names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
+                const filterLc = state.patternFilter.toLowerCase();
+                let patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
+                    const names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
                         return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
                     });
                     if(names.length === 0){ return null; }
-                    var opts = names.map(function(name){
-                        var meta = PATTERN_META[name];
-                        var title = '';
+                    const opts = names.map(function(name){
+                        const meta = PATTERN_META[name];
+                        let title = '';
                         if(meta){
                             if(meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';
                             else if(meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
@@ -138,17 +138,17 @@ var ToolsContent = function ToolsContent(props) { // eslint-disable-line no-unus
  * PresetContent — preset selector for use in compact mode pop-out.
  * Renders only the preset dropdown, filter, and rotation preview.
  */
-var PresetContent = function PresetContent(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var filterLc = state.patternFilter.toLowerCase();
-    var patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
-        var names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
+const PresetContent = function PresetContent(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const filterLc = state.patternFilter.toLowerCase();
+    let patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
+        const names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
             return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
         });
         if(names.length === 0){ return null; }
-        var opts = names.map(function(name){
-            var meta = PATTERN_META[name];
-            var title = '';
+        const opts = names.map(function(name){
+            const meta = PATTERN_META[name];
+            const title = '';
             if(meta){
                 if(meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';
                 else if(meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
@@ -203,8 +203,8 @@ var PresetContent = function PresetContent(props) { // eslint-disable-line no-un
 /**
  * DrawToolPopOut — draw tool sub-type selector for compact mode pop-out.
  */
-var DrawToolPopOut = function DrawToolPopOut(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, dispatch = props.dispatch;
+const DrawToolPopOut = function DrawToolPopOut(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, dispatch = props.dispatch;
     return (
         <div className="tools-content">
             <div className="tool-subtype-row">
@@ -225,8 +225,8 @@ var DrawToolPopOut = function DrawToolPopOut(props) { // eslint-disable-line no-
 /**
  * SelectToolPopOut — select tool sub-type selector for compact mode pop-out.
  */
-var SelectToolPopOut = function SelectToolPopOut(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, dispatch = props.dispatch;
+const SelectToolPopOut = function SelectToolPopOut(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, dispatch = props.dispatch;
     return (
         <div className="tools-content">
             <div className="tool-subtype-row">
@@ -246,8 +246,8 @@ var SelectToolPopOut = function SelectToolPopOut(props) { // eslint-disable-line
 /**
  * RegionToolPopOut — region tool sub-type selector for compact mode pop-out.
  */
-var RegionToolPopOut = function RegionToolPopOut(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, dispatch = props.dispatch;
+const RegionToolPopOut = function RegionToolPopOut(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, dispatch = props.dispatch;
     return (
         <div className="tools-content">
             <div className="tool-subtype-row">
@@ -265,11 +265,11 @@ var RegionToolPopOut = function RegionToolPopOut(props) { // eslint-disable-line
     );
 };
 
-var MobileContextPanel = function MobileContextPanel(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const MobileContextPanel = function MobileContextPanel(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 
-                var showRotation = state.drawMode === 'preset' && state.selectedPattern;
-                var showSelection = state.selection !== null;
+                const showRotation = state.drawMode === 'preset' && state.selectedPattern;
+                const showSelection = state.selection !== null;
                 if(!showRotation && !showSelection){ return null; }
                 return (
                     <div className="mobile-context-panel">
