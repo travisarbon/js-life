@@ -12,8 +12,18 @@ import { drawBoard, drawRotationPreview } from './canvas-area.jsx';
  * Each component receives props: state, stateRef, refs, dispatch
  */
 
+/** Simple fuzzy match: checks if all characters of query appear in order within text. */
+const _fuzzyMatch = function(text, query) {
+    if(!query) return true;
+    let qi = 0;
+    for(let ti = 0; ti < text.length && qi < query.length; ti++){
+        if(text[ti] === query[qi]) qi++;
+    }
+    return qi === query.length;
+};
+
 /** Cached pattern option list — avoids re-computing on every render.
- *  Returns array of <optgroup> elements filtered by search string. */
+ *  Returns array of <optgroup> elements filtered by search string (fuzzy match). */
 const _patternOptionsCache = {filter: null, hasCustom: false, result: null};
 const _buildPatternOptions = function(filterStr) {
     const hasCustom = !!PATTERNS['Custom'];
@@ -23,7 +33,7 @@ const _buildPatternOptions = function(filterStr) {
     const filterLc = filterStr.toLowerCase();
     let options = Object.keys(PATTERN_GROUPS).map(function(group){
         const names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
-            return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
+            return _fuzzyMatch(name.toLowerCase(), filterLc);
         });
         if(names.length === 0){ return null; }
         const opts = names.map(function(name){

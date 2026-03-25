@@ -14,7 +14,7 @@ const PopGraphModal = function PopGraphModal(props) { // eslint-disable-line no-
     let maxPop = 0;
     for(let i = 0; i < hist.length; i++){ if(hist[i] > maxPop){ maxPop = hist[i]; } }
     if(maxPop === 0){ maxPop = 1; }
-    const vbW = 600, vbH = 200, padT = 10, padB = 20, padL = 50, padR = 10;
+    const vbW = 600, vbH = 220, padT = 10, padB = 40, padL = 50, padR = 10;
     const plotW = vbW - padL - padR;
     const plotH = vbH - padT - padB;
     const points = hist.map(function(p, idx){
@@ -51,6 +51,14 @@ const PopGraphModal = function PopGraphModal(props) { // eslint-disable-line no-
                         return <g key={idx}>
                             <line x1={padL} y1={yl.y} x2={vbW - padR} y2={yl.y} stroke={'var(--graph-grid)'} strokeWidth="0.5"/>
                             <text x={padL - 5} y={yl.y + 4} textAnchor="end" fill={'var(--graph-label)'} fontSize="10">{yl.val.toLocaleString()}</text>
+                        </g>;
+                    })}
+                    {[0, 0.25, 0.5, 0.75, 1].map(function(frac, idx){
+                        const genVal = Math.round(frac * (hist.length - 1));
+                        const xx = padL + frac * plotW;
+                        return <g key={'x' + idx}>
+                            <line x1={xx} y1={padT + plotH} x2={xx} y2={padT + plotH + 4} stroke={'var(--graph-grid)'} strokeWidth="0.5"/>
+                            <text x={xx} y={padT + plotH + 16} textAnchor="middle" fill={'var(--graph-label)'} fontSize="9">{genVal.toLocaleString()}</text>
                         </g>;
                     })}
                     <text x={padL + plotW / 2} y={vbH - 2} textAnchor="middle" fill={'var(--graph-label-secondary)'} fontSize="9">Generation</text>

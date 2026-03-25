@@ -227,6 +227,7 @@ var LifeInputUtils = { // eslint-disable-line no-unused-vars
         // Register all existing shortcuts centrally.
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 'd', 'Switch to Draw mode', function(){ LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch); });
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 'p', 'Switch to Preset mode', function(){ LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch); });
+        LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 's', 'Switch to Select mode', function(){ LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch); });
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 'b', 'Switch to Region mode', function(){ LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch); });
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 'g', 'Toggle grid lines', function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); });
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 't', 'Toggle trails', function(){ toggleTrails(stateRef, refs, dispatch); });

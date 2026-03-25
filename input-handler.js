@@ -34,6 +34,10 @@ var InputHandler = { // eslint-disable-line no-unused-vars
     _drawErasing: false,
     _previewPos: null,
     _pinchStart: null,
+    _pinchLastScale: 1,
+    _pinchLastTime: 0,
+    _pinchVelocity: 0,
+    _pinchMomentumFrame: null,
     _wasPinching: false,
     _wasRunningBeforeTouch: false,
     _longPressTimer: null,
@@ -222,6 +226,25 @@ var InputHandler = { // eslint-disable-line no-unused-vars
             self._panMomentumFrame = requestAnimationFrame(tick);
         }
         this._panMomentumFrame = requestAnimationFrame(tick);
+    },
+
+    /** Pinch-zoom momentum: smooth deceleration after pinch release. */
+    _startPinchMomentum: function(velocity, host){
+        if(this._pinchMomentumFrame){ cancelAnimationFrame(this._pinchMomentumFrame); this._pinchMomentumFrame = null; }
+        const self = this;
+        const friction = 0.88;
+        let vel = velocity * 1000; // convert from per-ms to per-second scale
+        function tick(){
+            vel *= friction;
+            if(Math.abs(vel) < 0.001){ self._pinchMomentumFrame = null; return; }
+            const cs = host.state.cellSize;
+            const delta = vel > 0 ? 1 : -1;
+            const newCS = Math.max(1, Math.min(128, cs + delta));
+            if(newCS === cs){ self._pinchMomentumFrame = null; return; }
+            host.setState({cellSize: newCS}, function(){ host.drawBoard(); });
+            self._pinchMomentumFrame = requestAnimationFrame(tick);
+        }
+        this._pinchMomentumFrame = requestAnimationFrame(tick);
     },
 
     // ── Mouse event sub-handlers ───────────────────────────────────────────────
@@ -917,6 +940,12 @@ var InputHandler = { // eslint-disable-line no-unused-vars
             const clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, newCS);
             host.setState({cellSize: newCS, viewX: clamped.viewX, viewY: clamped.viewY},
                 function(){ host.drawBoard(); });
+            // Track pinch velocity for momentum
+            const now = Date.now();
+            const dt = Math.max(1, now - (this._pinchLastTime || now));
+            this._pinchVelocity = (scale - (this._pinchLastScale || 1)) / dt;
+            this._pinchLastScale = scale;
+            this._pinchLastTime = now;
             return;
         }
         if(event.touches.length !== 1){ return; }
@@ -958,6 +987,13 @@ var InputHandler = { // eslint-disable-line no-unused-vars
                 this._panDragging = false;
                 this._panStart = null;
                 this._panVelocity = null;
+                // Apply pinch-zoom momentum if velocity is significant
+                if(Math.abs(this._pinchVelocity) > 0.0005){
+                    this._startPinchMomentum(this._pinchVelocity, host);
+                }
+                this._pinchVelocity = 0;
+                this._pinchLastScale = 1;
+                this._pinchLastTime = 0;
                 host.drawBoard();
                 return;
             }
@@ -1007,6 +1043,11 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         this._drawErasing = false;
         this._previewPos = null;
         this._pinchStart = null;
+        this._pinchLastScale = 1;
+        this._pinchLastTime = 0;
+        this._pinchVelocity = 0;
+        if(this._pinchMomentumFrame){ cancelAnimationFrame(this._pinchMomentumFrame); }
+        this._pinchMomentumFrame = null;
         this._wasPinching = false;
         this._wasRunningBeforeTouch = false;
         clearTimeout(this._longPressTimer);
