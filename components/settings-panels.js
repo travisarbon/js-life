@@ -27,10 +27,10 @@ const ZoomSlider = function ZoomSlider(props) { // eslint-disable-line no-unused
     const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
                     <div className="sliders">
-                        <label className="slider-title">{"Zoom: " + state.cellSize + "\u00a0px/cell"}</label>
+                        <label className="slider-title" htmlFor="slider-zoom">{"Zoom: " + state.cellSize + "\u00a0px/cell"}</label>
                         <div className="slider-row">
                             <input type="range" min="1" max="32" step="1"
-                                aria-label="Zoom level"
+                                id="slider-zoom" aria-label="Zoom level"
                                 value={state.cellSize}
                                 onChange={function(e){ LifeViewUtils.setZoom(stateRef, refs, dispatch, e); }} />
                         </div>
@@ -42,19 +42,19 @@ const DisplaySettings = function DisplaySettings(props) { // eslint-disable-line
     const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
                     <div className="display-settings">
-                        <label className="control-group-label">Display</label>
+                        <label className="control-group-label" htmlFor="select-theme">Display</label>
                         <div className="presets-col">
                             <select className="rule-preset-select"
-                                aria-label="Color theme"
+                                id="select-theme" aria-label="Color theme"
                                 value={state.theme}
                                 onChange={function(e){ LifeBoardUtils.setTheme(stateRef, refs, dispatch, e); }}>
                                 {Object.keys(THEMES).map(function(t){
                                     return <option key={t} value={t}>{t}</option>;
                                 })}
                             </select>
-                            <label className="control-group-label control-label-spaced">Mode</label>
+                            <label className="control-group-label control-label-spaced" htmlFor="select-darkmode">Mode</label>
                             <select className="rule-preset-select"
-                                aria-label="Dark mode preference"
+                                id="select-darkmode" aria-label="Dark mode preference"
                                 value={state.darkModePref}
                                 onChange={function(e){ LifeBoardUtils.setDarkModePref(stateRef, refs, dispatch, e); }}
                                 title="UI dark mode preference">
@@ -85,10 +85,10 @@ const SpeedSlider = function SpeedSlider(props) { // eslint-disable-line no-unus
                 const speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
                 return (
                     <div className="sliders">
-                        <label className="slider-title">{"Speed: " + speedLabel}</label>
+                        <label className="slider-title" htmlFor="slider-speed">{"Speed: " + speedLabel}</label>
                         <div className="slider-row">
                             <input type="range" min="1" max="10"
-                                aria-label="Simulation speed"
+                                id="slider-speed" aria-label="Simulation speed"
                                 value={state.speed}
                                 onChange={function(e){ LifeBoardUtils.setSpeed(stateRef, refs, dispatch, e); }} />
                         </div>
@@ -102,10 +102,10 @@ const BoardSliders = function BoardSliders(props) { // eslint-disable-line no-un
                 return (
                     <div className="sidebar-section">
                         {!isUnbounded && <div className="sliders">
-                            <label className="slider-title">{"Width: " + state.pendingCols}</label>
+                            <label className="slider-title" htmlFor="slider-width">{"Width: " + state.pendingCols}</label>
                             <div className="slider-row">
                                 <input type="range" min="20" max="2000" step="10"
-                                    aria-label="Grid width"
+                                    id="slider-width" aria-label="Grid width"
                                     value={state.pendingCols}
                                     onChange={function(e){ LifeBoardUtils.setWidth(stateRef, refs, dispatch, e); }}
                                     onMouseUp={function(){ LifeBoardUtils.applyWidth(stateRef, refs, dispatch); }}
@@ -114,10 +114,10 @@ const BoardSliders = function BoardSliders(props) { // eslint-disable-line no-un
                             </div>
                         </div>}
                         {!isUnbounded && <div className="sliders">
-                            <label className="slider-title">{"Height: " + state.pendingRows}</label>
+                            <label className="slider-title" htmlFor="slider-height">{"Height: " + state.pendingRows}</label>
                             <div className="slider-row">
                                 <input type="range" min="20" max="2000" step="10"
-                                    aria-label="Grid height"
+                                    id="slider-height" aria-label="Grid height"
                                     value={state.pendingRows}
                                     onChange={function(e){ LifeBoardUtils.setHeight(stateRef, refs, dispatch, e); }}
                                     onMouseUp={function(){ LifeBoardUtils.applyHeight(stateRef, refs, dispatch); }}
@@ -139,10 +139,10 @@ const BoardSliders = function BoardSliders(props) { // eslint-disable-line no-un
                             <label className="slider-title unbounded-label">No bounding box — infinite canvas</label>
                         </div>}
                         <div className="sliders">
-                            <label className="slider-title">Random Fill Density</label>
+                            <label className="slider-title" htmlFor="slider-density">Random Fill Density</label>
                             <div className="slider-row">
                                 <input type="range" min="2" max="7"
-                                    aria-label="Fill density"
+                                    id="slider-density" aria-label="Fill density"
                                     value={9 - state.sparseness}
                                     onChange={function(e){ LifeBoardUtils.setDensity(stateRef, refs, dispatch, e); }} />
                             </div>

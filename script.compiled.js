@@ -3616,7 +3616,8 @@ const ZoomSlider = function ZoomSlider(props) {
   return /*#__PURE__*/React.createElement("div", {
     className: "sliders"
   }, /*#__PURE__*/React.createElement("label", {
-    className: "slider-title"
+    className: "slider-title",
+    htmlFor: "slider-zoom"
   }, "Zoom: " + state.cellSize + "\u00a0px/cell"), /*#__PURE__*/React.createElement("div", {
     className: "slider-row"
   }, /*#__PURE__*/React.createElement("input", {
@@ -3624,6 +3625,7 @@ const ZoomSlider = function ZoomSlider(props) {
     min: "1",
     max: "32",
     step: "1",
+    id: "slider-zoom",
     "aria-label": "Zoom level",
     value: state.cellSize,
     onChange: function (e) {
@@ -3640,11 +3642,13 @@ const DisplaySettings = function DisplaySettings(props) {
   return /*#__PURE__*/React.createElement("div", {
     className: "display-settings"
   }, /*#__PURE__*/React.createElement("label", {
-    className: "control-group-label"
+    className: "control-group-label",
+    htmlFor: "select-theme"
   }, "Display"), /*#__PURE__*/React.createElement("div", {
     className: "presets-col"
   }, /*#__PURE__*/React.createElement("select", {
     className: "rule-preset-select",
+    id: "select-theme",
     "aria-label": "Color theme",
     value: state.theme,
     onChange: function (e) {
@@ -3656,9 +3660,11 @@ const DisplaySettings = function DisplaySettings(props) {
       value: t
     }, t);
   })), /*#__PURE__*/React.createElement("label", {
-    className: "control-group-label control-label-spaced"
+    className: "control-group-label control-label-spaced",
+    htmlFor: "select-darkmode"
   }, "Mode"), /*#__PURE__*/React.createElement("select", {
     className: "rule-preset-select",
+    id: "select-darkmode",
     "aria-label": "Dark mode preference",
     value: state.darkModePref,
     onChange: function (e) {
@@ -3714,13 +3720,15 @@ const SpeedSlider = function SpeedSlider(props) {
   return /*#__PURE__*/React.createElement("div", {
     className: "sliders"
   }, /*#__PURE__*/React.createElement("label", {
-    className: "slider-title"
+    className: "slider-title",
+    htmlFor: "slider-speed"
   }, "Speed: " + speedLabel), /*#__PURE__*/React.createElement("div", {
     className: "slider-row"
   }, /*#__PURE__*/React.createElement("input", {
     type: "range",
     min: "1",
     max: "10",
+    id: "slider-speed",
     "aria-label": "Simulation speed",
     value: state.speed,
     onChange: function (e) {
@@ -3740,7 +3748,8 @@ const BoardSliders = function BoardSliders(props) {
   }, !isUnbounded && /*#__PURE__*/React.createElement("div", {
     className: "sliders"
   }, /*#__PURE__*/React.createElement("label", {
-    className: "slider-title"
+    className: "slider-title",
+    htmlFor: "slider-width"
   }, "Width: " + state.pendingCols), /*#__PURE__*/React.createElement("div", {
     className: "slider-row"
   }, /*#__PURE__*/React.createElement("input", {
@@ -3748,6 +3757,7 @@ const BoardSliders = function BoardSliders(props) {
     min: "20",
     max: "2000",
     step: "10",
+    id: "slider-width",
     "aria-label": "Grid width",
     value: state.pendingCols,
     onChange: function (e) {
@@ -3765,7 +3775,8 @@ const BoardSliders = function BoardSliders(props) {
   }))), !isUnbounded && /*#__PURE__*/React.createElement("div", {
     className: "sliders"
   }, /*#__PURE__*/React.createElement("label", {
-    className: "slider-title"
+    className: "slider-title",
+    htmlFor: "slider-height"
   }, "Height: " + state.pendingRows), /*#__PURE__*/React.createElement("div", {
     className: "slider-row"
   }, /*#__PURE__*/React.createElement("input", {
@@ -3773,6 +3784,7 @@ const BoardSliders = function BoardSliders(props) {
     min: "20",
     max: "2000",
     step: "10",
+    id: "slider-height",
     "aria-label": "Grid height",
     value: state.pendingRows,
     onChange: function (e) {
@@ -3835,13 +3847,15 @@ const BoardSliders = function BoardSliders(props) {
   }, "No bounding box \u2014 infinite canvas")), /*#__PURE__*/React.createElement("div", {
     className: "sliders"
   }, /*#__PURE__*/React.createElement("label", {
-    className: "slider-title"
+    className: "slider-title",
+    htmlFor: "slider-density"
   }, "Random Fill Density"), /*#__PURE__*/React.createElement("div", {
     className: "slider-row"
   }, /*#__PURE__*/React.createElement("input", {
     type: "range",
     min: "2",
     max: "7",
+    id: "slider-density",
     "aria-label": "Fill density",
     value: 9 - state.sparseness,
     onChange: function (e) {
