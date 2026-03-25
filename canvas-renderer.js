@@ -6,7 +6,7 @@
  * Global exposed: CanvasRenderer
  */
 
-const CanvasRenderer = { // eslint-disable-line no-unused-vars
+var CanvasRenderer = { // eslint-disable-line no-unused-vars
 
     // ── Palette caching ──────────────────────────────────────────────────────
     _colorPalette: null,

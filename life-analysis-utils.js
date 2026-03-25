@@ -2,9 +2,9 @@
 /**
  * Pattern analysis, help, and GIF recording utils for LifeBoard component.
  */
-const _gcd = function(a, b){ return b === 0 ? a : _gcd(b, a % b); };
+var _gcd = function(a, b){ return b === 0 ? a : _gcd(b, a % b); };
 
-const LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
+var LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
 
     // ── Help modal ─────────────────────────────────────────────────────
 

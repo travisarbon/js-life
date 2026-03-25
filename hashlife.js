@@ -23,7 +23,7 @@ function HashLifeEngine(birth, survive) { // eslint-disable-line no-unused-vars
 // Instance methods are defined in the prototype below.
 // The backward-compatible HashLife singleton delegates to a default instance.
 
-const HashLife = (function () { // eslint-disable-line no-unused-vars
+var HashLife = (function () { // eslint-disable-line no-unused-vars
     'use strict';
 
     let _nextId = 0;

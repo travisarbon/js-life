@@ -3,7 +3,7 @@
  * View, layout, and panel management utilities for LifeBoard component.
  * Handles viewport pan/zoom, layout modes, rail/panel/sheet state, focus management.
  */
-const LifeViewUtils = { // eslint-disable-line no-unused-vars
+var LifeViewUtils = { // eslint-disable-line no-unused-vars
 
     // Compute canvas pixel dimensions that fit the device viewport.
     getCanvasSize : function(stateRef, refs, _dispatch){

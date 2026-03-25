@@ -9,7 +9,7 @@
  * Dependencies: none
  */
 
-const RegionUtil = { // eslint-disable-line no-unused-vars
+var RegionUtil = { // eslint-disable-line no-unused-vars
 
     /**
      * Build a rectangular region mask from origin (0,0) with given cols/rows.

@@ -5,7 +5,7 @@
  * Simulation control utilities for LifeBoard component.
  * Handles animation loop, stepping, undo/redo, and generation history.
  */
-const LifeSimUtils = { // eslint-disable-line no-unused-vars
+var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     // ── Animation loop ─────────────────────────────────────────────────
 
