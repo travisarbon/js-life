@@ -1,4 +1,4 @@
-/* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils,
+/* global LifeViewUtils, LifeAnalysisUtils,
           CanvasArea, StatsPanel, StatsChip, MobileSparkline,
           TransportControls, SpeedSlider, MobileTransportBar,
           BoardSliders, BoundaryControls, ViewControls, ZoomSlider, DisplaySettings,
@@ -22,7 +22,7 @@
  * Also exports the _MOBILE_TABS array via refs.MOBILE_TABS (set at load time).
  */
 
-var _MOBILE_TABS = [
+const _MOBILE_TABS = [
     {id: 'simulate', icon: 'fa-play',     label: 'Simulate'},
     {id: 'board',    icon: 'fa-th-large',  label: 'Board'},
     {id: 'view',     icon: 'fa-eye',      label: 'View'},
@@ -35,35 +35,35 @@ var _MOBILE_TABS = [
  * Generic drag handler for fixed-position elements (stats, minimap, panel menu).
  * Attaches mousedown/touchstart to make the element freely draggable.
  */
-var _startFixedDrag = function(e, refs, key) {
+const _startFixedDrag = function(e, refs, key) {
     if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' ||
        (e.target.closest && (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('label')))) { return; }
     e.preventDefault();
-    var el = e.currentTarget;
-    var rect = el.getBoundingClientRect();
-    var cx = e.touches ? e.touches[0].clientX : e.clientX;
-    var cy = e.touches ? e.touches[0].clientY : e.clientY;
-    var offX = cx - rect.left;
-    var offY = cy - rect.top;
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    const offX = cx - rect.left;
+    const offY = cy - rect.top;
     el.classList.add('dragging');
 
-    var move = function(ev) {
+    const move = function(ev) {
         ev.preventDefault();
-        var mx = ev.touches ? ev.touches[0].clientX : ev.clientX;
-        var my = ev.touches ? ev.touches[0].clientY : ev.clientY;
-        var newX = Math.max(0, Math.min(window.innerWidth - 60, mx - offX));
-        var newY = Math.max(0, Math.min(window.innerHeight - 40, my - offY));
+        const mx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const my = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        const newX = Math.max(0, Math.min(window.innerWidth - 60, mx - offX));
+        const newY = Math.max(0, Math.min(window.innerHeight - 40, my - offY));
         el.style.left = newX + 'px';
         el.style.top = newY + 'px';
         el.style.right = 'auto';
         el.style.bottom = 'auto';
         el.style.transform = 'none';
     };
-    var end = function() {
+    const end = function() {
         el.classList.remove('dragging');
         // Persist position
         if(refs && key) {
-            var finalRect = el.getBoundingClientRect();
+            const finalRect = el.getBoundingClientRect();
             if(!refs.fixedPositions) refs.fixedPositions = {};
             refs.fixedPositions[key] = {x: finalRect.left, y: finalRect.top};
         }
@@ -78,9 +78,9 @@ var _startFixedDrag = function(e, refs, key) {
     document.addEventListener('touchend', end);
 };
 
-var _applyFixedPos = function(el, refs, key) {
+const _applyFixedPos = function(el, refs, key) {
     if(el && refs && refs.fixedPositions && refs.fixedPositions[key]) {
-        var pos = refs.fixedPositions[key];
+        const pos = refs.fixedPositions[key];
         el.style.left = pos.x + 'px';
         el.style.top = pos.y + 'px';
         el.style.right = 'auto';
@@ -89,9 +89,9 @@ var _applyFixedPos = function(el, refs, key) {
     }
 };
 
-var TabContentBuilder = function TabContentBuilder(props) { // eslint-disable-line no-unused-vars
-    var tabId = props.tabId, options = props.options || {};
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const TabContentBuilder = function TabContentBuilder(props) { // eslint-disable-line no-unused-vars
+    const tabId = props.tabId, options = props.options || {};
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
     switch(tabId){
         case 'simulate':
             return (
@@ -133,12 +133,12 @@ var TabContentBuilder = function TabContentBuilder(props) { // eslint-disable-li
     }
 };
 
-var BottomSheet = function BottomSheet(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var sheetContent = props.sheetContent;
+const BottomSheet = function BottomSheet(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const sheetContent = props.sheetContent;
 
-    var tabs = _MOBILE_TABS;
-    var layoutSwitcher = <LayoutSwitcher state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
+    const tabs = _MOBILE_TABS;
+    const layoutSwitcher = <LayoutSwitcher state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
     return (
         <div className="bottom-sheet-container"
             onKeyDown={function(e){ LifeViewUtils._onSheetKeyDown(stateRef, refs, dispatch, e); }}>
@@ -152,7 +152,7 @@ var BottomSheet = function BottomSheet(props) { // eslint-disable-line no-unused
                 <div className="bottom-sheet-handle"></div>
                 <div className="bottom-sheet-tabs" role="tablist" aria-label="Control categories">
                     {tabs.map(function(tab){
-                        var isActive = state.bottomSheetTab === tab.id;
+                        const isActive = state.bottomSheetTab === tab.id;
                         return (
                             <button key={tab.id}
                                 className={"rail-tab" + (isActive ? " active" : "")}
@@ -181,13 +181,13 @@ var BottomSheet = function BottomSheet(props) { // eslint-disable-line no-unused
     );
 };
 
-var LayoutSwitcher = function LayoutSwitcher(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var dc = state.deviceClass;
-    var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+const LayoutSwitcher = function LayoutSwitcher(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const dc = state.deviceClass;
+    const isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
     if(isMobile){ return null; }
 
-    var mode = state.layoutMode;
+    const mode = state.layoutMode;
     return (
         <div className="layout-switcher">
             <button type="button" className={"btn btn-toggle" + (mode === 'cartographer' ? " active" : "")}
@@ -210,30 +210,30 @@ var LayoutSwitcher = function LayoutSwitcher(props) { // eslint-disable-line no-
     );
 };
 
-var CartographerLayout = function CartographerLayout(props) { // eslint-disable-line no-unused-vars
-    var cs = props.cs, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const CartographerLayout = function CartographerLayout(props) { // eslint-disable-line no-unused-vars
+    const cs = props.cs, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 
-    var dc = state.deviceClass;
-    var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+    const dc = state.deviceClass;
+    const isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
 
     if(isMobile){
         return <CartographerMobile cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
     }
 
-    var railW = state.railHidden ? 0 : (state.railCollapsed ? 40 : (dc === 'tablet' ? 200 : 240));
-    var railSide = state.railSide;
-    var railClass = 'rail' +
+    const railW = state.railHidden ? 0 : (state.railCollapsed ? 40 : (dc === 'tablet' ? 200 : 240));
+    const railSide = state.railSide;
+    const railClass = 'rail' +
         (state.railCollapsed ? ' rail-collapsed' : '') +
         (state.railHidden ? ' rail-hidden' : '') +
         (' rail-' + railSide);
 
-    var tabContent = (
+    const tabContent = (
         <div className="rail-tab-content">
             <TabContentBuilder tabId={state.railTab} options={{sectionTitle: true}} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
         </div>
     );
 
-    var tabs = _MOBILE_TABS;
+    const tabs = _MOBILE_TABS;
 
     return (
         <div className="layout-cartographer">
@@ -262,7 +262,7 @@ var CartographerLayout = function CartographerLayout(props) { // eslint-disable-
                 {!state.railCollapsed && state.showStats !== false && <div className="rail-stats">{<StatsPanel state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />}</div>}
                 <div className="rail-tabs" role="tablist" aria-label="Control categories">
                     {tabs.map(function(tab){
-                        var isActive = state.railTab === tab.id;
+                        const isActive = state.railTab === tab.id;
                         return (
                             <button key={tab.id}
                                 className={"rail-tab" + (isActive ? " active" : "")}
@@ -306,9 +306,9 @@ var CartographerLayout = function CartographerLayout(props) { // eslint-disable-
     );
 };
 
-var CartographerMobile = function CartographerMobile(props) { // eslint-disable-line no-unused-vars
-    var cs = props.cs, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var sheetContent = state.bottomSheetOpen
+const CartographerMobile = function CartographerMobile(props) { // eslint-disable-line no-unused-vars
+    const cs = props.cs, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const sheetContent = state.bottomSheetOpen
         ? <TabContentBuilder tabId={state.bottomSheetTab} options={{sectionTitle: true, sparkline: true}} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
         : null;
     return (
@@ -323,11 +323,11 @@ var CartographerMobile = function CartographerMobile(props) { // eslint-disable-
     );
 };
 
-var _ObservatoryHints = function _ObservatoryHints(props) { // eslint-disable-line no-unused-vars
-    var dismissed = React.useState(function(){ try { return localStorage.getItem('life-obs-hints-seen') === '1'; } catch(e){ return false; } });
-    var seen = dismissed[0], setSeen = dismissed[1];
+const _ObservatoryHints = function _ObservatoryHints(props) { // eslint-disable-line no-unused-vars
+    const dismissed = React.useState(function(){ try { return localStorage.getItem('life-obs-hints-seen') === '1'; } catch(e){ return false; } });
+    const seen = dismissed[0], setSeen = dismissed[1];
     if(seen){ return null; }
-    var dismiss = function(){ setSeen(true); try { localStorage.setItem('life-obs-hints-seen', '1'); } catch(e){/* */} };
+    const dismiss = function(){ setSeen(true); try { localStorage.setItem('life-obs-hints-seen', '1'); } catch(e){/* */} };
     return (
         <div className="obs-hints-overlay" role="dialog" aria-label="Quick tips">
             <div className="obs-hints-card">
@@ -344,18 +344,18 @@ var _ObservatoryHints = function _ObservatoryHints(props) { // eslint-disable-li
     );
 };
 
-var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-line no-unused-vars
-    var cs = props.cs, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-line no-unused-vars
+    const cs = props.cs, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 
-    var dc = state.deviceClass;
-    var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+    const dc = state.deviceClass;
+    const isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
 
     if(isMobile){
         return <ObservatoryMobile cs={cs} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
     }
 
-    var panels = state.panelStates;
-    var zenMode = state.zenMode;
+    const panels = state.panelStates;
+    const zenMode = state.zenMode;
 
     return (
         <div className={"layout-observatory" + (zenMode ? " zen-mode" : "")}>
@@ -418,7 +418,7 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
                                 ref={function(el){ if(el) el.focus(); }}
                                 onKeyDown={function(e){ if(e.key === 'Escape'){ e.stopPropagation(); dispatch({type:"MERGE", payload:{panelMenuOpen: false}}); } }}>
                                 {['transport','board','view','mode','rules','importExport'].map(function(id){
-                                    var label = ObservatoryPanelUtils.getPanelLabel(id);
+                                    const label = ObservatoryPanelUtils.getPanelLabel(id);
                                     return (
                                         <label key={id} className="panel-menu-item">
                                             <input type="checkbox" checked={panels[id].open}
@@ -459,9 +459,9 @@ var ObservatoryLayout = function ObservatoryLayout(props) { // eslint-disable-li
     );
 };
 
-var ObservatoryMobile = function ObservatoryMobile(props) { // eslint-disable-line no-unused-vars
-    var cs = props.cs, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var sheetContent = state.bottomSheetOpen
+const ObservatoryMobile = function ObservatoryMobile(props) { // eslint-disable-line no-unused-vars
+    const cs = props.cs, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const sheetContent = state.bottomSheetOpen
         ? <TabContentBuilder tabId={state.bottomSheetTab} options={{sectionTitle: true, sparkline: true}} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />
         : null;
     return (

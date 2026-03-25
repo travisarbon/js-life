@@ -23,27 +23,27 @@ function HashLifeEngine(birth, survive) { // eslint-disable-line no-unused-vars
 // Instance methods are defined in the prototype below.
 // The backward-compatible HashLife singleton delegates to a default instance.
 
-var HashLife = (function () { // eslint-disable-line no-unused-vars
+const HashLife = (function () { // eslint-disable-line no-unused-vars
     'use strict';
 
-    var _nextId = 0;
-    var _pool = new Map();
-    var _poolSize = 0;
-    var _emptyCache = [];
-    var _level2Table = null;
+    let _nextId = 0;
+    let _pool = new Map();
+    let _poolSize = 0;
+    let _emptyCache = [];
+    let _level2Table = null;
 
     // Level-0 singletons
-    var DEAD  = { nw: null, ne: null, sw: null, se: null, level: 0, population: 0, id: _nextId++, result: null, stepResult: null };
-    var ALIVE = { nw: null, ne: null, sw: null, se: null, level: 0, population: 1, id: _nextId++, result: null, stepResult: null };
+    const DEAD  = { nw: null, ne: null, sw: null, se: null, level: 0, population: 0, id: _nextId++, result: null, stepResult: null };
+    const ALIVE = { nw: null, ne: null, sw: null, se: null, level: 0, population: 1, id: _nextId++, result: null, stepResult: null };
 
     // --- Canonical node constructor ---
     function getNode(nw, ne, sw, se) {
         // Use nested Maps for cache lookup to avoid string allocation.
         // Fall back to string key for simplicity in the initial pool.
-        var key = nw.id + '|' + ne.id + '|' + sw.id + '|' + se.id;
-        var cached = _pool.get(key);
+        const key = nw.id + '|' + ne.id + '|' + sw.id + '|' + se.id;
+        const cached = _pool.get(key);
         if (cached) return cached;
-        var node = {
+        const node = {
             nw: nw, ne: ne, sw: sw, se: se,
             level: nw.level + 1,
             population: nw.population + ne.population + sw.population + se.population,
@@ -60,8 +60,8 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
     function emptyTree(level) {
         if (level === 0) return DEAD;
         if (_emptyCache[level]) return _emptyCache[level];
-        var sub = emptyTree(level - 1);
-        var node = getNode(sub, sub, sub, sub);
+        const sub = emptyTree(level - 1);
+        const node = getNode(sub, sub, sub, sub);
         _emptyCache[level] = node;
         return node;
     }
@@ -69,7 +69,7 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
     // --- Expand: wrap root in one level of empty border ---
     // Old pattern at [0, 2^k) shifts to [2^(k-1), 2^(k-1) + 2^k) in new tree.
     function expandTree(node) {
-        var empty = emptyTree(node.level - 1);
+        const empty = emptyTree(node.level - 1);
         return getNode(
             getNode(empty, empty, empty, node.nw),
             getNode(empty, empty, node.ne, empty),
@@ -89,7 +89,7 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
     // Check if outermost ring is all dead (safe to trim one level)
     function canTrim(node) {
         if (node.level <= 3) return false;
-        var nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
+        const nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
         return (nw.nw.population === 0 && nw.ne.population === 0 && nw.sw.population === 0 &&
                 ne.nw.population === 0 && ne.ne.population === 0 && ne.se.population === 0 &&
                 sw.nw.population === 0 && sw.sw.population === 0 && sw.se.population === 0 &&
@@ -106,25 +106,25 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
     // Bit layout (row-major): row 0 = bits 0-3, row 1 = bits 4-7, etc.
     // Result: 2x2 center after 1 gen, packed as 4 bits.
     function buildLevel2Table(birth, survive) {
-        var table = new Uint8Array(65536);
-        var birthSet = new Uint8Array(9);
-        var surviveSet = new Uint8Array(9);
-        for (var i = 0; i < birth.length; i++) birthSet[birth[i]] = 1;
-        for (var j = 0; j < survive.length; j++) surviveSet[survive[j]] = 1;
+        const table = new Uint8Array(65536);
+        const birthSet = new Uint8Array(9);
+        const surviveSet = new Uint8Array(9);
+        for (let i = 0; i < birth.length; i++) birthSet[birth[i]] = 1;
+        for (let j = 0; j < survive.length; j++) surviveSet[survive[j]] = 1;
 
-        for (var bits = 0; bits < 65536; bits++) {
-            var res = 0;
-            for (var ri = 0; ri < 2; ri++) {
-                for (var ci = 0; ci < 2; ci++) {
-                    var r = ri + 1, c = ci + 1;
-                    var count = 0;
-                    for (var dr = -1; dr <= 1; dr++) {
-                        for (var dc = -1; dc <= 1; dc++) {
+        for (let bits = 0; bits < 65536; bits++) {
+            let res = 0;
+            for (let ri = 0; ri < 2; ri++) {
+                for (let ci = 0; ci < 2; ci++) {
+                    const r = ri + 1, c = ci + 1;
+                    let count = 0;
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
                             if (dr === 0 && dc === 0) continue;
                             if ((bits >> ((r + dr) * 4 + (c + dc))) & 1) count++;
                         }
                     }
-                    var isAlive = (bits >> (r * 4 + c)) & 1;
+                    const isAlive = (bits >> (r * 4 + c)) & 1;
                     if (isAlive ? surviveSet[count] : birthSet[count]) {
                         res |= (1 << (ri * 2 + ci));
                     }
@@ -137,8 +137,8 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
 
     // Convert level-2 node (4x4) to 16-bit representation
     function level2ToBits(node) {
-        var nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
-        var bits = 0;
+        const nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
+        let bits = 0;
         // Row 0: nw.nw, nw.ne, ne.nw, ne.ne
         if (nw.nw.population) bits |= (1 << 0);
         if (nw.ne.population) bits |= (1 << 1);
@@ -203,7 +203,7 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
             return node.level === 1 ? centeredSubnode(node) : node;
         }
 
-        var singleStep = (stepLimit <= 1);
+        const singleStep = (stepLimit <= 1);
 
         // Check caches
         if (singleStep && node.stepResult !== null) return node.stepResult;
@@ -211,40 +211,40 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
 
         // Level-2 base case: lookup table
         if (node.level === 2) {
-            var bits = level2ToBits(node);
-            var res = bitsToLevel1(_level2Table[bits]);
+            const bits = level2ToBits(node);
+            const res = bitsToLevel1(_level2Table[bits]);
             node.stepResult = res;
             node.result = res; // at level 2, full speed = 1 gen
             return res;
         }
 
-        var nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
+        const nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
 
         // Build 9 overlapping level-(k-1) sub-quads from the 16 grandchildren.
-        var q0 = nw;
-        var q1 = centeredHorizontal(nw, ne);
-        var q2 = ne;
-        var q3 = centeredVertical(nw, sw);
-        var q4 = centeredSubnode(node);
-        var q5 = centeredVertical(ne, se);
-        var q6 = sw;
-        var q7 = centeredHorizontal(sw, se);
-        var q8 = se;
+        const q0 = nw;
+        const q1 = centeredHorizontal(nw, ne);
+        const q2 = ne;
+        const q3 = centeredVertical(nw, sw);
+        const q4 = centeredSubnode(node);
+        const q5 = centeredVertical(ne, se);
+        const q6 = sw;
+        const q7 = centeredHorizontal(sw, se);
+        const q8 = se;
 
-        var result;
+        let result;
 
         if (singleStep) {
             // Step=1: extract spatial centers (level k-2) from each sub-quad,
             // form 4 level-(k-1) blocks, advance each by 1 gen.
-            var c0 = centeredSubnode(q0);
-            var c1 = centeredSubnode(q1);
-            var c2 = centeredSubnode(q2);
-            var c3 = centeredSubnode(q3);
-            var c4 = centeredSubnode(q4);
-            var c5 = centeredSubnode(q5);
-            var c6 = centeredSubnode(q6);
-            var c7 = centeredSubnode(q7);
-            var c8 = centeredSubnode(q8);
+            const c0 = centeredSubnode(q0);
+            const c1 = centeredSubnode(q1);
+            const c2 = centeredSubnode(q2);
+            const c3 = centeredSubnode(q3);
+            const c4 = centeredSubnode(q4);
+            const c5 = centeredSubnode(q5);
+            const c6 = centeredSubnode(q6);
+            const c7 = centeredSubnode(q7);
+            const c8 = centeredSubnode(q8);
 
             result = getNode(
                 advance(getNode(c0, c1, c3, c4), 1),
@@ -256,15 +256,15 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
         } else {
             // Full speed: two-phase decomposition.
             // Phase 1: advance all 9 sub-quads → 9 level-(k-2) results, 2^(k-3) gens each.
-            var r0 = advance(q0, stepLimit);
-            var r1 = advance(q1, stepLimit);
-            var r2 = advance(q2, stepLimit);
-            var r3 = advance(q3, stepLimit);
-            var r4 = advance(q4, stepLimit);
-            var r5 = advance(q5, stepLimit);
-            var r6 = advance(q6, stepLimit);
-            var r7 = advance(q7, stepLimit);
-            var r8 = advance(q8, stepLimit);
+            const r0 = advance(q0, stepLimit);
+            const r1 = advance(q1, stepLimit);
+            const r2 = advance(q2, stepLimit);
+            const r3 = advance(q3, stepLimit);
+            const r4 = advance(q4, stepLimit);
+            const r5 = advance(q5, stepLimit);
+            const r6 = advance(q6, stepLimit);
+            const r7 = advance(q7, stepLimit);
+            const r8 = advance(q8, stepLimit);
 
             // Phase 2: compose 4 groups of 4 results into level-(k-1) nodes,
             // advance each → 4 level-(k-2) results. Total: 2^(k-2) gens.
@@ -285,8 +285,8 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
         if (node.level === 0) {
             return alive ? ALIVE : DEAD;
         }
-        var half = 1 << (node.level - 1);
-        var nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
+        const half = 1 << (node.level - 1);
+        let nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
         if (x < half) {
             if (y < half) {
                 nw = setCell(nw, x, y, alive);
@@ -308,7 +308,7 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
         if (node.level === 0) {
             return node.population;
         }
-        var half = 1 << (node.level - 1);
+        const half = 1 << (node.level - 1);
         if (x < half) {
             if (y < half) return getCell(node.nw, x, y);
             return getCell(node.sw, x, y - half);
@@ -328,10 +328,10 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
         }
 
         // Find bounding box
-        var minR = cells[0][0], maxR = cells[0][0];
-        var minC = cells[0][1], maxC = cells[0][1];
-        for (var i = 1; i < cells.length; i++) {
-            var r = cells[i][0], c = cells[i][1];
+        let minR = cells[0][0], maxR = cells[0][0];
+        let minC = cells[0][1], maxC = cells[0][1];
+        for (let i = 1; i < cells.length; i++) {
+            const r = cells[i][0], c = cells[i][1];
             if (r < minR) minR = r;
             if (r > maxR) maxR = r;
             if (c < minC) minC = c;
@@ -339,23 +339,23 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
         }
 
         // Choose level large enough to hold all cells + border
-        var rangeR = maxR - minR + 1;
-        var rangeC = maxC - minC + 1;
-        var range = Math.max(rangeR, rangeC);
-        var level = 3;
+        const rangeR = maxR - minR + 1;
+        const rangeC = maxC - minC + 1;
+        const range = Math.max(rangeR, rangeC);
+        let level = 3;
         while ((1 << level) < range + 2) level++;
 
-        var size = 1 << level;
+        const size = 1 << level;
         // Center the pattern: compute offsets so pattern sits in middle of tree
-        var offR = Math.floor((size - rangeR) / 2) - minR;
-        var offC = Math.floor((size - rangeC) / 2) - minC;
+        const offR = Math.floor((size - rangeR) / 2) - minR;
+        const offC = Math.floor((size - rangeC) / 2) - minC;
 
         // Convert to internal coords and build tree recursively (bulk-build).
-        var internalized = new Array(cells.length);
-        for (var j = 0; j < cells.length; j++) {
+        const internalized = new Array(cells.length);
+        for (let j = 0; j < cells.length; j++) {
             internalized[j] = [cells[j][1] + offC, cells[j][0] + offR]; // [ix, iy]
         }
-        var root = _buildRecursive(internalized, 0, internalized.length, level, 0, 0);
+        const root = _buildRecursive(internalized, 0, internalized.length, level, 0, 0);
         return { root: root, offR: offR, offC: offC };
     }
 
@@ -364,15 +364,15 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
     function _buildRecursive(cells, lo, hi, level, ox, oy) {
         if (lo >= hi) return emptyTree(level);
         if (level === 0) return ALIVE; // exactly one cell at this position
-        var half = 1 << (level - 1);
-        var midX = ox + half;
-        var midY = oy + half;
+        const half = 1 << (level - 1);
+        const midX = ox + half;
+        const midY = oy + half;
         // Partition cells into 4 quadrants in-place using a 4-way partition.
         // NW: ix < midX && iy < midY  NE: ix >= midX && iy < midY
         // SW: ix < midX && iy >= midY SE: ix >= midX && iy >= midY
         // First split by Y (top vs bottom), then by X within each half.
-        var i, tmp;
-        var topEnd = lo;
+        let i, tmp;
+        let topEnd = lo;
         for (i = lo; i < hi; i++) {
             if (cells[i][1] < midY) {
                 // Top row — swap to front
@@ -381,7 +381,7 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
             }
         }
         // topEnd is the boundary: [lo, topEnd) = top (NW+NE), [topEnd, hi) = bottom (SW+SE)
-        var nwEnd = lo;
+        let nwEnd = lo;
         for (i = lo; i < topEnd; i++) {
             if (cells[i][0] < midX) {
                 tmp = cells[nwEnd]; cells[nwEnd] = cells[i]; cells[i] = tmp;
@@ -389,7 +389,7 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
             }
         }
         // [lo, nwEnd) = NW, [nwEnd, topEnd) = NE
-        var swEnd = topEnd;
+        let swEnd = topEnd;
         for (i = topEnd; i < hi; i++) {
             if (cells[i][0] < midX) {
                 tmp = cells[swEnd]; cells[swEnd] = cells[i]; cells[i] = tmp;
@@ -410,7 +410,7 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
     // offR, offC: the same offsets from fromCellList (internal = external + off).
     // So external = internal - off.
     function toCellList(node, offR, offC) {
-        var result = [];
+        const result = [];
         _collectCells(node, 0, 0, offR, offC, result);
         return result;
     }
@@ -421,7 +421,7 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
             result.push([iy - offR, ix - offC]);
             return;
         }
-        var half = 1 << (node.level - 1);
+        const half = 1 << (node.level - 1);
         _collectCells(node.nw, ix,        iy,        offR, offC, result);
         _collectCells(node.ne, ix + half,  iy,        offR, offC, result);
         _collectCells(node.sw, ix,         iy + half, offR, offC, result);
@@ -438,11 +438,11 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
 
     function _reinterNode(node) {
         // Iterative traversal to avoid stack overflow on deep trees.
-        var stack = [node];
+        const stack = [node];
         while (stack.length > 0) {
-            var n = stack.pop();
+            const n = stack.pop();
             if (n.level === 0) continue;
-            var key = n.nw.id + '|' + n.ne.id + '|' + n.sw.id + '|' + n.se.id;
+            const key = n.nw.id + '|' + n.ne.id + '|' + n.sw.id + '|' + n.se.id;
             if (_pool.has(key)) continue;
             n.result = null;
             n.stepResult = null;
@@ -472,7 +472,7 @@ var HashLife = (function () { // eslint-disable-line no-unused-vars
     // (closest to center), ensuring cells have room to grow.
     function needsExpand(node) {
         if (node.level < 3) return true;
-        var nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
+        const nw = node.nw, ne = node.ne, sw = node.sw, se = node.se;
         return (nw.population !== nw.se.population ||
                 ne.population !== ne.sw.population ||
                 sw.population !== sw.ne.population ||

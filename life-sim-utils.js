@@ -1,18 +1,18 @@
 /* global SimRunner, InputHandler, parseKey, SPEED_DELAYS, MAX_POP_HISTORY,
           TRAIL_MAX_VALUE, MAX_TRAIL_MAP, TRAIL_PRUNE_THRESHOLD, MAX_UNDO_STACK,
-          LifeViewUtils, LifeBoardUtils */
+          LifeViewUtils */
 /**
  * Simulation control utilities for LifeBoard component.
  * Handles animation loop, stepping, undo/redo, and generation history.
  */
-var LifeSimUtils = { // eslint-disable-line no-unused-vars
+const LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     // ── Animation loop ─────────────────────────────────────────────────
 
     _startLoop : function(stateRef, refs, dispatch){
         if(refs.loopRunning){ return; }
         refs.loopRunning = true;
-        var tickId = ++refs.tickId;
+        const tickId = ++refs.tickId;
         refs.rafId = requestAnimationFrame(function(){ LifeSimUtils.findNewStates(stateRef, refs, dispatch, tickId); });
     },
 
@@ -21,14 +21,14 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         if(tickId !== refs.tickId){ refs.loopRunning = false; return; }
         if(stateRef.current.running !== true){ refs.loopRunning = false; return; }
 
-        var liveCells = stateRef.current.liveCells;
-        var cols     = stateRef.current.cols;
-        var rows     = stateRef.current.rows;
-        var birth    = stateRef.current.birthRule;
-        var survive  = stateRef.current.surviveRule;
-        var boundary = stateRef.current.boundary;
+        const liveCells = stateRef.current.liveCells;
+        const cols     = stateRef.current.cols;
+        const rows     = stateRef.current.rows;
+        const birth    = stateRef.current.birthRule;
+        const survive  = stateRef.current.surviveRule;
+        const boundary = stateRef.current.boundary;
 
-        var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary,
+        const newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary,
             stateRef.current.regionMask, stateRef.current.regionComponents);
         LifeSimUtils._applyNewStates(stateRef, refs, dispatch, newLiveCells, tickId);
     },
@@ -42,11 +42,11 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         // cells being painted so they aren't erased by the incoming
         // generation (which was computed from the pre-stroke snapshot).
         if(InputHandler._dragging && stateRef.current.livePaintMode){
-            var painted = InputHandler._paintedCells;
-            var paintKeys = Object.keys(painted);
+            const painted = InputHandler._paintedCells;
+            const paintKeys = Object.keys(painted);
             if(paintKeys.length > 0){
-                for(var pi = 0; pi < paintKeys.length; pi++){
-                    var k = paintKeys[pi];
+                for(let pi = 0; pi < paintKeys.length; pi++){
+                    const k = paintKeys[pi];
                     if(painted[k] === 1){ newLiveCells.set(k, 1); }
                     else { newLiveCells.delete(k); }
                 }
@@ -56,19 +56,19 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
         // Cell trail tracking: record recently-dead cells.
         if(refs.trailEnabled){
-            var trailMap = refs.trailMap;
-            var prevCells = stateRef.current.liveCells;
+            const trailMap = refs.trailMap;
+            const prevCells = stateRef.current.liveCells;
             // Cells that were alive but are now dead → add to trail.
             prevCells.forEach(function(age, key){
                 if(!newLiveCells.has(key)){ trailMap.set(key, TRAIL_MAX_VALUE); }
             });
             // Single pass: decay values, collect expired/overwritten entries.
-            var toDelete = [];
+            const toDelete = [];
             trailMap.forEach(function(val, key){
                 if(newLiveCells.has(key) || val <= 1){ toDelete.push(key); }
                 else { trailMap.set(key, val - 1); }
             });
-            for(var ti = 0; ti < toDelete.length; ti++){ trailMap.delete(toDelete[ti]); }
+            for(let ti = 0; ti < toDelete.length; ti++){ trailMap.delete(toDelete[ti]); }
             // Prune if over limit.
             if(trailMap.size > MAX_TRAIL_MAP){
                 trailMap.forEach(function(val, key){
@@ -82,43 +82,43 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         LifeSimUtils._pushGenHistory(stateRef, refs, dispatch);
 
         // Stability detection via O(n) order-independent hash (FNV-1a inspired).
-        var _h1 = 0, _h2 = 0x811c9dc5, _h3 = 0, _hCount = 0;
+        let _h1 = 0, _h2 = 0x811c9dc5, _h3 = 0, _hCount = 0;
         newLiveCells.forEach(function(age, key){
-            var _krc = parseKey(key), kr = _krc[0], kc = _krc[1];
-            var paired = kr >= kc ? kr * kr + kr + kc : kc * kc + kr;
+            const _krc = parseKey(key), kr = _krc[0], kc = _krc[1];
+            const paired = kr >= kc ? kr * kr + kr + kc : kc * kc + kr;
             _h1 = (_h1 + paired) | 0;
             _h2 = Math.imul(_h2 ^ paired, 16777619) | 0;
             _h3 = (_h3 + Math.imul(paired, 2654435761)) | 0;
             _hCount++;
         });
-        var boardHash = _hCount + '|' + _h1 + '|' + _h2 + '|' + _h3;
-        var isStable  = (boardHash === refs.prevBoardHash);
+        const boardHash = _hCount + '|' + _h1 + '|' + _h2 + '|' + _h3;
+        const isStable  = (boardHash === refs.prevBoardHash);
         refs.prevBoardHash = boardHash;
         refs.stableCount = isStable ? refs.stableCount + 1 : 0;
-        var hitStable = refs.stableCount >= 2 && stateRef.current.autoPauseOnStable;
+        const hitStable = refs.stableCount >= 2 && stateRef.current.autoPauseOnStable;
 
-        var newPop = newLiveCells.size;
-        var newHistory = stateRef.current.popHistory;
+        const newPop = newLiveCells.size;
+        let newHistory = stateRef.current.popHistory;
         newHistory.push(newPop);
         if(newHistory.length > MAX_POP_HISTORY * 2){ newHistory = newHistory.slice(-MAX_POP_HISTORY); }
-        var newSessionPeak = Math.max(stateRef.current.sessionPeakPop || 0, newPop);
+        const newSessionPeak = Math.max(stateRef.current.sessionPeakPop || 0, newPop);
         // Store last measured GPS so it persists briefly after pausing.
         refs.gpsDisplayUntil = refs.gpsDisplayUntil || 0;
 
         // Gen/sec tracking.
-        var now = Date.now();
+        const now = Date.now();
         refs.genTimestamps.push(now);
         if(refs.genTimestamps.length > 20){ refs.genTimestamps.shift(); }
         if(refs.genTimestamps.length >= 2){
-            var ts = refs.genTimestamps;
-            var dt = ts[ts.length - 1] - ts[0];
+            const ts = refs.genTimestamps;
+            const dt = ts[ts.length - 1] - ts[0];
             if(dt > 0){ refs.measuredGps = (ts.length - 1) / dt * 1000; }
         }
         // Keep GPS visible for 3 s after pausing.
         refs.gpsDisplayUntil = now + 3000;
 
         refs.minimapDirty = true;
-        var myTickId = tickId;
+        const myTickId = tickId;
         dispatch({type:'MERGE', payload:{
             liveCells :      newLiveCells,
             generations :    stateRef.current.generations + 1,
@@ -130,7 +130,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         refs.drawPending = true;
         if(!refs.mounted){ return; }
         if(hitStable){ refs.loopRunning = false; LifeViewUtils._announce(stateRef, refs, dispatch, 'Stable pattern detected \u2014 simulation paused'); return; }
-        var delay = SPEED_DELAYS[Math.max(0, Math.min(9, (stateRef.current.speed || 1) - 1))] || 0;
+        const delay = SPEED_DELAYS[Math.max(0, Math.min(9, (stateRef.current.speed || 1) - 1))] || 0;
         refs.loopTimeout = setTimeout(function(){
             refs.rafId = requestAnimationFrame(function(){ LifeSimUtils.findNewStates(stateRef, refs, dispatch, myTickId); });
         }, delay);
@@ -138,19 +138,19 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     stepGame : function(stateRef, refs, dispatch){
         LifeSimUtils.pushUndo(stateRef, refs, dispatch);
-        var liveCells = stateRef.current.liveCells;
-        var cols      = stateRef.current.cols;
-        var rows      = stateRef.current.rows;
-        var birth     = stateRef.current.birthRule;
-        var survive   = stateRef.current.surviveRule;
-        var boundary  = stateRef.current.boundary;
-        var newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary,
+        const liveCells = stateRef.current.liveCells;
+        const cols      = stateRef.current.cols;
+        const rows      = stateRef.current.rows;
+        const birth     = stateRef.current.birthRule;
+        const survive   = stateRef.current.surviveRule;
+        const boundary  = stateRef.current.boundary;
+        const newLiveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary,
             stateRef.current.regionMask, stateRef.current.regionComponents);
-        var newPop = newLiveCells.size;
-        var newHistory = stateRef.current.popHistory;
+        const newPop = newLiveCells.size;
+        let newHistory = stateRef.current.popHistory;
         newHistory.push(newPop);
         if(newHistory.length > MAX_POP_HISTORY * 2){ newHistory = newHistory.slice(-MAX_POP_HISTORY); }
-        var newSessionPeakStep = Math.max(stateRef.current.sessionPeakPop || 0, newPop);
+        const newSessionPeakStep = Math.max(stateRef.current.sessionPeakPop || 0, newPop);
         refs.minimapDirty = true;
         dispatch({type:'MERGE', payload:{
             liveCells :      newLiveCells,
@@ -165,8 +165,8 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     // ── Undo ──────────────────────────────────────────────────────────
 
-    pushUndo : function(stateRef, refs, dispatch){
-        var s = stateRef.current;
+    pushUndo : function(stateRef, refs, _dispatch){
+        const s = stateRef.current;
         refs.undoStack.push({
             liveCells :        new Map(s.liveCells),
             generations :      s.generations,
@@ -180,7 +180,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         refs.redoStack = [];
     },
 
-    popUndo : function(stateRef, refs, dispatch){
+    popUndo : function(_stateRef, refs, _dispatch){
         if(refs.undoStack && refs.undoStack.length > 0){
             return refs.undoStack.pop();
         }
@@ -198,7 +198,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
     undo : function(stateRef, refs, dispatch){
         if(refs.undoStack.length === 0){ LifeViewUtils._announce(stateRef, refs, dispatch, 'Nothing to undo'); return; }
         // Save current state for redo before restoring.
-        var s = stateRef.current;
+        const s = stateRef.current;
         refs.redoStack.push({
             liveCells:        new Map(s.liveCells),
             generations:      s.generations,
@@ -209,14 +209,14 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
             rows:             s.rows
         });
         if(refs.redoStack.length > MAX_UNDO_STACK){ refs.redoStack.shift(); }
-        var entry = refs.undoStack.pop();
+        const entry = refs.undoStack.pop();
         refs.tickId++;
         refs.loopRunning = false;
         refs.prevBoardHash = null;
         refs.stableCount = 0;
         refs.minimapDirty = true;
         SimRunner.invalidate();
-        var stateUpdate = {
+        const stateUpdate = {
             liveCells :   entry.liveCells,
             generations : entry.generations,
             running :     false,
@@ -238,7 +238,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
     redo : function(stateRef, refs, dispatch){
         if(refs.redoStack.length === 0){ LifeViewUtils._announce(stateRef, refs, dispatch, 'Nothing to redo'); return; }
         // Save current state for undo before applying redo.
-        var s = stateRef.current;
+        const s = stateRef.current;
         refs.undoStack.push({
             liveCells:        new Map(s.liveCells),
             generations:      s.generations,
@@ -248,14 +248,14 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
             cols:             s.cols,
             rows:             s.rows
         });
-        var entry = refs.redoStack.pop();
+        const entry = refs.redoStack.pop();
         refs.tickId++;
         refs.loopRunning = false;
         refs.prevBoardHash = null;
         refs.stableCount = 0;
         refs.minimapDirty = true;
         SimRunner.invalidate();
-        var stateUpdate = {
+        const stateUpdate = {
             liveCells :   entry.liveCells,
             generations : entry.generations,
             running :     false,
@@ -279,21 +279,21 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         if(!n || n < 1){ n = 1; }
         LifeSimUtils.pushUndo(stateRef, refs, dispatch);
         LifeSimUtils._pushGenHistory(stateRef, refs, dispatch);
-        var liveCells = stateRef.current.liveCells;
-        var cols      = stateRef.current.cols;
-        var rows      = stateRef.current.rows;
-        var birth     = stateRef.current.birthRule;
-        var survive   = stateRef.current.surviveRule;
-        var boundary  = stateRef.current.boundary;
-        var gen = stateRef.current.generations;
-        var popHistory = stateRef.current.popHistory.slice();
-        var peak = stateRef.current.sessionPeakPop || 0;
+        let liveCells = stateRef.current.liveCells;
+        const cols      = stateRef.current.cols;
+        const rows      = stateRef.current.rows;
+        const birth     = stateRef.current.birthRule;
+        const survive   = stateRef.current.surviveRule;
+        const boundary  = stateRef.current.boundary;
+        let gen = stateRef.current.generations;
+        let popHistory = stateRef.current.popHistory.slice();
+        let peak = stateRef.current.sessionPeakPop || 0;
 
         // Fast path: unbounded — SimRunner handles HashLife batch internally
         if(boundary === 'unbounded'){
-            var batch = SimRunner.stepN(liveCells, cols, rows, birth, survive, boundary, n,
+            const batch = SimRunner.stepN(liveCells, cols, rows, birth, survive, boundary, n,
                 stateRef.current.regionMask, stateRef.current.regionComponents);
-            for(var p = 0; p < batch.pops.length; p++){
+            for(let p = 0; p < batch.pops.length; p++){
                 popHistory.push(batch.pops[p]);
                 if(popHistory.length > MAX_POP_HISTORY * 2){ popHistory = popHistory.slice(-MAX_POP_HISTORY); }
             }
@@ -312,17 +312,17 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         }
 
         // Toroidal / finite: chunked for UI responsiveness
-        var done = 0;
-        var CHUNK = 50;
-        var doChunk = function(){
-            var limit = Math.min(done + CHUNK, n);
-            var _regionMask = stateRef.current.regionMask;
-            var _regionComponents = stateRef.current.regionComponents;
-            for(var i = done; i < limit; i++){
+        let done = 0;
+        const CHUNK = 50;
+        const doChunk = function(){
+            const limit = Math.min(done + CHUNK, n);
+            const _regionMask = stateRef.current.regionMask;
+            const _regionComponents = stateRef.current.regionComponents;
+            for(let i = done; i < limit; i++){
                 liveCells = SimRunner.step(liveCells, cols, rows, birth, survive, boundary,
                     _regionMask, _regionComponents);
                 gen++;
-                var pop = liveCells.size;
+                const pop = liveCells.size;
                 popHistory.push(pop);
                 if(popHistory.length > MAX_POP_HISTORY * 2){ popHistory = popHistory.slice(-MAX_POP_HISTORY); }
                 if(pop > peak){ peak = pop; }
@@ -348,10 +348,10 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     // ── Generation history (step backward) ─────────────────────────────
 
-    _pushGenHistory : function(stateRef, refs, dispatch){
+    _pushGenHistory : function(stateRef, refs, _dispatch){
         refs.genHistoryCounter++;
-        var pop = stateRef.current.liveCells.size;
-        var interval = pop > 50000 ? 10 : pop > 10000 ? 5 : refs.genHistoryInterval;
+        const pop = stateRef.current.liveCells.size;
+        const interval = pop > 50000 ? 10 : pop > 10000 ? 5 : refs.genHistoryInterval;
         if(refs.genHistoryCounter % interval !== 0){ return; }
         refs.genHistory.push({
             liveCells: new Map(stateRef.current.liveCells),
@@ -364,7 +364,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
     stepBack : function(stateRef, refs, dispatch){
         if(refs.genHistory.length === 0){ return; }
-        var snapshot = refs.genHistory.pop();
+        const snapshot = refs.genHistory.pop();
         refs.minimapDirty = true;
         SimRunner.invalidate();
         dispatch({type:'MERGE', payload:{
@@ -376,7 +376,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         refs.drawPending = true;
     },
 
-    clearGenHistory : function(stateRef, refs, dispatch){
+    clearGenHistory : function(_stateRef, refs, _dispatch){
         refs.genHistory = [];
         refs.genHistoryCounter = 0;
     },

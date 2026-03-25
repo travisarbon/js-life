@@ -4,40 +4,40 @@
  * File I/O and export utilities for LifeBoard component.
  * Handles file drop, clipboard paste, PNG/RLE export, URL sharing, and RLE import.
  */
-var LifeIOUtils = { // eslint-disable-line no-unused-vars
+const LifeIOUtils = { // eslint-disable-line no-unused-vars
 
     // ── Drag-and-drop file import ──────────────────────────────────────
 
     _handleFileDrop : function(stateRef, refs, dispatch, e){
         e.preventDefault();
         e.stopPropagation();
-        var container = refs.canvas.parentNode;
+        const container = refs.canvas.parentNode;
         container.classList.remove('drop-active');
-        var files = e.dataTransfer && e.dataTransfer.files;
+        const files = e.dataTransfer && e.dataTransfer.files;
         if(!files || files.length === 0){ return; }
-        var file = files[0];
+        const file = files[0];
         if(file.size > 500000){
             dispatch({type:'MERGE', payload:{rleError: 'File too large (max 500 KB).'}});
             return;
         }
         // Basic file type validation.
-        var fileName = file.name || '';
-        var ext = fileName.split('.').pop().toLowerCase();
-        var allowedExts = ['rle', 'cells', 'lif', 'life', 'txt', 'mc', 'l'];
+        const fileName = file.name || '';
+        const ext = fileName.split('.').pop().toLowerCase();
+        const allowedExts = ['rle', 'cells', 'lif', 'life', 'txt', 'mc', 'l'];
         if(file.type && file.type !== 'text/plain' && file.type !== 'application/octet-stream' && allowedExts.indexOf(ext) === -1){
             dispatch({type:'MERGE', payload:{rleError: 'Unsupported file type. Use .rle, .cells, or .lif files.'}});
             return;
         }
-        var reader = new FileReader();
+        const reader = new FileReader();
         reader.onerror = function(){
             dispatch({type:'MERGE', payload:{rleError: 'Unable to read file.'}});
         };
         reader.onload = function(ev){
-            var text = ev.target.result;
+            let text = ev.target.result;
             // Strip non-printable control characters (keep tabs, newlines, CR).
             text = text.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '');
             try {
-                var result = detectAndParsePattern(text);
+                const result = detectAndParsePattern(text);
                 if(result.cells.length === 0){
                     dispatch({type:'MERGE', payload:{rleError: 'No live cells found in file.'}});
                     return;
@@ -64,18 +64,18 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
 
     _handleClipboardPaste : function(stateRef, refs, dispatch, e){
         // Skip if focus is in a text input or textarea.
-        var tag = (e.target.tagName || '').toLowerCase();
+        const tag = (e.target.tagName || '').toLowerCase();
         if(tag === 'input' || tag === 'textarea' || tag === 'select'){ return; }
         // Skip if internal clipboard paste already handled this.
         if(stateRef.current.clipboard && stateRef.current.clipboard.length > 0){ return; }
-        var text = (e.clipboardData || window.clipboardData || {}).getData('text');
+        const text = (e.clipboardData || window.clipboardData || {}).getData('text');
         if(!text || text.length < 2){ return; }
         // Quick check: does it look like a pattern format?
-        var looksLikePattern = /^#|x\s*=/im.test(text) || (/[bo$]/.test(text) && /!/.test(text)) || /^[.*O]+$/m.test(text);
+        const looksLikePattern = /^#|x\s*=/im.test(text) || (/[bo$]/.test(text) && /!/.test(text)) || /^[.*O]+$/m.test(text);
         if(!looksLikePattern){ return; }
         e.preventDefault();
         try {
-            var result = detectAndParsePattern(text);
+            const result = detectAndParsePattern(text);
             if(result.cells.length === 0){ return; }
             PATTERNS['Custom'] = result.cells;
             InputHandler._previewPos = null;
@@ -95,7 +95,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
     // ── Export ─────────────────────────────────────────────────────────
 
     exportPNG : function(stateRef, refs, dispatch){
-        var link = document.createElement('a');
+        const link = document.createElement('a');
         link.download = 'game-of-life-gen-' + stateRef.current.generations + '.png';
         link.href = refs.canvas.toDataURL('image/png');
         link.click();
@@ -105,7 +105,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
     // ── RLE export ────────────────────────────────────────────────────
 
     copyRLE : function(stateRef, refs, dispatch){
-        var rle = SimEngine.boardToRLE(stateRef.current.liveCells, stateRef.current.ruleString);
+        const rle = SimEngine.boardToRLE(stateRef.current.liveCells, stateRef.current.ruleString);
         if(!rle){ return; }
         dispatch({type:'MERGE', payload:{showRle: true, rleInput: rle, rleError: ''}}); refs.drawPending = true;
         if(navigator.clipboard && navigator.clipboard.writeText){
@@ -122,10 +122,10 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
     // ── URL sharing ──────────────────────────────────────────────────
 
     shareURL : function(stateRef, refs, dispatch){
-        var rle = SimEngine.boardToRLE(stateRef.current.liveCells, stateRef.current.ruleString);
+        const rle = SimEngine.boardToRLE(stateRef.current.liveCells, stateRef.current.ruleString);
         if(!rle){ return; }
         // Build URL hash with compact parameters.
-        var params = 'rle=' + encodeURIComponent(rle) +
+        let params = 'rle=' + encodeURIComponent(rle) +
             '&cols=' + (stateRef.current.boundary === 'unbounded' ? 200 : stateRef.current.cols) +
             '&rows=' + (stateRef.current.boundary === 'unbounded' ? 200 : stateRef.current.rows);
         if(stateRef.current.ruleString !== 'B3/S23'){
@@ -138,7 +138,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
             LifeIOUtils.copyRLE(stateRef, refs, dispatch);
             return;
         }
-        var url = window.location.origin + window.location.pathname + '#' + params;
+        const url = window.location.origin + window.location.pathname + '#' + params;
         if(navigator.clipboard && navigator.clipboard.writeText){
             navigator.clipboard.writeText(url).catch(function(){});
         }
@@ -148,23 +148,23 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
     },
 
     _loadFromURLHash : function(stateRef, refs, dispatch){
-        var hash = window.location.hash;
+        const hash = window.location.hash;
         if(!hash || hash.length < 5){ return; }
         try {
-            var params = {};
+            const params = {};
             hash.substring(1).split('&').forEach(function(pair){
-                var eq = pair.indexOf('=');
+                const eq = pair.indexOf('=');
                 if(eq > 0){ params[decodeURIComponent(pair.substring(0, eq))] = decodeURIComponent(pair.substring(eq + 1)); }
             });
             if(!params.rle){ return; }
-            var cols = Math.min(10000, Math.max(1, parseInt(params.cols, 10) || 100));
-            var rows = Math.min(10000, Math.max(1, parseInt(params.rows, 10) || 100));
-            var rule = params.rule || 'B3/S23';
-            var parsed = LifeBoardUtils.parseRuleString(stateRef, refs, dispatch, rule);
-            var result = SimEngine.parseRLE(params.rle);
+            const cols = Math.min(10000, Math.max(1, parseInt(params.cols, 10) || 100));
+            const rows = Math.min(10000, Math.max(1, parseInt(params.rows, 10) || 100));
+            const rule = params.rule || 'B3/S23';
+            const parsed = LifeBoardUtils.parseRuleString(stateRef, refs, dispatch, rule);
+            const result = SimEngine.parseRLE(params.rle);
             if(result.cells.length === 0){ return; }
             PATTERNS['Custom'] = result.cells;
-            var updates = {
+            const updates = {
                 cols: cols, rows: rows, pendingCols: cols, pendingRows: rows,
                 selectedPattern: 'Custom', patternRotation: 0, drawMode: 'preset',
                 ruleString: rule
@@ -194,7 +194,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
     },
 
     loadRle : function(stateRef, refs, dispatch){
-        var text = stateRef.current.rleInput.trim();
+        let text = stateRef.current.rleInput.trim();
         if(!text){ dispatch({type:'MERGE', payload:{rleError : 'Paste a pattern first.'}}); return; }
         if(text.length > 500000){
             dispatch({type:'MERGE', payload:{rleError : 'Pattern too large (max 500 KB). Use a smaller pattern or reduce it first.'}}); return;
@@ -203,7 +203,7 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
         text = text.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '');
         try {
             // Auto-detect format.
-            var result = detectAndParsePattern(text);
+            const result = detectAndParsePattern(text);
             if(result.cells.length === 0){
                 dispatch({type:'MERGE', payload:{rleError : 'No live cells found in pattern.'}}); return;
             }

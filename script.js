@@ -1,12 +1,7 @@
-/* global HashLife, SimRunner, CanvasRenderer, InputHandler, RegionUtil,
-          PATTERN_GROUPS, PATTERNS, PATTERN_META, SimEngine, parseKey,
-          RULE_PRESETS, SPEED_DELAYS, THEMES,
+/* global HashLife, SimRunner, InputHandler, RegionUtil, SimEngine, THEMES,
           LifeSimUtils, LifeIOUtils, LifeInputUtils, LifeViewUtils,
-          LifeBoardUtils, LifeAnalysisUtils,
-          CanvasArea, MobileMinimapArea, ModeControls, ToolsContent, MobileContextPanel,
-          drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails,
-          CartographerLayout, ObservatoryLayout,
-          FloatPanel, FloatPanelDirect, PanelGroup, CompactBody, ObservatoryPanelUtils */
+          LifeBoardUtils, drawBoard, drawMinimapMobile, drawRotationPreview,
+          CartographerLayout, ObservatoryLayout, ObservatoryPanelUtils */
 /**
  * Conway's Game of Life — React UI component (React 19 functional).
  * Constants, SimEngine, and helpers are loaded from constants.js.
@@ -22,22 +17,22 @@ function lifeReducer(state, action) {
 }
 
 function initState(){
-                var cols = 100;
-                var rows = 100;
+                const cols = 100;
+                const rows = 100;
                 // On mobile, default to 8px/cell; on desktop, 10px/cell.
                 // Center the view on the grid for all screen sizes.
-                var isMobileInit = window.innerWidth <= 900 ||
+                const isMobileInit = window.innerWidth <= 900 ||
                     (window.matchMedia && window.matchMedia('(orientation: landscape) and (max-height: 550px)').matches);
-                var cellSize = isMobileInit ? 8 : 10;
-                var initViewX = Math.round((cols / 2) - (window.innerWidth / (2 * cellSize)));
-                var initViewY = Math.round((rows / 2) - (window.innerHeight / (2 * cellSize)));
+                const cellSize = isMobileInit ? 8 : 10;
+                const initViewX = Math.round((cols / 2) - (window.innerWidth / (2 * cellSize)));
+                const initViewY = Math.round((rows / 2) - (window.innerHeight / (2 * cellSize)));
                 // Load persisted layout preferences from localStorage.
                 // Schema v1: {layoutMode, railCollapsed, railTab, railSide, panelStates}
-                var savedLayout = {};
+                const savedLayout = {};
                 try {
-                    var raw = localStorage.getItem('life-layout-prefs');
+                    const raw = localStorage.getItem('life-layout-prefs');
                     if(raw){
-                        var parsed = JSON.parse(raw);
+                        const parsed = JSON.parse(raw);
                         // Validate schema version — if missing or mismatched, discard.
                         if(parsed && typeof parsed === 'object'){
                             // Validate layoutMode is a known value.
@@ -57,14 +52,14 @@ function initState(){
                             }
                             // Validate panelStates: must be an object with known panel keys.
                             if(parsed.panelStates && typeof parsed.panelStates === 'object'){
-                                var validPanels = ['transport','view','mode','board','rules','stats','importExport'];
-                                var ps = {};
-                                var allValid = true;
-                                var maxZ = 0;
-                                for(var vi = 0; vi < validPanels.length; vi++){
-                                    var pid = validPanels[vi];
+                                const validPanels = ['transport','view','mode','board','rules','stats','importExport'];
+                                const ps = {};
+                                let allValid = true;
+                                let maxZ = 0;
+                                for(let vi = 0; vi < validPanels.length; vi++){
+                                    const pid = validPanels[vi];
                                     if(parsed.panelStates[pid] && typeof parsed.panelStates[pid] === 'object'){
-                                        var pz = typeof parsed.panelStates[pid].z === 'number' ? parsed.panelStates[pid].z : 0;
+                                        const pz = typeof parsed.panelStates[pid].z === 'number' ? parsed.panelStates[pid].z : 0;
                                         if(pz > maxZ){ maxZ = pz; }
                                         ps[pid] = {
                                             open: typeof parsed.panelStates[pid].open === 'boolean' ? parsed.panelStates[pid].open : true,
@@ -97,8 +92,8 @@ function initState(){
                     try { localStorage.removeItem('life-layout-prefs'); } catch(e2){}
                 }
 
-                var initRegionMask = RegionUtil.buildRect(cols, rows);
-                var initRegionComponents = [{
+                const initRegionMask = RegionUtil.buildRect(cols, rows);
+                const initRegionComponents = [{
                     cells: initRegionMask,
                     minR: 0, maxR: rows - 1, minC: 0, maxC: cols - 1
                 }];
@@ -197,11 +192,11 @@ function initState(){
 document.addEventListener('DOMContentLoaded', function(){
 
 function LifeBoard() {
-    var _r = React.useReducer(lifeReducer, undefined, initState);
-    var state = _r[0], dispatch = _r[1];
-    var stateRef = React.useRef(state);
+    const _r = React.useReducer(lifeReducer, undefined, initState);
+    const state = _r[0], dispatch = _r[1];
+    const stateRef = React.useRef(state);
     stateRef.current = state;
-    var refs = React.useRef(null);
+    let refs = React.useRef(null);
     if(!refs.current) {
         refs.current = {
             mounted: false, canvas: null, minimapCanvas: document.createElement('canvas'), previewCanvas: null,
@@ -226,7 +221,7 @@ function LifeBoard() {
         };
     }
     refs = refs.current;
-    var fr = React.useReducer(function(x){return x+1;},0);
+    const fr = React.useReducer(function(x){return x+1;},0);
     refs.forceRender = fr[1];
     // ── Mount effect (replaces componentDidMount + componentWillUnmount) ──
     React.useEffect(function(){
@@ -236,24 +231,24 @@ function LifeBoard() {
                 InputHandler.reset();
                 SimRunner.invalidate();
                 // Set initial theme accent color (16.2)
-                var accentMap = {Teal: '#70959A', Midnight: '#4A9ECD', Ember: '#C47138'};
-                var accentRgbMap = {Teal: '112, 149, 154', Midnight: '74, 158, 205', Ember: '196, 113, 56'};
-                var initTheme = stateRef.current.theme || 'Midnight';
+                const accentMap = {Teal: '#70959A', Midnight: '#4A9ECD', Ember: '#C47138'};
+                const accentRgbMap = {Teal: '112, 149, 154', Midnight: '74, 158, 205', Ember: '196, 113, 56'};
+                const initTheme = stateRef.current.theme || 'Midnight';
                 document.documentElement.style.setProperty('--accent', accentMap[initTheme] || '#70959A');
                 document.documentElement.style.setProperty('--accent-rgb', accentRgbMap[initTheme] || '112, 149, 154');
                 document.documentElement.setAttribute('data-theme', initTheme.toLowerCase());
                 // Slider filled-track gradient (WebKit doesn't support ::-webkit-slider-progress)
-                var updateSliderFill = function(slider){
-                    var min = parseFloat(slider.min) || 0;
-                    var max = parseFloat(slider.max) || 100;
-                    var val = parseFloat(slider.value);
-                    var pct = ((val - min) / (max - min)) * 100;
-                    var accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#70959A';
+                const updateSliderFill = function(slider){
+                    const min = parseFloat(slider.min) || 0;
+                    const max = parseFloat(slider.max) || 100;
+                    const val = parseFloat(slider.value);
+                    const pct = ((val - min) / (max - min)) * 100;
+                    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#70959A';
                     slider.style.background = 'linear-gradient(to right, ' + accentColor + ' 0%, ' + accentColor + ' ' + pct + '%, transparent ' + pct + '%, transparent 100%)';
                 };
-                var initSliderFills = function(){
-                    var sliders = document.querySelectorAll('input[type="range"]');
-                    for(var si = 0; si < sliders.length; si++){
+                const initSliderFills = function(){
+                    const sliders = document.querySelectorAll('input[type="range"]');
+                    for(let si = 0; si < sliders.length; si++){
                         updateSliderFill(sliders[si]);
                         sliders[si].addEventListener('input', function(){ updateSliderFill(this); });
                     }
@@ -261,8 +256,8 @@ function LifeBoard() {
                 // Defer to allow initial render
                 setTimeout(initSliderFills, 100);
                 // Re-init on dynamic content changes via MutationObserver
-                var sliderObserver = new MutationObserver(function(mutations){
-                    for(var mi = 0; mi < mutations.length; mi++){
+                const sliderObserver = new MutationObserver(function(mutations){
+                    for(let mi = 0; mi < mutations.length; mi++){
                         if(mutations[mi].addedNodes.length > 0){ setTimeout(initSliderFills, 50); break; }
                     }
                 });
@@ -272,7 +267,7 @@ function LifeBoard() {
                 refs.canvas.addEventListener('wheel', function(e){ LifeInputUtils.onWheel(stateRef, refs, dispatch, e); }, {passive: false});
                 // Prevent browser zoom (Ctrl+scroll) anywhere on the page.
                 document.addEventListener('wheel', function(e){ if(e.ctrlKey || e.metaKey){ e.preventDefault(); } }, {passive: false});
-                var handleKey = function(e){ LifeInputUtils.handleKeyDown(stateRef, refs, dispatch, e); };
+                const handleKey = function(e){ LifeInputUtils.handleKeyDown(stateRef, refs, dispatch, e); };
                 document.addEventListener('keydown', handleKey);
                 // System clipboard paste: import RLE/pattern text from clipboard.
                 refs.onPaste = function(e){ LifeIOUtils._handleClipboardPaste(stateRef, refs, dispatch, e); };
@@ -282,14 +277,14 @@ function LifeBoard() {
                     if(!stateRef.current.activePopOut){ return; }
                     if(e.type === 'keydown' && e.key === 'Escape'){ LifeViewUtils._closePopOut(stateRef, refs, dispatch); return; }
                     if(e.type === 'mousedown'){
-                        var popOut = e.target.closest && e.target.closest('.pop-out-trigger');
+                        const popOut = e.target.closest && e.target.closest('.pop-out-trigger');
                         if(!popOut){ LifeViewUtils._closePopOut(stateRef, refs, dispatch); }
                     }
                 };
                 document.addEventListener('mousedown', refs.onPopOutDismiss);
                 document.addEventListener('keydown', refs.onPopOutDismiss);
                 // Drag-and-drop file import (desktop).
-                var canvasContainer = refs.canvas.parentNode;
+                const canvasContainer = refs.canvas.parentNode;
                 refs.onDragOver = function(e){ e.preventDefault(); e.stopPropagation(); canvasContainer.classList.add('drop-active'); };
                 refs.onDragLeave = function(e){ e.preventDefault(); e.stopPropagation(); canvasContainer.classList.remove('drop-active'); };
                 refs.onDrop = function(e){ LifeIOUtils._handleFileDrop(stateRef, refs, dispatch, e); };
@@ -315,10 +310,10 @@ function LifeBoard() {
                 }
                 // Respond to viewport resize (throttled) to update canvas dimensions.
                 refs.onResize = function(){
-                    var newW = window.innerWidth;
-                    var newH = window.innerHeight;
-                    var widthChanged = Math.abs(newW - refs.lastResizeW) > 10;
-                    var heightBigChange = Math.abs(newH - refs.lastResizeH) > 100;
+                    const newW = window.innerWidth;
+                    const newH = window.innerHeight;
+                    const widthChanged = Math.abs(newW - refs.lastResizeW) > 10;
+                    const heightBigChange = Math.abs(newH - refs.lastResizeH) > 100;
                     if(!widthChanged && !heightBigChange){ return; }
                     refs.lastResizeW = newW;
                     refs.lastResizeH = newH;
@@ -337,7 +332,7 @@ function LifeBoard() {
                 refs.mqTablet = window.matchMedia('(min-width: 901px) and (max-width: 1200px)');
                 refs.mqLandscape = window.matchMedia('(orientation: landscape)');
                 refs.updateDeviceClass = function(){
-                    var dc;
+                    let dc;
                     if(refs.mqPhone.matches){
                         dc = refs.mqLandscape.matches ? 'phone-landscape' : 'phone-portrait';
                     } else if(refs.mqPhoneLandscape.matches){
@@ -381,7 +376,7 @@ function LifeBoard() {
                             if(refs.drawPending){
                                 refs.drawPending = false;
                                 drawBoard(stateRef, refs);
-                                var s = stateRef.current;
+                                const s = stateRef.current;
                                 if(refs.mobileMinimap){
                                     drawMinimapMobile(stateRef, refs, s.liveCells, s.cols, s.rows, s.viewX, s.viewY, s.cellSize, THEMES[s.theme] || THEMES['Teal']);
                                 }
@@ -406,7 +401,7 @@ function LifeBoard() {
                     document.removeEventListener('keydown', refs.onPopOutDismiss);
                     window.removeEventListener('resize', refs.onResize);
                     window.removeEventListener('orientationchange', refs.onOrientationChange);
-                    var container = refs.canvas.parentNode;
+                    const container = refs.canvas.parentNode;
                     if(container){
                         container.removeEventListener('dragover', refs.onDragOver);
                         container.removeEventListener('dragleave', refs.onDragLeave);
@@ -418,8 +413,8 @@ function LifeBoard() {
                         catch(ex){ try { refs.darkModeQuery.removeListener(refs.onDarkModeChange); } catch(ex2){} }
                     }
                     if(refs.updateDeviceClass){
-                        var mqList = [refs.mqPhone, refs.mqPhoneLandscape, refs.mqTablet, refs.mqLandscape];
-                        for(var mi = 0; mi < mqList.length; mi++){
+                        const mqList = [refs.mqPhone, refs.mqPhoneLandscape, refs.mqTablet, refs.mqLandscape];
+                        for(let mi = 0; mi < mqList.length; mi++){
                             if(mqList[mi]){
                                 try { mqList[mi].removeEventListener('change', refs.updateDeviceClass); }
                                 catch(ex){ try { mqList[mi].removeListener(refs.updateDeviceClass); } catch(ex2){} }
@@ -441,12 +436,12 @@ function LifeBoard() {
     }, []);
 
     // ── Update effect (replaces componentDidUpdate) ──
-    var prevSelectedPattern = React.useRef(state.selectedPattern);
-    var prevPatternRotation = React.useRef(state.patternRotation);
-    var prevBottomSheetOpen = React.useRef(state.bottomSheetOpen);
-    var prevBottomSheetTab = React.useRef(state.bottomSheetTab);
-    var prevLayoutMode = React.useRef(state.layoutMode);
-    var prevPanelGroups = React.useRef(state.panelGroups);
+    const prevSelectedPattern = React.useRef(state.selectedPattern);
+    const prevPatternRotation = React.useRef(state.patternRotation);
+    const prevBottomSheetOpen = React.useRef(state.bottomSheetOpen);
+    const prevBottomSheetTab = React.useRef(state.bottomSheetTab);
+    const prevLayoutMode = React.useRef(state.layoutMode);
+    const prevPanelGroups = React.useRef(state.panelGroups);
     React.useEffect(function(){
         if(prevSelectedPattern.current !== state.selectedPattern ||
            prevPatternRotation.current !== state.patternRotation ||
@@ -470,12 +465,12 @@ function LifeBoard() {
 
     // ── Main render ───────────────────────────────────────────────────
 
-    var cs = LifeViewUtils.getCanvasSize(stateRef, refs, dispatch);
-    var layout = state.layoutMode;
-    var dc = state.deviceClass;
-    var isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
+    const cs = LifeViewUtils.getCanvasSize(stateRef, refs, dispatch);
+    let layout = state.layoutMode;
+    const dc = state.deviceClass;
+    const isMobile = dc === 'phone-portrait' || dc === 'phone-landscape';
     if(isMobile){ layout = 'observatory'; }
-    var layoutContent;
+    let layoutContent;
 
     switch(layout){
         case 'observatory':
@@ -499,6 +494,6 @@ function LifeBoard() {
     );
 } // end LifeBoard
 
-var root = ReactDOM.createRoot(document.getElementById("content"));
+const root = ReactDOM.createRoot(document.getElementById("content"));
 root.render(<div><LifeBoard/></div>);
 });

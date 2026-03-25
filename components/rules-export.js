@@ -1,12 +1,12 @@
-/* global React, LifeBoardUtils, LifeIOUtils, LifeAnalysisUtils, RULE_PRESETS */
+/* global LifeBoardUtils, LifeIOUtils, LifeAnalysisUtils, RULE_PRESETS */
 /**
  * Rules and export panel components extracted from LifeBoard.
  * Each component receives props: state, stateRef, refs, dispatch
  */
 
-var RulesSection = function RulesSection(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-                var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
+const RulesSection = function RulesSection(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+                const ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
                 return (
                     <div className="sidebar-section">
                         <div className="sidebar-section-title">Rules</div>
@@ -31,8 +31,8 @@ var RulesSection = function RulesSection(props) { // eslint-disable-line no-unus
                 );
 };
 
-var RLESection = function RLESection(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const RLESection = function RLESection(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
                     <div className="sidebar-section">
                         <div className="rle-section">
@@ -59,8 +59,8 @@ var RLESection = function RLESection(props) { // eslint-disable-line no-unused-v
                 );
 };
 
-var ExportContent = function ExportContent(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const ExportContent = function ExportContent(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
                     <div className="export-content">
                         <div className="btn-section">

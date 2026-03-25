@@ -9,16 +9,16 @@
  * Dependencies: none
  */
 
-var RegionUtil = { // eslint-disable-line no-unused-vars
+const RegionUtil = { // eslint-disable-line no-unused-vars
 
     /**
      * Build a rectangular region mask from origin (0,0) with given cols/rows.
      * Returns a new Set<string>.
      */
     buildRect: function(cols, rows){
-        var mask = new Set();
-        for(var r = 0; r < rows; r++){
-            for(var c = 0; c < cols; c++){
+        const mask = new Set();
+        for(let r = 0; r < rows; r++){
+            for(let c = 0; c < cols; c++){
                 mask.add(r + ',' + c);
             }
         }
@@ -31,11 +31,11 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
      */
     getBounds: function(mask){
         if(!mask || mask.size === 0){ return null; }
-        var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+        let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
         mask.forEach(function(key){
-            var i = key.indexOf(',');
-            var r = parseInt(key.substring(0, i), 10) || 0;
-            var c = parseInt(key.substring(i + 1), 10) || 0;
+            const i = key.indexOf(',');
+            const r = parseInt(key.substring(0, i), 10) || 0;
+            const c = parseInt(key.substring(i + 1), 10) || 0;
             if(r < minR) minR = r;
             if(r > maxR) maxR = r;
             if(c < minC) minC = c;
@@ -50,31 +50,31 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
      */
     findComponents: function(mask){
         if(!mask || mask.size === 0){ return []; }
-        var visited = new Set();
-        var components = [];
+        const visited = new Set();
+        const components = [];
         mask.forEach(function(key){
             if(visited.has(key)){ return; }
             // BFS from this cell.
-            var comp = new Set();
-            var queue = [key];
-            var minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+            const comp = new Set();
+            const queue = [key];
+            let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
             while(queue.length > 0){
-                var cur = queue.pop();
+                const cur = queue.pop();
                 if(visited.has(cur)){ continue; }
                 visited.add(cur);
                 comp.add(cur);
-                var idx = cur.indexOf(',');
-                var cr = parseInt(cur.substring(0, idx), 10) || 0;
-                var cc = parseInt(cur.substring(idx + 1), 10) || 0;
+                const idx = cur.indexOf(',');
+                const cr = parseInt(cur.substring(0, idx), 10) || 0;
+                const cc = parseInt(cur.substring(idx + 1), 10) || 0;
                 if(cr < minR) minR = cr;
                 if(cr > maxR) maxR = cr;
                 if(cc < minC) minC = cc;
                 if(cc > maxC) maxC = cc;
                 // 4-connected neighbors.
-                var n1 = (cr - 1) + ',' + cc;
-                var n2 = (cr + 1) + ',' + cc;
-                var n3 = cr + ',' + (cc - 1);
-                var n4 = cr + ',' + (cc + 1);
+                const n1 = (cr - 1) + ',' + cc;
+                const n2 = (cr + 1) + ',' + cc;
+                const n3 = cr + ',' + (cc - 1);
+                const n4 = cr + ',' + (cc + 1);
                 if(mask.has(n1) && !visited.has(n1)) queue.push(n1);
                 if(mask.has(n2) && !visited.has(n2)) queue.push(n2);
                 if(mask.has(n3) && !visited.has(n3)) queue.push(n3);
@@ -103,16 +103,16 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
      * Usage: bitmap[(r - minR) * width + (c - minC)] === 1 means in-region.
      */
     toBitmap: function(mask){
-        var bounds = this.getBounds(mask);
+        const bounds = this.getBounds(mask);
         if(!bounds){ return null; }
-        var width = bounds.maxC - bounds.minC + 1;
-        var height = bounds.maxR - bounds.minR + 1;
-        var bitmap = new Uint8Array(width * height);
-        var minR = bounds.minR, minC = bounds.minC;
+        const width = bounds.maxC - bounds.minC + 1;
+        const height = bounds.maxR - bounds.minR + 1;
+        const bitmap = new Uint8Array(width * height);
+        const minR = bounds.minR, minC = bounds.minC;
         mask.forEach(function(key){
-            var i = key.indexOf(',');
-            var r = parseInt(key.substring(0, i), 10) || 0;
-            var c = parseInt(key.substring(i + 1), 10) || 0;
+            const i = key.indexOf(',');
+            const r = parseInt(key.substring(0, i), 10) || 0;
+            const c = parseInt(key.substring(i + 1), 10) || 0;
             bitmap[(r - minR) * width + (c - minC)] = 1;
         });
         return {bitmap: bitmap, minR: minR, minC: minC, width: width, height: height};
@@ -123,8 +123,8 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
      */
     bitmapHas: function(bm, r, c){
         if(!bm) return false;
-        var lr = r - bm.minR;
-        var lc = c - bm.minC;
+        const lr = r - bm.minR;
+        const lc = c - bm.minC;
         if(lr < 0 || lc < 0 || lr >= bm.height || lc >= bm.width) return false;
         return bm.bitmap[lr * bm.width + lc] === 1;
     },
@@ -134,29 +134,29 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
      * startInRegion: whether the starting cell is in the region (determines fill vs erase).
      */
     floodFillRegion: function(startR, startC, mask, maxCells){
-        var max = maxCells || 100000;
-        var startKey = startR + ',' + startC;
-        var startInRegion = mask.has(startKey);
-        var queue = [startKey];
-        var visited = new Set();
-        var result = [];
+        const max = maxCells || 100000;
+        const startKey = startR + ',' + startC;
+        const startInRegion = mask.has(startKey);
+        const queue = [startKey];
+        const visited = new Set();
+        const result = [];
         while(queue.length > 0 && result.length < max){
-            var cur = queue.pop();
+            const cur = queue.pop();
             if(visited.has(cur)) continue;
             visited.add(cur);
-            var inRegion = mask.has(cur);
+            const inRegion = mask.has(cur);
             if(inRegion !== startInRegion) continue;
             result.push(cur);
-            var idx = cur.indexOf(',');
-            var cr = parseInt(cur.substring(0, idx), 10) || 0;
-            var cc = parseInt(cur.substring(idx + 1), 10) || 0;
-            var neighbors = [
+            const idx = cur.indexOf(',');
+            const cr = parseInt(cur.substring(0, idx), 10) || 0;
+            const cc = parseInt(cur.substring(idx + 1), 10) || 0;
+            const neighbors = [
                 (cr - 1) + ',' + cc,
                 (cr + 1) + ',' + cc,
                 cr + ',' + (cc - 1),
                 cr + ',' + (cc + 1)
             ];
-            for(var ni = 0; ni < 4; ni++){
+            for(let ni = 0; ni < 4; ni++){
                 if(!visited.has(neighbors[ni])) queue.push(neighbors[ni]);
             }
         }
@@ -168,11 +168,11 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
      * Returns array of "r,c" key strings.
      */
     rectKeys: function(r1, c1, r2, c2){
-        var keys = [];
-        var rMin = Math.min(r1, r2), rMax = Math.max(r1, r2);
-        var cMin = Math.min(c1, c2), cMax = Math.max(c1, c2);
-        for(var r = rMin; r <= rMax; r++){
-            for(var c = cMin; c <= cMax; c++){
+        const keys = [];
+        const rMin = Math.min(r1, r2), rMax = Math.max(r1, r2);
+        const cMin = Math.min(c1, c2), cMax = Math.max(c1, c2);
+        for(let r = rMin; r <= rMax; r++){
+            for(let c = cMin; c <= cMax; c++){
                 keys.push(r + ',' + c);
             }
         }
@@ -184,15 +184,15 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
      * Returns array of "r,c" key strings.
      */
     ellipseKeys: function(r1, c1, r2, c2){
-        var keys = [];
-        var rr1 = Math.min(r1, r2), rr2 = Math.max(r1, r2);
-        var cc1 = Math.min(c1, c2), cc2 = Math.max(c1, c2);
-        var cx = (cc1 + cc2) / 2, cy = (rr1 + rr2) / 2;
-        var rx = (cc2 - cc1) / 2, ry = (rr2 - rr1) / 2;
-        for(var r = rr1; r <= rr2; r++){
-            for(var c = cc1; c <= cc2; c++){
-                var dx = rx > 0.001 ? (c - cx) / (rx + 0.5) : 0;
-                var dy = ry > 0.001 ? (r - cy) / (ry + 0.5) : 0;
+        const keys = [];
+        const rr1 = Math.min(r1, r2), rr2 = Math.max(r1, r2);
+        const cc1 = Math.min(c1, c2), cc2 = Math.max(c1, c2);
+        const cx = (cc1 + cc2) / 2, cy = (rr1 + rr2) / 2;
+        const rx = (cc2 - cc1) / 2, ry = (rr2 - rr1) / 2;
+        for(let r = rr1; r <= rr2; r++){
+            for(let c = cc1; c <= cc2; c++){
+                const dx = rx > 0.001 ? (c - cx) / (rx + 0.5) : 0;
+                const dy = ry > 0.001 ? (r - cy) / (ry + 0.5) : 0;
                 if(dx * dx + dy * dy <= 1) keys.push(r + ',' + c);
             }
         }
@@ -204,14 +204,14 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
      * Returns array of "r,c" key strings.
      */
     lineKeys: function(r0, c0, r1, c1){
-        var keys = [];
-        var dr = Math.abs(r1 - r0), dc = Math.abs(c1 - c0);
-        var sr = r0 < r1 ? 1 : -1, sc = c0 < c1 ? 1 : -1;
-        var err = dr - dc;
+        const keys = [];
+        const dr = Math.abs(r1 - r0), dc = Math.abs(c1 - c0);
+        const sr = r0 < r1 ? 1 : -1, sc = c0 < c1 ? 1 : -1;
+        let err = dr - dc;
         while(true){
             keys.push(r0 + ',' + c0);
             if(r0 === r1 && c0 === c1) break;
-            var e2 = 2 * err;
+            const e2 = 2 * err;
             if(e2 > -dc){ err -= dc; r0 += sr; }
             if(e2 < dr){ err += dr; c0 += sc; }
         }

@@ -1,13 +1,13 @@
-/* global React, LifeViewUtils, LifeBoardUtils, THEMES, SPEED_DELAYS */
+/* global LifeViewUtils, LifeBoardUtils, THEMES, SPEED_DELAYS */
 /**
  * Settings panel components extracted from LifeBoard.
  * Each component receives props: state, stateRef, refs, dispatch
  * ViewControls also receives onToggleTrails.
  */
 
-var ViewControls = function ViewControls(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var onToggleTrails = props.onToggleTrails;
+const ViewControls = function ViewControls(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const onToggleTrails = props.onToggleTrails;
                 return (
                     <div>
                     <label className="control-group-label">Visibility</label>
@@ -23,8 +23,8 @@ var ViewControls = function ViewControls(props) { // eslint-disable-line no-unus
                 );
 };
 
-var ZoomSlider = function ZoomSlider(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const ZoomSlider = function ZoomSlider(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
                     <div className="sliders">
                         <label className="slider-title">{"Zoom: " + state.cellSize + "\u00a0px/cell"}</label>
@@ -38,8 +38,8 @@ var ZoomSlider = function ZoomSlider(props) { // eslint-disable-line no-unused-v
                 );
 };
 
-var DisplaySettings = function DisplaySettings(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const DisplaySettings = function DisplaySettings(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
                     <div className="display-settings">
                         <label className="control-group-label">Display</label>
@@ -67,8 +67,8 @@ var DisplaySettings = function DisplaySettings(props) { // eslint-disable-line n
                 );
 };
 
-var BoundaryControls = function BoundaryControls(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const BoundaryControls = function BoundaryControls(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
                 return (
                     <div className="boundary-controls">
                         <label className="control-group-label">Boundary</label>
@@ -79,10 +79,10 @@ var BoundaryControls = function BoundaryControls(props) { // eslint-disable-line
                 );
 };
 
-var SpeedSlider = function SpeedSlider(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-                var delay = SPEED_DELAYS[state.speed - 1];
-                var speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
+const SpeedSlider = function SpeedSlider(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+                const delay = SPEED_DELAYS[state.speed - 1];
+                const speedLabel = delay === 0 ? 'Max' : delay + ' ms/gen';
                 return (
                     <div className="sliders">
                         <label className="slider-title">{"Speed: " + speedLabel}</label>
@@ -96,9 +96,9 @@ var SpeedSlider = function SpeedSlider(props) { // eslint-disable-line no-unused
                 );
 };
 
-var BoardSliders = function BoardSliders(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-                var isUnbounded = state.boundary === 'unbounded';
+const BoardSliders = function BoardSliders(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+                const isUnbounded = state.boundary === 'unbounded';
                 return (
                     <div className="sidebar-section">
                         {!isUnbounded && <div className="sliders">

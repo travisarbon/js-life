@@ -1,4 +1,4 @@
-/* global React, LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeIOUtils,
+/* global LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeIOUtils,
           TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
           ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
           DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
@@ -12,18 +12,18 @@
 
 // ── Helper functions ─────────────────────────────────────────────────
 
-var _getPanelLabel = function(panelId){
-    var PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', rules:'Rules', importExport:'Share', stats:'Stats'};
+const _getPanelLabel = function(panelId){
+    const PANEL_LABELS = {transport:'Simulate', board:'Board', view:'View', mode:'Tools', rules:'Rules', importExport:'Share', stats:'Stats'};
     return PANEL_LABELS[panelId] || panelId;
 };
 
-var _getPanelIcon = function(panelId){
-    var PANEL_ICONS = {transport:'fa-play', board:'fa-th-large', view:'fa-eye',
+const _getPanelIcon = function(panelId){
+    const PANEL_ICONS = {transport:'fa-play', board:'fa-th-large', view:'fa-eye',
         mode:'fa-pencil', rules:'fa-cogs', importExport:'fa-exchange'};
     return PANEL_ICONS[panelId] || 'fa-circle-o';
 };
 
-var _getPanelContent = function(panelId, state, stateRef, refs, dispatch){
+const _getPanelContent = function(panelId, state, stateRef, refs, dispatch){
     switch(panelId){
         case 'transport': return <div><div className="sidebar-section-title">Simulate</div>{<TransportControls compact={false} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
         case 'board': return <div><div className="sidebar-section-title">Board</div>{<BoardSliders state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}{<BoundaryControls state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />}</div>;
@@ -35,17 +35,17 @@ var _getPanelContent = function(panelId, state, stateRef, refs, dispatch){
     }
 };
 
-var _checkTabBarOverflow = function(){ /* no-op: icon-only intermediate state removed */ };
+const _checkTabBarOverflow = function(){ /* no-op: icon-only intermediate state removed */ };
 
-var _observeTabBars = function(stateRef, refs, dispatch){ // eslint-disable-line no-unused-vars
+const _observeTabBars = function(stateRef, refs, dispatch){ // eslint-disable-line no-unused-vars
     if(refs.tabBarObservers){
         refs.tabBarObservers.forEach(function(obs){ obs.disconnect(); });
     }
     refs.tabBarObservers = [];
-    var tabBars = document.querySelectorAll('.panel-group .panel-tab-bar');
-    for(var i = 0; i < tabBars.length; i++){
+    const tabBars = document.querySelectorAll('.panel-group .panel-tab-bar');
+    for(let i = 0; i < tabBars.length; i++){
         (function(bar){
-            var obs = new ResizeObserver(function(){ _checkTabBarOverflow(bar, stateRef, refs, dispatch); });
+            const obs = new ResizeObserver(function(){ _checkTabBarOverflow(bar, stateRef, refs, dispatch); });
             obs.observe(bar);
             refs.tabBarObservers.push(obs);
         })(tabBars[i]);
@@ -54,20 +54,20 @@ var _observeTabBars = function(stateRef, refs, dispatch){ // eslint-disable-line
 
 // ── State toggle helpers ─────────────────────────────────────────────
 
-var _togglePanelOpen = function(panelId, stateRef, refs, dispatch){
-    var panels = Object.assign({}, stateRef.current.panelStates);
+const _togglePanelOpen = function(panelId, stateRef, refs, dispatch){
+    const panels = Object.assign({}, stateRef.current.panelStates);
     panels[panelId] = Object.assign({}, panels[panelId], {open: !panels[panelId].open});
     dispatch({type:"MERGE", payload:{panelStates: panels}}); setTimeout(function(){ LifeViewUtils._persistLayout(stateRef, refs); }, 0);
 };
 
-var _togglePanelCollapse = function(panelId, stateRef, refs, dispatch){
-    var panels = Object.assign({}, stateRef.current.panelStates);
+const _togglePanelCollapse = function(panelId, stateRef, refs, dispatch){
+    const panels = Object.assign({}, stateRef.current.panelStates);
     panels[panelId] = Object.assign({}, panels[panelId], {collapsed: !panels[panelId].collapsed});
     dispatch({type:"MERGE", payload:{panelStates: panels}}); setTimeout(function(){ LifeViewUtils._persistLayout(stateRef, refs); }, 0);
 };
 
-var _toggleGroupCollapse = function(groupId, stateRef, refs, dispatch){
-    var groups = stateRef.current.panelGroups.map(function(g){
+const _toggleGroupCollapse = function(groupId, stateRef, refs, dispatch){
+    const groups = stateRef.current.panelGroups.map(function(g){
         return g.id === groupId ? Object.assign({}, g, {collapsed: !g.collapsed}) : g;
     });
     dispatch({type:"MERGE", payload:{panelGroups: groups}});
@@ -76,23 +76,23 @@ var _toggleGroupCollapse = function(groupId, stateRef, refs, dispatch){
 
 // ── Imperative drag/resize handlers ──────────────────────────────────
 
-var _rectsOverlap = function(a, b){
-    var overlapX = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
-    var overlapY = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
-    var overlapArea = overlapX * overlapY;
-    var aArea = a.width * a.height;
+const _rectsOverlap = function(a, b){
+    const overlapX = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    const overlapY = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    const overlapArea = overlapX * overlapY;
+    const aArea = a.width * a.height;
     return aArea > 0 ? overlapArea / aArea : 0;
 };
 
-var _updateDropIndicator = function(draggedId, dragX, dragY, dragPanel){
-    var allPanels = document.querySelectorAll('.float-panel, .panel-group');
-    var dragRect = dragPanel.getBoundingClientRect();
-    var found = false;
-    for(var i = 0; i < allPanels.length; i++){
-        var other = allPanels[i];
+const _updateDropIndicator = function(draggedId, dragX, dragY, dragPanel){
+    const allPanels = document.querySelectorAll('.float-panel, .panel-group');
+    const dragRect = dragPanel.getBoundingClientRect();
+    let found = false;
+    for(let i = 0; i < allPanels.length; i++){
+        const other = allPanels[i];
         if(other === dragPanel){ allPanels[i].classList.remove('drop-target'); continue; }
-        var otherRect = other.getBoundingClientRect();
-        var overlap = _rectsOverlap(dragRect, otherRect);
+        const otherRect = other.getBoundingClientRect();
+        const overlap = _rectsOverlap(dragRect, otherRect);
         if(overlap > 0.3 && !found){
             other.classList.add('drop-target');
             found = true;
@@ -102,20 +102,20 @@ var _updateDropIndicator = function(draggedId, dragX, dragY, dragPanel){
     }
 };
 
-var _clearDropIndicator = function(){
-    var els = document.querySelectorAll('.drop-target');
-    for(var i = 0; i < els.length; i++){ els[i].classList.remove('drop-target'); }
+const _clearDropIndicator = function(){
+    const els = document.querySelectorAll('.drop-target');
+    for(let i = 0; i < els.length; i++){ els[i].classList.remove('drop-target'); }
 };
 
-var _findDropTarget = function(draggedId, dragRect){
-    var allPanels = document.querySelectorAll('.float-panel, .panel-group');
-    for(var i = 0; i < allPanels.length; i++){
-        var el = allPanels[i];
-        var targetId = el.getAttribute('data-panel-id');
-        var targetGroupId = el.getAttribute('data-group-id');
+const _findDropTarget = function(draggedId, dragRect){
+    const allPanels = document.querySelectorAll('.float-panel, .panel-group');
+    for(let i = 0; i < allPanels.length; i++){
+        const el = allPanels[i];
+        const targetId = el.getAttribute('data-panel-id');
+        const targetGroupId = el.getAttribute('data-group-id');
         if(!targetId && !targetGroupId){ continue; }
         if(targetId === draggedId){ continue; }
-        var otherRect = el.getBoundingClientRect();
+        const otherRect = el.getBoundingClientRect();
         if(_rectsOverlap(dragRect, otherRect) > 0.3){
             return targetId || targetGroupId;
         }
@@ -123,13 +123,13 @@ var _findDropTarget = function(draggedId, dragRect){
     return null;
 };
 
-var _startPanelDrag = function(panelId, e, stateRef, refs, dispatch){
+const _startPanelDrag = function(panelId, e, stateRef, refs, dispatch){
     if(e.target.tagName === 'BUTTON' || (e.target.closest && e.target.closest('button'))){ return; }
     e.preventDefault();
-    var panel = e.currentTarget.parentElement;
-    var rect = panel.getBoundingClientRect();
-    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const panel = e.currentTarget.parentElement;
+    const rect = panel.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     refs.fpDragId = panelId;
     refs.fpDragOffX = clientX - rect.left;
     refs.fpDragOffY = clientY - rect.top;
@@ -138,10 +138,10 @@ var _startPanelDrag = function(panelId, e, stateRef, refs, dispatch){
 
     refs.fpDragMove = function(ev){
         ev.preventDefault();
-        var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
-        var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-        var newX = Math.max(0, Math.min(window.innerWidth - 60, cx - refs.fpDragOffX));
-        var newY = Math.max(0, Math.min(window.innerHeight - 40, cy - refs.fpDragOffY));
+        const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        const newX = Math.max(0, Math.min(window.innerWidth - 60, cx - refs.fpDragOffX));
+        const newY = Math.max(0, Math.min(window.innerHeight - 40, cy - refs.fpDragOffY));
         panel.style.left = newX + 'px';
         panel.style.top = newY + 'px';
         panel.style.right = 'auto';
@@ -152,12 +152,12 @@ var _startPanelDrag = function(panelId, e, stateRef, refs, dispatch){
     refs.fpDragEnd = function(){
         panel.classList.remove('dragging');
         _clearDropIndicator();
-        var finalRect = panel.getBoundingClientRect();
-        var mergeTarget = _findDropTarget(panelId, finalRect);
+        const finalRect = panel.getBoundingClientRect();
+        const mergeTarget = _findDropTarget(panelId, finalRect);
         if(mergeTarget){
             LifeViewUtils._mergePanels(stateRef, refs, dispatch, panelId, mergeTarget);
         } else {
-            var panels = Object.assign({}, stateRef.current.panelStates);
+            const panels = Object.assign({}, stateRef.current.panelStates);
             panels[panelId] = Object.assign({}, panels[panelId], {x: finalRect.left, y: finalRect.top});
             dispatch({type:"MERGE", payload:{panelStates: panels}}); setTimeout(function(){ LifeViewUtils._persistLayout(stateRef, refs); }, 0);
         }
@@ -172,24 +172,24 @@ var _startPanelDrag = function(panelId, e, stateRef, refs, dispatch){
     document.addEventListener('touchend', refs.fpDragEnd);
 };
 
-var _startPanelResize = function(panelId, e, stateRef, refs, dispatch){
+const _startPanelResize = function(panelId, e, stateRef, refs, dispatch){
     e.preventDefault();
     e.stopPropagation();
-    var panel = e.currentTarget.parentElement;
-    var rect = panel.getBoundingClientRect();
-    var startW = rect.width;
-    var startH = rect.height;
-    var startX = e.touches ? e.touches[0].clientX : e.clientX;
-    var startY = e.touches ? e.touches[0].clientY : e.clientY;
-    var isCompact = stateRef.current.panelStates[panelId] && stateRef.current.panelStates[panelId].compact;
-    var didToggle = false;
-    var move = function(ev){
+    const panel = e.currentTarget.parentElement;
+    const rect = panel.getBoundingClientRect();
+    const startW = rect.width;
+    const startH = rect.height;
+    const startX = e.touches ? e.touches[0].clientX : e.clientX;
+    const startY = e.touches ? e.touches[0].clientY : e.clientY;
+    const isCompact = stateRef.current.panelStates[panelId] && stateRef.current.panelStates[panelId].compact;
+    let didToggle = false;
+    const move = function(ev){
         ev.preventDefault();
         if(didToggle) return;
-        var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
-        var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-        var newW = startW + (cx - startX);
-        var newH = startH + (cy - startY);
+        const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        const newW = startW + (cx - startX);
+        const newH = startH + (cy - startY);
         if(!isCompact && newW < 120){
             didToggle = true;
             panel.style.width = '';
@@ -204,7 +204,7 @@ var _startPanelResize = function(panelId, e, stateRef, refs, dispatch){
             panel.style.maxHeight = Math.max(80, newH) + 'px';
         }
     };
-    var end = function(){
+    const end = function(){
         document.removeEventListener('mousemove', move);
         document.removeEventListener('mouseup', end);
         document.removeEventListener('touchmove', move);
@@ -216,32 +216,32 @@ var _startPanelResize = function(panelId, e, stateRef, refs, dispatch){
     document.addEventListener('touchend', end);
 };
 
-var _startGroupDrag = function(groupId, e, stateRef, refs, dispatch){
+const _startGroupDrag = function(groupId, e, stateRef, refs, dispatch){
     if(e.target.tagName === 'BUTTON' || (e.target.closest && e.target.closest('button'))){ return; }
     e.preventDefault();
-    var panel = e.currentTarget.closest('.panel-group') || e.currentTarget.parentElement;
-    var rect = panel.getBoundingClientRect();
-    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    var offX = clientX - rect.left;
-    var offY = clientY - rect.top;
+    const panel = e.currentTarget.closest('.panel-group') || e.currentTarget.parentElement;
+    const rect = panel.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const offX = clientX - rect.left;
+    const offY = clientY - rect.top;
     LifeViewUtils._bringGroupToFront(stateRef, refs, dispatch, groupId);
     panel.classList.add('dragging');
 
-    var move = function(ev){
+    const move = function(ev){
         ev.preventDefault();
-        var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
-        var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
         panel.style.left = Math.max(0, Math.min(window.innerWidth - 60, cx - offX)) + 'px';
         panel.style.top = Math.max(0, Math.min(window.innerHeight - 40, cy - offY)) + 'px';
         panel.style.right = 'auto';
         panel.style.bottom = 'auto';
         panel.style.transform = 'none';
     };
-    var end = function(){
+    const end = function(){
         panel.classList.remove('dragging');
-        var finalRect = panel.getBoundingClientRect();
-        var groups = stateRef.current.panelGroups.map(function(g){
+        const finalRect = panel.getBoundingClientRect();
+        const groups = stateRef.current.panelGroups.map(function(g){
             return g.id === groupId ? Object.assign({}, g, {x: finalRect.left, y: finalRect.top}) : g;
         });
         dispatch({type:"MERGE", payload:{panelGroups: groups}}); setTimeout(function(){ LifeViewUtils._persistLayout(stateRef, refs); }, 0);
@@ -256,16 +256,16 @@ var _startGroupDrag = function(groupId, e, stateRef, refs, dispatch){
     document.addEventListener('touchend', end);
 };
 
-var _startTabDrag = function(panelId, groupId, e, stateRef, refs, dispatch){
-    var startX = e.clientX;
-    var startY = e.clientY;
+const _startTabDrag = function(panelId, groupId, e, stateRef, refs, dispatch){
+    const startX = e.clientX;
+    const startY = e.clientY;
 
-    var threshold = 30;
-    var tornOff = false;
-    var move = function(ev){
+    const threshold = 30;
+    let tornOff = false;
+    const move = function(ev){
         if(tornOff){ return; }
-        var dx = ev.clientX - startX;
-        var dy = ev.clientY - startY;
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
         if(Math.sqrt(dx * dx + dy * dy) > threshold){
             tornOff = true;
             LifeViewUtils._separatePanel(stateRef, refs, dispatch, panelId, groupId, ev.clientX - 40, ev.clientY - 10);
@@ -273,7 +273,7 @@ var _startTabDrag = function(panelId, groupId, e, stateRef, refs, dispatch){
             document.removeEventListener('mouseup', end);
         }
     };
-    var end = function(){
+    const end = function(){
         document.removeEventListener('mousemove', move);
         document.removeEventListener('mouseup', end);
     };
@@ -281,44 +281,44 @@ var _startTabDrag = function(panelId, groupId, e, stateRef, refs, dispatch){
     document.addEventListener('mouseup', end);
 };
 
-var _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
+const _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
     e.preventDefault();
     e.stopPropagation();
-    var panel = e.currentTarget.parentElement;
-    var rect = panel.getBoundingClientRect();
-    var startW = rect.width;
-    var startH = rect.height;
-    var startX = e.touches ? e.touches[0].clientX : e.clientX;
-    var startY = e.touches ? e.touches[0].clientY : e.clientY;
+    const panel = e.currentTarget.parentElement;
+    const rect = panel.getBoundingClientRect();
+    const startW = rect.width;
+    const startH = rect.height;
+    const startX = e.touches ? e.touches[0].clientX : e.clientX;
+    const startY = e.touches ? e.touches[0].clientY : e.clientY;
     // Snap thresholds (applied on mouse-up, not during drag).
-    var compactSnapThreshold = 100;
-    var curGroup = null;
-    var gs = stateRef.current.panelGroups;
-    for(var gi = 0; gi < gs.length; gi++){
+    const compactSnapThreshold = 100;
+    let curGroup = null;
+    const gs = stateRef.current.panelGroups;
+    for(let gi = 0; gi < gs.length; gi++){
         if(gs[gi].id === groupId){ curGroup = gs[gi]; break; }
     }
-    var isCompact = curGroup && !!curGroup.compact;
+    const isCompact = curGroup && !!curGroup.compact;
     // Suppress _checkTabBarOverflow auto-compact during resize.
     refs.resizingGroup = true;
-    var move = function(ev){
+    const move = function(ev){
         ev.preventDefault();
-        var cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
-        var cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
-        var newH = startH + (cy - startY);
+        const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        const newH = startH + (cy - startY);
         if(isCompact){
             // Compact: vertical resize only.
-            var body = panel.querySelector('.compact-group-body') || panel.querySelector('.compact-body');
-            var minH = 60;
+            const body = panel.querySelector('.compact-group-body') || panel.querySelector('.compact-body');
+            const minH = 60;
             if(body){ minH = body.scrollHeight + (panel.offsetHeight - panel.clientHeight) + 40; }
             panel.style.maxHeight = Math.max(minH, newH) + 'px';
         } else {
             // Expanded: allow width to track cursor freely during drag.
-            var newW = startW + (cx - startX);
+            const newW = startW + (cx - startX);
             panel.style.width = Math.max(60, newW) + 'px';
             panel.style.maxHeight = Math.max(80, newH) + 'px';
         }
     };
-    var end = function(){
+    const end = function(){
         document.removeEventListener('mousemove', move);
         document.removeEventListener('mouseup', end);
         document.removeEventListener('touchmove', move);
@@ -326,7 +326,7 @@ var _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
         refs.resizingGroup = false;
         if(!isCompact){
             // Snap to nearest of three sizes based on final width.
-            var finalW = panel.getBoundingClientRect().width;
+            const finalW = panel.getBoundingClientRect().width;
             if(finalW < compactSnapThreshold){
                 // Snap to compact mode.
                 panel.style.width = '';
@@ -345,7 +345,7 @@ var _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
 
 // ── Compact body definitions ─────────────────────────────────────────
 
-var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
+const _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
     switch(panelId){
         case 'transport':
             return [
@@ -366,7 +366,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
                 {id:'speed', icon: 'fa-tachometer', title: 'Speed', popOut: function(){ return <SpeedSlider state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
             ];
         case 'board':
-            var boardDefs = [
+            const boardDefs = [
                 {id:'boundary', icon: state.boundary === 'toroidal' ? 'fa-repeat' : state.boundary === 'finite' ? 'fa-stop' : null, label: state.boundary === 'unbounded' ? '\u221E' : null, title: 'Boundary: ' + (state.boundary === 'toroidal' ? 'Wrap' : state.boundary === 'finite' ? 'Hard' : '\u221E'), onClick: function(){ LifeBoardUtils.toggleBoundary(stateRef, refs, dispatch); }, active: state.boundary !== 'toroidal'}
             ];
             if(state.boundary !== 'unbounded'){
@@ -428,7 +428,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
                 {id:'display', icon: 'fa-paint-brush', title: 'Display settings', popOut: function(){ return <DisplaySettings state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }}
             ];
         case 'mode':
-            var defs = [
+            const defs = [
                 {id:'draw', icon: 'fa-pencil', title: 'Draw mode (D)', onClick: function(){ LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch); }, active: state.drawMode === 'paint', popOut: function(){ return <DrawToolPopOut state={state} dispatch={dispatch} />; }},
                 {id:'preset', icon: 'fa-puzzle-piece', title: 'Preset patterns (P)', onClick: function(){ LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch); }, active: state.drawMode === 'preset', popOut: function(){ return <PresetContent state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />; }},
                 {id:'select', icon: 'fa-mouse-pointer', title: 'Select mode (S)', onClick: function(){ LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch); }, active: state.drawMode === 'select', popOut: function(){ return <SelectToolPopOut state={state} dispatch={dispatch} />; }},
@@ -451,7 +451,7 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
                     </div>);
                 }},
                 {id:'rule-input', icon: 'fa-pencil-square-o', title: 'Edit rule (B/S notation)', popOut: function(){
-                    var ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
+                    const ruleValid = /^B[0-8]*\/?S[0-8]*$/i.test(state.ruleString);
                     return (<div className="compact-popout-content">
                         <input className={"rule-input" + (ruleValid ? "" : " rule-input-invalid")} type="text" value={state.ruleString}
                             onChange={function(e){ LifeBoardUtils.setRule(stateRef, refs, dispatch, e); }}
@@ -474,14 +474,14 @@ var _getCompactDefs = function(panelId, state, stateRef, refs, dispatch){
 
 // ── Render components ────────────────────────────────────────────────
 
-var CompactBody = function CompactBody(props) { // eslint-disable-line no-unused-vars
-    var panelId = props.panelId, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var defs = _getCompactDefs(panelId, state, stateRef, refs, dispatch);
+const CompactBody = function CompactBody(props) { // eslint-disable-line no-unused-vars
+    const panelId = props.panelId, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const defs = _getCompactDefs(panelId, state, stateRef, refs, dispatch);
     if(!defs || defs.length === 0){ return null; }
     return (
         <div className="compact-body">
             {defs.map(function(def){
-                var isOpen = LifeViewUtils._isPopOutOpen(stateRef, refs, dispatch, panelId, def.id);
+                const isOpen = LifeViewUtils._isPopOutOpen(stateRef, refs, dispatch, panelId, def.id);
                 return (
                     <div key={def.id} className="pop-out-trigger">
                         <button type="button"
@@ -506,17 +506,17 @@ var CompactBody = function CompactBody(props) { // eslint-disable-line no-unused
     );
 };
 
-var FloatPanel = function FloatPanel(props) { // eslint-disable-line no-unused-vars
-    var panelId = props.panelId, label = props.label, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var content = props.content || props.children;
-    var ps = state.panelStates[panelId];
+const FloatPanel = function FloatPanel(props) { // eslint-disable-line no-unused-vars
+    const panelId = props.panelId, label = props.label, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const content = props.content || props.children;
+    const ps = state.panelStates[panelId];
     if(!ps || !ps.open){ return null; }
     // Skip panels that are in a group — they render inside the group.
     if(LifeViewUtils._findGroupForPanel(stateRef, refs, dispatch, panelId)){ return null; }
-    var isCompact = !!ps.compact;
-    var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() +
+    const isCompact = !!ps.compact;
+    const className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() +
         (isCompact ? " float-panel-compact" : "");
-    var style = {};
+    const style = {};
     if(ps.x >= 0){ style.left = ps.x; style.top = ps.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
     if(ps.z){ style.zIndex = ps.z; }
     return (
@@ -552,17 +552,17 @@ var FloatPanel = function FloatPanel(props) { // eslint-disable-line no-unused-v
     );
 };
 
-var FloatPanelDirect = function FloatPanelDirect(props) { // eslint-disable-line no-unused-vars
-    var panelId = props.panelId, label = props.label, content = props.content, group = props.group, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var ps = state.panelStates[panelId];
+const FloatPanelDirect = function FloatPanelDirect(props) { // eslint-disable-line no-unused-vars
+    const panelId = props.panelId, label = props.label, content = props.content, group = props.group, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const ps = state.panelStates[panelId];
     if(!ps || !ps.open){ return null; }
-    var isCompact = !!ps.compact;
-    var style = {};
+    const isCompact = !!ps.compact;
+    const style = {};
     if(group && group.x >= 0){ style.left = group.x; style.top = group.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
     else if(ps.x >= 0){ style.left = ps.x; style.top = ps.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
     if(ps.z){ style.zIndex = ps.z; }
     if(group && group.z){ style.zIndex = group.z; }
-    var className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() +
+    const className = "float-panel float-panel-" + panelId.replace(/([A-Z])/g, '-$1').toLowerCase() +
         (isCompact ? " float-panel-compact" : "");
     return (
         <div className={className} style={style}
@@ -598,28 +598,28 @@ var FloatPanelDirect = function FloatPanelDirect(props) { // eslint-disable-line
     );
 };
 
-var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-vars
-    var group = props.group, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var panels = state.panelStates;
+const PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-vars
+    const group = props.group, state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const panels = state.panelStates;
     // Filter to only open panels in this group.
-    var openPanels = group.panels.filter(function(pid){ return panels[pid] && panels[pid].open; });
+    const openPanels = group.panels.filter(function(pid){ return panels[pid] && panels[pid].open; });
     if(openPanels.length === 0){ return null; }
     // If only one panel remains open, render as standalone.
     if(openPanels.length === 1){
-        var soloId = openPanels[0];
-        var soloLabel = _getPanelLabel(soloId);
+        const soloId = openPanels[0];
+        const soloLabel = _getPanelLabel(soloId);
         return <FloatPanelDirect panelId={soloId} label={soloLabel} content={_getPanelContent(soloId, state, stateRef, refs, dispatch)} group={group} state={state} stateRef={stateRef} refs={refs} dispatch={dispatch} />;
     }
-    var activeTab = openPanels.indexOf(group.activeTab) !== -1 ? group.activeTab : openPanels[0];
-    var isCompact = !!group.compact;
-    var style = {};
+    const activeTab = openPanels.indexOf(group.activeTab) !== -1 ? group.activeTab : openPanels[0];
+    const isCompact = !!group.compact;
+    const style = {};
     if(group.x >= 0){ style.left = group.x; style.top = group.y; style.right = 'auto'; style.bottom = 'auto'; style.transform = 'none'; }
     if(group.z){ style.zIndex = group.z; }
-    var className = "float-panel panel-group" + (isCompact ? " panel-group-compact" : "");
+    const className = "float-panel panel-group" + (isCompact ? " panel-group-compact" : "");
 
     // Tab buttons: icon-only rail in compact, full tabs in expanded.
-    var tabButtons = openPanels.map(function(pid){
-        var label = _getPanelLabel(pid);
+    const tabButtons = openPanels.map(function(pid){
+        const label = _getPanelLabel(pid);
         return (
             <button key={pid} type="button"
                 className={"panel-tab" + (pid === activeTab ? " panel-tab-active" : "")}
@@ -671,7 +671,7 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
     }
 
     // Expanded layout: tabs across the top.
-    var tabArea = (
+    const tabArea = (
         <div className="panel-tab-bar">
             {tabButtons}
         </div>
@@ -712,7 +712,7 @@ var PanelGroup = function PanelGroup(props) { // eslint-disable-line no-unused-v
 
 // ── Exported utils object ────────────────────────────────────────────
 
-var ObservatoryPanelUtils = { // eslint-disable-line no-unused-vars
+const ObservatoryPanelUtils = { // eslint-disable-line no-unused-vars
     _getPanelLabel: _getPanelLabel,
     _getPanelIcon: _getPanelIcon,
     _getPanelContent: _getPanelContent,

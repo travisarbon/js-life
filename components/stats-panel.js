@@ -1,37 +1,37 @@
-/* global React, CanvasRenderer, LifeAnalysisUtils, GPS_DISPLAY_DURATION */
+/* global LifeAnalysisUtils */
 /**
  * Stats-related render components extracted from LifeBoard.
  * Props: state, stateRef, refs, dispatch
  */
 
-var SparklineSVG = function SparklineSVG(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var population = state.liveCells.size;
-    var now2 = Date.now();
-    var gpsText = (refs.measuredGps > 0 &&
+const SparklineSVG = function SparklineSVG(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const population = state.liveCells.size;
+    const now2 = Date.now();
+    const gpsText = (refs.measuredGps > 0 &&
         (state.running || now2 < (refs.gpsDisplayUntil || 0)))
         ? refs.measuredGps.toFixed(1) + '\u00a0gen/s' : '\u2014\u00a0gen/s';
-    var fullHist = state.popHistory;
-    var trendArrow = '';
+    const fullHist = state.popHistory;
+    let trendArrow = '';
     if(fullHist.length >= 5){
-        var delta = fullHist[fullHist.length - 1] - fullHist[fullHist.length - 5];
+        const delta = fullHist[fullHist.length - 1] - fullHist[fullHist.length - 5];
         trendArrow = delta > 2 ? '\u2009\u25b2' : delta < -2 ? '\u2009\u25bc' : '\u2009\u223c';
     }
-    var histStart = Math.max(0, fullHist.length - 60);
-    var hist = histStart > 0 ? fullHist.slice(histStart) : fullHist;
-    var maxPop = 0;
-    for(var hi = 0; hi < hist.length; hi++){
+    const histStart = Math.max(0, fullHist.length - 60);
+    const hist = histStart > 0 ? fullHist.slice(histStart) : fullHist;
+    let maxPop = 0;
+    for(let hi = 0; hi < hist.length; hi++){
         if(hist[hi] > maxPop){ maxPop = hist[hi]; }
     }
     if(hist.length <= 1){ return null; }
-    var vbW = 200, vbH = 36, padT = 2, innerH = vbH - padT * 2;
-    var spMax = maxPop || 1;
-    var sparkPts = hist.map(function(p, idx){
-        var x = hist.length === 1 ? vbW / 2 : (idx / (hist.length - 1)) * vbW;
-        var y = padT + (1 - p / spMax) * innerH;
+    const vbW = 200, vbH = 36, padT = 2, innerH = vbH - padT * 2;
+    const spMax = maxPop || 1;
+    const sparkPts = hist.map(function(p, idx){
+        const x = hist.length === 1 ? vbW / 2 : (idx / (hist.length - 1)) * vbW;
+        const y = padT + (1 - p / spMax) * innerH;
         return x.toFixed(1) + ',' + y.toFixed(1);
     }).join(' ');
-    var spanLabel = hist.length >= 60 ? 'last 60 gen' : hist.length + ' gen';
+    const spanLabel = hist.length >= 60 ? 'last 60 gen' : hist.length + ' gen';
     return (
         <div className="sparkline-wrap">
             <div className="sparkline-header">
@@ -58,18 +58,18 @@ var SparklineSVG = function SparklineSVG(props) { // eslint-disable-line no-unus
     );
 };
 
-var MobileSparkline = function MobileSparkline(props) { // eslint-disable-line no-unused-vars
-    var svg = <SparklineSVG state={props.state} refs={props.refs} stateRef={props.stateRef} dispatch={props.dispatch} />;
+const MobileSparkline = function MobileSparkline(props) { // eslint-disable-line no-unused-vars
+    const svg = <SparklineSVG state={props.state} refs={props.refs} stateRef={props.stateRef} dispatch={props.dispatch} />;
     if(!svg){ return null; }
     return <div className="mobile-sparkline">{svg}</div>;
 };
 
-var StatsPanel = function StatsPanel(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    var population = state.liveCells.size;
-    var hc = state.hoverCell;
-    var coordText = hc ? ('Col\u00a0' + hc.c + '\u2002Row\u00a0' + hc.r) : '\u2014';
-    var sparkline = <SparklineSVG state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />;
+const StatsPanel = function StatsPanel(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const population = state.liveCells.size;
+    const hc = state.hoverCell;
+    const coordText = hc ? ('Col\u00a0' + hc.c + '\u2002Row\u00a0' + hc.r) : '\u2014';
+    const sparkline = <SparklineSVG state={state} refs={refs} stateRef={stateRef} dispatch={dispatch} />;
 
     return (
         <div className="stats">
@@ -97,8 +97,8 @@ var StatsPanel = function StatsPanel(props) { // eslint-disable-line no-unused-v
     );
 };
 
-var StatsChip = function StatsChip(props) { // eslint-disable-line no-unused-vars
-    var state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+const StatsChip = function StatsChip(props) { // eslint-disable-line no-unused-vars
+    const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 
     return (
         <div className="stats-chip" onClick={function(){ LifeAnalysisUtils.togglePopGraph(stateRef, refs, dispatch); }}
