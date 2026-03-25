@@ -255,10 +255,20 @@ function LifeBoard() {
                 };
                 // Defer to allow initial render
                 setTimeout(initSliderFills, 100);
-                // Re-init on dynamic content changes via MutationObserver
+                // Re-init on dynamic content changes via MutationObserver (rAF-batched)
+                let sliderFillPending = false;
                 const sliderObserver = new MutationObserver(function(mutations){
                     for(let mi = 0; mi < mutations.length; mi++){
-                        if(mutations[mi].addedNodes.length > 0){ setTimeout(initSliderFills, 50); break; }
+                        if(mutations[mi].addedNodes.length > 0){
+                            if(!sliderFillPending){
+                                sliderFillPending = true;
+                                requestAnimationFrame(function(){
+                                    sliderFillPending = false;
+                                    initSliderFills();
+                                });
+                            }
+                            break;
+                        }
                     }
                 });
                 sliderObserver.observe(document.getElementById('content') || document.body, {childList: true, subtree: true});

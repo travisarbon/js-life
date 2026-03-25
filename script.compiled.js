@@ -4036,7 +4036,6 @@ var StatsChip = function StatsChip(props) {
 };
 "use strict";
 
-function _readOnlyError(r) { throw new TypeError('"' + r + '" is read-only'); }
 /* global PATTERNS, PATTERN_GROUPS, PATTERN_META,
           InputHandler, LifeBoardUtils, LifeAnalysisUtils,
           drawBoard, drawRotationPreview */
@@ -4048,6 +4047,58 @@ function _readOnlyError(r) { throw new TypeError('"' + r + '" is read-only'); }
  * Each component receives props: state, stateRef, refs, dispatch
  */
 
+/** Cached pattern option list — avoids re-computing on every render.
+ *  Returns array of <optgroup> elements filtered by search string. */
+var _patternOptionsCache = {
+  filter: null,
+  hasCustom: false,
+  result: null
+};
+var _buildPatternOptions = function (filterStr) {
+  var hasCustom = !!PATTERNS['Custom'];
+  if (_patternOptionsCache.filter === filterStr && _patternOptionsCache.hasCustom === hasCustom) {
+    return _patternOptionsCache.result;
+  }
+  var filterLc = filterStr.toLowerCase();
+  var options = Object.keys(PATTERN_GROUPS).map(function (group) {
+    var names = Object.keys(PATTERN_GROUPS[group]).filter(function (name) {
+      return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
+    });
+    if (names.length === 0) {
+      return null;
+    }
+    var opts = names.map(function (name) {
+      var meta = PATTERN_META[name];
+      var title = '';
+      if (meta) {
+        if (meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');else if (meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+      }
+      return /*#__PURE__*/React.createElement("option", {
+        key: name,
+        value: name,
+        title: title
+      }, name);
+    });
+    return /*#__PURE__*/React.createElement("optgroup", {
+      key: group,
+      label: group
+    }, opts);
+  }).filter(function (x) {
+    return x !== null;
+  });
+  if (hasCustom) {
+    options = options.concat(/*#__PURE__*/React.createElement("optgroup", {
+      key: "custom",
+      label: "Custom"
+    }, /*#__PURE__*/React.createElement("option", {
+      value: "Custom"
+    }, "Custom")));
+  }
+  _patternOptionsCache.filter = filterStr;
+  _patternOptionsCache.hasCustom = hasCustom;
+  _patternOptionsCache.result = options;
+  return options;
+};
 var ModeControls = function ModeControls(props) {
   // eslint-disable-line no-unused-vars
   var state = props.state,
@@ -4132,41 +4183,7 @@ var ToolsContent = function ToolsContent(props) {
     stateRef = props.stateRef,
     refs = props.refs,
     dispatch = props.dispatch;
-  var filterLc = state.patternFilter.toLowerCase();
-  var patternOptions = Object.keys(PATTERN_GROUPS).map(function (group) {
-    var names = Object.keys(PATTERN_GROUPS[group]).filter(function (name) {
-      return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
-    });
-    if (names.length === 0) {
-      return null;
-    }
-    var opts = names.map(function (name) {
-      var meta = PATTERN_META[name];
-      var title = '';
-      if (meta) {
-        if (meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');else if (meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';else if (meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-      }
-      return /*#__PURE__*/React.createElement("option", {
-        key: name,
-        value: name,
-        title: title
-      }, name);
-    });
-    return /*#__PURE__*/React.createElement("optgroup", {
-      key: group,
-      label: group
-    }, opts);
-  }).filter(function (x) {
-    return x !== null;
-  });
-  if (PATTERNS['Custom']) {
-    patternOptions = patternOptions.concat(/*#__PURE__*/React.createElement("optgroup", {
-      key: "custom",
-      label: "Custom"
-    }, /*#__PURE__*/React.createElement("option", {
-      value: "Custom"
-    }, "Custom")));
-  }
+  var patternOptions = _buildPatternOptions(state.patternFilter);
   return /*#__PURE__*/React.createElement("div", {
     className: "tools-content"
   }, /*#__PURE__*/React.createElement("div", {
@@ -4370,41 +4387,7 @@ var PresetContent = function PresetContent(props) {
     stateRef = props.stateRef,
     refs = props.refs,
     dispatch = props.dispatch;
-  var filterLc = state.patternFilter.toLowerCase();
-  var patternOptions = Object.keys(PATTERN_GROUPS).map(function (group) {
-    var names = Object.keys(PATTERN_GROUPS[group]).filter(function (name) {
-      return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
-    });
-    if (names.length === 0) {
-      return null;
-    }
-    var opts = names.map(function (name) {
-      var meta = PATTERN_META[name];
-      var title = '';
-      if (meta) {
-        if (meta.type === 'Still life') 'Still life \xB7 ' + meta.cells + ' cells', _readOnlyError("title");else if (meta.type === 'Oscillator') 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells', _readOnlyError("title");else if (meta.type === 'Spaceship') 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : ''), _readOnlyError("title");else if (meta.type === 'Methuselah') 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells', _readOnlyError("title");else if (meta.type === 'Gun') 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells', _readOnlyError("title");
-      }
-      return /*#__PURE__*/React.createElement("option", {
-        key: name,
-        value: name,
-        title: title
-      }, name);
-    });
-    return /*#__PURE__*/React.createElement("optgroup", {
-      key: group,
-      label: group
-    }, opts);
-  }).filter(function (x) {
-    return x !== null;
-  });
-  if (PATTERNS['Custom']) {
-    patternOptions = patternOptions.concat(/*#__PURE__*/React.createElement("optgroup", {
-      key: "custom",
-      label: "Custom"
-    }, /*#__PURE__*/React.createElement("option", {
-      value: "Custom"
-    }, "Custom")));
-  }
+  var patternOptions = _buildPatternOptions(state.patternFilter);
   return /*#__PURE__*/React.createElement("div", {
     className: "tools-content"
   }, /*#__PURE__*/React.createElement("select", {
@@ -5308,11 +5291,18 @@ document.addEventListener('DOMContentLoaded', function () {
       };
       // Defer to allow initial render
       setTimeout(initSliderFills, 100);
-      // Re-init on dynamic content changes via MutationObserver
+      // Re-init on dynamic content changes via MutationObserver (rAF-batched)
+      var sliderFillPending = false;
       var sliderObserver = new MutationObserver(function (mutations) {
         for (var mi = 0; mi < mutations.length; mi++) {
           if (mutations[mi].addedNodes.length > 0) {
-            setTimeout(initSliderFills, 50);
+            if (!sliderFillPending) {
+              sliderFillPending = true;
+              requestAnimationFrame(function () {
+                sliderFillPending = false;
+                initSliderFills();
+              });
+            }
             break;
           }
         }
