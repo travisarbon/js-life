@@ -1,4 +1,9 @@
-/* global LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeViewUtils, SPEED_DELAYS */
+import React from 'react';
+import { SPEED_DELAYS } from '../constants.js';
+import { LifeSimUtils } from '../life-sim-utils.js';
+import { LifeBoardUtils } from '../life-board-utils.js';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
+import { LifeViewUtils } from '../life-view-utils.js';
 /**
  * TransportControls — Play/pause/step buttons + step count.
  * Props: compact, state, stateRef, refs, dispatch
@@ -78,3 +83,5 @@ const MobileTransportBar = function MobileTransportBar(props) { // eslint-disabl
                     </div>
                 );
 };
+
+export { TransportControls, MobileTransportBar };

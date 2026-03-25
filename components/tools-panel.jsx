@@ -1,6 +1,9 @@
-/* global PATTERNS, PATTERN_GROUPS, PATTERN_META,
-          InputHandler, LifeBoardUtils, LifeAnalysisUtils,
-          drawBoard, drawRotationPreview */
+import React from 'react';
+import { PATTERNS, PATTERN_GROUPS, PATTERN_META } from '../patterns.js';
+import { InputHandler } from '../input-handler.js';
+import { LifeBoardUtils } from '../life-board-utils.js';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
+import { drawBoard, drawRotationPreview } from './canvas-area.jsx';
 /**
  * Tools-panel components extracted from LifeBoard.
  * ModeControls — draw mode toggle buttons + analyze.
@@ -8,6 +11,55 @@
  * MobileContextPanel — rotation / selection buttons shown on mobile.
  * Each component receives props: state, stateRef, refs, dispatch
  */
+
+/** Simple fuzzy match: checks if all characters of query appear in order within text. */
+const _fuzzyMatch = function(text, query) {
+    if(!query) return true;
+    let qi = 0;
+    for(let ti = 0; ti < text.length && qi < query.length; ti++){
+        if(text[ti] === query[qi]) qi++;
+    }
+    return qi === query.length;
+};
+
+/** Cached pattern option list — avoids re-computing on every render.
+ *  Returns array of <optgroup> elements filtered by search string (fuzzy match). */
+const _patternOptionsCache = {filter: null, hasCustom: false, result: null};
+const _buildPatternOptions = function(filterStr) {
+    const hasCustom = !!PATTERNS['Custom'];
+    if(_patternOptionsCache.filter === filterStr && _patternOptionsCache.hasCustom === hasCustom){
+        return _patternOptionsCache.result;
+    }
+    const filterLc = filterStr.toLowerCase();
+    let options = Object.keys(PATTERN_GROUPS).map(function(group){
+        const names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
+            return _fuzzyMatch(name.toLowerCase(), filterLc);
+        });
+        if(names.length === 0){ return null; }
+        const opts = names.map(function(name){
+            const meta = PATTERN_META[name];
+            let title = '';
+            if(meta){
+                if(meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';
+                else if(meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+                else if(meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');
+                else if(meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';
+                else if(meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
+            }
+            return <option key={name} value={name} title={title}>{name}</option>;
+        });
+        return <optgroup key={group} label={group}>{opts}</optgroup>;
+    }).filter(function(x){ return x !== null; });
+    if(hasCustom){
+        options = options.concat(
+            <optgroup key="custom" label="Custom"><option value="Custom">Custom</option></optgroup>
+        );
+    }
+    _patternOptionsCache.filter = filterStr;
+    _patternOptionsCache.hasCustom = hasCustom;
+    _patternOptionsCache.result = options;
+    return options;
+};
 
 const ModeControls = function ModeControls(props) { // eslint-disable-line no-unused-vars
     const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
@@ -29,31 +81,7 @@ const ModeControls = function ModeControls(props) { // eslint-disable-line no-un
 const ToolsContent = function ToolsContent(props) { // eslint-disable-line no-unused-vars
     const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
 
-                const filterLc = state.patternFilter.toLowerCase();
-                let patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
-                    const names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
-                        return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
-                    });
-                    if(names.length === 0){ return null; }
-                    const opts = names.map(function(name){
-                        const meta = PATTERN_META[name];
-                        let title = '';
-                        if(meta){
-                            if(meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';
-                            else if(meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-                            else if(meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');
-                            else if(meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';
-                            else if(meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-                        }
-                        return <option key={name} value={name} title={title}>{name}</option>;
-                    });
-                    return <optgroup key={group} label={group}>{opts}</optgroup>;
-                }).filter(function(x){ return x !== null; });
-                if(PATTERNS['Custom']){
-                    patternOptions = patternOptions.concat(
-                        <optgroup key="custom" label="Custom"><option value="Custom">Custom</option></optgroup>
-                    );
-                }
+                const patternOptions = _buildPatternOptions(state.patternFilter);
                 return (
                     <div className="tools-content">
                         <div className="btn-section">
@@ -140,31 +168,7 @@ const ToolsContent = function ToolsContent(props) { // eslint-disable-line no-un
  */
 const PresetContent = function PresetContent(props) { // eslint-disable-line no-unused-vars
     const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
-    const filterLc = state.patternFilter.toLowerCase();
-    let patternOptions = Object.keys(PATTERN_GROUPS).map(function(group){
-        const names = Object.keys(PATTERN_GROUPS[group]).filter(function(name){
-            return !filterLc || name.toLowerCase().indexOf(filterLc) !== -1;
-        });
-        if(names.length === 0){ return null; }
-        const opts = names.map(function(name){
-            const meta = PATTERN_META[name];
-            const title = '';
-            if(meta){
-                if(meta.type === 'Still life') title = 'Still life \xB7 ' + meta.cells + ' cells';
-                else if(meta.type === 'Oscillator') title = 'Oscillator \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-                else if(meta.type === 'Spaceship') title = 'Spaceship \xB7 Period\u00a0' + meta.period + (meta.note ? ' \xB7 ' + meta.note : '');
-                else if(meta.type === 'Methuselah') title = 'Methuselah \xB7 ' + meta.lifespan + '\u00a0gen lifespan \xB7 ' + meta.cells + ' cells';
-                else if(meta.type === 'Gun') title = 'Gun \xB7 Period\u00a0' + meta.period + ' \xB7 ' + meta.cells + ' cells';
-            }
-            return <option key={name} value={name} title={title}>{name}</option>;
-        });
-        return <optgroup key={group} label={group}>{opts}</optgroup>;
-    }).filter(function(x){ return x !== null; });
-    if(PATTERNS['Custom']){
-        patternOptions = patternOptions.concat(
-            <optgroup key="custom" label="Custom"><option value="Custom">Custom</option></optgroup>
-        );
-    }
+    const patternOptions = _buildPatternOptions(state.patternFilter);
     return (
         <div className="tools-content">
             <select className={"preset-select" + (state.drawMode === 'preset' && state.selectedPattern ? " active" : "")}
@@ -306,3 +310,5 @@ const MobileContextPanel = function MobileContextPanel(props) { // eslint-disabl
                     </div>
                 );
 };
+
+export { ModeControls, ToolsContent, PresetContent, DrawToolPopOut, SelectToolPopOut, RegionToolPopOut, MobileContextPanel };

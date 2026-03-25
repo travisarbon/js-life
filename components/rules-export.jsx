@@ -1,4 +1,8 @@
-/* global LifeBoardUtils, LifeIOUtils, LifeAnalysisUtils, RULE_PRESETS */
+import React from 'react';
+import { RULE_PRESETS } from '../constants.js';
+import { LifeBoardUtils } from '../life-board-utils.js';
+import { LifeIOUtils } from '../life-io-utils.js';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
 /**
  * Rules and export panel components extracted from LifeBoard.
  * Each component receives props: state, stateRef, refs, dispatch
@@ -76,3 +80,5 @@ const ExportContent = function ExportContent(props) { // eslint-disable-line no-
                     </div>
                 );
 };
+
+export { RulesSection, RLESection, ExportContent };

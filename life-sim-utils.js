@@ -1,6 +1,7 @@
-/* global SimRunner, InputHandler, parseKey, SPEED_DELAYS, MAX_POP_HISTORY,
-          TRAIL_MAX_VALUE, MAX_TRAIL_MAP, TRAIL_PRUNE_THRESHOLD, MAX_UNDO_STACK,
-          LifeViewUtils */
+import { parseKey, SPEED_DELAYS, MAX_POP_HISTORY, TRAIL_MAX_VALUE, MAX_TRAIL_MAP, TRAIL_PRUNE_THRESHOLD, MAX_UNDO_STACK } from './constants.js';
+import { SimRunner } from './simulation.js';
+import { InputHandler } from './input-handler.js';
+import { LifeViewUtils } from './life-view-utils.js';
 /**
  * Simulation control utilities for LifeBoard component.
  * Handles animation loop, stepping, undo/redo, and generation history.
@@ -69,12 +70,19 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
                 else { trailMap.set(key, val - 1); }
             });
             for(let ti = 0; ti < toDelete.length; ti++){ trailMap.delete(toDelete[ti]); }
-            // Prune if over limit.
+            // Prune if over limit — progressive eviction instead of full clear.
             if(trailMap.size > MAX_TRAIL_MAP){
+                // First pass: remove entries at or below prune threshold.
                 trailMap.forEach(function(val, key){
                     if(val <= TRAIL_PRUNE_THRESHOLD){ trailMap.delete(key); }
                 });
-                if(trailMap.size > MAX_TRAIL_MAP){ trailMap.clear(); }
+                // If still over limit, remove entries at half-life value.
+                if(trailMap.size > MAX_TRAIL_MAP){
+                    const halfLife = Math.floor(TRAIL_MAX_VALUE / 2);
+                    trailMap.forEach(function(val, key){
+                        if(val <= halfLife){ trailMap.delete(key); }
+                    });
+                }
             }
         }
 
@@ -394,3 +402,5 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         }
     },
 };
+
+export { LifeSimUtils };

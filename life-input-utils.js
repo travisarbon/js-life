@@ -1,4 +1,10 @@
-/* global InputHandler, LifeSimUtils, LifeViewUtils, LifeBoardUtils, LifeIOUtils, LifeAnalysisUtils, toggleTrails */
+import { InputHandler } from './input-handler.js';
+import { LifeSimUtils } from './life-sim-utils.js';
+import { LifeViewUtils } from './life-view-utils.js';
+import { LifeBoardUtils } from './life-board-utils.js';
+import { LifeIOUtils } from './life-io-utils.js';
+import { LifeAnalysisUtils } from './life-analysis-utils.js';
+import { toggleTrails } from './components/canvas-area.jsx';
 /**
  * Input delegation and keyboard utility object for LifeBoard component.
  * Delegates mouse/touch/wheel events to InputHandler and handles keyboard shortcuts.
@@ -221,6 +227,7 @@ var LifeInputUtils = { // eslint-disable-line no-unused-vars
         // Register all existing shortcuts centrally.
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 'd', 'Switch to Draw mode', function(){ LifeBoardUtils.toggleDrawMode(stateRef, refs, dispatch); });
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 'p', 'Switch to Preset mode', function(){ LifeBoardUtils.togglePresetMode(stateRef, refs, dispatch); });
+        LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 's', 'Switch to Select mode', function(){ LifeBoardUtils.toggleSelectMode(stateRef, refs, dispatch); });
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 'b', 'Switch to Region mode', function(){ LifeBoardUtils.toggleRegionMode(stateRef, refs, dispatch); });
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 'g', 'Toggle grid lines', function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); });
         LifeInputUtils._registerShortcut(stateRef, refs, dispatch, 't', 'Toggle trails', function(){ toggleTrails(stateRef, refs, dispatch); });
@@ -234,3 +241,5 @@ var LifeInputUtils = { // eslint-disable-line no-unused-vars
         delete refs.shortcuts[key.toLowerCase()];
     },
 };
+
+export { LifeInputUtils };

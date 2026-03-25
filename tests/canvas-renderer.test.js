@@ -2,12 +2,8 @@
  * Unit tests for CanvasRenderer module.
  */
 
-const fs = require('fs');
-const constantsSrc = fs.readFileSync(__dirname + '/../constants.js', 'utf8');
-const patternsSrc = fs.readFileSync(__dirname + '/../patterns.js', 'utf8');
-const regionSrc = fs.readFileSync(__dirname + '/../region.js', 'utf8');
-const rendererSrc = fs.readFileSync(__dirname + '/../canvas-renderer.js', 'utf8');
-const combined = constantsSrc + '\n' + patternsSrc + '\n' + regionSrc + '\n' + rendererSrc;
+const { loadSources } = require('./test-helpers');
+const combined = loadSources(['constants.js', 'patterns.js', 'region.js', 'canvas-renderer.js']);
 const script = new Function(combined + '\nreturn { CanvasRenderer, THEMES, COLOR_STEPS };');
 const exported = script();
 const CanvasRenderer = exported.CanvasRenderer;

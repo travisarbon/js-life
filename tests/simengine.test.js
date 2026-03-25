@@ -4,10 +4,8 @@
  */
 
 // Load pattern data + pure functions from constants.js + patterns.js.
-const fs = require('fs');
-const patternsSrc = fs.readFileSync(__dirname + '/../patterns.js', 'utf8');
-const constantsSrc = fs.readFileSync(__dirname + '/../constants.js', 'utf8');
-const pureSrc = constantsSrc + '\n' + patternsSrc;
+const { loadSources } = require('./test-helpers');
+const pureSrc = loadSources(['constants.js', 'patterns.js']);
 
 // Execute in current scope using indirect eval to expose globals.
 const script = new Function(pureSrc + '\nreturn { parseKey, SimEngine, PATTERN_GROUPS, PATTERNS, PATTERN_META, RULE_PRESETS, SPEED_DELAYS, THEMES, overlayAges };');

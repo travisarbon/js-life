@@ -1,4 +1,8 @@
-/* global SimRunner, SimEngine, HashLife, parseKey, overlayAges, LifeViewUtils, GIF */
+import { SimEngine, parseKey, overlayAges } from './constants.js';
+import { HashLife } from './hashlife.js';
+import { SimRunner } from './simulation.js';
+import { LifeViewUtils } from './life-view-utils.js';
+import GIF from './js/gif.js';
 /**
  * Pattern analysis, help, and GIF recording utils for LifeBoard component.
  */
@@ -220,3 +224,5 @@ var LifeAnalysisUtils = { // eslint-disable-line no-unused-vars
         setTimeout(function(){ dispatch({type:'MERGE', payload:{analysisResult: null}}); }, 2000);
     },
 };
+
+export { LifeAnalysisUtils };

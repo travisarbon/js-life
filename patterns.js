@@ -151,3 +151,5 @@ var PATTERN_META = { // eslint-disable-line no-unused-vars
     'Gosper Glider Gun':   { type: 'Gun',         period: 30, cells: 36 },
     'Simkin Glider Gun':   { type: 'Gun',         period: 120, cells: 32 }
 };
+
+export { PATTERN_GROUPS, PATTERNS, PATTERN_META };

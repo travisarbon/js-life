@@ -1,4 +1,7 @@
-/* global LifeViewUtils, LifeBoardUtils, THEMES, SPEED_DELAYS */
+import React from 'react';
+import { THEMES, SPEED_DELAYS } from '../constants.js';
+import { LifeViewUtils } from '../life-view-utils.js';
+import { LifeBoardUtils } from '../life-board-utils.js';
 /**
  * Settings panel components extracted from LifeBoard.
  * Each component receives props: state, stateRef, refs, dispatch
@@ -15,7 +18,7 @@ const ViewControls = function ViewControls(props) { // eslint-disable-line no-un
                         <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitView(stateRef, refs, dispatch); }} title="Zoom to fit entire grid"><i className="fa fa-arrows-alt" aria-hidden="true"></i> Fit Grid</button>
                         <button type="button" className="btn" onClick={function(){ LifeViewUtils.fitLiveCells(stateRef, refs, dispatch); }} title="Zoom to fit live cells"><i className="fa fa-compress" aria-hidden="true"></i> Fit Cells</button>
                         <button type="button" className={"btn btn-toggle" + (state.gridLines ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleGridLines(stateRef, refs, dispatch); }} title="Toggle grid lines (G)" aria-pressed={state.gridLines}><i className="fa fa-th" aria-hidden="true"></i> Grid</button>
-                        <button type="button" className={"btn btn-toggle" + (state.showTrails ? " active" : "")} onClick={function(){ onToggleTrails(stateRef, refs, dispatch); }} title="Show ghost trails" aria-pressed={state.showTrails}><i className="fa fa-sun-o" aria-hidden="true"></i> Trails</button>
+                        <button type="button" className={"btn btn-toggle" + (state.showTrails ? " active" : "")} onClick={function(){ onToggleTrails(stateRef, refs, dispatch); }} title="Show ghost trails (T)" aria-pressed={state.showTrails}><i className="fa fa-sun-o" aria-hidden="true"></i> Trails</button>
                         <button type="button" className={"btn btn-toggle" + (state.showMinimap ? " active" : "")} onClick={function(){ LifeBoardUtils.toggleMinimap(stateRef, refs, dispatch); }} title="Show/hide minimap (M)" aria-pressed={state.showMinimap}><i className="fa fa-map-o" aria-hidden="true"></i> Minimap</button>
                         <button type="button" className={"btn btn-toggle" + (state.showStats ? " active" : "")} onClick={function(){ dispatch({type:'MERGE', payload:{showStats: !state.showStats}}); }} title="Show/hide stats overlay" aria-pressed={state.showStats}><i className="fa fa-bar-chart" aria-hidden="true"></i> Stats</button>
                     </div>
@@ -150,3 +153,5 @@ const BoardSliders = function BoardSliders(props) { // eslint-disable-line no-un
                     </div>
                 );
 };
+
+export { ViewControls, ZoomSlider, DisplaySettings, BoundaryControls, SpeedSlider, BoardSliders };

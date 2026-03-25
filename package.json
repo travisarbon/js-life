@@ -3,13 +3,14 @@
   "version": "1.0.0",
   "description": "Conway's Game of Life — interactive cellular automaton simulator",
   "scripts": {
-    "build": "npm run lint:quiet && babel components/*.js script.js --source-maps -o script.compiled.js",
-    "start": "npx serve .",
-    "lint": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-utils.js life-io-utils.js life-input-utils.js life-view-utils.js life-board-utils.js life-analysis-utils.js components/",
-    "lint:quiet": "eslint constants.js script.js hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-utils.js life-io-utils.js life-input-utils.js life-view-utils.js life-board-utils.js life-analysis-utils.js components/ --quiet",
+    "dev": "vite",
+    "build": "npm run lint:quiet && npm test -- --passWithNoTests && vite build",
+    "preview": "vite preview",
+    "start": "vite",
+    "lint": "eslint constants.js script.jsx hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-utils.js life-io-utils.js life-input-utils.js life-view-utils.js life-board-utils.js life-analysis-utils.js 'components/*.jsx'",
+    "lint:quiet": "eslint constants.js script.jsx hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-utils.js life-io-utils.js life-input-utils.js life-view-utils.js life-board-utils.js life-analysis-utils.js 'components/*.jsx' --quiet",
     "test": "jest",
-    "test:watch": "jest --watch",
-    "prebuild": "npm test -- --passWithNoTests"
+    "test:watch": "jest --watch"
   },
   "browserslist": [
     "> 1%",
@@ -25,9 +26,15 @@
     "@babel/parser": "^7.29.0",
     "@babel/preset-env": "^7.29.2",
     "@babel/preset-react": "^7.28.5",
+    "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.5",
     "jest": "^29.7.0",
-    "umd-react": "^19.2.4"
+    "umd-react": "^19.2.4",
+    "vite": "^8.0.2"
+  },
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   }
 }

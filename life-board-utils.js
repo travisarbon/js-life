@@ -1,4 +1,12 @@
-/* global SimEngine, SimRunner, CanvasRenderer, InputHandler, RegionUtil, PATTERNS, LifeSimUtils, LifeViewUtils, drawRotationPreview */
+import { SimEngine } from './constants.js';
+import { PATTERNS } from './patterns.js';
+import { RegionUtil } from './region.js';
+import { CanvasRenderer } from './canvas-renderer.js';
+import { SimRunner } from './simulation.js';
+import { InputHandler } from './input-handler.js';
+import { LifeSimUtils } from './life-sim-utils.js';
+import { LifeViewUtils } from './life-view-utils.js';
+import { drawRotationPreview } from './components/canvas-area.jsx';
 /**
  * Board configuration, drawing modes, and selection utility for LifeBoard component.
  * Handles board resize, rules, patterns, mode toggles, selection, and region management.
@@ -483,3 +491,5 @@ var LifeBoardUtils = { // eslint-disable-line no-unused-vars
         }
     }
 };
+
+export { LifeBoardUtils };

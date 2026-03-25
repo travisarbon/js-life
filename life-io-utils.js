@@ -1,5 +1,9 @@
-/* global SimEngine, SimRunner, InputHandler, detectAndParsePattern, LifeViewUtils, LifeBoardUtils,
-          PATTERNS, MAX_CELL_IMPORT */
+import { SimEngine, detectAndParsePattern, MAX_CELL_IMPORT } from './constants.js';
+import { PATTERNS } from './patterns.js';
+import { SimRunner } from './simulation.js';
+import { InputHandler } from './input-handler.js';
+import { LifeViewUtils } from './life-view-utils.js';
+import { LifeBoardUtils } from './life-board-utils.js';
 /**
  * File I/O and export utilities for LifeBoard component.
  * Handles file drop, clipboard paste, PNG/RLE export, URL sharing, and RLE import.
@@ -221,3 +225,5 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
         }
     },
 };
+
+export { LifeIOUtils };

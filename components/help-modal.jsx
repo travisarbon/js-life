@@ -1,4 +1,5 @@
-/* global LifeAnalysisUtils */
+import React from 'react';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
 /**
  * HelpModal — keyboard shortcuts overlay dialog.
  * Props: showHelp, stateRef, refs, dispatch
@@ -72,3 +73,5 @@ const HelpModal = function HelpModal(props) { // eslint-disable-line no-unused-v
         </div>
     );
 };
+
+export { HelpModal };

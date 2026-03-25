@@ -3,13 +3,8 @@
  * Tests step, stepN, invalidate, and boundary mode behaviour.
  */
 
-const fs = require('fs');
-const constantsSrc = fs.readFileSync(__dirname + '/../constants.js', 'utf8');
-const patternsSrc = fs.readFileSync(__dirname + '/../patterns.js', 'utf8');
-const hashlifeSrc = fs.readFileSync(__dirname + '/../hashlife.js', 'utf8');
-const regionSrc = fs.readFileSync(__dirname + '/../region.js', 'utf8');
-const simSrc = fs.readFileSync(__dirname + '/../simulation.js', 'utf8');
-const combined = constantsSrc + '\n' + patternsSrc + '\n' + hashlifeSrc + '\n' + regionSrc + '\n' + simSrc;
+const { loadSources } = require('./test-helpers');
+const combined = loadSources(['constants.js', 'patterns.js', 'hashlife.js', 'region.js', 'simulation.js']);
 const script = new Function(combined + '\nreturn { SimRunner, SimEngine, HashLife, RegionUtil, parseKey, overlayAges };');
 const exported = script();
 const { SimRunner, SimEngine, HashLife, RegionUtil, parseKey } = exported;

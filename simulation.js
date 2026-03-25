@@ -1,4 +1,6 @@
-/* global HashLife, SimEngine, RegionUtil, parseKey, overlayAges, MAX_HL_COORD, HL_GC_THRESHOLD */
+import { SimEngine, parseKey, overlayAges, MAX_HL_COORD, HL_GC_THRESHOLD } from './constants.js';
+import { HashLife } from './hashlife.js';
+import { RegionUtil } from './region.js';
 /**
  * Simulation runner module for Game of Life (R04, R07).
  * Provides a unified interface for both SimEngine (toroidal) and HashLife
@@ -242,3 +244,5 @@ var SimRunner = { // eslint-disable-line no-unused-vars
         return { liveCells: result, pops: pops, peak: peak };
     }
 };
+
+export { SimRunner };

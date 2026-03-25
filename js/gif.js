@@ -239,3 +239,6 @@
     root.GIF = GIFEncoder;
 
 })(typeof window !== 'undefined' ? window : this);
+
+// ES module export
+export default (typeof window !== 'undefined' ? window : globalThis).GIF;
