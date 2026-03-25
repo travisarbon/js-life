@@ -52,8 +52,8 @@ node_modules/
 # IDE
 .idea/
 
-# Build artifacts
-*.map
+# Build artifacts (dist/ is intermediate; assets/ is deployed to root for GitHub Pages)
+dist/
 
 # Test coverage
 coverage/
