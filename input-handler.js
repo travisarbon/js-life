@@ -221,127 +221,83 @@ const InputHandler = { // eslint-disable-line no-unused-vars
         this._panMomentumFrame = requestAnimationFrame(tick);
     },
 
-    // ── Mouse event handlers ─────────────────────────────────────────────────
-    // Each receives the DOM event and the host component.
+    // ── Mouse event sub-handlers ───────────────────────────────────────────────
 
-    onMouseDown: function(event, host){
-        event.preventDefault();
+    /** Handle minimap click detection and navigation. Returns true if handled. */
+    _handleMinimapDown: function(event, host){
         const canvas = host._canvas;
-        // Minimap click.
-        if(event.button === 0 && host._minimapRect && host.state.showMinimap && host.state.drawMode !== 'select'){
-            const mouse = this.getMousePos(event, canvas);
-            const mm = host._minimapRect;
-            if(mm.w > 0 && mm.h > 0 &&
-               mouse.x >= mm.x && mouse.x <= mm.x + mm.w &&
-               mouse.y >= mm.y && mouse.y <= mm.y + mm.h){
-                const frac_c = (mouse.x - mm.x) / mm.w;
-                const frac_r = (mouse.y - mm.y) / mm.h;
-                const mmWorldCols = mm.worldCols || host.state.cols;
-                const mmWorldRows = mm.worldRows || host.state.rows;
-                const mmOC = mm.originC || 0, mmOR = mm.originR || 0;
-                const newVX = Math.round(frac_c * mmWorldCols + mmOC - (canvas.width / host.state.cellSize) / 2);
-                const newVY = Math.round(frac_r * mmWorldRows + mmOR - (canvas.height / host.state.cellSize) / 2);
-                const clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, host.state.cellSize);
-                host.setState({viewX: clamped.viewX, viewY: clamped.viewY}, function(){ host.drawBoard(); });
-                this._minimapDragging = true;
-                return;
-            }
+        if(event.button !== 0 || !host._minimapRect || !host.state.showMinimap || host.state.drawMode === 'select'){ return false; }
+        const mouse = this.getMousePos(event, canvas);
+        const mm = host._minimapRect;
+        if(mm.w > 0 && mm.h > 0 &&
+           mouse.x >= mm.x && mouse.x <= mm.x + mm.w &&
+           mouse.y >= mm.y && mouse.y <= mm.y + mm.h){
+            const frac_c = (mouse.x - mm.x) / mm.w;
+            const frac_r = (mouse.y - mm.y) / mm.h;
+            const mmWorldCols = mm.worldCols || host.state.cols;
+            const mmWorldRows = mm.worldRows || host.state.rows;
+            const mmOC = mm.originC || 0, mmOR = mm.originR || 0;
+            const newVX = Math.round(frac_c * mmWorldCols + mmOC - (canvas.width / host.state.cellSize) / 2);
+            const newVY = Math.round(frac_r * mmWorldRows + mmOR - (canvas.height / host.state.cellSize) / 2);
+            const clamped = host.clampView(newVX, newVY, host.state.cols, host.state.rows, host.state.cellSize);
+            host.setState({viewX: clamped.viewX, viewY: clamped.viewY}, function(){ host.drawBoard(); });
+            this._minimapDragging = true;
+            return true;
         }
-        // Middle-mouse pan.
-        if(event.button === 1){
-            this._panDragging = true;
-            this._panStart = {x: event.clientX, y: event.clientY,
-                              vx: host.state.viewX, vy: host.state.viewY};
-            return;
-        }
-        // Right-click: exit pattern mode, or start pan drag.
-        if(event.button === 2){
-            if(host.state.drawMode === 'preset' && host.state.selectedPattern){
-                this._previewPos = null;
-                host.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
-                    function(){ host.drawBoard(); });
-                return;
-            }
-            // Right-click drag to pan (complements middle-click pan above).
-            this._panDragging = true;
-            this._panStart = {x: event.clientX, y: event.clientY,
-                              vx: host.state.viewX, vy: host.state.viewY};
-            return;
-        }
-        if(event.button !== 0){ return; }
-        const pos = this.getCellPos(event, canvas, host.state.viewX, host.state.viewY, host.state.cellSize);
-        const c = pos.c, r = pos.r;
+        return false;
+    },
 
-        // Pan mode.
-        if(host.state.panMode){
-            this._panDragging = true;
-            this._panStart = {x: event.clientX, y: event.clientY,
-                              vx: host.state.viewX, vy: host.state.viewY};
-            return;
-        }
+    /** Handle selection mode mouse-down. */
+    _handleSelectDown: function(c, r, host){
+        const selectTool = host.state.selectTool || 'rect';
+        if(selectTool === 'all-visible'){ host.selectAllVisible(); return; }
+        this._selStart = {c: c, r: r};
+        this._lassoPath = [];
+        const selType = selectTool === 'ellipse' ? 'ellipse' : (selectTool === 'freeform' ? 'freeform' : 'rect');
+        host.setState({selection: {type: selType, c1: c, r1: r, c2: c, r2: r, path: [], cells: []}},
+            function(){ host.drawBoard(); });
+    },
 
-        host._hideStatsChip();
+    /** Handle region drawing mouse-down (fill, shape, paint). */
+    _handleRegionDown: function(c, r, host){
+        host.setState({running: false});
+        const regionTool = host.state.regionTool || 'shape-rect';
+        const regionKey = r + ',' + c;
+        const startInRegion = host.state.regionMask.has(regionKey);
 
-        // Selection mode.
-        if(host.state.drawMode === 'select'){
-            const selectTool = host.state.selectTool || 'rect';
-            if(selectTool === 'all-visible'){ host.selectAllVisible(); return; }
-            this._selStart = {c: c, r: r};
-            this._lassoPath = [];
-            const selType = selectTool === 'ellipse' ? 'ellipse' : (selectTool === 'freeform' ? 'freeform' : 'rect');
-            host.setState({selection: {type: selType, c1: c, r1: r, c2: c, r2: r, path: [], cells: []}},
-                function(){ host.drawBoard(); });
-            return;
-        }
-
-        // Pattern placement.
-        if(host.state.drawMode === 'preset' && host.state.selectedPattern){
-            if(!this._cellInRegion(r, c, host)){ return; }
-            if(!host.state.livePaintMode){ host.setState({running: false}); }
-            host.placePattern(host.state.selectedPattern, c, r);
-            return;
-        }
-
-        // Region drawing mode.
-        if(host.state.drawMode === 'region'){
-            host.setState({running: false});
-            const regionTool = host.state.regionTool || 'shape-rect';
-            const regionKey = r + ',' + c;
-            const startInRegion = host.state.regionMask.has(regionKey);
-
-            if(regionTool === 'fill'){
-                // Flood fill on region mask.
-                host.pushUndo();
-                const fillKeys = RegionUtil.floodFillRegion(r, c, host.state.regionMask, 100000);
-                this._regionErasing = startInRegion;
-                if(startInRegion){
-                    host._mutateRegion(null, fillKeys);
-                } else {
-                    host._mutateRegion(fillKeys, null);
-                }
-                CanvasRenderer.invalidateRegionCache();
-                return;
-            }
-            if(regionTool === 'line' || regionTool === 'shape-rect' || regionTool === 'shape-circle'){
-                this._regionErasing = startInRegion;
-                host.pushUndo();
-                this._regionToolStart = {c: c, r: r};
-                this._regionPreviewKeys = [regionKey];
-                host.drawBoard();
-                return;
-            }
-            // Default: cell-by-cell region painting.
+        if(regionTool === 'fill'){
+            // Flood fill on region mask.
             host.pushUndo();
-            this._regionDragging = true;
-            this._regionDragStatus = startInRegion ? 0 : 1;
-            this._regionPaintedKeys = {};
-            this._regionPaintedKeys[regionKey] = this._regionDragStatus;
+            const fillKeys = RegionUtil.floodFillRegion(r, c, host.state.regionMask, 100000);
             this._regionErasing = startInRegion;
+            if(startInRegion){
+                host._mutateRegion(null, fillKeys);
+            } else {
+                host._mutateRegion(fillKeys, null);
+            }
+            CanvasRenderer.invalidateRegionCache();
+            return;
+        }
+        if(regionTool === 'line' || regionTool === 'shape-rect' || regionTool === 'shape-circle'){
+            this._regionErasing = startInRegion;
+            host.pushUndo();
+            this._regionToolStart = {c: c, r: r};
+            this._regionPreviewKeys = [regionKey];
             host.drawBoard();
             return;
         }
+        // Default: cell-by-cell region painting.
+        host.pushUndo();
+        this._regionDragging = true;
+        this._regionDragStatus = startInRegion ? 0 : 1;
+        this._regionPaintedKeys = {};
+        this._regionPaintedKeys[regionKey] = this._regionDragStatus;
+        this._regionErasing = startInRegion;
+        host.drawBoard();
+    },
 
-        // Paint mode.
+    /** Handle paint mode mouse-down (fill, shape, cell). */
+    _handlePaintDown: function(c, r, host){
         const drawTool = host.state.drawTool || 'cell';
         // Check region bounds before pausing the simulation.
         if(!this._cellInRegion(r, c, host)){ return; }
@@ -381,25 +337,166 @@ const InputHandler = { // eslint-disable-line no-unused-vars
         host.drawBoard();
     },
 
+    // ── Mouse event handlers ─────────────────────────────────────────────────
+    // Each receives the DOM event and the host component.
+
+    onMouseDown: function(event, host){
+        event.preventDefault();
+        const canvas = host._canvas;
+        // Minimap click.
+        if(this._handleMinimapDown(event, host)){ return; }
+        // Middle-mouse pan.
+        if(event.button === 1){
+            this._panDragging = true;
+            this._panStart = {x: event.clientX, y: event.clientY,
+                              vx: host.state.viewX, vy: host.state.viewY};
+            return;
+        }
+        // Right-click: exit pattern mode, or start pan drag.
+        if(event.button === 2){
+            if(host.state.drawMode === 'preset' && host.state.selectedPattern){
+                this._previewPos = null;
+                host.setState({selectedPattern: null, patternRotation: 0, drawMode: 'paint'},
+                    function(){ host.drawBoard(); });
+                return;
+            }
+            // Right-click drag to pan (complements middle-click pan above).
+            this._panDragging = true;
+            this._panStart = {x: event.clientX, y: event.clientY,
+                              vx: host.state.viewX, vy: host.state.viewY};
+            return;
+        }
+        if(event.button !== 0){ return; }
+        const pos = this.getCellPos(event, canvas, host.state.viewX, host.state.viewY, host.state.cellSize);
+        const c = pos.c, r = pos.r;
+
+        // Pan mode.
+        if(host.state.panMode){
+            this._panDragging = true;
+            this._panStart = {x: event.clientX, y: event.clientY,
+                              vx: host.state.viewX, vy: host.state.viewY};
+            return;
+        }
+
+        host._hideStatsChip();
+
+        // Selection mode.
+        if(host.state.drawMode === 'select'){
+            this._handleSelectDown(c, r, host);
+            return;
+        }
+
+        // Pattern placement.
+        if(host.state.drawMode === 'preset' && host.state.selectedPattern){
+            if(!this._cellInRegion(r, c, host)){ return; }
+            if(!host.state.livePaintMode){ host.setState({running: false}); }
+            host.placePattern(host.state.selectedPattern, c, r);
+            return;
+        }
+
+        // Region drawing mode.
+        if(host.state.drawMode === 'region'){
+            this._handleRegionDown(c, r, host);
+            return;
+        }
+
+        // Paint mode.
+        this._handlePaintDown(c, r, host);
+    },
+
+    // ── Mouse-move sub-handlers ─────────────────────────────────────────────
+
+    /** Handle pan drag during mouse move. Returns true if handled. */
+    _handlePanMove: function(event, host){
+        if(!this._panDragging || !this._panStart){ return false; }
+        const canvas = host._canvas;
+        const dx = event.clientX - this._panStart.x;
+        const dy = event.clientY - this._panStart.y;
+        const cellSize = host.state.cellSize;
+        const rect = canvas.getBoundingClientRect();
+        const displayCellSize = (rect.width > 0 && canvas.width > 0)
+            ? cellSize * (rect.width / canvas.width) : cellSize;
+        const dcells = -Math.round(dx / displayCellSize);
+        const drows  = -Math.round(dy / displayCellSize);
+        const clamped = host.clampView(
+            this._panStart.vx + dcells, this._panStart.vy + drows,
+            host.state.cols, host.state.rows, cellSize);
+        host.setState({viewX: clamped.viewX, viewY: clamped.viewY},
+            function(){ host.drawBoard(); });
+        return true;
+    },
+
+    /** Handle selection drag during mouse move. Returns true if handled. */
+    _handleSelectMove: function(c, r, host){
+        if(host.state.drawMode !== 'select' || !this._selStart){ return false; }
+        const bc = c, br = r;
+        const selectTool = host.state.selectTool || 'rect';
+        if(selectTool === 'freeform'){
+            const path = this._lassoPath;
+            const last = path.length > 0 ? path[path.length - 1] : null;
+            if(!last || last.c !== bc || last.r !== br){
+                path.push({c: bc, r: br});
+                host.setState({selection: {type:'freeform', path: path.slice(), cells: []}},
+                    function(){ host.drawBoard(); });
+            }
+            return true;
+        }
+        const prev2 = host.state.selection;
+        if(prev2 && prev2.c2 === bc && prev2.r2 === br){ return true; }
+        const selType = selectTool === 'ellipse' ? 'ellipse' : 'rect';
+        host.setState({selection: {type: selType, c1: this._selStart.c, r1: this._selStart.r, c2: bc, r2: br}},
+            function(){ host.drawBoard(); });
+        return true;
+    },
+
+    /** Handle draw tool (line/shape) preview during mouse move. Returns true if handled. */
+    _handleDrawToolMove: function(c, r, host){
+        if(!this._drawToolStart || host.state.drawMode !== 'paint'){ return false; }
+        const drawTool = host.state.drawTool || 'cell';
+        if(drawTool !== 'line' && drawTool !== 'shape-rect' && drawTool !== 'shape-circle'){ return false; }
+        const tc = c, tr = r;
+        const ds = this._drawToolStart;
+        let rawCells;
+        if(drawTool === 'line'){
+            rawCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
+        } else if(drawTool === 'shape-rect'){
+            rawCells = [];
+            const rMin = Math.min(ds.r, tr), rMax = Math.max(ds.r, tr);
+            const cMin = Math.min(ds.c, tc), cMax = Math.max(ds.c, tc);
+            for(let pr = rMin; pr <= rMax; pr++)
+                for(let pc = cMin; pc <= cMax; pc++)
+                    rawCells.push([pr, pc]);
+        } else {
+            rawCells = this.ellipseCells(ds.c, ds.r, tc, tr);
+        }
+        // Filter to region bounds.
+        const selfDT = this;
+        this._drawPreviewCells = rawCells.filter(function(rc){ return selfDT._cellInRegion(rc[0], rc[1], host); });
+        host.drawBoard();
+        return true;
+    },
+
+    /** Handle region tool (rubber-band shapes) preview during mouse move. Returns true if handled. */
+    _handleRegionToolMove: function(c, r, host){
+        if(!this._regionToolStart || host.state.drawMode !== 'region'){ return false; }
+        const regionTool = host.state.regionTool || 'shape-rect';
+        if(regionTool !== 'line' && regionTool !== 'shape-rect' && regionTool !== 'shape-circle'){ return false; }
+        const rds = this._regionToolStart;
+        if(regionTool === 'line'){
+            this._regionPreviewKeys = RegionUtil.lineKeys(rds.r, rds.c, r, c);
+        } else if(regionTool === 'shape-rect'){
+            this._regionPreviewKeys = RegionUtil.rectKeys(rds.r, rds.c, r, c);
+        } else if(regionTool === 'shape-circle'){
+            this._regionPreviewKeys = RegionUtil.ellipseKeys(rds.r, rds.c, r, c);
+        }
+        host.drawBoard();
+        return true;
+    },
+
     onMouseMove: function(event, host){
         const canvas = host._canvas;
         // Pan drag.
-        if(this._panDragging && this._panStart){
-            const dx = event.clientX - this._panStart.x;
-            const dy = event.clientY - this._panStart.y;
-            const cellSize = host.state.cellSize;
-            const rect = canvas.getBoundingClientRect();
-            const displayCellSize = (rect.width > 0 && canvas.width > 0)
-                ? cellSize * (rect.width / canvas.width) : cellSize;
-            const dcells = -Math.round(dx / displayCellSize);
-            const drows  = -Math.round(dy / displayCellSize);
-            const clamped = host.clampView(
-                this._panStart.vx + dcells, this._panStart.vy + drows,
-                host.state.cols, host.state.rows, cellSize);
-            host.setState({viewX: clamped.viewX, viewY: clamped.viewY},
-                function(){ host.drawBoard(); });
-            return;
-        }
+        if(this._handlePanMove(event, host)){ return; }
 
         const pos = this.getCellPos(event, canvas, host.state.viewX, host.state.viewY, host.state.cellSize);
         const c = pos.c, r = pos.r;
@@ -412,70 +509,13 @@ const InputHandler = { // eslint-disable-line no-unused-vars
         if(hoverChanged){ host.setState({hoverCell: newHover}); }
 
         // Selection drag.
-        if(host.state.drawMode === 'select' && this._selStart){
-            const bc = c, br = r;
-            const selectTool = host.state.selectTool || 'rect';
-            if(selectTool === 'freeform'){
-                const path = this._lassoPath;
-                const last = path.length > 0 ? path[path.length - 1] : null;
-                if(!last || last.c !== bc || last.r !== br){
-                    path.push({c: bc, r: br});
-                    host.setState({selection: {type:'freeform', path: path.slice(), cells: []}},
-                        function(){ host.drawBoard(); });
-                }
-                return;
-            }
-            const prev2 = host.state.selection;
-            if(prev2 && prev2.c2 === bc && prev2.r2 === br){ return; }
-            const selType = selectTool === 'ellipse' ? 'ellipse' : 'rect';
-            host.setState({selection: {type: selType, c1: this._selStart.c, r1: this._selStart.r, c2: bc, r2: br}},
-                function(){ host.drawBoard(); });
-            return;
-        }
+        if(this._handleSelectMove(c, r, host)){ return; }
 
         // Draw tool preview.
-        if(this._drawToolStart && host.state.drawMode === 'paint'){
-            const drawTool = host.state.drawTool || 'cell';
-            if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                const tc = c, tr = r;
-                const ds = this._drawToolStart;
-                let rawCells;
-                if(drawTool === 'line'){
-                    rawCells = this.bresenhamLine(ds.r, ds.c, tr, tc);
-                } else if(drawTool === 'shape-rect'){
-                    rawCells = [];
-                    const rMin = Math.min(ds.r, tr), rMax = Math.max(ds.r, tr);
-                    const cMin = Math.min(ds.c, tc), cMax = Math.max(ds.c, tc);
-                    for(let pr = rMin; pr <= rMax; pr++)
-                        for(let pc = cMin; pc <= cMax; pc++)
-                            rawCells.push([pr, pc]);
-                } else {
-                    rawCells = this.ellipseCells(ds.c, ds.r, tc, tr);
-                }
-                // Filter to region bounds.
-                const selfDT = this;
-                this._drawPreviewCells = rawCells.filter(function(rc){ return selfDT._cellInRegion(rc[0], rc[1], host); });
-                host.drawBoard();
-                return;
-            }
-        }
+        if(this._handleDrawToolMove(c, r, host)){ return; }
 
         // Region tool preview (rubber-band shapes).
-        if(this._regionToolStart && host.state.drawMode === 'region'){
-            const regionTool = host.state.regionTool || 'shape-rect';
-            if(regionTool === 'line' || regionTool === 'shape-rect' || regionTool === 'shape-circle'){
-                const rds = this._regionToolStart;
-                if(regionTool === 'line'){
-                    this._regionPreviewKeys = RegionUtil.lineKeys(rds.r, rds.c, r, c);
-                } else if(regionTool === 'shape-rect'){
-                    this._regionPreviewKeys = RegionUtil.rectKeys(rds.r, rds.c, r, c);
-                } else if(regionTool === 'shape-circle'){
-                    this._regionPreviewKeys = RegionUtil.ellipseKeys(rds.r, rds.c, r, c);
-                }
-                host.drawBoard();
-                return;
-            }
-        }
+        if(this._handleRegionToolMove(c, r, host)){ return; }
 
         // Region cell-by-cell painting drag.
         if(this._regionDragging && host.state.drawMode === 'region'){
@@ -522,106 +562,111 @@ const InputHandler = { // eslint-disable-line no-unused-vars
         host.drawBoard();
     },
 
-    onMouseUp: function(event, host){
-        host._showStatsChipAfterDelay();
-        this._minimapDragging = false;
-        if(this._panDragging){
-            this._panDragging = false;
-            this._panStart = null;
-        }
-        if(host.state.drawMode === 'select' && this._selStart){
-            const selectTool = host.state.selectTool || 'rect';
-            if(selectTool === 'freeform'){
-                const path = this._lassoPath;
-                if(path.length >= 3){
-                    let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-                    path.forEach(function(p){ if(p.r<minR)minR=p.r; if(p.r>maxR)maxR=p.r; if(p.c<minC)minC=p.c; if(p.c>maxC)maxC=p.c; });
-                    const fcells = [];
-                    const fcols = host.state.cols, frows = host.state.rows;
-                    const self = this;
-                    const isUnboundedSel = host.state.boundary === 'unbounded';
-                    const fMask = (!isUnboundedSel && host.state.regionMask && host.state.regionMask.size > 0) ? host.state.regionMask : null;
-                    for(let fr = minR; fr <= maxR; fr++)
-                        for(let fc = minC; fc <= maxC; fc++)
-                            if((isUnboundedSel || (fc>=0 && fc<fcols && fr>=0 && fr<frows)) &&
-                               (!fMask || fMask.has(fr + ',' + fc)) &&
-                               self.pointInPolygon(fc, fr, path))
-                                fcells.push([fr, fc]);
-                    host.setState({selection: {type:'freeform', path: path.slice(), cells: fcells}});
-                } else {
-                    host.setState({selection: null});
-                }
-                this._selStart = null;
-                this._lassoPath = [];
-                host.drawBoard();
-                return;
-            }
-            const sel = host.state.selection;
-            if(sel){
-                const normType = sel.type || 'rect';
-                host.setState({selection: {
-                    type: normType,
-                    r1: Math.min(sel.r1, sel.r2), c1: Math.min(sel.c1, sel.c2),
-                    r2: Math.max(sel.r1, sel.r2), c2: Math.max(sel.c1, sel.c2)
-                }}, function(){ host.drawBoard(); });
+    // ── Mouse-up sub-handlers ──────────────────────────────────────────────
+
+    /** Handle selection finalization on mouse up. Returns true if handled. */
+    _handleSelectUp: function(host){
+        if(host.state.drawMode !== 'select' || !this._selStart){ return false; }
+        const selectTool = host.state.selectTool || 'rect';
+        if(selectTool === 'freeform'){
+            const path = this._lassoPath;
+            if(path.length >= 3){
+                let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+                path.forEach(function(p){ if(p.r<minR)minR=p.r; if(p.r>maxR)maxR=p.r; if(p.c<minC)minC=p.c; if(p.c>maxC)maxC=p.c; });
+                const fcells = [];
+                const fcols = host.state.cols, frows = host.state.rows;
+                const self = this;
+                const isUnboundedSel = host.state.boundary === 'unbounded';
+                const fMask = (!isUnboundedSel && host.state.regionMask && host.state.regionMask.size > 0) ? host.state.regionMask : null;
+                for(let fr = minR; fr <= maxR; fr++)
+                    for(let fc = minC; fc <= maxC; fc++)
+                        if((isUnboundedSel || (fc>=0 && fc<fcols && fr>=0 && fr<frows)) &&
+                           (!fMask || fMask.has(fr + ',' + fc)) &&
+                           self.pointInPolygon(fc, fr, path))
+                            fcells.push([fr, fc]);
+                host.setState({selection: {type:'freeform', path: path.slice(), cells: fcells}});
+            } else {
+                host.setState({selection: null});
             }
             this._selStart = null;
-            return;
+            this._lassoPath = [];
+            host.drawBoard();
+            return true;
         }
-        // Apply region rubber-band tools.
-        if(this._regionToolStart && host.state.drawMode === 'region'){
-            const regionPreview = this._regionPreviewKeys;
-            this._regionToolStart = null;
-            this._regionPreviewKeys = [];
-            const regionErasing = this._regionErasing;
-            CanvasRenderer.invalidateRegionCache();
-            if(regionErasing){
-                host._mutateRegion(null, regionPreview);
-            } else {
-                host._mutateRegion(regionPreview, null);
-            }
-            return;
+        const sel = host.state.selection;
+        if(sel){
+            const normType = sel.type || 'rect';
+            host.setState({selection: {
+                type: normType,
+                r1: Math.min(sel.r1, sel.r2), c1: Math.min(sel.c1, sel.c2),
+                r2: Math.max(sel.r1, sel.r2), c2: Math.max(sel.c1, sel.c2)
+            }}, function(){ host.drawBoard(); });
         }
-        // Apply region cell-by-cell painting.
-        if(this._regionDragging && host.state.drawMode === 'region'){
-            this._regionDragging = false;
-            const rPainted = this._regionPaintedKeys;
-            const addKeys = [], removeKeys = [];
-            const rKeys = Object.keys(rPainted);
-            for(let rki = 0; rki < rKeys.length; rki++){
-                if(rPainted[rKeys[rki]] === 1){ addKeys.push(rKeys[rki]); }
-                else { removeKeys.push(rKeys[rki]); }
-            }
-            this._regionPaintedKeys = {};
-            CanvasRenderer.invalidateRegionCache();
-            host._mutateRegion(
-                addKeys.length > 0 ? addKeys : null,
-                removeKeys.length > 0 ? removeKeys : null
-            );
-            return;
+        this._selStart = null;
+        return true;
+    },
+
+    /** Handle region rubber-band tool apply on mouse up. Returns true if handled. */
+    _handleRegionToolUp: function(host){
+        if(!this._regionToolStart || host.state.drawMode !== 'region'){ return false; }
+        const regionPreview = this._regionPreviewKeys;
+        this._regionToolStart = null;
+        this._regionPreviewKeys = [];
+        const regionErasing = this._regionErasing;
+        CanvasRenderer.invalidateRegionCache();
+        if(regionErasing){
+            host._mutateRegion(null, regionPreview);
+        } else {
+            host._mutateRegion(regionPreview, null);
         }
-        // Apply rubber-band tools.
-        if(this._drawToolStart && host.state.drawMode === 'paint'){
-            const drawTool = host.state.drawTool || 'cell';
-            if(drawTool === 'line' || drawTool === 'shape-rect' || drawTool === 'shape-circle'){
-                const previewCells = this._drawPreviewCells;
-                this._drawToolStart = null;
-                this._drawPreviewCells = [];
-                host._minimapDirty = true;
-                SimRunner.invalidate();
-                const erasing = this._drawErasing;
-                host.setState(function(prevState){
-                    const newLiveCells = new Map(prevState.liveCells);
-                    previewCells.forEach(function(rc){
-                        if(erasing){ newLiveCells.delete(rc[0]+','+rc[1]); }
-                        else { newLiveCells.set(rc[0]+','+rc[1], 1); }
-                    });
-                    return {liveCells: newLiveCells, stable: false};
-                }, function(){ host.drawBoard(); });
-                return;
-            }
+        return true;
+    },
+
+    /** Handle region cell-by-cell paint apply on mouse up. Returns true if handled. */
+    _handleRegionPaintUp: function(host){
+        if(!this._regionDragging || host.state.drawMode !== 'region'){ return false; }
+        this._regionDragging = false;
+        const rPainted = this._regionPaintedKeys;
+        const addKeys = [], removeKeys = [];
+        const rKeys = Object.keys(rPainted);
+        for(let rki = 0; rki < rKeys.length; rki++){
+            if(rPainted[rKeys[rki]] === 1){ addKeys.push(rKeys[rki]); }
+            else { removeKeys.push(rKeys[rki]); }
         }
-        if(!this._dragging){ return; }
+        this._regionPaintedKeys = {};
+        CanvasRenderer.invalidateRegionCache();
+        host._mutateRegion(
+            addKeys.length > 0 ? addKeys : null,
+            removeKeys.length > 0 ? removeKeys : null
+        );
+        return true;
+    },
+
+    /** Handle draw tool rubber-band apply on mouse up. Returns true if handled. */
+    _handleDrawToolUp: function(host){
+        if(!this._drawToolStart || host.state.drawMode !== 'paint'){ return false; }
+        const drawTool = host.state.drawTool || 'cell';
+        if(drawTool !== 'line' && drawTool !== 'shape-rect' && drawTool !== 'shape-circle'){ return false; }
+        const previewCells = this._drawPreviewCells;
+        this._drawToolStart = null;
+        this._drawPreviewCells = [];
+        host._minimapDirty = true;
+        SimRunner.invalidate();
+        const erasing = this._drawErasing;
+        host.setState(function(prevState){
+            const newLiveCells = new Map(prevState.liveCells);
+            previewCells.forEach(function(rc){
+                if(erasing){ newLiveCells.delete(rc[0]+','+rc[1]); }
+                else { newLiveCells.set(rc[0]+','+rc[1], 1); }
+            });
+            return {liveCells: newLiveCells, stable: false};
+        }, function(){ host.drawBoard(); });
+        return true;
+    },
+
+    /** Handle cell paint finalization on mouse up. Returns true if handled. */
+    _handleCellPaintUp: function(host){
+        if(!this._dragging){ return false; }
         this._dragging = false;
         const paintedCells = this._paintedCells;
         const newLiveCells = new Map(host.state.liveCells);
@@ -633,6 +678,21 @@ const InputHandler = { // eslint-disable-line no-unused-vars
         host._minimapDirty = true;
         SimRunner.invalidate();
         host.setState({liveCells: newLiveCells, stable: false}, function(){ host.drawBoard(); });
+        return true;
+    },
+
+    onMouseUp: function(event, host){
+        host._showStatsChipAfterDelay();
+        this._minimapDragging = false;
+        if(this._panDragging){
+            this._panDragging = false;
+            this._panStart = null;
+        }
+        if(this._handleSelectUp(host)){ return; }
+        if(this._handleRegionToolUp(host)){ return; }
+        if(this._handleRegionPaintUp(host)){ return; }
+        if(this._handleDrawToolUp(host)){ return; }
+        this._handleCellPaintUp(host);
     },
 
     onMouseLeave: function(event, host){
