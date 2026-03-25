@@ -520,3 +520,5 @@ HashLifeEngine.prototype.needsExpand  = function(root) { return HashLife.needsEx
 HashLifeEngine.prototype.gc           = function(root) { return HashLife.gc(root); };
 HashLifeEngine.prototype.poolSize     = function() { return HashLife.poolSize(); };
 HashLifeEngine.prototype.emptyTree    = function(level) { return HashLife.emptyTree(level); };
+
+export { HashLife, HashLifeEngine };

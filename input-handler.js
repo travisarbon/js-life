@@ -1,4 +1,7 @@
-/* global SimRunner, THEMES, RegionUtil, CanvasRenderer */
+import { THEMES } from './constants.js';
+import { RegionUtil } from './region.js';
+import { CanvasRenderer } from './canvas-renderer.js';
+import { SimRunner } from './simulation.js';
 /**
  * Input handling module for Game of Life (R08, R19).
  * Extracts mouse, touch, and drawing logic from the monolithic component.
@@ -1018,3 +1021,5 @@ var InputHandler = { // eslint-disable-line no-unused-vars
         this._wheelAccY = 0;
     }
 };
+
+export { InputHandler };

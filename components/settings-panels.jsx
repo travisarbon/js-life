@@ -1,4 +1,7 @@
-/* global LifeViewUtils, LifeBoardUtils, THEMES, SPEED_DELAYS */
+import React from 'react';
+import { THEMES, SPEED_DELAYS } from '../constants.js';
+import { LifeViewUtils } from '../life-view-utils.js';
+import { LifeBoardUtils } from '../life-board-utils.js';
 /**
  * Settings panel components extracted from LifeBoard.
  * Each component receives props: state, stateRef, refs, dispatch
@@ -150,3 +153,5 @@ const BoardSliders = function BoardSliders(props) { // eslint-disable-line no-un
                     </div>
                 );
 };
+
+export { ViewControls, ZoomSlider, DisplaySettings, BoundaryControls, SpeedSlider, BoardSliders };

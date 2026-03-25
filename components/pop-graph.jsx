@@ -1,4 +1,5 @@
-/* global LifeAnalysisUtils */
+import React from 'react';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
 /**
  * PopGraphModal — full population history graph overlay.
  * Props: showPopGraph, popHistory, stateRef, refs, dispatch
@@ -61,3 +62,5 @@ const PopGraphModal = function PopGraphModal(props) { // eslint-disable-line no-
         </div>
     );
 };
+
+export { PopGraphModal };

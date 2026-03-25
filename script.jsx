@@ -1,10 +1,25 @@
-/* global HashLife, SimRunner, InputHandler, RegionUtil, SimEngine, THEMES,
-          LifeSimUtils, LifeIOUtils, LifeInputUtils, LifeViewUtils,
-          LifeBoardUtils, drawBoard, drawMinimapMobile, drawRotationPreview,
-          CartographerLayout, ObservatoryLayout, ObservatoryPanelUtils */
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { HashLife } from './hashlife.js';
+import { SimEngine, THEMES } from './constants.js';
+import { RegionUtil } from './region.js';
+import { SimRunner } from './simulation.js';
+import { InputHandler } from './input-handler.js';
+import { LifeSimUtils } from './life-sim-utils.js';
+import { LifeIOUtils } from './life-io-utils.js';
+import { LifeInputUtils } from './life-input-utils.js';
+import { LifeViewUtils } from './life-view-utils.js';
+import { LifeBoardUtils } from './life-board-utils.js';
+import { drawBoard, drawMinimapMobile, drawRotationPreview } from './components/canvas-area.jsx';
+import { CartographerLayout } from './components/layout-shell.jsx';
+import { ObservatoryLayout } from './components/layout-shell.jsx';
+import { ObservatoryPanelUtils } from './components/observatory-panels.jsx';
+import { HelpModal } from './components/help-modal.jsx';
+import { PopGraphModal } from './components/pop-graph.jsx';
+import './main.css';
 /**
  * Conway's Game of Life — React UI component (React 19 functional).
- * Constants, SimEngine, and helpers are loaded from constants.js.
+ * Constants, SimEngine, and helpers are loaded via ES module imports.
  */
 
 function lifeReducer(state, action) {
@@ -188,8 +203,6 @@ function initState(){
                     autoPauseOnStable : true
                 };
 }
-
-document.addEventListener('DOMContentLoaded', function(){
 
 function LifeBoard() {
     const _r = React.useReducer(lifeReducer, undefined, initState);
@@ -506,4 +519,3 @@ function LifeBoard() {
 
 const root = ReactDOM.createRoot(document.getElementById("content"));
 root.render(<div><LifeBoard/></div>);
-});

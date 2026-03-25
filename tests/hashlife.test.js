@@ -2,8 +2,8 @@
  * Unit tests for HashLife quadtree algorithm.
  */
 
-const fs = require('fs');
-const src = fs.readFileSync(__dirname + '/../hashlife.js', 'utf8');
+const { loadSource } = require('./test-helpers');
+const src = loadSource('hashlife.js');
 const script = new Function(src + '\nreturn HashLife;');
 const HashLife = script();
 

@@ -1,4 +1,6 @@
-/* global parseKey, SimEngine, PATTERNS, RegionUtil, COLOR_STEPS */
+import { parseKey, SimEngine, COLOR_STEPS } from './constants.js';
+import { PATTERNS } from './patterns.js';
+import { RegionUtil } from './region.js';
 /**
  * Canvas rendering module for Game of Life (R02, R05).
  * Decouples imperative canvas drawing from the React component.
@@ -377,3 +379,5 @@ var CanvasRenderer = { // eslint-disable-line no-unused-vars
         }
     }
 };
+
+export { CanvasRenderer };

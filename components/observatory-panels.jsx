@@ -1,9 +1,15 @@
-/* global LifeViewUtils, LifeSimUtils, LifeBoardUtils, LifeAnalysisUtils, LifeIOUtils,
-          TransportControls, SpeedSlider, BoardSliders, BoundaryControls,
-          ViewControls, ZoomSlider, DisplaySettings, ModeControls, ToolsContent, PresetContent,
-          DrawToolPopOut, SelectToolPopOut, RegionToolPopOut,
-          RulesSection, RLESection, ExportContent, RULE_PRESETS,
-          toggleTrails */
+import React from 'react';
+import { RULE_PRESETS } from '../constants.js';
+import { LifeViewUtils } from '../life-view-utils.js';
+import { LifeSimUtils } from '../life-sim-utils.js';
+import { LifeBoardUtils } from '../life-board-utils.js';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
+import { LifeIOUtils } from '../life-io-utils.js';
+import { toggleTrails } from './canvas-area.jsx';
+import { TransportControls } from './transport-controls.jsx';
+import { SpeedSlider, BoardSliders, BoundaryControls, ViewControls, ZoomSlider, DisplaySettings } from './settings-panels.jsx';
+import { ModeControls, ToolsContent, PresetContent, DrawToolPopOut, SelectToolPopOut, RegionToolPopOut } from './tools-panel.jsx';
+import { RulesSection, RLESection, ExportContent } from './rules-export.jsx';
 /**
  * Observatory panel system — extracted from LifeBoard.
  * Render components: FloatPanel, FloatPanelDirect, PanelGroup, CompactBody
@@ -308,7 +314,7 @@ const _startGroupResize = function(groupId, e, stateRef, refs, dispatch){
         if(isCompact){
             // Compact: vertical resize only.
             const body = panel.querySelector('.compact-group-body') || panel.querySelector('.compact-body');
-            const minH = 60;
+            let minH = 60;
             if(body){ minH = body.scrollHeight + (panel.offsetHeight - panel.clientHeight) + 40; }
             panel.style.maxHeight = Math.max(minH, newH) + 'px';
         } else {
@@ -739,3 +745,5 @@ const ObservatoryPanelUtils = { // eslint-disable-line no-unused-vars
     togglePanelCollapse: function(panelId, state, stateRef, refs, dispatch){ _togglePanelCollapse(panelId, stateRef, refs, dispatch); },
     toggleGroupCollapse: function(groupId, state, stateRef, refs, dispatch){ _toggleGroupCollapse(groupId, stateRef, refs, dispatch); }
 };
+
+export { CompactBody, FloatPanel, FloatPanelDirect, PanelGroup, ObservatoryPanelUtils };

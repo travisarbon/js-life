@@ -1,4 +1,5 @@
-/* global parseKey, STATS_CHIP_REAPPEAR_DELAY, drawRotationPreview */
+import { parseKey, STATS_CHIP_REAPPEAR_DELAY } from './constants.js';
+import { drawRotationPreview } from './components/canvas-area.jsx';
 /**
  * View, layout, and panel management utilities for LifeBoard component.
  * Handles viewport pan/zoom, layout modes, rail/panel/sheet state, focus management.
@@ -476,3 +477,5 @@ var LifeViewUtils = { // eslint-disable-line no-unused-vars
         }, STATS_CHIP_REAPPEAR_DELAY);
     },
 };
+
+export { LifeViewUtils };

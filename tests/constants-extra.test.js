@@ -1,7 +1,5 @@
-const fs = require('fs');
-const constantsSrc = fs.readFileSync(__dirname + '/../constants.js', 'utf8');
-const patternsSrc = fs.readFileSync(__dirname + '/../patterns.js', 'utf8');
-const combined = constantsSrc + '\n' + patternsSrc;
+const { loadSources } = require('./test-helpers');
+const combined = loadSources(['constants.js', 'patterns.js']);
 const script = new Function(combined + '\nreturn { detectAndParsePattern, overlayAges, SimEngine, MAX_AGE, THEMES, RULE_PRESETS, SPEED_DELAYS };');
 const exported = script();
 const { detectAndParsePattern, overlayAges, SimEngine, MAX_AGE, THEMES, RULE_PRESETS, SPEED_DELAYS } = exported;

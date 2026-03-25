@@ -1,6 +1,7 @@
-/* global SimRunner, InputHandler, parseKey, SPEED_DELAYS, MAX_POP_HISTORY,
-          TRAIL_MAX_VALUE, MAX_TRAIL_MAP, TRAIL_PRUNE_THRESHOLD, MAX_UNDO_STACK,
-          LifeViewUtils */
+import { parseKey, SPEED_DELAYS, MAX_POP_HISTORY, TRAIL_MAX_VALUE, MAX_TRAIL_MAP, TRAIL_PRUNE_THRESHOLD, MAX_UNDO_STACK } from './constants.js';
+import { SimRunner } from './simulation.js';
+import { InputHandler } from './input-handler.js';
+import { LifeViewUtils } from './life-view-utils.js';
 /**
  * Simulation control utilities for LifeBoard component.
  * Handles animation loop, stepping, undo/redo, and generation history.
@@ -401,3 +402,5 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
         }
     },
 };
+
+export { LifeSimUtils };

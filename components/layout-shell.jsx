@@ -1,10 +1,13 @@
-/* global LifeViewUtils, LifeAnalysisUtils,
-          CanvasArea, StatsPanel, StatsChip, MobileSparkline,
-          TransportControls, SpeedSlider, MobileTransportBar,
-          BoardSliders, BoundaryControls, ViewControls, ZoomSlider, DisplaySettings,
-          ModeControls, ToolsContent, MobileContextPanel, RulesSection, ExportContent,
-          MobileMinimapArea, toggleTrails,
-          FloatPanel, PanelGroup, ObservatoryPanelUtils */
+import React from 'react';
+import { LifeViewUtils } from '../life-view-utils.js';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
+import { CanvasArea, MobileMinimapArea, toggleTrails } from './canvas-area.jsx';
+import { StatsPanel, StatsChip, MobileSparkline } from './stats-panel.jsx';
+import { TransportControls, MobileTransportBar } from './transport-controls.jsx';
+import { SpeedSlider, BoardSliders, BoundaryControls, ViewControls, ZoomSlider, DisplaySettings } from './settings-panels.jsx';
+import { ModeControls, ToolsContent, MobileContextPanel } from './tools-panel.jsx';
+import { RulesSection, ExportContent } from './rules-export.jsx';
+import { FloatPanel, PanelGroup, ObservatoryPanelUtils } from './observatory-panels.jsx';
 /**
  * Layout orchestrator components extracted from LifeBoard.
  *
@@ -475,3 +478,5 @@ const ObservatoryMobile = function ObservatoryMobile(props) { // eslint-disable-
         </div>
     );
 };
+
+export { TabContentBuilder, BottomSheet, LayoutSwitcher, CartographerLayout, CartographerMobile, ObservatoryLayout, ObservatoryMobile };

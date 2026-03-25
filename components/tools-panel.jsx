@@ -1,6 +1,9 @@
-/* global PATTERNS, PATTERN_GROUPS, PATTERN_META,
-          InputHandler, LifeBoardUtils, LifeAnalysisUtils,
-          drawBoard, drawRotationPreview */
+import React from 'react';
+import { PATTERNS, PATTERN_GROUPS, PATTERN_META } from '../patterns.js';
+import { InputHandler } from '../input-handler.js';
+import { LifeBoardUtils } from '../life-board-utils.js';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
+import { drawBoard, drawRotationPreview } from './canvas-area.jsx';
 /**
  * Tools-panel components extracted from LifeBoard.
  * ModeControls — draw mode toggle buttons + analyze.
@@ -297,3 +300,5 @@ const MobileContextPanel = function MobileContextPanel(props) { // eslint-disabl
                     </div>
                 );
 };
+
+export { ModeControls, ToolsContent, PresetContent, DrawToolPopOut, SelectToolPopOut, RegionToolPopOut, MobileContextPanel };

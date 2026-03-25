@@ -1,4 +1,5 @@
-/* global LifeAnalysisUtils */
+import React from 'react';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
 /**
  * Stats-related render components extracted from LifeBoard.
  * Props: state, stateRef, refs, dispatch
@@ -113,3 +114,5 @@ const StatsChip = function StatsChip(props) { // eslint-disable-line no-unused-v
         </div>
     );
 };
+
+export { SparklineSVG, MobileSparkline, StatsPanel, StatsChip };

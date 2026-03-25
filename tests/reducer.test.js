@@ -1,10 +1,7 @@
-const fs = require('fs');
-const constantsSrc = fs.readFileSync(__dirname + '/../constants.js', 'utf8');
-const patternsSrc = fs.readFileSync(__dirname + '/../patterns.js', 'utf8');
-const regionSrc = fs.readFileSync(__dirname + '/../region.js', 'utf8');
-const combined = constantsSrc + '\n' + patternsSrc + '\n' + regionSrc;
-// Need to extract lifeReducer from script.js - it's a standalone function
-const scriptSrc = fs.readFileSync(__dirname + '/../script.js', 'utf8');
+const { loadSource, loadSources } = require('./test-helpers');
+const combined = loadSources(['constants.js', 'patterns.js', 'region.js']);
+// Need to extract lifeReducer from script.jsx - it's a standalone function
+const scriptSrc = loadSource('script.jsx');
 // Extract just the lifeReducer function (lines before DOMContentLoaded)
 const reducerMatch = scriptSrc.match(/function lifeReducer[\s\S]*?^}/m);
 const reducerSrc = reducerMatch ? reducerMatch[0] : '';

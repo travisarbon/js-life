@@ -1,5 +1,5 @@
-const fs = require('fs');
-const src = fs.readFileSync(__dirname + '/../region.js', 'utf8');
+const { loadSource } = require('./test-helpers');
+const src = loadSource('region.js');
 const script = new Function(src + '\nreturn RegionUtil;');
 const RegionUtil = script();
 

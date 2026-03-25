@@ -1,6 +1,10 @@
-/* global CanvasRenderer, SimEngine, THEMES, SPEED_DELAYS,
-          InputHandler, LifeInputUtils, LifeViewUtils,
-          LifeAnalysisUtils, parseKey */
+import React from 'react';
+import { CanvasRenderer } from '../canvas-renderer.js';
+import { SimEngine, THEMES, SPEED_DELAYS, parseKey } from '../constants.js';
+import { InputHandler } from '../input-handler.js';
+import { LifeInputUtils } from '../life-input-utils.js';
+import { LifeViewUtils } from '../life-view-utils.js';
+import { LifeAnalysisUtils } from '../life-analysis-utils.js';
 /**
  * Canvas-area components and imperative drawing functions extracted from LifeBoard.
  *
@@ -127,7 +131,7 @@ const drawBoard = function drawBoard(stateRef, refs) { // eslint-disable-line no
                         drawMinimapMobile(stateRef, refs, liveCells, cols, rows, viewX, viewY, cellSize, theme);
                         refs.minimapRect = null;
                     } else {
-                        const mmDisplayScale = 1;
+                        let mmDisplayScale = 1;
                         if(canvas.style.width){
                             const cssW = parseFloat(canvas.style.width);
                             if(cssW > 0 && canvasW > 0){ mmDisplayScale = cssW / canvasW; }
@@ -289,8 +293,8 @@ const drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, 
                     const mmCenterC = mmOriginC + cols / 2;
                     const mmCenterR = mmOriginR + rows / 2;
                     const arrowAngle = Math.atan2(vpCenterR - mmCenterR, vpCenterC - mmCenterC);
-                    const arrowPx = mmX + mmW / 2 + Math.cos(arrowAngle) * (mmW / 2 - 8);
-                    const arrowPy = mmY + mmH / 2 + Math.sin(arrowAngle) * (mmH / 2 - 8);
+                    let arrowPx = mmX + mmW / 2 + Math.cos(arrowAngle) * (mmW / 2 - 8);
+                    let arrowPy = mmY + mmH / 2 + Math.sin(arrowAngle) * (mmH / 2 - 8);
                     arrowPx = Math.max(mmX + 6, Math.min(mmX + mmW - 6, arrowPx));
                     arrowPy = Math.max(mmY + 6, Math.min(mmY + mmH - 6, arrowPy));
                     ctx.save();
@@ -439,8 +443,8 @@ const drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, 
                 if(vpOutsideM){
                     const mmCCm = mmMobOriginC + mmRegionCols / 2, mmCRm = mmMobOriginR + mmRegionRows / 2;
                     const aaM = Math.atan2(vpCenterRm - mmCRm, vpCenterCm - mmCCm);
-                    const apxM = mmW_css / 2 + Math.cos(aaM) * (mmW_css / 2 - 8);
-                    const apyM = mmH_css / 2 + Math.sin(aaM) * (mmH_css / 2 - 8);
+                    let apxM = mmW_css / 2 + Math.cos(aaM) * (mmW_css / 2 - 8);
+                    let apyM = mmH_css / 2 + Math.sin(aaM) * (mmH_css / 2 - 8);
                     apxM = Math.max(6, Math.min(mmW_css - 6, apxM));
                     apyM = Math.max(6, Math.min(mmH_css - 6, apyM));
                     mmCtx.save();
@@ -623,3 +627,5 @@ const MobileMinimapArea = function MobileMinimapArea(props) { // eslint-disable-
                     </div>
                 );
 };
+
+export { drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails, CanvasArea, MobileMinimapArea };
