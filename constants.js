@@ -11,24 +11,24 @@
 
 // ── Constants ────────────────────────────────────────────────────────────────
 /* eslint-disable no-unused-vars */
-const MAX_UNDO_STACK = 30;
-const MAX_POP_HISTORY = 10000;
-const MAX_TRAIL_MAP = 50000;
-const TRAIL_MAX_VALUE = 20;
-const TRAIL_PRUNE_THRESHOLD = 5;
-const MAX_CELL_IMPORT = 100000;
-const MAX_FILE_SIZE = 500000;
-const MAX_HL_COORD = 1000000;
-const HL_GC_THRESHOLD = 2000000;
-const STABLE_COUNT_THRESHOLD = 2;
-const GPS_DISPLAY_DURATION = 3000;
-const LONG_PRESS_DELAY = 420;
-const MAX_STEP_COUNT = 10000;
-const COLOR_STEPS = 63;
-const MAX_AGE = 65535;
-const MAX_FLOOD_FILL = 100000;
-const ANALYSIS_TIMEOUT = 10000;
-const STATS_CHIP_REAPPEAR_DELAY = 1500;
+var MAX_UNDO_STACK = 30;
+var MAX_POP_HISTORY = 10000;
+var MAX_TRAIL_MAP = 50000;
+var TRAIL_MAX_VALUE = 20;
+var TRAIL_PRUNE_THRESHOLD = 5;
+var MAX_CELL_IMPORT = 100000;
+var MAX_FILE_SIZE = 500000;
+var MAX_HL_COORD = 1000000;
+var HL_GC_THRESHOLD = 2000000;
+var STABLE_COUNT_THRESHOLD = 2;
+var GPS_DISPLAY_DURATION = 3000;
+var LONG_PRESS_DELAY = 420;
+var MAX_STEP_COUNT = 10000;
+var COLOR_STEPS = 63;
+var MAX_AGE = 65535;
+var MAX_FLOOD_FILL = 100000;
+var ANALYSIS_TIMEOUT = 10000;
+var STATS_CHIP_REAPPEAR_DELAY = 1500;
 
 // ── Board key utilities ──────────────────────────────────────────────────────
 // Encapsulates the "r,c" string key format used by the cell Map.
@@ -44,7 +44,7 @@ function parseKey(key) {
 }
 
 // ── Rule presets ──────────────────────────────────────────────────────────────
-const RULE_PRESETS = [
+var RULE_PRESETS = [
     { name: 'Conway (B3/S23)',                rule: 'B3/S23' },
     { name: 'HighLife (B36/S23)',             rule: 'B36/S23' },
     { name: 'Day & Night (B3678/S34678)',     rule: 'B3678/S34678' },
@@ -56,12 +56,12 @@ const RULE_PRESETS = [
 ];
 
 // Delay in ms per generation, indexed by speed 1-10.
-const SPEED_DELAYS = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
+var SPEED_DELAYS = [1000, 500, 250, 150, 100, 60, 30, 15, 5, 0];
 
 // ── Color themes ──────────────────────────────────────────────────────────────
 // Each theme defines alive/young RGB channels for age-gradient rendering plus
 // canvas background and grid/selection overlay colours.
-const THEMES = {
+var THEMES = {
     'Teal': {
         bg: '#FFFFFF',
         bgDark: '#1a2424',
@@ -150,7 +150,7 @@ function overlayAges(oldLiveCells, newCellList, ageIncrement) {
 
 // ── SimEngine ─────────────────────────────────────────────────────────────────
 // Pure simulation functions isolated from React state for testability and reuse.
-const SimEngine = {
+var SimEngine = {
 
     // Returns a sparse Map keyed by "r,c" with value = age.
     buildLiveCells : function(cols, rows, sparseness){

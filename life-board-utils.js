@@ -3,7 +3,7 @@
  * Board configuration, drawing modes, and selection utility for LifeBoard component.
  * Handles board resize, rules, patterns, mode toggles, selection, and region management.
  */
-const LifeBoardUtils = { // eslint-disable-line no-unused-vars
+var LifeBoardUtils = { // eslint-disable-line no-unused-vars
 
     // ── Selection & draw helpers ─────────────────────────────────────────
 

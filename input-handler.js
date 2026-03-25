@@ -10,7 +10,7 @@
  * Global exposed: InputHandler
  */
 
-const InputHandler = { // eslint-disable-line no-unused-vars
+var InputHandler = { // eslint-disable-line no-unused-vars
 
     // ── Internal drag/interaction state ──────────────────────────────────────
     _dragging: false,

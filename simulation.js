@@ -9,7 +9,7 @@
  * Global exposed: SimRunner
  */
 
-const SimRunner = { // eslint-disable-line no-unused-vars
+var SimRunner = { // eslint-disable-line no-unused-vars
 
     // ── Internal HashLife state ──────────────────────────────────────────────
     _hlRoot: null,

@@ -3,7 +3,7 @@
  * Input delegation and keyboard utility object for LifeBoard component.
  * Delegates mouse/touch/wheel events to InputHandler and handles keyboard shortcuts.
  */
-const LifeInputUtils = { // eslint-disable-line no-unused-vars
+var LifeInputUtils = { // eslint-disable-line no-unused-vars
 
     /**
      * Build a thin shim that looks like `this` to InputHandler,

@@ -4,7 +4,7 @@
  * File I/O and export utilities for LifeBoard component.
  * Handles file drop, clipboard paste, PNG/RLE export, URL sharing, and RLE import.
  */
-const LifeIOUtils = { // eslint-disable-line no-unused-vars
+var LifeIOUtils = { // eslint-disable-line no-unused-vars
 
     // ── Drag-and-drop file import ──────────────────────────────────────
 
