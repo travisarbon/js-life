@@ -4,7 +4,7 @@
   "description": "Conway's Game of Life — interactive cellular automaton simulator",
   "scripts": {
     "dev": "vite",
-    "build": "npm run lint:quiet && npm test -- --passWithNoTests && vite build",
+    "build": "npm run lint:quiet && npm test -- --passWithNoTests && vite build && cp dist/index.src.html index.html && rm -rf assets && cp -r dist/assets assets",
     "preview": "vite preview",
     "start": "vite",
     "lint": "eslint constants.js script.jsx hashlife.js patterns.js canvas-renderer.js simulation.js region.js input-handler.js life-sim-utils.js life-io-utils.js life-input-utils.js life-view-utils.js life-board-utils.js life-analysis-utils.js 'components/*.jsx'",
