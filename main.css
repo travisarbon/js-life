@@ -1,3 +1,56 @@
+/*
+ * JS-Life — Main Stylesheet (3,375+ lines)
+ *
+ * TABLE OF CONTENTS
+ * ─────────────────
+ *   1    CSS custom properties (light mode)
+ * 118    CSS custom properties (dark mode)
+ * 183    Per-theme accent & canvas variables
+ * 227    Theme transitions
+ * 241    Canvas
+ * 290    Stats
+ * 332    Population sparkline
+ * 365    Buttons
+ * 467    Presets / rule / pattern selects
+ * 520    Pattern rotation
+ * 564    Sliders
+ * 637    Custom scrollbar styling
+ * 666    RLE import
+ * 700    Help modal
+ * 786    Button press feedback
+ * 820    Recording indicator
+ * 831    Sidebar sections
+ * 860    Mobile context panel
+ * 933    Dark mode input adaptations
+ * 976    Toolbar step select
+ * 987    Population graph modal
+ *  1048  Accessibility (sr-only, focus ring)
+ *  1102  GPU compositing
+ *  1125  Rail (sidebar)
+ *  1293  Float panel
+ *  1446  Panel group (docked/tabbed)
+ *  1527  Compact mode
+ *  1807  Stats window
+ *  1831  Zen mode
+ *  1912  Stats chip (mobile overlay)
+ *  1942  Mobile transport bar
+ *  1997  Rail sub-elements
+ *  2055  Transport controls
+ *  2244  Bottom sheet
+ *  2287  Layout switcher
+ *  2335  Responsive: desktop (≥901px)
+ *  2435  Responsive: phone/tablet (≤900px)
+ *  2538  Responsive: phone landscape
+ *  2580  Responsive: very small phones (≤400px)
+ *  2607  Accessibility media queries
+ *  2665  Focus-visible ring
+ *  2682  Float panel animation
+ *  2889  Enhanced tooltips
+ *  3008  Audit: dark mode contrast
+ *  3083  Draggable fixed elements
+ *  3146  Section dividers & misc polish
+ */
+
 /* ── CSS custom properties ────────────────────────────────────────────── */
 :root {
   /* Colour palette */
@@ -825,7 +878,7 @@ html.dark-mode .toolbar-step-select {
 #content .btn-record {
   animation: rec-pulse 1.2s ease-in-out infinite;
   will-change: opacity;
-  background-color: var(--danger-color) !important;
+  background-color: var(--accent) !important;
   color: var(--accent-text) !important; }
 
 /* ── Sidebar sections ─────────────────────────────────────────────────────── */
@@ -2580,9 +2633,11 @@ html.dark-mode .toolbar-step-select {
 /* ── Very small phones ────────────────────────────────────────────────── */
 @media (max-width: 400px) {
   #content .buttons {
-    grid-template-columns: repeat(2, 1fr); }
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-sm); }
   #content .buttons-secondary {
-    grid-template-columns: repeat(4, 1fr); }
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-xs); }
 
   .transport-strip {
     padding: var(--space-sm) var(--space-md); }
@@ -2590,11 +2645,19 @@ html.dark-mode .toolbar-step-select {
     padding: var(--space-sm) var(--space-md);
     font-size: var(--text-sm); }
 
+  /* Icon-only tabs with adequate touch spacing */
+  .bottom-sheet-tabs .rail-tab {
+    padding: 10px 8px;
+    font-size: 15px; }
   .bottom-sheet-tabs .rail-tab-label {
     display: none; }
 
   .bottom-sheet {
     padding: var(--space-md) var(--space-lg) var(--space-xl); }
+
+  .mobile-transport-bar {
+    gap: var(--space-md);
+    padding: 0 var(--space-md); }
 
   .rail {
     width: 200px; }
