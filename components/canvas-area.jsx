@@ -14,7 +14,6 @@ import { LifeAnalysisUtils } from '../life-analysis-utils.js';
  *
  * Imperative canvas functions (top-level, accessed as globals):
  *   drawBoard(stateRef, refs)
- *   drawMinimap(stateRef, refs, ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, displayScale)
  *   drawMinimapMobile(stateRef, refs, liveCells, cols, rows, viewX, viewY, cellSize, theme)
  *   drawRotationPreview(stateRef, refs)
  *   toggleTrails(stateRef, refs, dispatch)
@@ -121,196 +120,14 @@ const drawBoard = function drawBoard(stateRef, refs) { // eslint-disable-line no
                     CanvasRenderer.drawPatternPreview(ctx, state.selectedPattern, state.patternRotation, InputHandler._previewPos, viewX, viewY, cellSize, theme, previewMask);
                 }
 
-                // Minimap overlay.
-                const useMobileMinimap = state.deviceClass === 'phone-portrait' ||
-                    state.deviceClass === 'phone-landscape' ||
-                    state.deviceClass === 'tablet' ||
-                    (typeof window !== 'undefined' && window.innerWidth <= 1200);
-                if(state.showMinimap && (isUnbounded || (cols > 0 && rows > 0))){
-                    if(useMobileMinimap){
-                        drawMinimapMobile(stateRef, refs, liveCells, cols, rows, viewX, viewY, cellSize, theme);
-                        refs.minimapRect = null;
-                    } else {
-                        let mmDisplayScale = 1;
-                        if(canvas.style.width){
-                            const cssW = parseFloat(canvas.style.width);
-                            if(cssW > 0 && canvasW > 0){ mmDisplayScale = cssW / canvasW; }
-                        }
-                        drawMinimap(stateRef, refs, ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, mmDisplayScale);
-                    }
-                }
+                // Minimap is rendered by the floating MobileMinimapArea component;
+                // clear the legacy canvas-overlay rect so input handler ignores it.
+                refs.minimapRect = null;
 
                 // GIF recording: capture frame.
                 if(state.recording && refs.gif){
                     refs.gif.addFrame(ctx, {copy: true, delay: SPEED_DELAYS[state.speed - 1] || 50});
                 }
-};
-
-const drawMinimap = function drawMinimap(stateRef, refs, ctx, canvasW, canvasH, liveCells, cols, rows, viewX, viewY, cellSize, theme, displayScale) { // eslint-disable-line no-unused-vars
-                const state = stateRef.current;
-                const isUnbounded = state.boundary === 'unbounded';
-                let mmOriginR = 0, mmOriginC = 0;
-                if(isUnbounded){
-                    const bb = SimEngine.getBoundingBox(liveCells);
-                    if(bb){
-                        const pad = Math.max(5, Math.round(Math.max(bb.maxR - bb.minR, bb.maxC - bb.minC) * 0.15));
-                        let newMinR = bb.minR - pad, newMinC = bb.minC - pad;
-                        let newMaxR = bb.maxR + pad, newMaxC = bb.maxC + pad;
-                        const prev = refs.mmUnboundedRegion;
-                        if(prev){
-                            newMinR = Math.min(prev.minR, newMinR);
-                            newMinC = Math.min(prev.minC, newMinC);
-                            newMaxR = Math.max(prev.maxR, newMaxR);
-                            newMaxC = Math.max(prev.maxC, newMaxC);
-                        }
-                        refs.mmUnboundedRegion = {minR: newMinR, minC: newMinC, maxR: newMaxR, maxC: newMaxC};
-                        mmOriginR = newMinR;
-                        mmOriginC = newMinC;
-                        rows = newMaxR - newMinR + 1;
-                        cols = newMaxC - newMinC + 1;
-                    } else {
-                        mmOriginR = viewY - 50;
-                        mmOriginC = viewX - 50;
-                        rows = 100; cols = 100;
-                        refs.mmUnboundedRegion = null;
-                    }
-                } else {
-                    const rb = state.regionBounds;
-                    let mmMinR = rb ? rb.minR : 0;
-                    let mmMinC = rb ? rb.minC : 0;
-                    let mmMaxR = rb ? rb.maxR + 1 : rows;
-                    let mmMaxC = rb ? rb.maxC + 1 : cols;
-                    const bbLive = SimEngine.getBoundingBox(liveCells);
-                    if(bbLive){
-                        mmMinR = Math.min(mmMinR, bbLive.minR);
-                        mmMinC = Math.min(mmMinC, bbLive.minC);
-                        mmMaxR = Math.max(mmMaxR, bbLive.maxR + 1);
-                        mmMaxC = Math.max(mmMaxC, bbLive.maxC + 1);
-                    }
-                    const pad2 = Math.max(5, Math.round(Math.max(mmMaxR - mmMinR, mmMaxC - mmMinC) * 0.1));
-                    mmOriginR = mmMinR - pad2;
-                    mmOriginC = mmMinC - pad2;
-                    rows = mmMaxR - mmMinR + pad2 * 2;
-                    cols = mmMaxC - mmMinC + pad2 * 2;
-                }
-                const TARGET_CSS_SIZE = 160;
-                const ds = (displayScale && displayScale > 0) ? displayScale : 1;
-                const aspect = cols / rows;
-                const maxMmW = Math.floor(canvasW / 3);
-                const maxMmH = Math.floor(canvasH / 3);
-                let mmW, mmH;
-                if(aspect >= 1){
-                    mmW = Math.min(Math.max(40, Math.round(TARGET_CSS_SIZE / ds)), maxMmW);
-                    mmH = Math.min(Math.max(40, Math.round(mmW / aspect)), maxMmH);
-                } else {
-                    mmH = Math.min(Math.max(40, Math.round(TARGET_CSS_SIZE / ds)), maxMmH);
-                    mmW = Math.min(Math.max(40, Math.round(mmH * aspect)), maxMmW);
-                }
-                if(refs.minimapCanvas.width !== mmW || refs.minimapCanvas.height !== mmH){
-                    refs.minimapCanvas.width  = mmW;
-                    refs.minimapCanvas.height = mmH;
-                    refs.minimapDirty = true;
-                }
-                const marginBuf = Math.max(1, Math.round(6 / ds));
-                const isMobileView2 = state.deviceClass === 'phone-portrait' || state.deviceClass === 'phone-landscape';
-                const transportPad = (state.layoutMode === 'cartographer' && !isMobileView2) ? Math.round(60 / ds) : 0;
-                const mmOnLeft = (state.layoutMode === 'cartographer' && state.railSide === 'right');
-                const mmX = mmOnLeft ? marginBuf : (canvasW - mmW - marginBuf);
-                const mmY = canvasH - mmH - marginBuf - transportPad;
-
-                if(refs.minimapDirty){
-                    const mc = refs.minimapCanvas;
-                    const mctx = mc.getContext('2d');
-                    mctx.clearRect(0, 0, mmW, mmH);
-                    const _bgHex = theme.bg || '#0A0E1A';
-                    const _bgR = parseInt(_bgHex.slice(1,3),16), _bgG = parseInt(_bgHex.slice(3,5),16), _bgB = parseInt(_bgHex.slice(5,7),16);
-                    mctx.fillStyle = 'rgba(' + _bgR + ',' + _bgG + ',' + _bgB + ',0.85)';
-                    mctx.fillRect(0, 0, mmW, mmH);
-                    mctx.fillStyle = 'rgb(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ')';
-                    const _mmOC = mmOriginC, _mmOR = mmOriginR, _mmCols = cols, _mmRows = rows;
-                    liveCells.forEach(function(age, key){
-                        const _rc = parseKey(key), kr = _rc[0] - _mmOR, kc = _rc[1] - _mmOC;
-                        if(kr >= 0 && kr < _mmRows && kc >= 0 && kc < _mmCols){
-                            mctx.fillRect(Math.floor(kc / _mmCols * mmW), Math.floor(kr / _mmRows * mmH), 1, 1);
-                        }
-                    });
-                    if(!isUnbounded && state.regionMask){
-                        const _regionMask = state.regionMask;
-                        mctx.fillStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.12)';
-                        _regionMask.forEach(function(key){
-                            const _i = key.indexOf(',');
-                            const _rr = parseInt(key.substring(0, _i), 10) - _mmOR;
-                            const _cc = parseInt(key.substring(_i + 1), 10) - _mmOC;
-                            if(_rr >= 0 && _rr < _mmRows && _cc >= 0 && _cc < _mmCols){
-                                mctx.fillRect(Math.floor(_cc / _mmCols * mmW), Math.floor(_rr / _mmRows * mmH), 1, 1);
-                            }
-                        });
-                        const _comps = state.regionComponents;
-                        if(_comps && _comps.length > 0){
-                            mctx.strokeStyle = 'rgba(' + theme.aliveR + ',' + theme.aliveG + ',' + theme.aliveB + ',0.5)';
-                            mctx.lineWidth = 1;
-                            mctx.setLineDash([3, 2]);
-                            for(let _ci = 0; _ci < _comps.length; _ci++){
-                                const _comp = _comps[_ci];
-                                const _cx = Math.round((_comp.minC - _mmOC) / _mmCols * mmW);
-                                const _cy = Math.round((_comp.minR - _mmOR) / _mmRows * mmH);
-                                const _cw = Math.round((_comp.maxC - _comp.minC + 1) / _mmCols * mmW);
-                                const _ch = Math.round((_comp.maxR - _comp.minR + 1) / _mmRows * mmH);
-                                mctx.strokeRect(_cx + 0.5, _cy + 0.5, _cw, _ch);
-                            }
-                            mctx.setLineDash([]);
-                        }
-                    }
-                    mctx.strokeStyle = 'rgba(255,255,255,0.2)';
-                    mctx.lineWidth = 1;
-                    mctx.strokeRect(0.5, 0.5, mmW - 1, mmH - 1);
-                    refs.minimapDirty = false;
-                }
-
-                ctx.drawImage(refs.minimapCanvas, mmX, mmY);
-
-                const visCols = Math.ceil(canvasW / cellSize);
-                const visRows = Math.ceil(canvasH / cellSize);
-                const vx1 = mmX + Math.round((viewX - mmOriginC) / cols * mmW);
-                const vy1 = mmY + Math.round((viewY - mmOriginR) / rows * mmH);
-                const vw  = Math.max(2, Math.round(visCols / cols * mmW));
-                const vh  = Math.max(2, Math.round(visRows / rows * mmH));
-                ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-                ctx.lineWidth = 1;
-                const clampX = Math.max(vx1, mmX);
-                const clampY = Math.max(vy1, mmY);
-                const clampR = Math.min(vx1 + vw, mmX + mmW);
-                const clampB = Math.min(vy1 + vh, mmY + mmH);
-                if(clampR > clampX && clampB > clampY){
-                    ctx.strokeRect(clampX + 0.5, clampY + 0.5, clampR - clampX, clampB - clampY);
-                }
-
-                const vpCenterC = viewX + visCols / 2;
-                const vpCenterR = viewY + visRows / 2;
-                const vpOutside = vpCenterC < mmOriginC || vpCenterC > mmOriginC + cols ||
-                                vpCenterR < mmOriginR || vpCenterR > mmOriginR + rows;
-                if(vpOutside){
-                    const mmCenterC = mmOriginC + cols / 2;
-                    const mmCenterR = mmOriginR + rows / 2;
-                    const arrowAngle = Math.atan2(vpCenterR - mmCenterR, vpCenterC - mmCenterC);
-                    let arrowPx = mmX + mmW / 2 + Math.cos(arrowAngle) * (mmW / 2 - 8);
-                    let arrowPy = mmY + mmH / 2 + Math.sin(arrowAngle) * (mmH / 2 - 8);
-                    arrowPx = Math.max(mmX + 6, Math.min(mmX + mmW - 6, arrowPx));
-                    arrowPy = Math.max(mmY + 6, Math.min(mmY + mmH - 6, arrowPy));
-                    ctx.save();
-                    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-                    ctx.translate(arrowPx, arrowPy);
-                    ctx.rotate(arrowAngle);
-                    ctx.beginPath();
-                    ctx.moveTo(6, 0);
-                    ctx.lineTo(-3, -4);
-                    ctx.lineTo(-3, 4);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.restore();
-                }
-
-                refs.minimapRect = {x: mmX, y: mmY, w: mmW, h: mmH, originC: mmOriginC, originR: mmOriginR, worldCols: cols, worldRows: rows};
 };
 
 const drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, cols, rows, viewX, viewY, cellSize, theme) { // eslint-disable-line no-unused-vars
@@ -360,16 +177,22 @@ const drawMinimapMobile = function drawMinimapMobile(stateRef, refs, liveCells, 
                     mmRegionRows = mmMXR - mmMR + pad2m * 2;
                     mmRegionCols = mmMXC - mmMC + pad2m * 2;
                 }
-                const MOBILE_MM_CSS_W = Math.min(120, Math.round(window.innerWidth * 0.3));
-                const MOBILE_MM_CSS_H = Math.min(160, Math.round(window.innerHeight * 0.2));
                 const mmAspect = mmRegionCols / Math.max(1, mmRegionRows);
                 let mmW_css, mmH_css;
-                if(mmAspect >= 1){
-                    mmW_css = MOBILE_MM_CSS_W;
-                    mmH_css = Math.min(Math.round(mmW_css / mmAspect), MOBILE_MM_CSS_H);
+                if(refs.minimapSize && refs.minimapSize.w > 0){
+                    // User has resized the minimap — honour their preferred width, derive height from aspect ratio.
+                    mmW_css = refs.minimapSize.w;
+                    mmH_css = Math.round(mmW_css / mmAspect);
                 } else {
-                    mmH_css = MOBILE_MM_CSS_H;
-                    mmW_css = Math.min(Math.round(mmH_css * mmAspect), MOBILE_MM_CSS_W);
+                    const MOBILE_MM_CSS_W = Math.min(120, Math.round(window.innerWidth * 0.3));
+                    const MOBILE_MM_CSS_H = Math.min(160, Math.round(window.innerHeight * 0.2));
+                    if(mmAspect >= 1){
+                        mmW_css = MOBILE_MM_CSS_W;
+                        mmH_css = Math.min(Math.round(mmW_css / mmAspect), MOBILE_MM_CSS_H);
+                    } else {
+                        mmH_css = MOBILE_MM_CSS_H;
+                        mmW_css = Math.min(Math.round(mmH_css * mmAspect), MOBILE_MM_CSS_W);
+                    }
                 }
 
                 if(refs.minimapCanvas.width !== mmW_css || refs.minimapCanvas.height !== mmH_css){
@@ -592,8 +415,45 @@ const _startMinimapDrag = function(e, refs) {
     document.addEventListener('touchend', end);
 };
 
+const _startMinimapResize = function(e, refs) {
+    e.preventDefault();
+    e.stopPropagation();
+    const container = e.currentTarget.parentElement;
+    const canvas = refs.mobileMinimap;
+    if(!canvas) return;
+    const startX = e.touches ? e.touches[0].clientX : e.clientX;
+    const startW = canvas.width;
+    const aspect = canvas.width / Math.max(1, canvas.height);
+    container.classList.add('dragging');
+
+    const move = function(ev) {
+        ev.preventDefault();
+        const mx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const newW = Math.max(80, Math.min(Math.round(window.innerWidth * 0.5), startW + (mx - startX)));
+        refs.minimapSize = {w: newW};
+        refs.drawPending = true;
+        // Update canvas element size immediately for responsive feel.
+        canvas.width = newW;
+        canvas.height = Math.round(newW / aspect);
+    };
+    const end = function() {
+        container.classList.remove('dragging');
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', end);
+        document.removeEventListener('touchmove', move);
+        document.removeEventListener('touchend', end);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', end);
+    document.addEventListener('touchmove', move, {passive: false});
+    document.addEventListener('touchend', end);
+};
+
 const MobileMinimapArea = function MobileMinimapArea(props) { // eslint-disable-line no-unused-vars
     const state = props.state, stateRef = props.stateRef, refs = props.refs, dispatch = props.dispatch;
+    const isDesktop = state.deviceClass !== 'phone-portrait' &&
+        state.deviceClass !== 'phone-landscape' &&
+        state.deviceClass !== 'tablet';
 
                 if(!state.showMinimap || refs.minimapHidden){ return null; }
 
@@ -613,7 +473,6 @@ const MobileMinimapArea = function MobileMinimapArea(props) { // eslint-disable-
                             onMouseDown={function(e){ _startMinimapDrag(e, refs); }}
                             onTouchStart={function(e){ _startMinimapDrag(e, refs); }}
                             title="Drag to reposition minimap">
-                            <i className="fa fa-ellipsis-h" aria-hidden="true"></i>
                         </div>
                         <canvas className="mobile-minimap-canvas"
                             ref={function(c){ refs.mobileMinimap = c; }}
@@ -624,8 +483,12 @@ const MobileMinimapArea = function MobileMinimapArea(props) { // eslint-disable-
                             onTouchMove={function(e){ onMinimapElementMove(e, stateRef, refs, dispatch); }}
                             onMouseUp={function(){ onMinimapElementUp(stateRef, refs); }}
                             onTouchEnd={function(){ onMinimapElementUp(stateRef, refs); }} />
+                        {isDesktop && <div className="minimap-resize-handle"
+                            onMouseDown={function(e){ _startMinimapResize(e, refs); }}
+                            onTouchStart={function(e){ _startMinimapResize(e, refs); }}
+                            title="Drag to resize minimap" />}
                     </div>
                 );
 };
 
-export { drawBoard, drawMinimap, drawMinimapMobile, drawRotationPreview, toggleTrails, CanvasArea, MobileMinimapArea };
+export { drawBoard, drawMinimapMobile, drawRotationPreview, toggleTrails, CanvasArea, MobileMinimapArea };
