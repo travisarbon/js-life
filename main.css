@@ -3106,9 +3106,7 @@ html:not(.dark-mode) .mobile-minimap-canvas {
   border-color: var(--border-color);
   box-shadow: 0 1px 4px var(--shadow-color); }
 .mobile-minimap-canvas {
-  cursor: crosshair;
-  max-width: 50vw;
-  max-height: 25vh; }
+  cursor: crosshair; }
 .mobile-minimap-canvas:active {
   cursor: grabbing; }
 
@@ -3197,6 +3195,22 @@ html:not(.dark-mode) .mobile-minimap-canvas {
   overflow: hidden; }
 .mobile-minimap-area.draggable-fixed .minimap-drag-handle {
   align-self: stretch; }
+
+/* Minimap resize handle — bottom-right corner grip (desktop only) */
+.minimap-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  z-index: 2;
+  background: linear-gradient(135deg, transparent 50%, var(--text-muted) 50%);
+  border-radius: 0 0 var(--radius-lg) 0;
+  opacity: 0.5;
+  transition: opacity var(--transition-fast); }
+.minimap-resize-handle:hover {
+  opacity: 0.9; }
 
 /* Hide redundant section titles inside float panels (already shown in header) */
 .float-panel-body > div > .sidebar-section-title:first-child {
