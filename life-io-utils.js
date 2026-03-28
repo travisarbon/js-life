@@ -37,6 +37,10 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
             dispatch({type:'MERGE', payload:{rleError: 'Unable to read file.'}});
         };
         reader.onload = function(ev){
+            if(!ev.target || ev.target.result == null){
+                dispatch({type:'MERGE', payload:{rleError: 'Failed to read file contents.'}});
+                return;
+            }
             let text = ev.target.result;
             // Strip non-printable control characters (keep tabs, newlines, CR).
             text = text.replace(/[\x00-\x08\x0E-\x1F\x7F]/g, '');
@@ -161,8 +165,8 @@ var LifeIOUtils = { // eslint-disable-line no-unused-vars
                 if(eq > 0){ params[decodeURIComponent(pair.substring(0, eq))] = decodeURIComponent(pair.substring(eq + 1)); }
             });
             if(!params.rle){ return; }
-            const cols = Math.min(10000, Math.max(1, parseInt(params.cols, 10) || 100));
-            const rows = Math.min(10000, Math.max(1, parseInt(params.rows, 10) || 100));
+            const cols = Math.min(1000, Math.max(1, parseInt(params.cols, 10) || 100));
+            const rows = Math.min(1000, Math.max(1, parseInt(params.rows, 10) || 100));
             const rule = params.rule || 'B3/S23';
             const parsed = LifeBoardUtils.parseRuleString(stateRef, refs, dispatch, rule);
             const result = SimEngine.parseRLE(params.rle);

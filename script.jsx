@@ -230,6 +230,7 @@ function LifeBoard() {
             mqPhone: null, mqPhoneLandscape: null, mqTablet: null, mqLandscape: null,
             updateDeviceClass: null, onResize: null, onOrientationChange: null,
             onPopOutDismiss: null, onPaste: null, onDragOver: null, onDragLeave: null, onDrop: null,
+            onCanvasWheel: null, onDocWheel: null,
             forceRender: null, drawRotationPreview: null
         };
     }
@@ -287,9 +288,11 @@ function LifeBoard() {
                 sliderObserver.observe(document.getElementById('content') || document.body, {childList: true, subtree: true});
                 refs.sliderObserver = sliderObserver;
                 // Attach wheel listener as non-passive so preventDefault works.
-                refs.canvas.addEventListener('wheel', function(e){ LifeInputUtils.onWheel(stateRef, refs, dispatch, e); }, {passive: false});
+                refs.onCanvasWheel = function(e){ LifeInputUtils.onWheel(stateRef, refs, dispatch, e); };
+                refs.canvas.addEventListener('wheel', refs.onCanvasWheel, {passive: false});
                 // Prevent browser zoom (Ctrl+scroll) anywhere on the page.
-                document.addEventListener('wheel', function(e){ if(e.ctrlKey || e.metaKey){ e.preventDefault(); } }, {passive: false});
+                refs.onDocWheel = function(e){ if(e.ctrlKey || e.metaKey){ e.preventDefault(); } };
+                document.addEventListener('wheel', refs.onDocWheel, {passive: false});
                 const handleKey = function(e){ LifeInputUtils.handleKeyDown(stateRef, refs, dispatch, e); };
                 document.addEventListener('keydown', handleKey);
                 // System clipboard paste: import RLE/pattern text from clipboard.
@@ -419,6 +422,8 @@ function LifeBoard() {
                     }
                     if(!refs.canvas){ return; }
                     document.removeEventListener('keydown', handleKey);
+                    if(refs.onCanvasWheel){ refs.canvas.removeEventListener('wheel', refs.onCanvasWheel); }
+                    if(refs.onDocWheel){ document.removeEventListener('wheel', refs.onDocWheel); }
                     document.removeEventListener('paste', refs.onPaste);
                     document.removeEventListener('mousedown', refs.onPopOutDismiss);
                     document.removeEventListener('keydown', refs.onPopOutDismiss);

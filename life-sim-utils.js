@@ -70,19 +70,13 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
                 else { trailMap.set(key, val - 1); }
             });
             for(let ti = 0; ti < toDelete.length; ti++){ trailMap.delete(toDelete[ti]); }
-            // Prune if over limit — progressive eviction instead of full clear.
+            // Prune if over limit — collect, sort by value, evict the lowest-value entries.
             if(trailMap.size > MAX_TRAIL_MAP){
-                // First pass: remove entries at or below prune threshold.
-                trailMap.forEach(function(val, key){
-                    if(val <= TRAIL_PRUNE_THRESHOLD){ trailMap.delete(key); }
-                });
-                // If still over limit, remove entries at half-life value.
-                if(trailMap.size > MAX_TRAIL_MAP){
-                    const halfLife = Math.floor(TRAIL_MAX_VALUE / 2);
-                    trailMap.forEach(function(val, key){
-                        if(val <= halfLife){ trailMap.delete(key); }
-                    });
-                }
+                const entries = [];
+                trailMap.forEach(function(val, key){ entries.push([key, val]); });
+                entries.sort(function(a, b){ return a[1] - b[1]; });
+                const toRemove = trailMap.size - MAX_TRAIL_MAP;
+                for(let ti2 = 0; ti2 < toRemove; ti2++){ trailMap.delete(entries[ti2][0]); }
             }
         }
 
@@ -107,8 +101,8 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
 
         const newPop = newLiveCells.size;
         let newHistory = stateRef.current.popHistory;
-        newHistory.push(newPop);
-        if(newHistory.length > MAX_POP_HISTORY * 2){ newHistory = newHistory.slice(-MAX_POP_HISTORY); }
+        if(newHistory.length >= MAX_POP_HISTORY){ newHistory = newHistory.slice(1 - MAX_POP_HISTORY); }
+        newHistory = newHistory.concat([newPop]);
         const newSessionPeak = Math.max(stateRef.current.sessionPeakPop || 0, newPop);
         // Store last measured GPS so it persists briefly after pausing.
         refs.gpsDisplayUntil = refs.gpsDisplayUntil || 0;
@@ -156,8 +150,8 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
             stateRef.current.regionMask, stateRef.current.regionComponents);
         const newPop = newLiveCells.size;
         let newHistory = stateRef.current.popHistory;
-        newHistory.push(newPop);
-        if(newHistory.length > MAX_POP_HISTORY * 2){ newHistory = newHistory.slice(-MAX_POP_HISTORY); }
+        if(newHistory.length >= MAX_POP_HISTORY){ newHistory = newHistory.slice(1 - MAX_POP_HISTORY); }
+        newHistory = newHistory.concat([newPop]);
         const newSessionPeakStep = Math.max(stateRef.current.sessionPeakPop || 0, newPop);
         refs.minimapDirty = true;
         dispatch({type:'MERGE', payload:{
@@ -303,8 +297,8 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
                 stateRef.current.regionMask, stateRef.current.regionComponents);
             for(let p = 0; p < batch.pops.length; p++){
                 popHistory.push(batch.pops[p]);
-                if(popHistory.length > MAX_POP_HISTORY * 2){ popHistory = popHistory.slice(-MAX_POP_HISTORY); }
             }
+            if(popHistory.length > MAX_POP_HISTORY){ popHistory = popHistory.slice(-MAX_POP_HISTORY); }
             if(batch.peak > peak){ peak = batch.peak; }
             refs.minimapDirty = true;
             dispatch({type:'MERGE', payload:{
@@ -332,7 +326,7 @@ var LifeSimUtils = { // eslint-disable-line no-unused-vars
                 gen++;
                 const pop = liveCells.size;
                 popHistory.push(pop);
-                if(popHistory.length > MAX_POP_HISTORY * 2){ popHistory = popHistory.slice(-MAX_POP_HISTORY); }
+                if(popHistory.length > MAX_POP_HISTORY){ popHistory = popHistory.slice(-MAX_POP_HISTORY); }
                 if(pop > peak){ peak = pop; }
             }
             done = limit;

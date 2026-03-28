@@ -346,6 +346,7 @@ var SimEngine = {
                 countStr = '';
             } else if(ch === '$'){
                 let n2 = countStr ? parseInt(countStr, 10) : 1;
+                if(isNaN(n2) || n2 < 1){ n2 = 1; }
                 if(n2 > MAX_COORD){ n2 = MAX_COORD; }
                 row += n2;
                 col = 0;

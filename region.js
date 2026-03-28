@@ -45,7 +45,7 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
     },
 
     /**
-     * Find connected components in the region mask using BFS (4-connectivity).
+     * Find connected components in the region mask using DFS (4-connectivity).
      * Returns an array of {cells: Set<string>, minR, maxR, minC, maxC}.
      */
     findComponents: function(mask){
@@ -54,7 +54,7 @@ var RegionUtil = { // eslint-disable-line no-unused-vars
         const components = [];
         mask.forEach(function(key){
             if(visited.has(key)){ return; }
-            // BFS from this cell.
+            // DFS from this cell.
             const comp = new Set();
             const queue = [key];
             let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;

@@ -177,12 +177,16 @@ var SimRunner = { // eslint-disable-line no-unused-vars
     _rebuildIfStale: function(liveCells){
         if(this._hlStale || !this._hlRoot){
             const cells = [];
+            let _dropped = 0;
             liveCells.forEach(function(age, key){
                 const _rc = parseKey(key), r = _rc[0], c = _rc[1];
                 if(r > -MAX_HL_COORD && r < MAX_HL_COORD && c > -MAX_HL_COORD && c < MAX_HL_COORD){
                     cells.push([r, c]);
+                } else {
+                    _dropped++;
                 }
             });
+            if(_dropped > 0){ console.warn('SimRunner: ' + _dropped + ' cell(s) out of bounds dropped (MAX_HL_COORD=' + MAX_HL_COORD + ')'); }
             const tree = HashLife.fromCellList(cells);
             this._hlRoot = tree.root;
             this._hlOffR = tree.offR;
